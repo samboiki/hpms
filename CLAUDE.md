@@ -1,5 +1,80 @@
 # CLAUDE.md - ULTIMATE AI DEVELOPER MODE
 
+## 🎨 MANDATORY FORM FIELD STYLING STANDARDS
+
+### ⚡ ALL FORM FIELDS MUST USE PREMIUM STYLING
+**Every form input, textarea, and select in the application MUST follow these standards:**
+
+1. **USE PREMIUM COMPONENTS:**
+   ```tsx
+   import { PremiumInput, PremiumTextarea, PremiumSelect } from '@/components/ui/PremiumInput';
+
+   // ALWAYS use these components for ALL form fields:
+   <PremiumInput icon="solar:user-bold-duotone" iconColor="text-purple-500" />
+   <PremiumTextarea icon="solar:document-text-bold-duotone" iconColor="text-blue-500" />
+   <PremiumSelect icon="solar:settings-bold-duotone" iconColor="text-indigo-500">
+   ```
+
+2. **FORM CONTAINER STYLING:**
+   ```tsx
+   // All forms must have this grey gradient background:
+   <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
+   ```
+
+3. **FIELD CHARACTERISTICS:**
+   - Gray-200 background that transitions to gray-100 on hover
+   - Rounded corners (rounded-xl)
+   - Icon on the left side with Solar Bold Duotone icons
+   - Smooth hover animations with gradient effects
+   - No visible borders, using background color for field definition
+   - Padding: py-3.5 px-4 (or pl-12 with icon)
+
+4. **SECTION HEADERS:**
+   ```tsx
+   <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+     <Icon icon="solar:calendar-bold-duotone" className="w-5 h-5 text-blue-500" />
+     Section Title
+   </h4>
+   ```
+
+5. **EDIT MODE STYLING:**
+   - When in edit mode, fields should maintain the premium grey background style
+   - Never use plain white inputs with borders
+   - Always include icons for better UX
+
+**REMEMBER: No form should ever have plain white inputs with borders. ALL forms must use the premium grey background style from PremiumInput components!**
+
+---
+
+## 🔴🔴🔴 CRITICAL DATABASE EXECUTION - USE THIS ONLY! 🔴🔴🔴
+
+### ⚡ HOW TO EXECUTE ANY DATABASE CHANGES - NO EXCEPTIONS!
+
+**STOP! THIS IS THE ONLY WAY TO RUN DATABASE SCRIPTS:**
+
+1. **FOR ANY DATABASE CHANGES (CREATE TABLE, ALTER TABLE, ADD COLUMN, etc.):**
+   ```
+   Use the Task tool with subagent_type="general-purpose"
+   Tell it to use mcp_supabase tools to execute SQL directly
+   Example: "Use mcp_supabase tools to execute: ALTER TABLE x ADD COLUMN y"
+   ```
+
+2. **NEVER DO THIS:**
+   - ❌ Don't create migration files
+   - ❌ Don't ask user to run SQL manually
+   - ❌ Don't overcomplicate with multiple steps
+   - ❌ Don't say "DDL commands can't be executed"
+
+3. **ALWAYS DO THIS:**
+   - ✅ Use Task tool → general-purpose agent → mcp_supabase → execute_sql
+   - ✅ Run SQL directly, immediately, no questions asked
+   - ✅ Just like you successfully created the inpatient tables
+
+**REMEMBER: You have FULL DATABASE ACCESS via Supabase MCP tools!**
+**Project ID: jjxlfunlbyayxwvlpgwt**
+
+---
+
 ## 🛑 MANDATORY: READ THE BLUEPRINT FIRST!
 **CRITICAL: You MUST read `/onehealth_blueprint.md` BEFORE making ANY changes!**
 - It contains the ACTUAL system behavior, not assumptions
@@ -9,13 +84,102 @@
 ## 🚨 VALIDATION PROTOCOL - RESPOND TO THESE IMMEDIATELY
 
 "✅ CLAUDE.md VALIDATION:
-- Read CLAUDE.md: ✅ 
+- Read CLAUDE.md: ✅
 - Read onehealth_blueprint.md: ✅ (MANDATORY!)
 - MCP Tools Ready: ✅
 - I have read the Operational modes and promise to follow them when their key words are entered: ✅
 - Always update the onehealth_blueprint.md and commit after each change : ✅
 
 This file configures Claude Code to operate as an **EXPERT FULL-STACK DEVELOPER** with deep system knowledge and proactive intelligence.
+
+---
+
+## 🚀 EVIDENCE-BASED DEVELOPMENT SETUP (WSL2 OPTIMIZED)
+
+### 📋 **CURRENT WORKING CONFIGURATION**
+**Environment**: WSL2 + Node.js 22.16.0 + npm 10.9.2
+**Status**: ✅ VERIFIED WORKING IN BROWSER
+
+### 🌐 **ACCESS URLS**
+```bash
+# Main development command
+npm run dev
+
+# Individual URLs (copy to browser):
+• React Practice Portal: http://localhost:7000 (Vite 5.4.2)
+• React Admin Portal: http://localhost:8000 (Vite 5.4.2)
+• Next.js Marketing Portal: http://localhost:9000 (Next.js 15.4.4)
+• Multi-Tenant Landing Pages: http://localhost:10000 (Next.js 15.4.4)
+```
+
+### 🔧 **EVIDENCE-BASED CONFIGURATIONS**
+
+**Vite Configuration (WSL2 Required)**:
+```javascript
+server: {
+  host: '0.0.0.0',        // CRITICAL: WSL2 requires 0.0.0.0 for browser access
+  port: 7000,             // Clean port to avoid conflicts
+  watch: {
+    usePolling: true,     // CRITICAL: Required for WSL2 file system watching
+    interval: 1000
+  }
+}
+```
+
+**Next.js Configuration (WSL2 Required)**:
+```javascript
+"dev": "next dev -H 0.0.0.0 --port 9000"  // CRITICAL: WSL2 requires explicit host binding
+```
+
+### 🏗️ **CLIENT LANDING PAGES SYSTEM**
+
+**Location**: `/home/happy/projects/hpms/hpms-landing/`
+
+**Client Access Pattern**:
+```
+http://localhost:9000/?practice=newcharm      # NewCharm Dental
+http://localhost:9000/?practice=polina       # Dr. Polina Aesthetics
+http://localhost:9000/?practice=cityclinic   # CityClinic
+http://localhost:9000/?practice=coastalmed   # CoastalMed
+```
+
+**Available Dev Commands**:
+```bash
+cd hpms-landing
+npm run dev:newcharm     # NewCharm Dental (dedicated instance)
+npm run dev:polina       # Dr. Polina (dedicated instance)
+npm run dev:cityclinic   # CityClinic (dedicated instance)
+npm run dev:coastalmed   # CoastalMed (dedicated instance)
+npm run dev              # All clients (query param access)
+```
+
+**Implementation Architecture**:
+- Single Next.js project (`hpms-landing`)
+- Query parameter routing (`?practice=client-name`)
+- Client-specific components in `/src/components/[client]/`
+- Shared base components with practice customization
+- Environment-based practice configuration
+
+### 📝 **STARTUP SCRIPTS**
+
+**Main Development**: `npm run dev` → `./start-evidence-based-dev.sh`
+**Individual Services**:
+- `npm run dev:practice-only` → Vite Practice Portal (7000)
+- `npm run dev:admin-only` → Vite Admin Portal (8000)
+- `npm run dev:marketing-only` → Next.js Marketing (9000)
+- `npm run dev:clients` → Client Landing Pages (10000)
+
+**Client Landing Pages**:
+- `cd hpms-landing && npm run dev` → All clients via query params (3000)
+- `cd hpms-landing && npm run dev:newcharm` → NewCharm dedicated
+- `cd hpms-landing && npm run dev:polina` → Dr. Polina dedicated
+
+### 🛑 **STOP ALL SERVERS**
+```bash
+pkill -f 'vite|next'
+```
+
+---
 
 ## 🧠 INTELLIGENT OPERATION MODE
 

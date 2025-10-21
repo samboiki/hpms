@@ -17,6 +17,7 @@ BOLD='\033[1m'
 PRACTICE_PORT=5000
 ADMIN_PORT=4000
 MARKETING_PORT=3000
+VITE_ADMIN_PORT=6001
 
 # Function to check if port is in use
 check_port() {
@@ -73,12 +74,14 @@ sleep 1
 kill_port $PRACTICE_PORT
 kill_port $ADMIN_PORT
 kill_port $MARKETING_PORT
+kill_port $VITE_ADMIN_PORT
 
 # Wait for ports to be available
 echo -e "${YELLOW}⏳ Ensuring ports are available...${NC}"
 wait_for_port $PRACTICE_PORT
 wait_for_port $ADMIN_PORT
 wait_for_port $MARKETING_PORT
+wait_for_port $VITE_ADMIN_PORT
 
 echo -e "${GREEN}✅ Ports are ready!${NC}\n"
 
@@ -124,6 +127,18 @@ echo -e "${GREEN}[MARKETING] Starting on port $MARKETING_PORT...${NC}"
 ) &
 MARKETING_PID=$!
 
+sleep 2
+
+# Start Vite Admin Portal (React + Vite)
+echo -e "${CYAN}[VITE-ADMIN] Starting on port $VITE_ADMIN_PORT...${NC}"
+(
+    cd /home/happy/projects/hpms/onehealth-admin
+    npm run dev 2>&1 | while IFS= read -r line; do
+        echo -e "${CYAN}[⚡VITE-ADMIN]${NC} $line"
+    done
+) &
+VITE_ADMIN_PID=$!
+
 # Wait for services to start
 sleep 3
 
@@ -145,12 +160,13 @@ echo -e "\n${CYAN}==================================================${NC}"
 echo -e "${GREEN}${BOLD}✅ All services starting up...${NC}\n"
 
 echo -e "${GREEN}🌐 OneHealth Marketing:${NC} ${BOLD}http://localhost:$MARKETING_PORT${NC}"
-echo -e "${BLUE}🎯 OneHealth Admin:${NC} ${BOLD}http://localhost:$ADMIN_PORT${NC} → ${CYAN}http://localhost:$ADMIN_PORT/auth/login${NC}"
+echo -e "${BLUE}🎯 OneHealth Admin (Next.js):${NC} ${BOLD}http://localhost:$ADMIN_PORT${NC} → ${CYAN}http://localhost:$ADMIN_PORT/auth/login${NC}"
 echo -e "   ${YELLOW}Login: admin@onehealth.local${NC}"
+echo -e "${CYAN}⚡ OneHealth Admin (React+Vite):${NC} ${BOLD}http://localhost:$VITE_ADMIN_PORT${NC}"
 echo -e "${MAGENTA}🏥 Practice Portal:${NC} ${BOLD}http://localhost:$PRACTICE_PORT${NC}\n"
 
 echo -e "${YELLOW}Press Ctrl+C to stop all services${NC}"
 echo -e "${CYAN}==================================================${NC}\n"
 
 # Keep script running and show logs
-wait $PRACTICE_PID $ADMIN_PID $MARKETING_PID
+wait $PRACTICE_PID $ADMIN_PID $MARKETING_PID $VITE_ADMIN_PID

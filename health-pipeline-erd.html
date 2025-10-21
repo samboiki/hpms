@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - ERD Conceptual Diagram</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        .diagram-container {
+            padding: 40px;
+            background: #f0f4f8;
+            position: relative;
+        }
+
+        /* ERD Entities */
+        .erd-canvas {
+            position: relative;
+            min-height: 1200px;
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .entity {
+            position: absolute;
+            background: white;
+            border: 3px solid;
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            min-width: 280px;
+        }
+
+        .entity:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+            z-index: 100;
+        }
+
+        .entity-header {
+            padding: 15px 20px;
+            border-radius: 9px 9px 0 0;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .entity-icon {
+            font-size: 1.8rem;
+        }
+
+        .entity-name {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .entity-type {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        .entity-attributes {
+            padding: 15px;
+        }
+
+        .attribute {
+            display: flex;
+            align-items: center;
+            padding: 8px 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        .attribute-key {
+            color: #FF9800;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        .attribute-foreign {
+            color: #2196F3;
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        .attribute-icon {
+            margin-right: 10px;
+            opacity: 0.7;
+        }
+
+        /* Entity Colors by Stage */
+        .facility-entity {
+            border-color: #4CAF50;
+        }
+        .facility-entity .entity-header {
+            background: linear-gradient(135deg, #4CAF50, #45a049);
+        }
+
+        .rme-entity {
+            border-color: #2196F3;
+        }
+        .rme-entity .entity-header {
+            background: linear-gradient(135deg, #2196F3, #1976D2);
+        }
+
+        .ndw-entity {
+            border-color: #FF9800;
+        }
+        .ndw-entity .entity-header {
+            background: linear-gradient(135deg, #FF9800, #F57C00);
+        }
+
+        .process-entity {
+            border-color: #9C27B0;
+        }
+        .process-entity .entity-header {
+            background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+        }
+
+        /* Relationships */
+        .relationship-line {
+            position: absolute;
+            background: #333;
+            transform-origin: left center;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .relationship-label {
+            position: absolute;
+            background: white;
+            padding: 5px 10px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Cardinality Symbols */
+        .cardinality {
+            position: absolute;
+            font-weight: bold;
+            background: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            z-index: 11;
+        }
+
+        /* Legend */
+        .legend {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+        }
+
+        .legend h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            gap: 10px;
+        }
+
+        .legend-symbol {
+            width: 30px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* Service Icons Colors */
+        .aws-icon { color: #FF9900; }
+        .database-icon { color: #336791; }
+        .api-icon { color: #00897B; }
+        .python-icon { color: #3776AB; }
+        .security-icon { color: #D32F2F; }
+
+        /* Positioning */
+        #quantum-entity { top: 50px; left: 50px; }
+        #edt-entity { top: 50px; left: 400px; }
+        #etl-agent-entity { top: 50px; left: 750px; }
+        #facility-staff-entity { top: 50px; left: 1100px; }
+
+        #staging-entity { top: 300px; left: 50px; }
+        #clean-db-entity { top: 300px; left: 400px; }
+        #dq-check-entity { top: 300px; left: 750px; }
+        #feedback-entity { top: 300px; left: 1100px; }
+
+        #ndw-entity { top: 550px; left: 50px; }
+        #lab-entity { top: 550px; left: 400px; }
+        #unified-entity { top: 550px; left: 750px; }
+        #analytics-entity { top: 550px; left: 1100px; }
+
+        #api-gateway-entity { top: 800px; left: 225px; }
+        #flask-entity { top: 800px; left: 575px; }
+        #linkage-entity { top: 800px; left: 925px; }
+
+        /* Connection Lines - using SVG */
+        .connections-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            stroke: #666;
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrowhead);
+        }
+
+        .connection-line.one-to-many {
+            stroke-dasharray: 5, 5;
+        }
+
+        .connection-line.many-to-many {
+            stroke: #FF9800;
+            stroke-width: 3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Data Pipeline - ERD Conceptual Model</h1>
+            <p>Entity Relationship Diagram with Cloud Service Architecture</p>
+        </div>
+
+        <div class="diagram-container">
+            <div class="erd-canvas">
+                <!-- SVG for connections -->
+                <svg class="connections-svg">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                         refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                        </marker>
+                    </defs>
+
+                    <!-- Facility to Staging connections -->
+                    <line class="connection-line" x1="200" y1="200" x2="200" y2="300" />
+                    <line class="connection-line" x1="550" y1="200" x2="200" y2="300" />
+                    <line class="connection-line" x1="900" y1="200" x2="200" y2="300" />
+
+                    <!-- Staging to Clean DB -->
+                    <line class="connection-line" x1="330" y1="380" x2="400" y2="380" />
+
+                    <!-- Clean DB to NDW -->
+                    <line class="connection-line" x1="550" y1="450" x2="200" y2="550" />
+
+                    <!-- DQ Check to Feedback -->
+                    <line class="connection-line one-to-many" x1="900" y1="380" x2="1100" y2="380" />
+
+                    <!-- Feedback to ETL Agent -->
+                    <line class="connection-line one-to-many" x1="1250" y1="300" x2="900" y2="200"
+                          stroke-dasharray="10, 5" stroke="#9C27B0" />
+
+                    <!-- Lab to Linkage -->
+                    <line class="connection-line" x1="550" y1="650" x2="925" y2="850" />
+
+                    <!-- NDW to Linkage -->
+                    <line class="connection-line" x1="330" y1="650" x2="925" y2="850" />
+
+                    <!-- Linkage to Unified -->
+                    <line class="connection-line" x1="1075" y1="850" x2="900" y2="650" />
+
+                    <!-- Unified to Analytics -->
+                    <line class="connection-line" x1="1030" y1="600" x2="1100" y2="600" />
+                </svg>
+
+                <!-- FACILITY ENTITIES -->
+                <div class="entity facility-entity" id="quantum-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-database entity-icon"></i>
+                        <div>
+                            <div class="entity-name">QUANTUM_EPMS</div>
+                            <div class="entity-type">PostgreSQL Database</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-fingerprint attribute-icon"></i>
+                            patient_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-user attribute-icon"></i>
+                            patient_name
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-calendar attribute-icon"></i>
+                            visit_date
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-notes-medical attribute-icon"></i>
+                            diagnosis
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-prescription attribute-icon"></i>
+                            treatment
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-hospital attribute-icon"></i>
+                            facility_id
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity facility-entity" id="edt-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-pills entity-icon"></i>
+                        <div>
+                            <div class="entity-name">EDT_SYSTEM</div>
+                            <div class="entity-type">PostgreSQL Database</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-barcode attribute-icon"></i>
+                            dispense_id
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-user attribute-icon"></i>
+                            patient_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-capsules attribute-icon"></i>
+                            medication
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-sort-numeric-up attribute-icon"></i>
+                            quantity
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-calendar-check attribute-icon"></i>
+                            dispense_date
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-user-md attribute-icon"></i>
+                            prescriber_id
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity process-entity" id="etl-agent-entity">
+                    <div class="entity-header">
+                        <i class="fab fa-python entity-icon"></i>
+                        <div>
+                            <div class="entity-name">ETL_AGENT</div>
+                            <div class="entity-type">Python Process</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-microchip attribute-icon"></i>
+                            agent_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-clock attribute-icon"></i>
+                            last_sync
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-exchange-alt attribute-icon"></i>
+                            records_extracted
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-check-circle attribute-icon"></i>
+                            sync_status
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-hospital attribute-icon"></i>
+                            facility_id
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity facility-entity" id="facility-staff-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-users entity-icon"></i>
+                        <div>
+                            <div class="entity-name">FACILITY_STAFF</div>
+                            <div class="entity-type">User Entity</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-id-badge attribute-icon"></i>
+                            staff_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-user-nurse attribute-icon"></i>
+                            staff_name
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-user-tag attribute-icon"></i>
+                            role
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-hospital attribute-icon"></i>
+                            facility_id
+                        </div>
+                    </div>
+                </div>
+
+                <!-- RME HUB ENTITIES -->
+                <div class="entity rme-entity" id="staging-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-server entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">STAGING_DB</div>
+                            <div class="entity-type">AWS RDS</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-hashtag attribute-icon"></i>
+                            record_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-code attribute-icon"></i>
+                            raw_data
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-calendar-alt attribute-icon"></i>
+                            ingestion_time
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-flag attribute-icon"></i>
+                            processing_status
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-hospital attribute-icon"></i>
+                            source_facility
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity rme-entity" id="clean-db-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-database entity-icon database-icon"></i>
+                        <div>
+                            <div class="entity-name">CLEAN_DATABASE</div>
+                            <div class="entity-type">PostgreSQL</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-star attribute-icon"></i>
+                            clean_record_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-check-double attribute-icon"></i>
+                            validated_data
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-link attribute-icon"></i>
+                            dedup_hash
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-medal attribute-icon"></i>
+                            quality_score
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-clock attribute-icon"></i>
+                            last_updated
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity process-entity" id="dq-check-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-shield-alt entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">DQ_CHECKER</div>
+                            <div class="entity-type">AWS Lambda</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-clipboard-check attribute-icon"></i>
+                            check_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-tasks attribute-icon"></i>
+                            validation_rules
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-exclamation-triangle attribute-icon"></i>
+                            errors_found
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-percentage attribute-icon"></i>
+                            quality_metrics
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity process-entity" id="feedback-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-sync-alt entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">FEEDBACK_QUEUE</div>
+                            <div class="entity-type">AWS SQS</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-envelope attribute-icon"></i>
+                            message_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-file-code attribute-icon"></i>
+                            error_json
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-hospital attribute-icon"></i>
+                            target_facility
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-paper-plane attribute-icon"></i>
+                            delivery_status
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NDW ENTITIES -->
+                <div class="entity ndw-entity" id="ndw-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-warehouse entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">DATA_WAREHOUSE</div>
+                            <div class="entity-type">MongoDB Atlas</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-globe attribute-icon"></i>
+                            national_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-layer-group attribute-icon"></i>
+                            aggregated_data
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-map-marked attribute-icon"></i>
+                            region_metrics
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-chart-line attribute-icon"></i>
+                            trend_analysis
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity ndw-entity" id="lab-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-vial entity-icon database-icon"></i>
+                        <div>
+                            <div class="entity-name">LAB_REPOSITORY</div>
+                            <div class="entity-type">Meditech Integration</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-flask attribute-icon"></i>
+                            lab_result_id
+                        </div>
+                        <div class="attribute">
+                            <span class="attribute-foreign">FK</span>
+                            <i class="fas fa-user attribute-icon"></i>
+                            patient_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-microscope attribute-icon"></i>
+                            test_type
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-chart-bar attribute-icon"></i>
+                            results
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-calendar attribute-icon"></i>
+                            test_date
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity ndw-entity" id="unified-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-id-card entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">UNIFIED_RECORDS</div>
+                            <div class="entity-type">DynamoDB</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-fingerprint attribute-icon"></i>
+                            unified_patient_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-project-diagram attribute-icon"></i>
+                            linked_records
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-history attribute-icon"></i>
+                            patient_journey
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-heartbeat attribute-icon"></i>
+                            health_outcomes
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity ndw-entity" id="analytics-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-chart-pie entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">ANALYTICS_DASHBOARD</div>
+                            <div class="entity-type">AWS QuickSight</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-tachometer-alt attribute-icon"></i>
+                            dashboard_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-chart-area attribute-icon"></i>
+                            visualizations
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-file-pdf attribute-icon"></i>
+                            reports
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-users-cog attribute-icon"></i>
+                            stakeholder_access
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROCESS ENTITIES -->
+                <div class="entity process-entity" id="api-gateway-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-network-wired entity-icon api-icon"></i>
+                        <div>
+                            <div class="entity-name">API_GATEWAY</div>
+                            <div class="entity-type">AWS API Gateway</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-route attribute-icon"></i>
+                            endpoint_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-lock attribute-icon"></i>
+                            auth_token
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-traffic-light attribute-icon"></i>
+                            rate_limit
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity process-entity" id="flask-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-flask entity-icon api-icon"></i>
+                        <div>
+                            <div class="entity-name">FLASK_API</div>
+                            <div class="entity-type">REST Service</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <i class="fas fa-plug attribute-icon"></i>
+                            /ingest
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-download attribute-icon"></i>
+                            /feedback
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-heartbeat attribute-icon"></i>
+                            /health
+                        </div>
+                    </div>
+                </div>
+
+                <div class="entity process-entity" id="linkage-entity">
+                    <div class="entity-header">
+                        <i class="fas fa-link entity-icon aws-icon"></i>
+                        <div>
+                            <div class="entity-name">LINKAGE_ENGINE</div>
+                            <div class="entity-type">AWS Analytics</div>
+                        </div>
+                    </div>
+                    <div class="entity-attributes">
+                        <div class="attribute">
+                            <span class="attribute-key">PK</span>
+                            <i class="fas fa-puzzle-piece attribute-icon"></i>
+                            linkage_id
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-robot attribute-icon"></i>
+                            ml_matching
+                        </div>
+                        <div class="attribute">
+                            <i class="fas fa-percentage attribute-icon"></i>
+                            confidence_score
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Relationship Labels -->
+                <div class="relationship-label" style="top: 250px; left: 180px;">
+                    Extracts
+                </div>
+                <div class="relationship-label" style="top: 250px; left: 530px;">
+                    Extracts
+                </div>
+                <div class="relationship-label" style="top: 340px; left: 350px;">
+                    Cleans
+                </div>
+                <div class="relationship-label" style="top: 490px; left: 350px;">
+                    Transfers
+                </div>
+                <div class="relationship-label" style="top: 340px; left: 950px;">
+                    Validates
+                </div>
+                <div class="relationship-label" style="top: 240px; left: 1050px; background: #FCE4EC; border-color: #C2185B;">
+                    Feedback Loop
+                </div>
+                <div class="relationship-label" style="top: 750px; left: 650px;">
+                    Integrates
+                </div>
+                <div class="relationship-label" style="top: 600px; left: 1050px;">
+                    Visualizes
+                </div>
+
+                <!-- Cardinality Indicators -->
+                <div class="cardinality" style="top: 190px; left: 180px;">1</div>
+                <div class="cardinality" style="top: 280px; left: 180px;">N</div>
+                <div class="cardinality" style="top: 190px; left: 530px;">1</div>
+                <div class="cardinality" style="top: 280px; left: 200px;">N</div>
+                <div class="cardinality" style="top: 360px; left: 380px;">1</div>
+                <div class="cardinality" style="top: 360px; left: 520px;">1</div>
+                <div class="cardinality" style="top: 530px; left: 180px;">N</div>
+                <div class="cardinality" style="top: 630px; left: 180px;">1</div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <h3>ERD Legend</h3>
+            <div class="legend-item">
+                <span class="legend-symbol attribute-key">PK</span>
+                <span>Primary Key</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol attribute-foreign">FK</span>
+                <span>Foreign Key</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">1</span>
+                <span>One (Cardinality)</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol">N</span>
+                <span>Many (Cardinality)</span>
+            </div>
+            <div class="legend-item">
+                <div style="width: 30px; height: 2px; background: #666;"></div>
+                <span>Relationship</span>
+            </div>
+            <div class="legend-item">
+                <div style="width: 30px; height: 2px; background: #666; border-style: dashed; border-width: 1px 0;"></div>
+                <span>Weak Relationship</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

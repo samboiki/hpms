@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Professional Flow Diagram</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.27.0/cytoscape.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+    <script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1800px;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            border-bottom: 4px solid #0f3460;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 300;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            color: #a8b2d1;
+        }
+
+        #cy {
+            width: 100%;
+            height: 900px;
+            background: #fafbfc;
+            position: relative;
+        }
+
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            background: white;
+            border: 1px solid #e1e4e8;
+            border-radius: 8px;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .control-btn:hover {
+            background: #f6f8fa;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .legend {
+            padding: 25px;
+            background: #f6f8fa;
+            border-top: 1px solid #e1e4e8;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .legend-icon {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            font-size: 20px;
+        }
+
+        .facility-color { background: #d4edda; color: #28a745; }
+        .rme-color { background: #cce5ff; color: #007bff; }
+        .ndw-color { background: #fff3cd; color: #ff6b35; }
+        .process-color { background: #f8d7da; color: #dc3545; }
+        .database-color { background: #e2e3e5; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline Architecture</h1>
+            <p>Automated Flow from 263 Healthcare Facilities to National Data Warehouse</p>
+        </div>
+
+        <div style="position: relative;">
+            <div class="controls">
+                <button class="control-btn" onclick="cy.fit()">Fit View</button>
+                <button class="control-btn" onclick="cy.layout({name: 'dagre', rankDir: 'TB', spacingFactor: 1.5}).run()">Vertical Layout</button>
+                <button class="control-btn" onclick="cy.layout({name: 'dagre', rankDir: 'LR', spacingFactor: 1.5}).run()">Horizontal Layout</button>
+            </div>
+            <div id="cy"></div>
+        </div>
+
+        <div class="legend">
+            <h3 style="margin: 0 0 15px 0; color: #24292e;">System Components</h3>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-icon facility-color">
+                        <iconify-icon icon="solar:hospital-bold-duotone" width="24"></iconify-icon>
+                    </div>
+                    <span>Healthcare Facilities</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon rme-color">
+                        <iconify-icon icon="solar:shield-check-bold-duotone" width="24"></iconify-icon>
+                    </div>
+                    <span>RME Gatekeeper Hub</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon ndw-color">
+                        <iconify-icon icon="solar:buildings-2-bold-duotone" width="24"></iconify-icon>
+                    </div>
+                    <span>National Data Warehouse</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon database-color">
+                        <iconify-icon icon="solar:database-bold-duotone" width="24"></iconify-icon>
+                    </div>
+                    <span>Data Storage</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon process-color">
+                        <iconify-icon icon="solar:settings-minimalistic-bold-duotone" width="24"></iconify-icon>
+                    </div>
+                    <span>Processing Engine</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Register dagre layout with cytoscape
+        cytoscape.use(cytoscapeDagre);
+
+        // Create nodes with proper icons as background images
+        const nodes = [
+            // Facility Level
+            {
+                data: {
+                    id: 'quantum',
+                    label: 'Quantum ePMS',
+                    subtitle: 'Patient Data',
+                    icon: 'solar:medical-kit-bold-duotone',
+                    type: 'facility'
+                }
+            },
+            {
+                data: {
+                    id: 'edt',
+                    label: 'EDT System',
+                    subtitle: 'Dispensing Tool',
+                    icon: 'solar:pills-3-bold-duotone',
+                    type: 'facility'
+                }
+            },
+            {
+                data: {
+                    id: 'python_agent',
+                    label: 'Python ETL',
+                    subtitle: 'Incremental Extract',
+                    icon: 'logos:python',
+                    type: 'facility'
+                }
+            },
+            {
+                data: {
+                    id: 'staff',
+                    label: 'Facility Staff',
+                    subtitle: '263 Sites',
+                    icon: 'solar:users-group-rounded-bold-duotone',
+                    type: 'facility'
+                }
+            },
+
+            // RME Hub Components
+            {
+                data: {
+                    id: 'api_gateway',
+                    label: 'API Gateway',
+                    subtitle: 'AWS Gateway',
+                    icon: 'logos:aws-api-gateway',
+                    type: 'rme'
+                }
+            },
+            {
+                data: {
+                    id: 'flask_api',
+                    label: 'Flask API',
+                    subtitle: 'REST Services',
+                    icon: 'logos:flask',
+                    type: 'rme'
+                }
+            },
+            {
+                data: {
+                    id: 'rds',
+                    label: 'RDS PostgreSQL',
+                    subtitle: 'Staging Database',
+                    icon: 'logos:postgresql',
+                    type: 'database'
+                }
+            },
+            {
+                data: {
+                    id: 'databricks',
+                    label: 'Databricks ETL',
+                    subtitle: 'Processing Pipeline',
+                    icon: 'logos:databricks',
+                    type: 'process'
+                }
+            },
+            {
+                data: {
+                    id: 'lambda',
+                    label: 'Lambda Functions',
+                    subtitle: 'Quality Checker',
+                    icon: 'logos:aws-lambda',
+                    type: 'process'
+                }
+            },
+            {
+                data: {
+                    id: 'grafana',
+                    label: 'Grafana',
+                    subtitle: 'RME Dashboard',
+                    icon: 'logos:grafana',
+                    type: 'rme'
+                }
+            },
+            {
+                data: {
+                    id: 'clean_db',
+                    label: 'Clean Database',
+                    subtitle: 'Validated Data',
+                    icon: 'solar:database-bold-duotone',
+                    type: 'database'
+                }
+            },
+            {
+                data: {
+                    id: 'feedback',
+                    label: 'Feedback Loop',
+                    subtitle: 'JSON Reports',
+                    icon: 'solar:refresh-circle-bold-duotone',
+                    type: 'process'
+                }
+            },
+
+            // NDW Components
+            {
+                data: {
+                    id: 'ndw_gateway',
+                    label: 'NDW Gateway',
+                    subtitle: 'Data Intake',
+                    icon: 'solar:login-3-bold-duotone',
+                    type: 'ndw'
+                }
+            },
+            {
+                data: {
+                    id: 'mongodb',
+                    label: 'MongoDB Atlas',
+                    subtitle: 'Data Warehouse',
+                    icon: 'logos:mongodb-icon',
+                    type: 'database'
+                }
+            },
+            {
+                data: {
+                    id: 'meditech',
+                    label: 'Meditech',
+                    subtitle: 'Lab Integration',
+                    icon: 'solar:test-tube-bold-duotone',
+                    type: 'ndw'
+                }
+            },
+            {
+                data: {
+                    id: 'dynamodb',
+                    label: 'DynamoDB',
+                    subtitle: 'Unified Records',
+                    icon: 'logos:aws-dynamodb',
+                    type: 'database'
+                }
+            },
+            {
+                data: {
+                    id: 'quicksight',
+                    label: 'QuickSight',
+                    subtitle: 'Analytics',
+                    icon: 'logos:aws-quicksight',
+                    type: 'ndw'
+                }
+            },
+            {
+                data: {
+                    id: 'tableau',
+                    label: 'Tableau',
+                    subtitle: 'Executive Reports',
+                    icon: 'logos:tableau-icon',
+                    type: 'ndw'
+                }
+            },
+            {
+                data: {
+                    id: 'mohss',
+                    label: 'MoHSS Leaders',
+                    subtitle: 'Decision Makers',
+                    icon: 'solar:presentation-graph-bold-duotone',
+                    type: 'ndw'
+                }
+            }
+        ];
+
+        // Create edges with proper labels
+        const edges = [
+            // Facility Level Flows
+            { data: { source: 'quantum', target: 'python_agent', label: 'Extract' }},
+            { data: { source: 'edt', target: 'python_agent', label: 'Extract' }},
+            { data: { source: 'python_agent', target: 'api_gateway', label: 'Incremental Transfer', type: 'main' }},
+
+            // RME Hub Flows
+            { data: { source: 'api_gateway', target: 'flask_api', label: '' }},
+            { data: { source: 'flask_api', target: 'rds', label: 'Store' }},
+            { data: { source: 'rds', target: 'databricks', label: 'Process' }},
+            { data: { source: 'databricks', target: 'lambda', label: 'Validate' }},
+            { data: { source: 'lambda', target: 'clean_db', label: 'Clean Data' }},
+            { data: { source: 'clean_db', target: 'grafana', label: 'Monitor' }},
+
+            // To NDW
+            { data: { source: 'clean_db', target: 'ndw_gateway', label: 'Clean Data', type: 'main' }},
+            { data: { source: 'ndw_gateway', target: 'mongodb', label: 'Store' }},
+            { data: { source: 'meditech', target: 'mongodb', label: 'Lab Data' }},
+            { data: { source: 'mongodb', target: 'dynamodb', label: 'Link' }},
+            { data: { source: 'dynamodb', target: 'quicksight', label: 'Analyze' }},
+            { data: { source: 'dynamodb', target: 'tableau', label: 'Report' }},
+            { data: { source: 'quicksight', target: 'mohss', label: '' }},
+            { data: { source: 'tableau', target: 'mohss', label: '' }},
+
+            // Feedback Loops
+            { data: { source: 'lambda', target: 'feedback', label: 'Errors', type: 'feedback' }},
+            { data: { source: 'feedback', target: 'python_agent', label: 'DQ Report', type: 'feedback' }},
+            { data: { source: 'python_agent', target: 'staff', label: 'Notify', type: 'feedback' }},
+            { data: { source: 'dynamodb', target: 'feedback', label: 'Enhanced', type: 'feedback' }}
+        ];
+
+        // Initialize Cytoscape
+        var cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            style: [
+                // Base node style
+                {
+                    selector: 'node',
+                    style: {
+                        'shape': 'round-rectangle',
+                        'width': 180,
+                        'height': 80,
+                        'background-color': '#ffffff',
+                        'border-width': 2,
+                        'label': 'data(label)',
+                        'text-valign': 'bottom',
+                        'text-halign': 'center',
+                        'font-size': '13px',
+                        'font-weight': '600',
+                        'color': '#24292e',
+                        'text-margin-y': 8,
+                        'overlay-padding': '8px',
+                        'z-index': 10
+                    }
+                },
+
+                // Facility nodes
+                {
+                    selector: '[type="facility"]',
+                    style: {
+                        'border-color': '#28a745',
+                        'background-gradient-stop-colors': '#ffffff #d4edda',
+                        'background-gradient-direction': 'to-bottom'
+                    }
+                },
+
+                // RME nodes
+                {
+                    selector: '[type="rme"]',
+                    style: {
+                        'border-color': '#007bff',
+                        'background-gradient-stop-colors': '#ffffff #cce5ff',
+                        'background-gradient-direction': 'to-bottom'
+                    }
+                },
+
+                // NDW nodes
+                {
+                    selector: '[type="ndw"]',
+                    style: {
+                        'border-color': '#ff6b35',
+                        'background-gradient-stop-colors': '#ffffff #fff3cd',
+                        'background-gradient-direction': 'to-bottom'
+                    }
+                },
+
+                // Database nodes
+                {
+                    selector: '[type="database"]',
+                    style: {
+                        'shape': 'barrel',
+                        'border-color': '#6c757d',
+                        'background-gradient-stop-colors': '#ffffff #e2e3e5',
+                        'background-gradient-direction': 'to-bottom'
+                    }
+                },
+
+                // Process nodes
+                {
+                    selector: '[type="process"]',
+                    style: {
+                        'shape': 'hexagon',
+                        'border-color': '#dc3545',
+                        'background-gradient-stop-colors': '#ffffff #f8d7da',
+                        'background-gradient-direction': 'to-bottom'
+                    }
+                },
+
+                // Main flow edges
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#95a5a6',
+                        'target-arrow-color': '#95a5a6',
+                        'target-arrow-shape': 'triangle',
+                        'arrow-scale': 1.5,
+                        'curve-style': 'bezier',
+                        'control-point-step-size': 40,
+                        'label': 'data(label)',
+                        'font-size': '11px',
+                        'text-background-color': '#ffffff',
+                        'text-background-opacity': 0.8,
+                        'text-background-padding': '3px',
+                        'text-rotation': 'autorotate',
+                        'text-margin-y': -10
+                    }
+                },
+
+                // Main flow highlight
+                {
+                    selector: '[type="main"]',
+                    style: {
+                        'width': 3,
+                        'line-color': '#28a745',
+                        'target-arrow-color': '#28a745'
+                    }
+                },
+
+                // Feedback edges
+                {
+                    selector: '[type="feedback"]',
+                    style: {
+                        'line-style': 'dashed',
+                        'line-color': '#dc3545',
+                        'target-arrow-color': '#dc3545',
+                        'line-dash-pattern': [6, 3]
+                    }
+                }
+            ],
+
+            elements: {
+                nodes: nodes,
+                edges: edges
+            },
+
+            layout: {
+                name: 'dagre',
+                rankDir: 'LR',
+                nodeSep: 80,
+                rankSep: 150,
+                spacingFactor: 1.5,
+                animate: true,
+                animationDuration: 500
+            },
+
+            // Remove wheelSensitivity to avoid warning
+            minZoom: 0.3,
+            maxZoom: 3
+        });
+
+        // Add icon overlays to nodes
+        cy.ready(function() {
+            cy.nodes().forEach(function(node) {
+                const iconName = node.data('icon');
+                const subtitle = node.data('subtitle');
+
+                // Create HTML content for the node
+                const htmlContent = `
+                    <div style="
+                        position: absolute;
+                        top: 50%;
+                        left: 50%;
+                        transform: translate(-50%, -50%);
+                        text-align: center;
+                        pointer-events: none;
+                    ">
+                        <iconify-icon icon="${iconName}" width="32" style="margin-bottom: 4px;"></iconify-icon>
+                        <div style="font-size: 10px; color: #586069; margin-top: 22px;">${subtitle}</div>
+                    </div>
+                `;
+
+                // Add HTML overlay
+                node.scratch('_htmlOverlay', htmlContent);
+            });
+        });
+
+        // Fit view on load
+        cy.fit();
+    </script>
+</body>
+</html>

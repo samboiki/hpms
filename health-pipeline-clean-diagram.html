@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Clean Conceptual Diagram</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        /* Main Canvas */
+        .diagram-wrapper {
+            padding: 40px;
+            background: #f8f9fa;
+            overflow-x: auto;
+        }
+
+        .diagram-canvas {
+            background: white;
+            border-radius: 15px;
+            width: 1800px;
+            height: 1200px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Stage Containers */
+        .stage {
+            position: absolute;
+            border: 3px solid;
+            border-radius: 20px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .stage-title {
+            position: absolute;
+            top: -15px;
+            left: 30px;
+            background: white;
+            padding: 0 15px;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .stage.facilities {
+            top: 50px;
+            left: 50px;
+            width: 700px;
+            height: 250px;
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, rgba(200, 230, 201, 0.2), rgba(200, 230, 201, 0.1));
+        }
+        .stage.facilities .stage-title { color: #4CAF50; }
+
+        .stage.rme {
+            top: 350px;
+            left: 50px;
+            width: 1700px;
+            height: 300px;
+            border-color: #2196F3;
+            background: linear-gradient(135deg, rgba(187, 222, 251, 0.2), rgba(187, 222, 251, 0.1));
+        }
+        .stage.rme .stage-title { color: #2196F3; }
+
+        .stage.ndw {
+            top: 700px;
+            left: 50px;
+            width: 1700px;
+            height: 300px;
+            border-color: #FF9800;
+            background: linear-gradient(135deg, rgba(255, 224, 178, 0.2), rgba(255, 224, 178, 0.1));
+        }
+        .stage.ndw .stage-title { color: #FF9800; }
+
+        /* Component Boxes */
+        .component {
+            position: absolute;
+            background: white;
+            border: 2px solid;
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            width: 140px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .component:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+        }
+
+        .component-icon {
+            font-size: 2.5rem;
+            margin-bottom: 8px;
+        }
+
+        .component-name {
+            font-weight: 600;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .component-type {
+            font-size: 10px;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* Component Colors */
+        .comp-green { border-color: #4CAF50; background: #E8F5E9; }
+        .comp-green .component-icon { color: #4CAF50; }
+
+        .comp-blue { border-color: #2196F3; background: #E3F2FD; }
+        .comp-blue .component-icon { color: #2196F3; }
+
+        .comp-orange { border-color: #FF9800; background: #FFF3E0; }
+        .comp-orange .component-icon { color: #FF9800; }
+
+        .comp-purple { border-color: #9C27B0; background: #F3E5F5; }
+        .comp-purple .component-icon { color: #9C27B0; }
+
+        .comp-pink { border-color: #E91E63; background: #FCE4EC; }
+        .comp-pink .component-icon { color: #E91E63; }
+
+        /* Icon specific colors */
+        .aws { color: #FF9900 !important; }
+        .db { color: #336791 !important; }
+        .py { color: #3776AB !important; }
+
+        /* Arrows */
+        .arrow {
+            position: absolute;
+            height: 2px;
+            background: #666;
+            transform-origin: left center;
+        }
+
+        .arrow::after {
+            content: '';
+            position: absolute;
+            right: -8px;
+            top: -4px;
+            width: 0;
+            height: 0;
+            border-left: 10px solid #666;
+            border-top: 5px solid transparent;
+            border-bottom: 5px solid transparent;
+        }
+
+        .arrow.green { background: #4CAF50; }
+        .arrow.green::after { border-left-color: #4CAF50; }
+
+        .arrow.blue { background: #2196F3; }
+        .arrow.blue::after { border-left-color: #2196F3; }
+
+        .arrow.orange { background: #FF9800; }
+        .arrow.orange::after { border-left-color: #FF9800; }
+
+        .arrow.pink {
+            background: #E91E63;
+            background-image: repeating-linear-gradient(90deg, #E91E63 0, #E91E63 10px, transparent 10px, transparent 20px);
+        }
+        .arrow.pink::after { border-left-color: #E91E63; }
+
+        /* Arrow Labels */
+        .arrow-label {
+            position: absolute;
+            background: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 2px solid;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .label-green { border-color: #4CAF50; color: #4CAF50; }
+        .label-blue { border-color: #2196F3; color: #2196F3; }
+        .label-orange { border-color: #FF9800; color: #FF9800; }
+        .label-pink { border-color: #E91E63; color: #E91E63; }
+
+        /* Component Positioning - Facilities */
+        #quantum { top: 80px; left: 100px; }
+        #edt { top: 80px; left: 280px; }
+        #staff { top: 80px; left: 460px; }
+        #agent { top: 80px; left: 850px; }
+
+        /* Component Positioning - RME Hub */
+        #api-gateway { top: 420px; left: 100px; }
+        #flask { top: 420px; left: 280px; }
+        #staging { top: 420px; left: 460px; }
+        #etl { top: 420px; left: 640px; }
+        #dq-check { top: 420px; left: 820px; }
+        #dedup { top: 420px; left: 1000px; }
+        #clean-db { top: 420px; left: 1180px; }
+        #dashboard { top: 420px; left: 1360px; }
+        #rme-users { top: 420px; left: 1540px; }
+        #feedback { top: 550px; left: 820px; }
+
+        /* Component Positioning - NDW */
+        #ndw-gateway { top: 770px; left: 100px; }
+        #warehouse { top: 770px; left: 280px; }
+        #lab { top: 770px; left: 460px; }
+        #linkage { top: 770px; left: 640px; }
+        #unified { top: 770px; left: 820px; }
+        #ml { top: 770px; left: 1000px; }
+        #national-dash { top: 770px; left: 1180px; }
+        #reports { top: 770px; left: 1360px; }
+        #leaders { top: 770px; left: 1540px; }
+
+        /* Horizontal Arrows */
+        .h-arrow-1 { top: 140px; left: 240px; width: 40px; }
+        .h-arrow-2 { top: 140px; left: 420px; width: 40px; }
+        .h-arrow-3 { top: 140px; left: 600px; width: 250px; }
+
+        .h-arrow-4 { top: 480px; left: 240px; width: 40px; }
+        .h-arrow-5 { top: 480px; left: 420px; width: 40px; }
+        .h-arrow-6 { top: 480px; left: 600px; width: 40px; }
+        .h-arrow-7 { top: 480px; left: 780px; width: 40px; }
+        .h-arrow-8 { top: 480px; left: 960px; width: 40px; }
+        .h-arrow-9 { top: 480px; left: 1140px; width: 40px; }
+        .h-arrow-10 { top: 480px; left: 1320px; width: 40px; }
+        .h-arrow-11 { top: 480px; left: 1500px; width: 40px; }
+
+        .h-arrow-12 { top: 830px; left: 240px; width: 40px; }
+        .h-arrow-13 { top: 830px; left: 420px; width: 40px; }
+        .h-arrow-14 { top: 830px; left: 600px; width: 40px; }
+        .h-arrow-15 { top: 830px; left: 780px; width: 40px; }
+        .h-arrow-16 { top: 830px; left: 960px; width: 40px; }
+        .h-arrow-17 { top: 830px; left: 1140px; width: 40px; }
+        .h-arrow-18 { top: 830px; left: 1320px; width: 40px; }
+        .h-arrow-19 { top: 830px; left: 1500px; width: 40px; }
+
+        /* Vertical Arrows */
+        .v-arrow {
+            width: 2px !important;
+            transform: rotate(90deg);
+            transform-origin: top left;
+        }
+
+        .v-arrow-1 { top: 200px; left: 920px; height: 220px !important; }
+        .v-arrow-2 { top: 540px; left: 1260px; height: 230px !important; }
+        .v-arrow-3 { top: 540px; left: 910px; height: 80px !important; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline</h1>
+            <p>Conceptual Architecture Diagram with Cloud Services</p>
+        </div>
+
+        <div class="diagram-wrapper">
+            <div class="diagram-canvas">
+                <!-- STAGE 1: Healthcare Facilities -->
+                <div class="stage facilities">
+                    <span class="stage-title">Healthcare Facilities (263 Sites)</span>
+                </div>
+
+                <!-- STAGE 2: RME Gatekeeper Hub -->
+                <div class="stage rme">
+                    <span class="stage-title">Stage 1: RME "Gatekeeper" Hub</span>
+                </div>
+
+                <!-- STAGE 3: National Data Warehouse -->
+                <div class="stage ndw">
+                    <span class="stage-title">Stage 2: NDW "Master Assembler"</span>
+                </div>
+
+                <!-- FACILITY COMPONENTS -->
+                <div class="component comp-green" id="quantum">
+                    <i class="fas fa-database component-icon db"></i>
+                    <div class="component-name">Quantum ePMS</div>
+                    <div class="component-type">Patient Data</div>
+                </div>
+
+                <div class="component comp-green" id="edt">
+                    <i class="fas fa-pills component-icon db"></i>
+                    <div class="component-name">EDT System</div>
+                    <div class="component-type">Dispensing</div>
+                </div>
+
+                <div class="component comp-green" id="staff">
+                    <i class="fas fa-user-nurse component-icon"></i>
+                    <div class="component-name">Facility Staff</div>
+                    <div class="component-type">Users</div>
+                </div>
+
+                <div class="component comp-purple" id="agent">
+                    <i class="fab fa-python component-icon py"></i>
+                    <div class="component-name">ETL Agent</div>
+                    <div class="component-type">Python</div>
+                </div>
+
+                <!-- RME HUB COMPONENTS -->
+                <div class="component comp-blue" id="api-gateway">
+                    <i class="fas fa-network-wired component-icon aws"></i>
+                    <div class="component-name">API Gateway</div>
+                    <div class="component-type">AWS</div>
+                </div>
+
+                <div class="component comp-blue" id="flask">
+                    <i class="fas fa-flask component-icon"></i>
+                    <div class="component-name">Flask API</div>
+                    <div class="component-type">REST</div>
+                </div>
+
+                <div class="component comp-blue" id="staging">
+                    <i class="fas fa-server component-icon aws"></i>
+                    <div class="component-name">Staging DB</div>
+                    <div class="component-type">RDS</div>
+                </div>
+
+                <div class="component comp-purple" id="etl">
+                    <i class="fas fa-cogs component-icon"></i>
+                    <div class="component-name">ETL Pipeline</div>
+                    <div class="component-type">Databricks</div>
+                </div>
+
+                <div class="component comp-purple" id="dq-check">
+                    <i class="fas fa-check-circle component-icon aws"></i>
+                    <div class="component-name">DQ Checker</div>
+                    <div class="component-type">Lambda</div>
+                </div>
+
+                <div class="component comp-purple" id="dedup">
+                    <i class="fas fa-filter component-icon"></i>
+                    <div class="component-name">Deduplication</div>
+                    <div class="component-type">Engine</div>
+                </div>
+
+                <div class="component comp-blue" id="clean-db">
+                    <i class="fas fa-database component-icon db"></i>
+                    <div class="component-name">Clean DB</div>
+                    <div class="component-type">PostgreSQL</div>
+                </div>
+
+                <div class="component comp-blue" id="dashboard">
+                    <i class="fas fa-chart-line component-icon"></i>
+                    <div class="component-name">RME Dashboard</div>
+                    <div class="component-type">Grafana</div>
+                </div>
+
+                <div class="component comp-blue" id="rme-users">
+                    <i class="fas fa-users-cog component-icon"></i>
+                    <div class="component-name">RME Analysts</div>
+                    <div class="component-type">Users</div>
+                </div>
+
+                <div class="component comp-pink" id="feedback">
+                    <i class="fas fa-sync-alt component-icon"></i>
+                    <div class="component-name">Feedback Queue</div>
+                    <div class="component-type">SQS</div>
+                </div>
+
+                <!-- NDW COMPONENTS -->
+                <div class="component comp-orange" id="ndw-gateway">
+                    <i class="fas fa-door-open component-icon aws"></i>
+                    <div class="component-name">NDW Gateway</div>
+                    <div class="component-type">API</div>
+                </div>
+
+                <div class="component comp-orange" id="warehouse">
+                    <i class="fas fa-warehouse component-icon aws"></i>
+                    <div class="component-name">Data Warehouse</div>
+                    <div class="component-type">MongoDB</div>
+                </div>
+
+                <div class="component comp-orange" id="lab">
+                    <i class="fas fa-vial component-icon db"></i>
+                    <div class="component-name">Lab Repository</div>
+                    <div class="component-type">Meditech</div>
+                </div>
+
+                <div class="component comp-purple" id="linkage">
+                    <i class="fas fa-link component-icon aws"></i>
+                    <div class="component-name">Linkage Engine</div>
+                    <div class="component-type">Analytics</div>
+                </div>
+
+                <div class="component comp-orange" id="unified">
+                    <i class="fas fa-id-card component-icon aws"></i>
+                    <div class="component-name">Unified Records</div>
+                    <div class="component-type">DynamoDB</div>
+                </div>
+
+                <div class="component comp-purple" id="ml">
+                    <i class="fas fa-robot component-icon aws"></i>
+                    <div class="component-name">ML Processor</div>
+                    <div class="component-type">SageMaker</div>
+                </div>
+
+                <div class="component comp-orange" id="national-dash">
+                    <i class="fas fa-tachometer-alt component-icon aws"></i>
+                    <div class="component-name">National Dashboard</div>
+                    <div class="component-type">QuickSight</div>
+                </div>
+
+                <div class="component comp-orange" id="reports">
+                    <i class="fas fa-chart-pie component-icon"></i>
+                    <div class="component-name">Executive Reports</div>
+                    <div class="component-type">Tableau</div>
+                </div>
+
+                <div class="component comp-orange" id="leaders">
+                    <i class="fas fa-users component-icon"></i>
+                    <div class="component-name">MoHSS Leaders</div>
+                    <div class="component-type">Stakeholders</div>
+                </div>
+
+                <!-- HORIZONTAL ARROWS - Facilities -->
+                <div class="arrow green h-arrow-1"></div>
+                <div class="arrow green h-arrow-2"></div>
+                <div class="arrow green h-arrow-3"></div>
+
+                <!-- HORIZONTAL ARROWS - RME -->
+                <div class="arrow blue h-arrow-4"></div>
+                <div class="arrow blue h-arrow-5"></div>
+                <div class="arrow blue h-arrow-6"></div>
+                <div class="arrow blue h-arrow-7"></div>
+                <div class="arrow blue h-arrow-8"></div>
+                <div class="arrow blue h-arrow-9"></div>
+                <div class="arrow blue h-arrow-10"></div>
+                <div class="arrow blue h-arrow-11"></div>
+
+                <!-- HORIZONTAL ARROWS - NDW -->
+                <div class="arrow orange h-arrow-12"></div>
+                <div class="arrow orange h-arrow-13"></div>
+                <div class="arrow orange h-arrow-14"></div>
+                <div class="arrow orange h-arrow-15"></div>
+                <div class="arrow orange h-arrow-16"></div>
+                <div class="arrow orange h-arrow-17"></div>
+                <div class="arrow orange h-arrow-18"></div>
+                <div class="arrow orange h-arrow-19"></div>
+
+                <!-- VERTICAL ARROWS -->
+                <div class="arrow green v-arrow v-arrow-1"></div>
+                <div class="arrow blue v-arrow v-arrow-2"></div>
+                <div class="arrow pink v-arrow v-arrow-3"></div>
+
+                <!-- ARROW LABELS -->
+                <div class="arrow-label label-green" style="top: 120px; left: 340px;">Extract</div>
+                <div class="arrow-label label-green" style="top: 120px; left: 700px;">Transfer</div>
+                <div class="arrow-label label-green" style="top: 280px; left: 880px;">Secure API</div>
+
+                <div class="arrow-label label-blue" style="top: 460px; left: 510px;">Ingest</div>
+                <div class="arrow-label label-blue" style="top: 460px; left: 690px;">Process</div>
+                <div class="arrow-label label-blue" style="top: 460px; left: 870px;">Validate</div>
+                <div class="arrow-label label-blue" style="top: 460px; left: 1050px;">Clean</div>
+                <div class="arrow-label label-blue" style="top: 460px; left: 1410px;">Visualize</div>
+
+                <div class="arrow-label label-pink" style="top: 590px; left: 860px;">DQ Feedback</div>
+
+                <div class="arrow-label label-blue" style="top: 620px; left: 1220px;">Clean Data</div>
+
+                <div class="arrow-label label-orange" style="top: 810px; left: 330px;">Store</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 510px;">Lab Data</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 690px;">Link</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 870px;">Unify</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 1050px;">Analyze</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 1230px;">Dashboard</div>
+                <div class="arrow-label label-orange" style="top: 810px; left: 1410px;">Report</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

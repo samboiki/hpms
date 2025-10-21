@@ -1,0 +1,25 @@
+
+> medcenter-landing@0.1.0 dev
+> next dev -H 0.0.0.0 --port 10000 -H 0.0.0.0
+
+   ▲ Next.js 15.3.2
+   - Local:        http://localhost:10000
+   - Network:      http://0.0.0.0:10000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 3s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 750ms (108 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 95.5s (5248 modules)
+🎯 Using practice from query parameter: newcharm
+Error fetching practice by slug: {
+  code: 'PGRST116',
+  details: 'The result contains 0 rows',
+  hint: null,
+  message: 'JSON object requested, multiple (or no) rows returned'
+}
+ ✓ Compiled in 4s (2496 modules)
+ GET /?practice=newcharm 200 in 99706ms
+ ○ Compiling /favicon.ico ...

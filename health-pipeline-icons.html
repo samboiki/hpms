@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Architecture Diagram with Icons</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #333 0%, #555 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        .diagram-container {
+            padding: 40px;
+            background: #f8f9fa;
+        }
+        .architecture {
+            display: grid;
+            gap: 40px;
+        }
+        .stage {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .stage-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid;
+        }
+        .stage-icon {
+            font-size: 2.5rem;
+            margin-right: 20px;
+        }
+        .stage-title h2 {
+            margin: 0;
+            font-size: 1.8rem;
+        }
+        .stage-title p {
+            margin: 5px 0 0 0;
+            opacity: 0.7;
+        }
+        .components {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .component {
+            background: #f8f9fa;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .component:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-color: #667eea;
+        }
+        .component-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .component-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .component-desc {
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* Stage Colors */
+        .facilities {
+            --stage-color: #4CAF50;
+        }
+        .rme-hub {
+            --stage-color: #2196F3;
+        }
+        .ndw {
+            --stage-color: #FF9800;
+        }
+        .stage-header {
+            border-bottom-color: var(--stage-color);
+        }
+        .stage-icon {
+            color: var(--stage-color);
+        }
+
+        /* Arrows and Connections */
+        .flow-arrow {
+            text-align: center;
+            padding: 20px;
+            font-size: 2rem;
+            color: #667eea;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Service Icons */
+        .aws-icon { color: #FF9900; }
+        .database-icon { color: #336791; }
+        .api-icon { color: #00897B; }
+        .python-icon { color: #3776AB; }
+        .dashboard-icon { color: #F57C00; }
+        .users-icon { color: #7B1FA2; }
+        .security-icon { color: #D32F2F; }
+        .analytics-icon { color: #1976D2; }
+
+        /* Feedback Loop */
+        .feedback-loop {
+            background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD0 100%);
+            border: 2px dashed #C2185B;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: center;
+        }
+        .feedback-title {
+            color: #C2185B;
+            font-weight: 600;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+        .feedback-items {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .feedback-item {
+            background: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Tech Stack Pills */
+        .tech-stack {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .tech-pill {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline Architecture</h1>
+            <p>Transforming Healthcare Data Management with Modern Cloud Architecture</p>
+        </div>
+
+        <div class="diagram-container">
+            <div class="architecture">
+
+                <!-- Facilities Stage -->
+                <div class="stage facilities">
+                    <div class="stage-header">
+                        <i class="fas fa-hospital stage-icon"></i>
+                        <div class="stage-title">
+                            <h2>Healthcare Facilities</h2>
+                            <p>263 Sites Across the Nation</p>
+                        </div>
+                    </div>
+                    <div class="components">
+                        <div class="component">
+                            <i class="fas fa-database component-icon database-icon"></i>
+                            <div class="component-name">Quantum ePMS</div>
+                            <div class="component-desc">Patient Management System</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-pills component-icon database-icon"></i>
+                            <div class="component-name">EDT System</div>
+                            <div class="component-desc">Electronic Dispensing Tool</div>
+                        </div>
+                        <div class="component">
+                            <i class="fab fa-python component-icon python-icon"></i>
+                            <div class="component-name">Python ETL Agent</div>
+                            <div class="component-desc">Incremental Data Extraction</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-user-nurse component-icon users-icon"></i>
+                            <div class="component-name">Facility Staff</div>
+                            <div class="component-desc">Data Entry & Management</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">
+                    <i class="fas fa-arrow-down"></i>
+                    <div>Secure Incremental Transfer</div>
+                </div>
+
+                <!-- RME Hub Stage -->
+                <div class="stage rme-hub">
+                    <div class="stage-header">
+                        <i class="fas fa-shield-alt stage-icon"></i>
+                        <div class="stage-title">
+                            <h2>RME "Gatekeeper" Hub</h2>
+                            <p>Data Quality & Validation Center</p>
+                        </div>
+                    </div>
+                    <div class="components">
+                        <div class="component">
+                            <i class="fas fa-network-wired component-icon api-icon"></i>
+                            <div class="component-name">API Gateway</div>
+                            <div class="component-desc">AWS API Gateway</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-flask component-icon api-icon"></i>
+                            <div class="component-name">Flask API</div>
+                            <div class="component-desc">RESTful Services</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-server component-icon database-icon"></i>
+                            <div class="component-name">RDS Database</div>
+                            <div class="component-desc">PostgreSQL Staging</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-cogs component-icon analytics-icon"></i>
+                            <div class="component-name">ETL Pipeline</div>
+                            <div class="component-desc">Databricks Processing</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-check-circle component-icon security-icon"></i>
+                            <div class="component-name">Quality Checker</div>
+                            <div class="component-desc">AWS Lambda Functions</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-chart-line component-icon dashboard-icon"></i>
+                            <div class="component-name">RME Dashboard</div>
+                            <div class="component-desc">Grafana Analytics</div>
+                        </div>
+                    </div>
+
+                    <div class="feedback-loop">
+                        <div class="feedback-title">
+                            <i class="fas fa-sync-alt"></i> Data Quality Feedback Loop
+                        </div>
+                        <div class="feedback-items">
+                            <div class="feedback-item">
+                                <i class="fas fa-exclamation-triangle"></i> Error Detection
+                            </div>
+                            <div class="feedback-item">
+                                <i class="fas fa-file-alt"></i> JSON Reports
+                            </div>
+                            <div class="feedback-item">
+                                <i class="fas fa-hospital-user"></i> Facility Correction
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-arrow">
+                    <i class="fas fa-arrow-down"></i>
+                    <div>Clean Validated Data</div>
+                </div>
+
+                <!-- NDW Stage -->
+                <div class="stage ndw">
+                    <div class="stage-header">
+                        <i class="fas fa-landmark stage-icon"></i>
+                        <div class="stage-title">
+                            <h2>National Data Warehouse</h2>
+                            <p>Master Data Assembly & Analytics</p>
+                        </div>
+                    </div>
+                    <div class="components">
+                        <div class="component">
+                            <i class="fas fa-door-open component-icon api-icon"></i>
+                            <div class="component-name">NDW Gateway</div>
+                            <div class="component-desc">Data Intake API</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-warehouse component-icon aws-icon"></i>
+                            <div class="component-name">Data Warehouse</div>
+                            <div class="component-desc">MongoDB Atlas</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-vial component-icon database-icon"></i>
+                            <div class="component-name">Lab Repository</div>
+                            <div class="component-desc">Meditech Integration</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-link component-icon analytics-icon"></i>
+                            <div class="component-name">Linkage Engine</div>
+                            <div class="component-desc">AWS Analytics</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-id-card component-icon database-icon"></i>
+                            <div class="component-name">Unified Records</div>
+                            <div class="component-desc">DynamoDB</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-tachometer-alt component-icon dashboard-icon"></i>
+                            <div class="component-name">National Dashboard</div>
+                            <div class="component-desc">AWS QuickSight</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-chart-pie component-icon dashboard-icon"></i>
+                            <div class="component-name">Executive Reports</div>
+                            <div class="component-desc">Tableau Analytics</div>
+                        </div>
+                        <div class="component">
+                            <i class="fas fa-users-cog component-icon users-icon"></i>
+                            <div class="component-name">MoHSS Leaders</div>
+                            <div class="component-desc">Decision Makers</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Technology Stack -->
+                <div class="stage" style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);">
+                    <div class="stage-header" style="border-bottom-color: #667eea;">
+                        <i class="fas fa-layer-group stage-icon" style="color: #667eea;"></i>
+                        <div class="stage-title">
+                            <h2>Technology Stack</h2>
+                            <p>Modern Cloud-Native Architecture</p>
+                        </div>
+                    </div>
+                    <div class="tech-stack">
+                        <span class="tech-pill"><i class="fab fa-aws"></i> AWS Cloud Services</span>
+                        <span class="tech-pill"><i class="fab fa-python"></i> Python ETL</span>
+                        <span class="tech-pill"><i class="fas fa-database"></i> PostgreSQL</span>
+                        <span class="tech-pill"><i class="fas fa-database"></i> MongoDB</span>
+                        <span class="tech-pill"><i class="fas fa-chart-bar"></i> Grafana</span>
+                        <span class="tech-pill"><i class="fas fa-shield-alt"></i> API Gateway</span>
+                        <span class="tech-pill"><i class="fas fa-flask"></i> Flask</span>
+                        <span class="tech-pill"><i class="fas fa-cogs"></i> Lambda Functions</span>
+                        <span class="tech-pill"><i class="fas fa-chart-line"></i> QuickSight</span>
+                        <span class="tech-pill"><i class="fas fa-lock"></i> Encryption</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</body>
+</html>

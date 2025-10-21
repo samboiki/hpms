@@ -1,0 +1,52 @@
+
+> healthsys-react-app@0.0.0 dev
+> bash ./start-evidence-based-dev.sh
+
+🚀 Starting Evidence-Based Development Servers for WSL2...
+📋 Configuration Summary:
+   • React Practice Portal: http://localhost:7000 (Vite 5.4.2)
+   • React Admin Portal: http://localhost:8000 (Vite 5.4.2)
+   • Next.js Marketing + Client Pages: http://localhost:9000 (Next.js 15.4.4)
+
+🧹 Cleaning build artifacts...
+🔌 Checking and clearing conflicting ports...
+⏰ Starting servers with 2-second delays...
+🏥 Starting React Practice Portal on port 7000...
+🎯 Starting React Admin Portal on port 8000...
+🌐 Starting Next.js Marketing on port 9000...
+✨ Client Landing Pages integrated into Next.js Marketing on port 9000
+✅ All servers started!
+
+📊 Process Information:
+   Practice Portal PID: 2703
+   Admin Portal PID: 2848
+   Marketing Portal PID: 2993
+   Client Landing PID: integrated
+
+🌐 Access URLs (copy into your browser):
+   React Practice Portal: http://localhost:7000
+   React Admin Portal: http://localhost:8000
+   Next.js Marketing: http://localhost:9000
+
+🏥 Client Landing Page Quick Access:
+   NewCharm Dental: http://localhost:9000/?practice=newcharm
+   Dr. Polina: http://localhost:9000/?practice=polina
+   CityClinic: http://localhost:9000/?practice=cityclinic
+   CoastalMed: http://localhost:9000/?practice=coastalmed
+
+📝 Log files created:
+   Practice: /home/happy/projects/hpms/practice.log
+   Admin: /home/happy/projects/hpms/onehealth-admin/admin.log
+   Marketing: /home/happy/projects/hpms/onehealth/marketing.log
+
+🔍 To check server status: ps aux | grep -E '(vite|next)'
+🛑 To stop all servers: pkill -f 'vite|next'
+almed
+
+📝 Log files created:
+   Practice: /home/happy/projects/hpms/practice.log
+   Admin: /home/happy/projects/hpms/onehealth-admin/admin.log
+   Marketing: /home/happy/projects/hpms/onehealth/marketing.log
+
+🔍 To check server status: ps aux | grep -E '(vite|next)'
+🛑 To stop all servers: pkill -f 'vite|next'

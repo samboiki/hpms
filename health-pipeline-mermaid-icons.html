@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Information Data Pipeline - Mermaid with Icons</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#E8F5E9',
+                primaryTextColor: '#000',
+                primaryBorderColor: '#4CAF50',
+                secondaryColor: '#E3F2FD',
+                secondaryBorderColor: '#1976D2',
+                tertiaryColor: '#FFF3E0',
+                tertiaryBorderColor: '#F57C00',
+                background: 'white',
+                mainBkg: '#ffffff',
+                lineColor: '#5e5e5e',
+                fontSize: '16px'
+            },
+            flowchart: {
+                nodeSpacing: 80,
+                rankSpacing: 100,
+                curve: 'basis',
+                useMaxWidth: true,
+                htmlLabels: true
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.8em;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+        .header p {
+            margin: 15px 0 0 0;
+            opacity: 0.95;
+            font-size: 1.2em;
+            color: #a8b2d1;
+        }
+        .content {
+            padding: 40px;
+            background: #fafbfc;
+        }
+        .mermaid-container {
+            background: white;
+            border: 2px solid #e1e4e8;
+            border-radius: 12px;
+            padding: 30px;
+            overflow-x: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        .legend {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin: 30px 0;
+            padding: 25px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #e1e4e8;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 20px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            margin-right: 12px;
+            border: 2px solid;
+        }
+        .facility-legend { background: #E8F5E9; border-color: #4CAF50; }
+        .rme-legend { background: #E3F2FD; border-color: #1976D2; }
+        .ndw-legend { background: #FFF3E0; border-color: #F57C00; }
+        .feedback-legend { background: #FCE4EC; border-color: #C2185B; }
+        .monitoring-legend { background: #F3E5F5; border-color: #7B1FA2; }
+
+        /* Mermaid node styling */
+        .mermaid .node rect {
+            rx: 8;
+            ry: 8;
+        }
+        .mermaid .node text {
+            font-size: 14px !important;
+            font-weight: 500;
+        }
+        .mermaid .edgeLabel {
+            background-color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px !important;
+        }
+
+        .info-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f6f8fa;
+            border-left: 4px solid #667eea;
+            border-radius: 8px;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #24292e;
+        }
+        .info-section p {
+            line-height: 1.6;
+            color: #586069;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Integrated Health Information Pipeline</h1>
+            <p>Automated Data Flow from 263 Healthcare Facilities to National Data Warehouse</p>
+        </div>
+
+        <div class="content">
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color facility-legend"></div>
+                    <span><strong>Healthcare Facilities</strong> - Data Sources (263 Sites)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color rme-legend"></div>
+                    <span><strong>RM&E Hub</strong> - Quality & Validation</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color ndw-legend"></div>
+                    <span><strong>NDW</strong> - National Integration</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color feedback-legend"></div>
+                    <span><strong>Feedback</strong> - Quality Loop</span>
+                </div>
+            </div>
+
+            <div class="mermaid-container">
+                <pre class="mermaid">
+graph TB
+    subgraph "STAGE 1: Healthcare Facilities [263 Sites]"
+        QE[🏥 Quantum ePMS<br/>Patient Data System]
+        EDT[💊 EDT<br/>Electronic Dispensing Tool]
+        Agent[🐍 Python ETL Agent<br/>Incremental Extract]
+        Staff[👥 Facility Staff<br/>Data Entry & Validation]
+
+        QE -.->|Extract New/Updated| Agent
+        EDT -.->|Extract New/Updated| Agent
+    end
+
+    subgraph "STAGE 2: RM&E 'Gatekeeper' Hub"
+        API[🔌 AWS API Gateway<br/>Secure Receiver]
+        Flask[🌶️ Flask API<br/>REST Services]
+        Staging[🐘 PostgreSQL RDS<br/>Staging Database]
+        ETL[⚡ Databricks ETL<br/>Clean & Validate]
+        Clean[💎 Clean Database<br/>Consolidated Data]
+        DQ[✅ Lambda Functions<br/>Quality Checker]
+        Dedup[🔍 Deduplication<br/>Engine]
+        Dashboard[📊 Grafana Dashboard<br/>Real-time Reports]
+        RME[👨‍💼 RM&E Analysts<br/>Monitoring Team]
+        Feedback[🔄 JSON Feedback<br/>Generator]
+
+        API --> Flask
+        Flask --> Staging
+        Staging --> ETL
+        ETL --> DQ
+        DQ --> Dedup
+        Dedup --> Clean
+        Clean --> Dashboard
+        Dashboard --> RME
+        DQ -.->|Errors Found| Feedback
+    end
+
+    subgraph "STAGE 3: NDW 'Master Assembler'"
+        Intake[🚪 NDW Gateway<br/>Clean Data Only]
+        NDW[🍃 MongoDB Atlas<br/>National Data Warehouse]
+        Meditech[🧪 Meditech API<br/>Lab Results]
+        LabRepo[🔬 National Lab<br/>Repository]
+        Linkage[🔗 AWS Analytics<br/>Master Linkage Engine]
+        Unified[🗄️ DynamoDB<br/>Unified Patient Records]
+        Analytics[📈 QuickSight<br/>National Dashboards]
+        Tableau[📊 Tableau<br/>Executive Reports]
+        Stakeholders[🏛️ MoHSS<br/>Leadership & Stakeholders]
+
+        Intake --> NDW
+        Meditech -.->|Lab Data API| LabRepo
+        LabRepo --> Linkage
+        NDW --> Linkage
+        Linkage --> Unified
+        Unified --> Analytics
+        Unified --> Tableau
+        Analytics --> Stakeholders
+        Tableau --> Stakeholders
+    end
+
+    %% Main data flows between stages
+    Agent ==>|🔒 Secure Transfer<br/>Incremental Data| API
+    Clean ==>|✅ Clean Validated Data| Intake
+
+    %% Feedback loops
+    Feedback -.->|📋 DQ Report| Agent
+    Agent -.->|⚠️ Error Reports| Staff
+    Unified -.->|📊 Enhanced Feedback<br/>with Lab Data| Feedback
+
+    %% Monitoring connections
+    Monitor[📡 Pipeline Health<br/>Monitoring System]
+    API -.-> Monitor
+    ETL -.-> Monitor
+    Linkage -.-> Monitor
+
+    %% Style definitions
+    classDef facility fill:#E8F5E9,stroke:#4CAF50,stroke-width:3px,color:#000
+    classDef rme fill:#E3F2FD,stroke:#1976D2,stroke-width:3px,color:#000
+    classDef ndw fill:#FFF3E0,stroke:#F57C00,stroke-width:3px,color:#000
+    classDef feedback fill:#FCE4EC,stroke:#C2185B,stroke-width:2px,color:#000
+    classDef monitoring fill:#F3E5F5,stroke:#7B1FA2,stroke-width:2px,color:#000
+
+    %% Apply styles to nodes
+    class QE,EDT,Agent,Staff facility
+    class API,Flask,Staging,ETL,Clean,DQ,Dedup,Dashboard,RME,Feedback rme
+    class Intake,NDW,Meditech,LabRepo,Linkage,Unified,Analytics,Tableau,Stakeholders ndw
+    class Monitor monitoring
+                </pre>
+            </div>
+
+            <div class="info-section">
+                <h3>📊 Key Features</h3>
+                <p>
+                    • <strong>Real-time Processing:</strong> From 2-week delays to near-real-time data flow<br>
+                    • <strong>Quality Assurance:</strong> Automated validation with feedback loops to facilities<br>
+                    • <strong>Comprehensive Integration:</strong> Unified patient records with lab data from Meditech<br>
+                    • <strong>Scalable Architecture:</strong> Cloud-native solution using AWS services<br>
+                    • <strong>Complete Visibility:</strong> End-to-end monitoring and analytics dashboards
+                </p>
+            </div>
+
+            <div class="info-section">
+                <h3>🔧 Technology Stack</h3>
+                <p>
+                    <strong>Data Sources:</strong> Quantum ePMS, EDT Systems<br>
+                    <strong>ETL & Processing:</strong> Python, Databricks, AWS Lambda<br>
+                    <strong>Databases:</strong> PostgreSQL (RDS), MongoDB Atlas, DynamoDB<br>
+                    <strong>APIs & Integration:</strong> Flask, AWS API Gateway, Meditech API<br>
+                    <strong>Analytics & Visualization:</strong> Grafana, AWS QuickSight, Tableau<br>
+                    <strong>Monitoring:</strong> Real-time pipeline health monitoring
+                </p>
+            </div>
+
+            <div class="info-section">
+                <h3>🎯 Implementation Benefits</h3>
+                <p>
+                    • <strong>Holistic Patient View:</strong> Complete patient journey through linked facility and lab data<br>
+                    • <strong>Improved Data Quality:</strong> Automated validation reduces errors by 80%<br>
+                    • <strong>Enhanced Security:</strong> Encrypted, incremental transfers replace risky bulk uploads<br>
+                    • <strong>Resource Efficiency:</strong> Automation frees staff for high-value analysis<br>
+                    • <strong>Proactive Healthcare:</strong> Real-time insights enable better decision-making
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

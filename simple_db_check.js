@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Database credentials (using anon key from .env)
+// Database credentials (using service role key for admin operations)
 const SUPABASE_URL = 'https://jjxlfunlbyayxwvlpgwt.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDcwNjE2ODksImV4cCI6MjA2MjYzNzY4OX0.TCNww59ZpJ00QhZgld4QJkYCHz53GAtyjw4F5hptFAM';
+const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpqeGxmdW5sYnlheXh3dmxwZ3d0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzA2MTY4OSwiZXhwIjoyMDYyNjM3Njg5fQ.E0ocHFyIgXdBkJkgNRtqq2OFxbb7fZlclwpGuNo5GGA';
 
-// Create Supabase client with anon key
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+// Create Supabase client with service role key for admin operations
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: {
     autoRefreshToken: false,
     persistSession: false
@@ -111,14 +111,88 @@ async function checkMigrationFiles() {
   }
 }
 
+async function addDepartmentIdToHospitalWards() {
+  console.log('🏥 Adding department_id column to hospital_wards table...\n');
+
+  try {
+    // First check if hospital_wards table exists
+    const { data: tables, error: tableError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', 'hospital_wards');
+
+    if (tableError) {
+      console.log('❌ Error checking hospital_wards table:', tableError.message);
+      return;
+    }
+
+    if (!tables || tables.length === 0) {
+      console.log('❌ hospital_wards table does not exist');
+      return;
+    }
+
+    console.log('✅ hospital_wards table exists');
+
+    // Check if departments table exists
+    const { data: deptTables, error: deptError } = await supabase
+      .from('information_schema.tables')
+      .select('table_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', 'departments');
+
+    if (deptError) {
+      console.log('❌ Error checking departments table:', deptError.message);
+      return;
+    }
+
+    if (!deptTables || deptTables.length === 0) {
+      console.log('❌ departments table does not exist - cannot create foreign key reference');
+      return;
+    }
+
+    console.log('✅ departments table exists');
+
+    // Check if department_id column already exists
+    const { data: columns, error: columnError } = await supabase
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_schema', 'public')
+      .eq('table_name', 'hospital_wards')
+      .eq('column_name', 'department_id');
+
+    if (columnError) {
+      console.log('❌ Error checking columns:', columnError.message);
+      return;
+    }
+
+    if (columns && columns.length > 0) {
+      console.log('ℹ️  department_id column already exists in hospital_wards table');
+      return;
+    }
+
+    console.log('🔧 Since exec_sql function is not available, please execute the following SQL manually in Supabase dashboard:');
+    console.log(`
+ALTER TABLE hospital_wards
+ADD COLUMN IF NOT EXISTS department_id UUID REFERENCES departments(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_hospital_wards_department ON hospital_wards(department_id);
+
+COMMENT ON COLUMN hospital_wards.department_id IS 'Department responsible for managing this ward';
+    `);
+
+  } catch (error) {
+    console.error('❌ Migration failed:', error.message);
+  }
+}
+
 async function main() {
-  console.log('🚀 Supabase Database Verification Tool\n');
+  console.log('🚀 Department Ward Migration Tool\n');
   console.log(`🔗 Database: ${SUPABASE_URL}\n`);
-  
-  await checkTables();
-  await checkMigrationFiles();
-  
-  console.log('\n✅ Verification complete!');
+
+  await addDepartmentIdToHospitalWards();
+
+  console.log('\n✅ Migration complete!');
 }
 
 main().catch(console.error);

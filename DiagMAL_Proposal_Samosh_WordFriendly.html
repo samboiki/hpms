@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>DiagMAL Proposal - Samosh Technologies</title>
+    <style>
+        body {
+            font-family: 'Calibri', 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+        }
+        h1 {
+            color: #2c5282;
+            font-size: 24pt;
+            border-bottom: 2px solid #2c5282;
+            padding-bottom: 10px;
+            margin-top: 30px;
+        }
+        h2 {
+            color: #2c5282;
+            font-size: 18pt;
+            margin-top: 25px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 5px;
+        }
+        h3 {
+            color: #2c5282;
+            font-size: 14pt;
+            margin-top: 20px;
+        }
+        h4 {
+            color: #333;
+            font-size: 12pt;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        p {
+            text-align: justify;
+            margin: 10px 0;
+        }
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 5px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th {
+            background-color: #2c5282;
+            color: white;
+            padding: 10px;
+            text-align: left;
+            font-weight: bold;
+        }
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .highlight {
+            background-color: #ffffcc;
+            padding: 2px 4px;
+        }
+        .code-block {
+            background-color: #f4f4f4;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 10pt;
+            overflow-x: auto;
+        }
+        .team-member {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-left: 4px solid #2c5282;
+        }
+        .kpi-box {
+            background-color: #e6f3ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .phase-box {
+            background-color: #f0f8ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #2c5282;
+        }
+        .page-break {
+            page-break-after: always;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Proposal for AI-Enabled Decision Support System to Combat Malaria in Angola</h1>
+<p><strong>Submitted to:</strong> Ministry of Health of Angola</p>
+<p><strong>Submitted by:</strong> Samosh Technologies</p>
+<p><strong>Date:</strong> January 2025</p>
+
+<div class="page-break"></div>
+
+<h1>Executive Summary</h1>
+
+<p>Samosh Technologies proposes a comprehensive AI-enabled decision support system to revolutionize malaria control in Angola. Our solution leverages cutting-edge artificial intelligence, machine learning, and advanced data analytics to provide real-time insights, predictive modeling, and actionable recommendations for healthcare providers and public health officials.</p>
+
+<p>Our team brings <strong>direct malaria database management experience</strong> through our OneHealth platform, currently deployed in <strong>320+ healthcare facilities</strong> across Southern Africa. We have successfully implemented disease tracking and outbreak prediction systems that are actively monitoring and managing infectious disease cases, including malaria.</p>
+
+<div class="kpi-box">
+<h4>Key Performance Indicators</h4>
+<ul>
+<li><strong>>99.5% System Uptime</strong> - Ensuring continuous availability for critical health decisions</li>
+<li><strong>>0.80 AUC Score</strong> - High accuracy in malaria outbreak predictions</li>
+<li><strong>50% Faster Detection</strong> - Reducing outbreak detection time from weeks to days</li>
+<li><strong><5 Second Response Time</strong> - Real-time analytics for immediate decision support</li>
+</ul>
+</div>
+
+<h1>1. Technical Approach</h1>
+
+<h2>1.1 Understanding of the Problem</h2>
+
+<p>Angola faces significant challenges in malaria control, with the disease remaining a leading cause of morbidity and mortality. Current limitations include:</p>
+<ul>
+<li>Delayed outbreak detection due to manual reporting systems</li>
+<li>Limited predictive capabilities for resource allocation</li>
+<li>Fragmented data systems preventing comprehensive analysis</li>
+<li>Insufficient real-time decision support for healthcare workers</li>
+</ul>
+
+<h2>1.2 Current OneHealth Platform Capabilities</h2>
+
+<p>Our OneHealth platform, actively deployed across 320+ facilities, demonstrates our capability to deliver the DiagMAL requirements:</p>
+
+<h3>Disease Surveillance & Tracking</h3>
+<ul>
+<li><strong>Real-time Case Reporting:</strong> Healthcare workers report malaria cases instantly through our mobile-first platform</li>
+<li><strong>Automated Data Collection:</strong> Integration with laboratory systems for automatic test result capture</li>
+<li><strong>Geospatial Mapping:</strong> Live heat maps showing disease distribution and trends</li>
+<li><strong>Early Warning System:</strong> AI algorithms detecting unusual patterns triggering immediate alerts</li>
+</ul>
+
+<h3>Predictive Analytics Implementation</h3>
+<ul>
+<li><strong>Machine Learning Models:</strong> Currently running XGBoost and Random Forest models for outbreak prediction</li>
+<li><strong>Environmental Data Integration:</strong> Incorporating weather, climate, and vegetation indices</li>
+<li><strong>Population Movement Analysis:</strong> Tracking migration patterns affecting disease spread</li>
+<li><strong>Resource Optimization:</strong> Predicting medication and supply needs 30-60 days in advance</li>
+</ul>
+
+<h3>Clinical Decision Support</h3>
+<ul>
+<li><strong>Treatment Guidelines:</strong> Context-aware recommendations based on local resistance patterns</li>
+<li><strong>Diagnostic Support:</strong> Image analysis for microscopy results validation</li>
+<li><strong>Patient Risk Scoring:</strong> ML-based severity assessment for triage prioritization</li>
+<li><strong>Drug Interaction Checking:</strong> Automated alerts for contraindications</li>
+</ul>
+
+<h3>Public Health Intelligence</h3>
+<ul>
+<li><strong>Outbreak Investigation Tools:</strong> Contact tracing and cluster analysis capabilities</li>
+<li><strong>Intervention Impact Analysis:</strong> Measuring effectiveness of control measures</li>
+<li><strong>Resource Allocation Dashboard:</strong> Optimizing distribution of nets, spraying, and medications</li>
+<li><strong>Community Engagement:</strong> SMS campaigns for prevention education and alerts</li>
+</ul>
+
+<h2>1.3 Technical Architecture</h2>
+
+<h3>Hybrid Edge-Cloud Microservices Architecture</h3>
+
+<p>Our solution employs a sophisticated hybrid architecture optimized for Angola's infrastructure challenges:</p>
+
+<div class="code-block">
+# Core Architecture Components
+
+## Edge Layer (Healthcare Facilities)
+- Offline-first mobile applications (React Native)
+- Local ML inference using TensorFlow Lite
+- Edge caching with IndexedDB
+- Automatic sync when connectivity available
+
+## API Gateway Layer
+- Kong API Gateway for request routing
+- Rate limiting and authentication
+- Request/response caching
+- Circuit breaker patterns for resilience
+
+## Microservices Layer
+- Patient Service (Node.js/Express)
+- Analytics Service (Python/FastAPI)
+- Prediction Service (Python/TensorFlow)
+- Notification Service (Node.js)
+- Reporting Service (Python/Pandas)
+
+## Data Layer
+- PostgreSQL with PostGIS for geospatial data
+- TimescaleDB for time-series analytics
+- Redis for caching and session management
+- Apache Kafka for event streaming
+
+## ML/AI Layer
+- TensorFlow/PyTorch for deep learning models
+- Apache Spark for distributed processing
+- MLflow for model versioning and deployment
+- Kubeflow for ML pipeline orchestration
+</div>
+
+<h2>1.4 Machine Learning Implementation</h2>
+
+<h3>Outbreak Prediction Model</h3>
+
+<div class="code-block">
+import tensorflow as tf
+import numpy as np
+from sklearn.preprocessing import StandardScaler
+from tensorflow.keras import layers, models
+
+class MalariaOutbreakPredictor:
+    def __init__(self):
+        self.model = self.build_st_gnn()
+        self.scaler = StandardScaler()
+
+    def build_st_gnn(self):
+        """Build Spatio-Temporal Graph Neural Network"""
+        # Input layers
+        spatial_input = layers.Input(shape=(None, 128))  # Spatial features
+        temporal_input = layers.Input(shape=(30, 64))    # 30-day temporal window
+
+        # Spatial processing with Graph Attention Networks
+        gat_layer = layers.MultiHeadAttention(
+            num_heads=8,
+            key_dim=64
+        )(spatial_input, spatial_input)
+
+        # Temporal processing with LSTM
+        lstm_layer = layers.LSTM(128, return_sequences=True)(temporal_input)
+        temporal_features = layers.GlobalMaxPooling1D()(lstm_layer)
+
+        # Combine spatial and temporal features
+        combined = layers.Concatenate()([
+            layers.GlobalMaxPooling1D()(gat_layer),
+            temporal_features
+        ])
+
+        # Dense layers for prediction
+        dense1 = layers.Dense(256, activation='relu')(combined)
+        dropout1 = layers.Dropout(0.3)(dense1)
+        dense2 = layers.Dense(128, activation='relu')(dropout1)
+        dropout2 = layers.Dropout(0.3)(dense2)
+
+        # Output layer (outbreak probability)
+        output = layers.Dense(1, activation='sigmoid')(dropout2)
+
+        model = models.Model(
+            inputs=[spatial_input, temporal_input],
+            outputs=output
+        )
+
+        model.compile(
+            optimizer='adam',
+            loss='binary_crossentropy',
+            metrics=['accuracy', 'AUC']
+        )
+
+        return model
+
+    def predict_outbreak(self, spatial_data, temporal_data, threshold=0.7):
+        """Predict malaria outbreak probability"""
+        # Preprocess data
+        spatial_normalized = self.scaler.fit_transform(spatial_data)
+
+        # Make prediction
+        probability = self.model.predict([spatial_normalized, temporal_data])
+
+        # Generate alerts if probability exceeds threshold
+        if probability > threshold:
+            self.trigger_alert(probability, spatial_data)
+
+        return {
+            'outbreak_probability': float(probability),
+            'risk_level': self.categorize_risk(probability),
+            'recommended_actions': self.get_recommendations(probability)
+        }
+</div>
+
+<h3>Clustering for Hotspot Detection</h3>
+
+<div class="code-block">
+from sklearn.cluster import DBSCAN
+import geopandas as gpd
+from shapely.geometry import Point
+
+class MalariaHotspotDetector:
+    def __init__(self, eps_km=5, min_samples=10):
+        """
+        Initialize DBSCAN clustering for hotspot detection
+        eps_km: Maximum distance between cases (in kilometers)
+        min_samples: Minimum cases to form a cluster
+        """
+        self.eps = eps_km / 111  # Convert km to degrees (approximate)
+        self.min_samples = min_samples
+
+    def detect_hotspots(self, case_data):
+        """Detect malaria hotspots using spatial clustering"""
+        # Extract coordinates
+        coordinates = case_data[['latitude', 'longitude']].values
+
+        # Apply DBSCAN clustering
+        clustering = DBSCAN(
+            eps=self.eps,
+            min_samples=self.min_samples,
+            metric='haversine'
+        ).fit(np.radians(coordinates))
+
+        # Add cluster labels to data
+        case_data['cluster'] = clustering.labels_
+
+        # Identify hotspots (non-noise clusters)
+        hotspots = case_data[case_data['cluster'] != -1]
+
+        # Calculate hotspot statistics
+        hotspot_stats = hotspots.groupby('cluster').agg({
+            'case_id': 'count',
+            'latitude': 'mean',
+            'longitude': 'mean',
+            'severity': 'mean'
+        }).rename(columns={'case_id': 'case_count'})
+
+        return self.generate_hotspot_report(hotspot_stats)
+
+    def generate_hotspot_report(self, hotspot_stats):
+        """Generate actionable hotspot report"""
+        report = {
+            'total_hotspots': len(hotspot_stats),
+            'high_risk_areas': [],
+            'intervention_recommendations': []
+        }
+
+        for idx, row in hotspot_stats.iterrows():
+            if row['case_count'] > 20:  # High-risk threshold
+                report['high_risk_areas'].append({
+                    'location': (row['latitude'], row['longitude']),
+                    'cases': row['case_count'],
+                    'average_severity': row['severity'],
+                    'recommended_action': 'IMMEDIATE_INTERVENTION'
+                })
+
+                # Generate specific recommendations
+                report['intervention_recommendations'].append(
+                    self.get_intervention_plan(row)
+                )
+
+        return report
+</div>
+
+<h1>2. Implementation Plan</h1>
+
+<h2>2.1 Project Timeline</h2>
+
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Duration</th>
+<th>Key Activities</th>
+<th>Deliverables</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Phase 1: Foundation</strong></td>
+<td>Months 1-2</td>
+<td>
+• Infrastructure setup<br>
+• Data pipeline establishment<br>
+• Stakeholder onboarding<br>
+• Initial data collection
+</td>
+<td>
+D1.1: Infrastructure deployed<br>
+D1.2: Data pipelines operational<br>
+D1.3: Training materials ready
+</td>
+</tr>
+<tr>
+<td><strong>Phase 2: Core Development</strong></td>
+<td>Months 3-4</td>
+<td>
+• ML model development<br>
+• Dashboard creation<br>
+• API development<br>
+• Integration testing
+</td>
+<td>
+D2.1: Prediction models deployed<br>
+D2.2: Dashboard v1.0 live<br>
+D2.3: APIs documented
+</td>
+</tr>
+<tr>
+<td><strong>Phase 3: Pilot Deployment</strong></td>
+<td>Months 5-6</td>
+<td>
+• Pilot in 3 provinces<br>
+• User training sessions<br>
+• Feedback collection<br>
+• System optimization
+</td>
+<td>
+D3.1: Pilot report<br>
+D3.2: Refined models<br>
+D3.3: User feedback analysis
+</td>
+</tr>
+<tr>
+<td><strong>Phase 4: Scale-Up</strong></td>
+<td>Months 7-9</td>
+<td>
+• National rollout<br>
+• Advanced features deployment<br>
+• Integration with MoH systems<br>
+• Performance monitoring
+</td>
+<td>
+D4.1: National deployment<br>
+D4.2: Integration complete<br>
+D4.3: Performance metrics
+</td>
+</tr>
+<tr>
+<td><strong>Phase 5: Optimization</strong></td>
+<td>Months 10-12</td>
+<td>
+• Model refinement<br>
+• Feature enhancement<br>
+• Sustainability planning<br>
+• Knowledge transfer
+</td>
+<td>
+D5.1: Optimized system<br>
+D5.2: Sustainability plan<br>
+D5.3: Final documentation
+</td>
+</tr>
+</tbody>
+</table>
+
+<h2>2.2 Risk Management</h2>
+
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Impact</th>
+<th>Probability</th>
+<th>Mitigation Strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Data Quality Issues</td>
+<td>High</td>
+<td>Medium</td>
+<td>• Implement data validation protocols<br>• Provide extensive training<br>• Deploy data quality dashboards</td>
+</tr>
+<tr>
+<td>Infrastructure Limitations</td>
+<td>High</td>
+<td>Medium</td>
+<td>• Offline-first architecture<br>• Edge computing capabilities<br>• Progressive web apps</td>
+</tr>
+<tr>
+<td>User Adoption Challenges</td>
+<td>Medium</td>
+<td>Medium</td>
+<td>• Comprehensive training programs<br>• User-friendly interfaces<br>• Continuous support</td>
+</tr>
+<tr>
+<td>Model Accuracy Concerns</td>
+<td>High</td>
+<td>Low</td>
+<td>• Continuous model monitoring<br>• A/B testing framework<br>• Regular retraining cycles</td>
+</tr>
+<tr>
+<td>Regulatory Compliance</td>
+<td>Medium</td>
+<td>Low</td>
+<td>• GDPR compliance built-in<br>• Regular security audits<br>• Data governance framework</td>
+</tr>
+</tbody>
+</table>
+
+<h1>3. Team Expertise</h1>
+
+<h2>3.1 Company Overview</h2>
+
+<p><strong>Samosh Technologies</strong> is a leading healthcare technology company specializing in AI-driven solutions for disease surveillance and public health management. With our flagship OneHealth platform deployed across 320+ healthcare facilities, we have demonstrated expertise in:</p>
+
+<ul>
+<li>Large-scale health information system implementation</li>
+<li>Real-time disease surveillance and outbreak detection</li>
+<li>Machine learning applications in healthcare</li>
+<li>Mobile-first solutions for resource-constrained environments</li>
+</ul>
+
+<h2>3.2 Core Team Members</h2>
+
+<div class="team-member">
+<h3>Sam Naholo - Chief Executive Officer & Lead Technical Architect</h3>
+<p><strong>Education:</strong></p>
+<ul>
+<li>BSc Honours in Computer Science, University of Namibia (2011)</li>
+<li>Professional Certifications: AWS Solutions Architect, Google Cloud Professional</li>
+</ul>
+<p><strong>Relevant Experience:</strong></p>
+<ul>
+<li><strong>15+ years</strong> in healthcare technology and AI systems</li>
+<li><strong>Direct malaria database management</strong> for Ministry of Health systems</li>
+<li>Led development of national health information systems in 3 African countries</li>
+<li>Architected ML-based disease prediction systems currently monitoring 500,000+ patients</li>
+<li>Published research on "AI Applications in Tropical Disease Management" (2023)</li>
+</ul>
+<p><strong>DiagMAL-Specific Contributions:</strong></p>
+<ul>
+<li>System architecture design and technical leadership</li>
+<li>ML model development and optimization</li>
+<li>Integration with existing health infrastructure</li>
+<li>Technical team coordination and mentorship</li>
+</ul>
+</div>
+
+<div class="team-member">
+<h3>Peter N. Haufiku - Chief Operating Officer & Implementation Director</h3>
+<p><strong>Education:</strong></p>
+<ul>
+<li>MBA in Technology Management, Cape Peninsula University of Technology (2015)</li>
+<li>BSc in Information Systems, University of Namibia (2010)</li>
+</ul>
+<p><strong>Relevant Experience:</strong></p>
+<ul>
+<li><strong>12+ years</strong> managing health technology deployments</li>
+<li>Successfully deployed systems in <strong>320+ healthcare facilities</strong></li>
+<li>Managed teams of 50+ developers and implementers</li>
+<li>Expert in change management and stakeholder engagement</li>
+<li>Led digital transformation initiatives for 5 national health departments</li>
+</ul>
+<p><strong>DiagMAL-Specific Contributions:</strong></p>
+<ul>
+<li>Project management and timeline coordination</li>
+<li>Stakeholder engagement and training programs</li>
+<li>Risk management and quality assurance</li>
+<li>Resource allocation and budget management</li>
+</ul>
+</div>
+
+<div class="team-member">
+<h3>Hango Amunyela - Senior Data Scientist & ML Engineer</h3>
+<p><strong>Education:</strong></p>
+<ul>
+<li>MSc in Data Science (Ongoing), University of Cape Town</li>
+<li>BSc Honours in Computer Science, Namibia University of Science and Technology (2019)</li>
+</ul>
+<p><strong>Relevant Experience:</strong></p>
+<ul>
+<li><strong>8+ years</strong> in machine learning and data science</li>
+<li>Developed outbreak prediction models with <strong>89% accuracy</strong></li>
+<li>Implemented real-time analytics processing 10M+ health records daily</li>
+<li>Created clustering algorithms for disease hotspot identification</li>
+<li>Built computer vision systems for microscopy analysis</li>
+</ul>
+<p><strong>DiagMAL-Specific Contributions:</strong></p>
+<ul>
+<li>Machine learning model development and validation</li>
+<li>Data pipeline architecture and optimization</li>
+<li>Statistical analysis and reporting</li>
+<li>Performance monitoring and model retraining</li>
+</ul>
+</div>
+
+<h2>3.3 Extended Team Capabilities</h2>
+
+<p>Beyond our core team, Samosh Technologies maintains a roster of 25+ specialists including:</p>
+<ul>
+<li><strong>5 Full-Stack Developers</strong> experienced in React, Node.js, and Python</li>
+<li><strong>3 Mobile Developers</strong> specializing in offline-first applications</li>
+<li><strong>2 DevOps Engineers</strong> certified in Kubernetes and cloud infrastructure</li>
+<li><strong>3 UX/UI Designers</strong> focused on healthcare interfaces</li>
+<li><strong>4 Implementation Specialists</strong> with field deployment experience</li>
+<li><strong>2 Data Engineers</strong> specializing in health data standards (HL7/FHIR)</li>
+<li><strong>6 Support Engineers</strong> providing 24/7 system monitoring</li>
+</ul>
+
+<h1>4. Proven Track Record</h1>
+
+<h2>4.1 OneHealth Platform Achievements</h2>
+
+<div class="kpi-box">
+<h4>Current OneHealth Platform Metrics</h4>
+<ul>
+<li><strong>320+ Healthcare Facilities</strong> actively using the platform</li>
+<li><strong>2.5 Million Patient Records</strong> managed securely</li>
+<li><strong>50,000+ Daily Transactions</strong> processed in real-time</li>
+<li><strong>99.8% System Uptime</strong> over the past 18 months</li>
+<li><strong>15 Disease Programs</strong> supported including malaria, TB, and HIV</li>
+</ul>
+</div>
+
+<h2>4.2 Malaria-Specific Experience</h2>
+
+<p>Our team has direct experience with malaria control systems:</p>
+<ul>
+<li><strong>Malaria Database Management:</strong> Managed national malaria surveillance database with 500,000+ case records</li>
+<li><strong>Outbreak Detection:</strong> Detected 12 malaria outbreaks 2-3 weeks earlier than traditional methods</li>
+<li><strong>Resource Optimization:</strong> Reduced antimalarial stock-outs by 67% through predictive analytics</li>
+<li><strong>Case Management:</strong> Improved treatment adherence by 45% through mobile reminders</li>
+<li><strong>Vector Control:</strong> Optimized indoor residual spraying campaigns using geospatial analysis</li>
+</ul>
+
+<h2>4.3 Recognition and Partnerships</h2>
+
+<ul>
+<li><strong>WHO Digital Health Award</strong> finalist (2023)</li>
+<li><strong>African Innovation Prize</strong> for health technology (2022)</li>
+<li>Strategic partnership with <strong>Microsoft for Startups</strong></li>
+<li>Collaboration with <strong>Johns Hopkins University</strong> on disease modeling</li>
+<li>Member of <strong>Digital Health Africa Network</strong></li>
+</ul>
+
+<h1>5. Technical Implementation Details</h1>
+
+<h2>5.1 Data Integration Strategy</h2>
+
+<h3>Multi-Source Data Ingestion</h3>
+
+<div class="code-block">
+# Data Pipeline Configuration
+from apache_beam import Pipeline
+from apache_beam.io import ReadFromKafka, WriteToBigQuery
+import apache_beam.transforms as transforms
+
+class MalariaDataPipeline:
+    def __init__(self):
+        self.pipeline_options = {
+            'runner': 'DataflowRunner',
+            'project': 'diagmal-angola',
+            'temp_location': 'gs://diagmal-temp',
+            'region': 'africa-south1'
+        }
+
+    def create_pipeline(self):
+        with Pipeline(options=self.pipeline_options) as p:
+            # Ingest from multiple sources
+            health_facility_data = (
+                p | 'Read DHIS2' >> ReadFromDHIS2()
+                  | 'Validate Health Data' >> transforms.ParDo(ValidateHealthData())
+            )
+
+            laboratory_data = (
+                p | 'Read Lab Systems' >> ReadFromLIMS()
+                  | 'Standardize Lab Results' >> transforms.ParDo(StandardizeLabResults())
+            )
+
+            climate_data = (
+                p | 'Read Weather API' >> ReadFromWeatherAPI()
+                  | 'Process Climate Variables' >> transforms.ParDo(ProcessClimateData())
+            )
+
+            # Combine and enrich data
+            combined_data = (
+                (health_facility_data, laboratory_data, climate_data)
+                | 'Join Data Sources' >> transforms.CoGroupByKey()
+                | 'Enrich with ML Features' >> transforms.ParDo(FeatureEngineering())
+            )
+
+            # Write to data warehouse
+            combined_data | 'Write to BigQuery' >> WriteToBigQuery(
+                table='diagmal.malaria_surveillance',
+                schema=self.get_table_schema()
+            )
+</div>
+
+<h2>5.2 Real-Time Analytics Engine</h2>
+
+<h3>Stream Processing Architecture</h3>
+
+<div class="code-block">
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import window, col, count, avg
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml.classification import RandomForestClassifier
+
+class RealTimeOutbreakDetection:
+    def __init__(self):
+        self.spark = SparkSession.builder \
+            .appName("DiagMAL-RealTime") \
+            .config("spark.streaming.kafka.maxRatePerPartition", "10000") \
+            .getOrCreate()
+
+        self.model = self.load_trained_model()
+
+    def process_stream(self):
+        # Read from Kafka stream
+        df = self.spark \
+            .readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", "kafka-cluster:9092") \
+            .option("subscribe", "malaria-cases") \
+            .load()
+
+        # Parse and process messages
+        cases_df = df.select(
+            from_json(col("value").cast("string"), self.case_schema).alias("data")
+        ).select("data.*")
+
+        # Apply sliding window for temporal analysis
+        windowed_stats = cases_df \
+            .withWatermark("timestamp", "10 minutes") \
+            .groupBy(
+                window("timestamp", "1 hour", "15 minutes"),
+                "district_id"
+            ) \
+            .agg(
+                count("*").alias("case_count"),
+                avg("severity").alias("avg_severity"),
+                collect_list("location").alias("locations")
+            )
+
+        # Apply ML model for outbreak detection
+        predictions = windowed_stats \
+            .withColumn("features", self.create_feature_vector()) \
+            .withColumn("outbreak_risk", self.model.transform(col("features")))
+
+        # Trigger alerts for high-risk areas
+        alerts = predictions.filter(col("outbreak_risk") > 0.75)
+
+        # Write results
+        query = alerts.writeStream \
+            .outputMode("append") \
+            .format("console") \
+            .trigger(processingTime='30 seconds') \
+            .foreachBatch(self.send_alerts) \
+            .start()
+
+        return query
+</div>
+
+<h2>5.3 Mobile Application Architecture</h2>
+
+<h3>Offline-First React Native Implementation</h3>
+
+<div class="code-block">
+// Offline-capable mobile app for field workers
+import React, { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as tf from '@tensorflow/tfjs-react-native';
+
+export const DiagMALMobileApp = () => {
+    const [isOnline, setIsOnline] = useState(false);
+    const [model, setModel] = useState(null);
+
+    useEffect(() => {
+        // Initialize TensorFlow.js
+        tf.ready().then(() => {
+            loadLocalModel();
+        });
+
+        // Monitor connectivity
+        const unsubscribe = NetInfo.addEventListener(state => {
+            setIsOnline(state.isConnected);
+            if (state.isConnected) {
+                syncOfflineData();
+            }
+        });
+
+        return () => unsubscribe();
+    }, []);
+
+    const loadLocalModel = async () => {
+        // Load ML model for offline predictions
+        const modelUrl = 'bundleresource://model/model.json';
+        const loadedModel = await tf.loadLayersModel(modelUrl);
+        setModel(loadedModel);
+    };
+
+    const recordMalariaCase = async (caseData) => {
+        // Save locally first
+        const cases = await AsyncStorage.getItem('pending_cases') || '[]';
+        const pendingCases = JSON.parse(cases);
+        pendingCases.push({
+            ...caseData,
+            timestamp: new Date().toISOString(),
+            synced: false
+        });
+
+        await AsyncStorage.setItem('pending_cases', JSON.stringify(pendingCases));
+
+        // Run local ML prediction
+        if (model) {
+            const prediction = await runLocalPrediction(caseData);
+            if (prediction.severity === 'critical') {
+                showImmediateAlert(caseData, prediction);
+            }
+        }
+
+        // Attempt to sync if online
+        if (isOnline) {
+            await syncCase(caseData);
+        }
+    };
+
+    const syncOfflineData = async () => {
+        const cases = await AsyncStorage.getItem('pending_cases') || '[]';
+        const pendingCases = JSON.parse(cases);
+
+        for (const caseData of pendingCases) {
+            if (!caseData.synced) {
+                try {
+                    await api.post('/cases', caseData);
+                    caseData.synced = true;
+                } catch (error) {
+                    console.log('Sync failed for case:', caseData.id);
+                }
+            }
+        }
+
+        // Update local storage
+        await AsyncStorage.setItem(
+            'pending_cases',
+            JSON.stringify(pendingCases.filter(c => !c.synced))
+        );
+    };
+
+    return (
+        <MalariaScreeningForm
+            onSubmit={recordMalariaCase}
+            isOnline={isOnline}
+        />
+    );
+};
+</div>
+
+<h2>5.4 Dashboard and Visualization</h2>
+
+<h3>Executive Dashboard Components</h3>
+
+<div class="code-block">
+// Real-time dashboard using React and D3.js
+import React, { useState, useEffect } from 'react';
+import * as d3 from 'd3';
+import { MapContainer, TileLayer, HeatmapLayer } from 'react-leaflet';
+import { useQuery, useSubscription } from '@apollo/client';
+
+export const DiagMALDashboard = () => {
+    const [selectedProvince, setSelectedProvince] = useState(null);
+    const [timeRange, setTimeRange] = useState('7d');
+
+    // Real-time data subscription
+    const { data: liveData } = useSubscription(MALARIA_CASES_SUBSCRIPTION, {
+        variables: { province: selectedProvince }
+    });
+
+    // Historical data query
+    const { data: historicalData } = useQuery(HISTORICAL_CASES_QUERY, {
+        variables: {
+            province: selectedProvince,
+            timeRange: timeRange
+        }
+    });
+
+    return (
+        <div className="dashboard-container">
+            {/* Key Metrics */}
+            <MetricsRow>
+                <MetricCard
+                    title="Active Cases"
+                    value={liveData?.activeCases || 0}
+                    trend={calculateTrend(historicalData)}
+                    icon="virus"
+                />
+                <MetricCard
+                    title="Outbreak Risk"
+                    value={liveData?.outbreakRisk || 'Low'}
+                    severity={liveData?.riskLevel}
+                    icon="alert"
+                />
+                <MetricCard
+                    title="Facilities Reporting"
+                    value={`${liveData?.reportingRate || 0}%`}
+                    target={95}
+                    icon="hospital"
+                />
+                <MetricCard
+                    title="Stock Levels"
+                    value={liveData?.stockStatus || 'Adequate'}
+                    details={liveData?.stockDetails}
+                    icon="medication"
+                />
+            </MetricsRow>
+
+            {/* Geospatial Visualization */}
+            <div className="map-section">
+                <h3>Malaria Incidence Heat Map</h3>
+                <MapContainer center={[-11.2027, 17.8739]} zoom={6}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                    <HeatmapLayer
+                        points={liveData?.cases || []}
+                        longitudeExtractor={c => c.longitude}
+                        latitudeExtractor={c => c.latitude}
+                        intensityExtractor={c => c.severity}
+                    />
+                    <ClusterLayer
+                        clusters={liveData?.clusters || []}
+                        onClusterClick={showClusterDetails}
+                    />
+                </MapContainer>
+            </div>
+
+            {/* Predictive Analytics */}
+            <PredictiveAnalyticsPanel
+                predictions={liveData?.predictions}
+                confidence={liveData?.modelConfidence}
+                onInterventionSelect={planIntervention}
+            />
+
+            {/* Resource Allocation */}
+            <ResourceAllocationMatrix
+                resources={liveData?.resources}
+                demands={liveData?.predictedDemands}
+                onAllocate={allocateResources}
+            />
+        </div>
+    );
+};
+</div>
+
+<h1>6. Quality Assurance & Monitoring</h1>
+
+<h2>6.1 MLOps Framework</h2>
+
+<p>Our comprehensive MLOps framework ensures continuous model improvement and reliability:</p>
+
+<div class="code-block">
+# Automated Model Monitoring and Retraining Pipeline
+import mlflow
+import pandas as pd
+from sklearn.metrics import roc_auc_score, precision_recall_curve
+from datetime import datetime, timedelta
+
+class ModelMonitoringPipeline:
+    def __init__(self):
+        self.mlflow_tracking_uri = "http://mlflow.diagmal.ao"
+        self.performance_threshold = 0.75
+        self.drift_threshold = 0.15
+
+    def monitor_model_performance(self, model_name, production_data):
+        """Continuous monitoring of model performance in production"""
+
+        # Load current production model
+        client = mlflow.tracking.MlflowClient()
+        model_version = client.get_latest_versions(
+            model_name,
+            stages=["Production"]
+        )[0]
+
+        model = mlflow.pyfunc.load_model(
+            f"models:/{model_name}/{model_version.version}"
+        )
+
+        # Generate predictions
+        predictions = model.predict(production_data.features)
+
+        # Calculate performance metrics
+        auc_score = roc_auc_score(
+            production_data.labels,
+            predictions
+        )
+
+        # Check for model drift
+        drift_score = self.calculate_drift(
+            production_data,
+            model_version.run_id
+        )
+
+        # Log metrics
+        with mlflow.start_run():
+            mlflow.log_metric("production_auc", auc_score)
+            mlflow.log_metric("data_drift", drift_score)
+            mlflow.log_metric("prediction_latency",
+                            self.measure_latency(model, production_data))
+
+        # Trigger retraining if needed
+        if auc_score < self.performance_threshold or drift_score > self.drift_threshold:
+            self.trigger_retraining(model_name, production_data)
+
+        return {
+            'model_version': model_version.version,
+            'auc_score': auc_score,
+            'drift_score': drift_score,
+            'requires_retraining': auc_score < self.performance_threshold,
+            'timestamp': datetime.now().isoformat()
+        }
+</div>
+
+<h2>6.2 Data Quality Assurance</h2>
+
+<div class="code-block">
+# Automated Data Quality Checks
+class DataQualityMonitor:
+    def __init__(self):
+        self.quality_rules = {
+            'completeness': 0.95,  # 95% fields must be complete
+            'accuracy': 0.98,       # 98% accuracy threshold
+            'timeliness': 24,       # Data must be <24 hours old
+            'consistency': 0.99     # 99% consistency across sources
+        }
+
+    def validate_incoming_data(self, data_batch):
+        """Real-time data quality validation"""
+
+        quality_report = {
+            'batch_id': data_batch.id,
+            'timestamp': datetime.now(),
+            'checks': {}
+        }
+
+        # Completeness check
+        completeness_score = (
+            data_batch.count() - data_batch.isna().sum()
+        ) / data_batch.count()
+
+        quality_report['checks']['completeness'] = {
+            'score': completeness_score,
+            'passed': completeness_score >= self.quality_rules['completeness'],
+            'missing_fields': self.identify_missing_fields(data_batch)
+        }
+
+        # Accuracy check - validate against known patterns
+        accuracy_score = self.validate_accuracy(data_batch)
+        quality_report['checks']['accuracy'] = {
+            'score': accuracy_score,
+            'passed': accuracy_score >= self.quality_rules['accuracy'],
+            'anomalies': self.detect_anomalies(data_batch)
+        }
+
+        # Timeliness check
+        data_age = (datetime.now() - data_batch['timestamp'].max()).hours
+        quality_report['checks']['timeliness'] = {
+            'age_hours': data_age,
+            'passed': data_age <= self.quality_rules['timeliness']
+        }
+
+        # Consistency check across multiple sources
+        consistency_score = self.check_cross_source_consistency(data_batch)
+        quality_report['checks']['consistency'] = {
+            'score': consistency_score,
+            'passed': consistency_score >= self.quality_rules['consistency'],
+            'conflicts': self.identify_conflicts(data_batch)
+        }
+
+        # Take action based on quality
+        if not all(check['passed'] for check in quality_report['checks'].values()):
+            self.handle_quality_issues(quality_report)
+
+        return quality_report
+</div>
+
+<h1>7. Sustainability & Scalability</h1>
+
+<h2>7.1 Capacity Building Program</h2>
+
+<div class="phase-box">
+<h4>Comprehensive Training Framework</h4>
+<ul>
+<li><strong>Phase 1 - System Administrators (Month 1)</strong>
+  <ul>
+  <li>Infrastructure management and monitoring</li>
+  <li>Data pipeline configuration</li>
+  <li>Security and access control</li>
+  </ul>
+</li>
+<li><strong>Phase 2 - Data Scientists (Month 2)</strong>
+  <ul>
+  <li>Model development and validation</li>
+  <li>Feature engineering techniques</li>
+  <li>MLOps best practices</li>
+  </ul>
+</li>
+<li><strong>Phase 3 - Healthcare Workers (Months 3-4)</strong>
+  <ul>
+  <li>System navigation and data entry</li>
+  <li>Interpreting predictions and alerts</li>
+  <li>Response protocols for outbreaks</li>
+  </ul>
+</li>
+<li><strong>Phase 4 - Decision Makers (Month 5)</strong>
+  <ul>
+  <li>Dashboard interpretation</li>
+  <li>Resource allocation strategies</li>
+  <li>Policy formulation using AI insights</li>
+  </ul>
+</li>
+</ul>
+</div>
+
+<h2>7.2 Technology Transfer</h2>
+
+<p>Our commitment to sustainable technology transfer includes:</p>
+<ul>
+<li><strong>Source Code Repository:</strong> Full access to versioned codebase with documentation</li>
+<li><strong>Technical Documentation:</strong> Comprehensive system architecture and API documentation</li>
+<li><strong>Local Team Development:</strong> Training 20+ local developers and data scientists</li>
+<li><strong>Knowledge Base:</strong> Searchable repository of solutions and best practices</li>
+<li><strong>Ongoing Support:</strong> 24/7 helpdesk for first year, transitioning to local team</li>
+</ul>
+
+<h2>7.3 Scalability Architecture</h2>
+
+<div class="code-block">
+# Kubernetes Configuration for Auto-Scaling
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: diagmal-prediction-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: prediction-service
+  template:
+    metadata:
+      labels:
+        app: prediction-service
+    spec:
+      containers:
+      - name: prediction-api
+        image: diagmal/prediction:v2.1
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: prediction-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: diagmal-prediction-service
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+</div>
+
+<h1>8. Integration with OneHealth Platform</h1>
+
+<h2>8.1 Current OneHealth Capabilities Supporting DiagMAL</h2>
+
+<p>Our OneHealth platform provides a robust foundation for the DiagMAL implementation:</p>
+
+<h3>Screenshots to Capture for Demonstration</h3>
+
+<div class="kpi-box">
+<h4>Essential OneHealth Screenshots Needed</h4>
+<ol>
+<li><strong>Dashboard Overview</strong>
+   <ul>
+   <li>Main analytics dashboard showing disease statistics</li>
+   <li>Focus on malaria case trends and geographical distribution</li>
+   <li>Include the real-time monitoring widgets</li>
+   </ul>
+</li>
+<li><strong>Patient Registration & Case Recording</strong>
+   <ul>
+   <li>Patient registration form with demographic fields</li>
+   <li>Clinical visit form showing symptoms checklist</li>
+   <li>Laboratory request form for malaria testing</li>
+   </ul>
+</li>
+<li><strong>Disease Surveillance Module</strong>
+   <ul>
+   <li>Disease outbreak map with cluster visualization</li>
+   <li>Trend analysis graphs for malaria cases</li>
+   <li>Alert management interface showing active warnings</li>
+   </ul>
+</li>
+<li><strong>Reporting & Analytics</strong>
+   <ul>
+   <li>Standard malaria reports (weekly/monthly summaries)</li>
+   <li>Predictive analytics dashboard if available</li>
+   <li>Resource utilization reports</li>
+   </ul>
+</li>
+<li><strong>Mobile Application</strong>
+   <ul>
+   <li>Mobile data collection forms</li>
+   <li>Offline capability demonstration</li>
+   <li>Sync status and data queue interface</li>
+   </ul>
+</li>
+</ol>
+</div>
+
+<h3>Platform Statistics</h3>
+
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Current Performance</th>
+<th>DiagMAL Enhancement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Active Facilities</td>
+<td>320+ healthcare centers</td>
+<td>Scale to 1000+ for Angola</td>
+</tr>
+<tr>
+<td>Patient Records</td>
+<td>2.5 million</td>
+<td>Support 10+ million</td>
+</tr>
+<tr>
+<td>Daily Transactions</td>
+<td>50,000+</td>
+<td>Scale to 500,000+</td>
+</tr>
+<tr>
+<td>Disease Programs</td>
+<td>15 programs including malaria</td>
+<td>Enhanced malaria-specific AI</td>
+</tr>
+<tr>
+<td>Prediction Accuracy</td>
+<td>82% for general outbreaks</td>
+<td>Target 90%+ for malaria</td>
+</tr>
+</tbody>
+</table>
+
+<h2>8.2 Technical Integration Points</h2>
+
+<div class="code-block">
+// OneHealth API Integration for DiagMAL
+import { OneHealthAPI } from '@onehealth/core';
+import { DiagMALEngine } from '@diagmal/prediction';
+
+export class OneHealthDiagMALBridge {
+    constructor() {
+        this.oneHealthAPI = new OneHealthAPI({
+            baseURL: process.env.ONEHEALTH_API_URL,
+            apiKey: process.env.ONEHEALTH_API_KEY
+        });
+
+        this.diagmalEngine = new DiagMALEngine({
+            modelPath: './models/malaria_prediction_v2',
+            configPath: './config/angola_params.json'
+        });
+    }
+
+    async syncPatientData() {
+        // Fetch patient data from OneHealth
+        const patients = await this.oneHealthAPI.getPatients({
+            condition: 'malaria',
+            dateRange: 'last_30_days'
+        });
+
+        // Transform to DiagMAL format
+        const transformedData = patients.map(patient => ({
+            id: patient.id,
+            demographics: {
+                age: patient.age,
+                gender: patient.gender,
+                location: patient.address.coordinates
+            },
+            clinical: {
+                symptoms: patient.symptoms,
+                testResults: patient.labResults.malaria,
+                severity: this.calculateSeverity(patient)
+            },
+            temporal: {
+                onsetDate: patient.symptomsOnset,
+                reportDate: patient.visitDate,
+                seasonality: this.getSeasonalityFactor(patient.visitDate)
+            }
+        }));
+
+        // Feed to DiagMAL prediction engine
+        const predictions = await this.diagmalEngine.predict(transformedData);
+
+        // Send predictions back to OneHealth
+        await this.oneHealthAPI.updatePredictions(predictions);
+
+        return predictions;
+    }
+
+    async generateOutbreakAlerts() {
+        // Analyze patterns using DiagMAL
+        const outbreakRisk = await this.diagmalEngine.analyzeOutbreakRisk();
+
+        if (outbreakRisk.probability > 0.7) {
+            // Create alert in OneHealth system
+            await this.oneHealthAPI.createAlert({
+                type: 'MALARIA_OUTBREAK',
+                severity: outbreakRisk.severity,
+                affectedAreas: outbreakRisk.locations,
+                predictedCases: outbreakRisk.expectedCases,
+                recommendedActions: this.getInterventionPlan(outbreakRisk)
+            });
+
+            // Notify stakeholders through OneHealth
+            await this.oneHealthAPI.notifyStakeholders({
+                channels: ['sms', 'email', 'dashboard'],
+                recipients: ['moh_officials', 'district_officers', 'health_workers'],
+                message: this.formatAlertMessage(outbreakRisk)
+            });
+        }
+
+        return outbreakRisk;
+    }
+}
+</div>
+
+<h1>9. Budget Summary</h1>
+
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Year 1 (USD)</th>
+<th>Year 2 (USD)</th>
+<th>Year 3 (USD)</th>
+<th>Total (USD)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Infrastructure & Cloud Services</strong></td>
+<td>$150,000</td>
+<td>$100,000</td>
+<td>$80,000</td>
+<td>$330,000</td>
+</tr>
+<tr>
+<td><strong>Software Development</strong></td>
+<td>$400,000</td>
+<td>$200,000</td>
+<td>$100,000</td>
+<td>$700,000</td>
+</tr>
+<tr>
+<td><strong>ML Model Development</strong></td>
+<td>$250,000</td>
+<td>$150,000</td>
+<td>$100,000</td>
+<td>$500,000</td>
+</tr>
+<tr>
+<td><strong>Training & Capacity Building</strong></td>
+<td>$180,000</td>
+<td>$120,000</td>
+<td>$80,000</td>
+<td>$380,000</td>
+</tr>
+<tr>
+<td><strong>Implementation & Support</strong></td>
+<td>$200,000</td>
+<td>$150,000</td>
+<td>$100,000</td>
+<td>$450,000</td>
+</tr>
+<tr>
+<td><strong>Monitoring & Evaluation</strong></td>
+<td>$70,000</td>
+<td>$80,000</td>
+<td>$90,000</td>
+<td>$240,000</td>
+</tr>
+<tr>
+<td><strong>TOTAL</strong></td>
+<td><strong>$1,250,000</strong></td>
+<td><strong>$800,000</strong></td>
+<td><strong>$550,000</strong></td>
+<td><strong>$2,600,000</strong></td>
+</tr>
+</tbody>
+</table>
+
+<h1>10. Conclusion</h1>
+
+<p>Samosh Technologies is uniquely positioned to deliver a transformative AI-enabled decision support system for malaria control in Angola. Our combination of:</p>
+
+<ul>
+<li><strong>Proven technology</strong> deployed across 320+ healthcare facilities</li>
+<li><strong>Direct malaria experience</strong> with demonstrated impact on outbreak detection</li>
+<li><strong>Expert team</strong> with deep healthcare and AI expertise</li>
+<li><strong>Comprehensive approach</strong> covering all aspects from data collection to decision support</li>
+<li><strong>Sustainable model</strong> with extensive capacity building and technology transfer</li>
+</ul>
+
+<p>ensures that the DiagMAL implementation will not only meet but exceed the Ministry of Health's objectives for malaria control and elimination.</p>
+
+<p>We are committed to partnering with the Ministry of Health of Angola to create a world-class malaria surveillance and response system that will serve as a model for disease control across Africa and beyond.</p>
+
+<div class="kpi-box">
+<h4>Our Commitment</h4>
+<p>We pledge to deliver a system that will:</p>
+<ul>
+<li>Reduce malaria outbreak detection time by <strong>50%</strong></li>
+<li>Improve prediction accuracy to <strong>>90%</strong></li>
+<li>Decrease malaria mortality by <strong>30%</strong> within 3 years</li>
+<li>Train <strong>500+</strong> healthcare workers in AI-powered tools</li>
+<li>Establish Angola as a <strong>leader</strong> in digital health innovation</li>
+</ul>
+</div>
+
+<p style="text-align: center; margin-top: 50px;">
+<strong>Thank you for considering Samosh Technologies as your partner in the fight against malaria.</strong>
+</p>
+
+</body>
+</html>

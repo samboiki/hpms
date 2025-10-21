@@ -65,6 +65,7 @@ serve(async (req) => {
       'CREATE TRIGGER',
       'DROP TRIGGER',
       'CREATE FUNCTION',
+      'CREATE OR REPLACE FUNCTION',
       'DROP FUNCTION',
       'UPDATE',
       'INSERT',

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - A4 Compact</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#E8F5E9',
+                primaryTextColor: '#000',
+                primaryBorderColor: '#4CAF50',
+                lineColor: '#5e5e5e',
+                secondaryColor: '#E3F2FD',
+                tertiaryColor: '#FFF3E0',
+                fontSize: '14px'
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Health Information Data Pipeline</h1>
+
+        <pre class="mermaid">
+graph TD
+    subgraph S1["STAGE 1: Healthcare Facilities [263 Sites]"]
+        QE[Quantum ePMS<br/>Patient Data]
+        EDT[EDT<br/>Dispensing Tool]
+        Agent[Python ETL Agent<br/>Incremental Extract]
+        Staff[Facility Staff]
+
+        QE -.->|Extract New/Updated| Agent
+        EDT -.->|Extract New/Updated| Agent
+    end
+
+    subgraph S2["STAGE 2: RM&E Gatekeeper Hub"]
+        Flask[Flask API]
+        Staging[Staging DB]
+        ETL[ETL Engine]
+        DQ[Data Quality]
+        Clean[Clean DB]
+        Dashboard[RM&E Dashboard]
+        Feedback[Feedback]
+
+        Flask --> Staging
+        Staging --> ETL
+        ETL --> DQ
+        DQ --> Clean
+        Clean --> Dashboard
+        DQ -.->|Errors| Feedback
+    end
+
+    subgraph S3["STAGE 3: NDW Master Assembler"]
+        Gateway[NDW Gateway]
+        MSSQL[MSSQL Server]
+        Meditech[Meditech API]
+        LabRepo[Lab Repository]
+        Linkage[Linkage Engine]
+        Unified[Unified Records]
+        PowerBI[Power BI]
+        MOHSS[MoHSS Leaders]
+
+        Meditech -.->|Lab Data| LabRepo
+        Gateway --> MSSQL
+        MSSQL --> Linkage
+        LabRepo --> Linkage
+        Linkage --> Unified
+        Unified --> PowerBI
+        PowerBI --> MOHSS
+    end
+
+    Agent ==>|Secure Transfer| Flask
+    Clean ==>|Clean Data| Gateway
+    Feedback -.->|DQ Report| Agent
+    Agent -.->|Error Reports| Staff
+    Unified -.->|Enhanced Feedback| Feedback
+
+    classDef facility fill:#E8F5E9,stroke:#4CAF50,stroke-width:3px
+    classDef rme fill:#E3F2FD,stroke:#1976D2,stroke-width:3px
+    classDef ndw fill:#FFF3E0,stroke:#F57C00,stroke-width:3px
+
+    class QE,EDT,Agent,Staff facility
+    class Flask,Staging,ETL,DQ,Clean,Dashboard,Feedback rme
+    class Gateway,MSSQL,Meditech,LabRepo,Linkage,Unified,PowerBI,MOHSS ndw
+        </pre>
+    </div>
+</body>
+</html>

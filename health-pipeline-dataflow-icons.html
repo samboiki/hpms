@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Icon-Based Data Flow Diagram</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.27.0/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/layout-base/layout-base.js"></script>
+    <script src="https://unpkg.com/cose-base/cose-base.js"></script>
+    <script src="https://unpkg.com/cytoscape-fcose/cytoscape-fcose.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        #cy {
+            width: 100%;
+            height: 800px;
+            background: #f8f9fa;
+        }
+
+        .legend {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .legend-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #2c3e50;
+        }
+
+        .legend-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .legend-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        .facilities-bg { background: linear-gradient(135deg, #27ae60, #2ecc71); }
+        .rme-bg { background: linear-gradient(135deg, #2980b9, #3498db); }
+        .ndw-bg { background: linear-gradient(135deg, #e67e22, #f39c12); }
+        .data-bg { background: linear-gradient(135deg, #8e44ad, #9b59b6); }
+        .feedback-bg { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline</h1>
+            <p>Automated Data Flow from 263 Healthcare Facilities to National Data Warehouse</p>
+        </div>
+
+        <div id="cy"></div>
+
+        <div class="legend">
+            <div class="legend-title">System Components</div>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <div class="legend-icon facilities-bg">
+                        <i class="fas fa-hospital"></i>
+                    </div>
+                    <span>Healthcare Facilities</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon rme-bg">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <span>RME Gatekeeper Hub</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon ndw-bg">
+                        <i class="fas fa-landmark"></i>
+                    </div>
+                    <span>National Data Warehouse</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon data-bg">
+                        <i class="fas fa-database"></i>
+                    </div>
+                    <span>Data Storage</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon feedback-bg">
+                        <i class="fas fa-sync-alt"></i>
+                    </div>
+                    <span>Feedback Loop</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Cytoscape
+        var cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            style: [
+                // Node styles for different types
+                {
+                    selector: '.facility-node',
+                    style: {
+                        'shape': 'round-rectangle',
+                        'background-color': '#2ecc71',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#2ecc71',
+                        'width': 180,
+                        'height': 60,
+                        'font-size': '12px',
+                        'border-width': 3,
+                        'border-color': '#27ae60',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 160
+                    }
+                },
+                {
+                    selector: '.rme-node',
+                    style: {
+                        'shape': 'round-rectangle',
+                        'background-color': '#3498db',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#3498db',
+                        'width': 180,
+                        'height': 60,
+                        'font-size': '12px',
+                        'border-width': 3,
+                        'border-color': '#2980b9',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 160
+                    }
+                },
+                {
+                    selector: '.ndw-node',
+                    style: {
+                        'shape': 'round-rectangle',
+                        'background-color': '#f39c12',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#f39c12',
+                        'width': 180,
+                        'height': 60,
+                        'font-size': '12px',
+                        'border-width': 3,
+                        'border-color': '#e67e22',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 160
+                    }
+                },
+                {
+                    selector: '.database-node',
+                    style: {
+                        'shape': 'barrel',
+                        'background-color': '#9b59b6',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#9b59b6',
+                        'width': 140,
+                        'height': 60,
+                        'font-size': '11px',
+                        'border-width': 3,
+                        'border-color': '#8e44ad',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 120
+                    }
+                },
+                {
+                    selector: '.process-node',
+                    style: {
+                        'shape': 'diamond',
+                        'background-color': '#e74c3c',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#e74c3c',
+                        'width': 140,
+                        'height': 60,
+                        'font-size': '11px',
+                        'border-width': 3,
+                        'border-color': '#c0392b',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 120
+                    }
+                },
+                {
+                    selector: '.user-node',
+                    style: {
+                        'shape': 'ellipse',
+                        'background-color': '#95a5a6',
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'color': '#fff',
+                        'text-outline-width': 2,
+                        'text-outline-color': '#95a5a6',
+                        'width': 140,
+                        'height': 60,
+                        'font-size': '11px',
+                        'border-width': 3,
+                        'border-color': '#7f8c8d',
+                        'text-wrap': 'wrap',
+                        'text-max-width': 120
+                    }
+                },
+                // Edge styles
+                {
+                    selector: '.data-flow',
+                    style: {
+                        'line-color': '#2ecc71',
+                        'target-arrow-color': '#2ecc71',
+                        'target-arrow-shape': 'triangle',
+                        'arrow-scale': 1.5,
+                        'width': 3,
+                        'curve-style': 'bezier',
+                        'label': 'data(label)',
+                        'font-size': '10px',
+                        'text-background-color': '#fff',
+                        'text-background-opacity': 0.9,
+                        'text-background-padding': '3px',
+                        'text-rotation': 'autorotate',
+                        'text-margin-y': -10
+                    }
+                },
+                {
+                    selector: '.feedback-flow',
+                    style: {
+                        'line-color': '#e74c3c',
+                        'target-arrow-color': '#e74c3c',
+                        'target-arrow-shape': 'triangle',
+                        'arrow-scale': 1.5,
+                        'width': 2,
+                        'line-style': 'dashed',
+                        'curve-style': 'bezier',
+                        'label': 'data(label)',
+                        'font-size': '10px',
+                        'text-background-color': '#fff',
+                        'text-background-opacity': 0.9,
+                        'text-background-padding': '3px',
+                        'text-rotation': 'autorotate',
+                        'text-margin-y': -10
+                    }
+                },
+                {
+                    selector: '.extract-flow',
+                    style: {
+                        'line-color': '#95a5a6',
+                        'target-arrow-color': '#95a5a6',
+                        'target-arrow-shape': 'triangle',
+                        'arrow-scale': 1.2,
+                        'width': 2,
+                        'line-style': 'dotted',
+                        'curve-style': 'bezier',
+                        'label': 'data(label)',
+                        'font-size': '9px',
+                        'text-background-color': '#fff',
+                        'text-background-opacity': 0.9,
+                        'text-background-padding': '2px'
+                    }
+                }
+            ],
+
+            elements: {
+                nodes: [
+                    // Facility Level
+                    { data: { id: 'quantum', label: '🏥 Quantum ePMS\nPatient Data' }, classes: 'facility-node', position: { x: 100, y: 100 } },
+                    { data: { id: 'edt', label: '💊 EDT\nDispensing Tool' }, classes: 'facility-node', position: { x: 100, y: 200 } },
+                    { data: { id: 'agent', label: '🐍 Python ETL Agent\nIncremental Extract' }, classes: 'facility-node', position: { x: 300, y: 150 } },
+                    { data: { id: 'staff', label: '👥 Facility Staff' }, classes: 'user-node', position: { x: 100, y: 300 } },
+
+                    // RME Hub
+                    { data: { id: 'api', label: '🔌 Flask API\nSecure Receiver' }, classes: 'rme-node', position: { x: 500, y: 150 } },
+                    { data: { id: 'staging', label: '💾 Staging DB\nRaw Data' }, classes: 'database-node', position: { x: 700, y: 100 } },
+                    { data: { id: 'etl', label: '⚙️ ETL Engine\nClean & Validate' }, classes: 'rme-node', position: { x: 700, y: 200 } },
+                    { data: { id: 'dq', label: '✅ Data Quality\nChecker' }, classes: 'process-node', position: { x: 700, y: 300 } },
+                    { data: { id: 'dedup', label: '🔍 Deduplication\nEngine' }, classes: 'process-node', position: { x: 900, y: 200 } },
+                    { data: { id: 'clean', label: '💎 Clean Database\nConsolidated' }, classes: 'database-node', position: { x: 900, y: 100 } },
+                    { data: { id: 'dashboard', label: '📊 RME Dashboard\nReal-time Reports' }, classes: 'rme-node', position: { x: 900, y: 300 } },
+                    { data: { id: 'rme_analysts', label: '👨‍💼 RME Analysts' }, classes: 'user-node', position: { x: 900, y: 400 } },
+                    { data: { id: 'feedback', label: '🔄 JSON Feedback\nGenerator' }, classes: 'process-node', position: { x: 500, y: 350 } },
+
+                    // NDW Level
+                    { data: { id: 'intake', label: '🚪 NDW Intake\nClean Data Only' }, classes: 'ndw-node', position: { x: 1100, y: 150 } },
+                    { data: { id: 'ndw', label: '🏛️ National Data\nWarehouse' }, classes: 'database-node', position: { x: 1300, y: 100 } },
+                    { data: { id: 'meditech', label: '🧪 Meditech API\nLab Results' }, classes: 'ndw-node', position: { x: 1100, y: 250 } },
+                    { data: { id: 'lab_repo', label: '🔬 National Lab\nRepository' }, classes: 'database-node', position: { x: 1300, y: 250 } },
+                    { data: { id: 'linkage', label: '🔗 Master Linkage\nEngine' }, classes: 'ndw-node', position: { x: 1500, y: 175 } },
+                    { data: { id: 'unified', label: '🆔 Unified Patient\nRecords' }, classes: 'database-node', position: { x: 1700, y: 175 } },
+                    { data: { id: 'analytics', label: '📈 National\nDashboards' }, classes: 'ndw-node', position: { x: 1700, y: 300 } },
+                    { data: { id: 'stakeholders', label: '🏛️ MoHSS\nStakeholders' }, classes: 'user-node', position: { x: 1700, y: 400 } },
+
+                    // Monitoring
+                    { data: { id: 'monitor', label: '📡 Pipeline Health\nMonitoring' }, classes: 'process-node', position: { x: 900, y: 500 } }
+                ],
+                edges: [
+                    // Facility extraction flows
+                    { data: { source: 'quantum', target: 'agent', label: 'Extract New/Updated', id: 'e1' }, classes: 'extract-flow' },
+                    { data: { source: 'edt', target: 'agent', label: 'Extract New/Updated', id: 'e2' }, classes: 'extract-flow' },
+
+                    // Main data flow
+                    { data: { source: 'agent', target: 'api', label: 'Secure Transfer', id: 'e3' }, classes: 'data-flow' },
+                    { data: { source: 'api', target: 'staging', label: '', id: 'e4' }, classes: 'data-flow' },
+                    { data: { source: 'staging', target: 'etl', label: '', id: 'e5' }, classes: 'data-flow' },
+                    { data: { source: 'etl', target: 'dq', label: '', id: 'e6' }, classes: 'data-flow' },
+                    { data: { source: 'dq', target: 'dedup', label: '', id: 'e7' }, classes: 'data-flow' },
+                    { data: { source: 'dedup', target: 'clean', label: '', id: 'e8' }, classes: 'data-flow' },
+                    { data: { source: 'clean', target: 'dashboard', label: '', id: 'e9' }, classes: 'data-flow' },
+                    { data: { source: 'dashboard', target: 'rme_analysts', label: '', id: 'e10' }, classes: 'data-flow' },
+
+                    // To NDW
+                    { data: { source: 'clean', target: 'intake', label: 'Clean Data', id: 'e11' }, classes: 'data-flow' },
+                    { data: { source: 'intake', target: 'ndw', label: '', id: 'e12' }, classes: 'data-flow' },
+                    { data: { source: 'meditech', target: 'lab_repo', label: 'Lab Data API', id: 'e13' }, classes: 'extract-flow' },
+                    { data: { source: 'lab_repo', target: 'linkage', label: '', id: 'e14' }, classes: 'data-flow' },
+                    { data: { source: 'ndw', target: 'linkage', label: '', id: 'e15' }, classes: 'data-flow' },
+                    { data: { source: 'linkage', target: 'unified', label: '', id: 'e16' }, classes: 'data-flow' },
+                    { data: { source: 'unified', target: 'analytics', label: '', id: 'e17' }, classes: 'data-flow' },
+                    { data: { source: 'analytics', target: 'stakeholders', label: '', id: 'e18' }, classes: 'data-flow' },
+
+                    // Feedback loops
+                    { data: { source: 'dq', target: 'feedback', label: 'Errors Found', id: 'e19' }, classes: 'feedback-flow' },
+                    { data: { source: 'feedback', target: 'agent', label: 'DQ Feedback', id: 'e20' }, classes: 'feedback-flow' },
+                    { data: { source: 'agent', target: 'staff', label: 'Error Reports', id: 'e21' }, classes: 'feedback-flow' },
+                    { data: { source: 'unified', target: 'feedback', label: 'Enhanced Feedback', id: 'e22' }, classes: 'feedback-flow' },
+
+                    // Monitoring connections
+                    { data: { source: 'api', target: 'monitor', label: '', id: 'e23' }, classes: 'extract-flow' },
+                    { data: { source: 'etl', target: 'monitor', label: '', id: 'e24' }, classes: 'extract-flow' },
+                    { data: { source: 'linkage', target: 'monitor', label: '', id: 'e25' }, classes: 'extract-flow' }
+                ]
+            },
+
+            layout: {
+                name: 'preset'
+            },
+
+            // Interaction options
+            minZoom: 0.5,
+            maxZoom: 3,
+            wheelSensitivity: 0.1
+        });
+
+        // Add pan and zoom controls
+        cy.on('tap', 'node', function(evt){
+            var node = evt.target;
+            console.log('Tapped on: ' + node.data('label'));
+        });
+
+        // Fit to viewport on load
+        cy.fit();
+    </script>
+</body>
+</html>

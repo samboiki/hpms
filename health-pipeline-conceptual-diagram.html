@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Conceptual Diagram with Icons</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 25px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            font-weight: 300;
+        }
+        .diagram-container {
+            padding: 40px;
+            background: #f5f5f5;
+            position: relative;
+        }
+
+        /* Diagram Canvas */
+        .canvas {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            position: relative;
+            min-height: 900px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Node Styles */
+        .node {
+            position: absolute;
+            background: white;
+            border: 3px solid;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .node:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.25);
+            z-index: 100;
+        }
+
+        .node-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .node-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .node-subtitle {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
+        /* Node Colors by Type */
+        .facility-node {
+            border-color: #4CAF50;
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        }
+        .facility-node .node-icon { color: #4CAF50; }
+
+        .rme-node {
+            border-color: #2196F3;
+            background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        }
+        .rme-node .node-icon { color: #2196F3; }
+
+        .ndw-node {
+            border-color: #FF9800;
+            background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+        }
+        .ndw-node .node-icon { color: #FF9800; }
+
+        .process-node {
+            border-color: #9C27B0;
+            background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+        }
+        .process-node .node-icon { color: #9C27B0; }
+
+        .feedback-node {
+            border-color: #E91E63;
+            background: linear-gradient(135deg, #FCE4EC 0%, #F8BBD0 100%);
+        }
+        .feedback-node .node-icon { color: #E91E63; }
+
+        /* Specific Icon Colors */
+        .aws-icon { color: #FF9900 !important; }
+        .database-icon { color: #336791 !important; }
+        .python-icon { color: #3776AB !important; }
+        .api-icon { color: #00897B !important; }
+
+        /* Connection Lines SVG */
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-path {
+            stroke-width: 3;
+            fill: none;
+        }
+
+        .data-flow { stroke: #4CAF50; }
+        .clean-data { stroke: #2196F3; }
+        .feedback-loop {
+            stroke: #E91E63;
+            stroke-dasharray: 8, 4;
+        }
+        .lab-integration { stroke: #FF9800; }
+
+        /* Arrow Labels */
+        .flow-label {
+            position: absolute;
+            background: white;
+            padding: 4px 10px;
+            border: 2px solid;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 5;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .flow-label.data { border-color: #4CAF50; color: #4CAF50; }
+        .flow-label.clean { border-color: #2196F3; color: #2196F3; }
+        .flow-label.feedback { border-color: #E91E63; color: #E91E63; }
+        .flow-label.lab { border-color: #FF9800; color: #FF9800; }
+
+        /* Cluster Backgrounds */
+        .cluster {
+            position: absolute;
+            border: 2px dashed;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.5);
+            z-index: 0;
+        }
+
+        .cluster-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: white;
+            padding: 0 10px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .facility-cluster {
+            border-color: #4CAF50;
+            background: rgba(200, 230, 201, 0.1);
+        }
+        .facility-cluster .cluster-label { color: #4CAF50; }
+
+        .rme-cluster {
+            border-color: #2196F3;
+            background: rgba(187, 222, 251, 0.1);
+        }
+        .rme-cluster .cluster-label { color: #2196F3; }
+
+        .ndw-cluster {
+            border-color: #FF9800;
+            background: rgba(255, 224, 178, 0.1);
+        }
+        .ndw-cluster .cluster-label { color: #FF9800; }
+
+        /* Node Positioning */
+        #quantum-node { top: 100px; left: 100px; }
+        #edt-node { top: 100px; left: 300px; }
+        #agent-node { top: 250px; left: 200px; }
+        #staff-node { top: 100px; left: 500px; }
+
+        #api-gateway-node { top: 450px; left: 200px; }
+        #flask-node { top: 450px; left: 400px; }
+        #staging-node { top: 450px; left: 600px; }
+        #etl-node { top: 450px; left: 800px; }
+        #clean-node { top: 450px; left: 1000px; }
+        #dashboard-node { top: 450px; left: 1200px; }
+        #rme-users-node { top: 450px; left: 1400px; }
+        #dq-node { top: 300px; left: 900px; }
+        #feedback-node { top: 300px; left: 500px; }
+
+        #ndw-gateway-node { top: 700px; left: 400px; }
+        #warehouse-node { top: 700px; left: 600px; }
+        #lab-node { top: 700px; left: 800px; }
+        #linkage-node { top: 700px; left: 1000px; }
+        #unified-node { top: 700px; left: 1200px; }
+        #analytics-node { top: 700px; left: 1400px; }
+        #leaders-node { top: 700px; left: 1600px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline - Conceptual Architecture</h1>
+            <p>Integrated Cloud Services Architecture Diagram</p>
+        </div>
+
+        <div class="diagram-container">
+            <div class="canvas">
+                <!-- SVG Connections -->
+                <svg class="connections" viewBox="0 0 1800 900">
+                    <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+                        </marker>
+                    </defs>
+
+                    <!-- Facility to Agent -->
+                    <path class="connection-path data-flow" d="M 150,180 L 250,280" marker-end="url(#arrowhead)"/>
+                    <path class="connection-path data-flow" d="M 350,180 L 250,280" marker-end="url(#arrowhead)"/>
+
+                    <!-- Agent to API Gateway -->
+                    <path class="connection-path data-flow" d="M 250,330 L 250,450" marker-end="url(#arrowhead)"/>
+
+                    <!-- API Gateway to Flask -->
+                    <path class="connection-path clean-data" d="M 300,500 L 400,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- Flask to Staging -->
+                    <path class="connection-path clean-data" d="M 500,500 L 600,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- Staging to ETL -->
+                    <path class="connection-path clean-data" d="M 700,500 L 800,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- ETL to DQ Check -->
+                    <path class="connection-path clean-data" d="M 850,450 L 950,380" marker-end="url(#arrowhead)"/>
+
+                    <!-- ETL to Clean DB -->
+                    <path class="connection-path clean-data" d="M 900,500 L 1000,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- Clean DB to Dashboard -->
+                    <path class="connection-path clean-data" d="M 1100,500 L 1200,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- Dashboard to RME Users -->
+                    <path class="connection-path clean-data" d="M 1300,500 L 1400,500" marker-end="url(#arrowhead)"/>
+
+                    <!-- DQ to Feedback -->
+                    <path class="connection-path feedback-loop" d="M 900,350 Q 700,250 550,350" marker-end="url(#arrowhead)"/>
+
+                    <!-- Feedback to Agent -->
+                    <path class="connection-path feedback-loop" d="M 500,380 Q 350,300 250,330" marker-end="url(#arrowhead)"/>
+
+                    <!-- Agent to Staff -->
+                    <path class="connection-path feedback-loop" d="M 300,280 Q 400,200 500,180" marker-end="url(#arrowhead)"/>
+
+                    <!-- Clean DB to NDW Gateway -->
+                    <path class="connection-path clean-data" d="M 1050,550 Q 700,650 450,700" marker-end="url(#arrowhead)"/>
+
+                    <!-- NDW Gateway to Warehouse -->
+                    <path class="connection-path lab-integration" d="M 500,750 L 600,750" marker-end="url(#arrowhead)"/>
+
+                    <!-- Lab to Linkage -->
+                    <path class="connection-path lab-integration" d="M 900,750 L 1000,750" marker-end="url(#arrowhead)"/>
+
+                    <!-- Warehouse to Linkage -->
+                    <path class="connection-path lab-integration" d="M 700,750 Q 850,700 1000,750" marker-end="url(#arrowhead)"/>
+
+                    <!-- Linkage to Unified -->
+                    <path class="connection-path lab-integration" d="M 1100,750 L 1200,750" marker-end="url(#arrowhead)"/>
+
+                    <!-- Unified to Analytics -->
+                    <path class="connection-path lab-integration" d="M 1300,750 L 1400,750" marker-end="url(#arrowhead)"/>
+
+                    <!-- Analytics to Leaders -->
+                    <path class="connection-path lab-integration" d="M 1500,750 L 1600,750" marker-end="url(#arrowhead)"/>
+                </svg>
+
+                <!-- Clusters -->
+                <div class="cluster facility-cluster" style="top: 50px; left: 50px; width: 600px; height: 350px;">
+                    <span class="cluster-label">Healthcare Facilities (263 Sites)</span>
+                </div>
+
+                <div class="cluster rme-cluster" style="top: 250px; left: 150px; width: 1350px; height: 350px;">
+                    <span class="cluster-label">RME "Gatekeeper" Hub</span>
+                </div>
+
+                <div class="cluster ndw-cluster" style="top: 650px; left: 350px; width: 1350px; height: 200px;">
+                    <span class="cluster-label">National Data Warehouse "Master Assembler"</span>
+                </div>
+
+                <!-- FACILITY NODES -->
+                <div class="node facility-node" id="quantum-node">
+                    <i class="fas fa-database node-icon database-icon"></i>
+                    <div class="node-title">Quantum ePMS</div>
+                    <div class="node-subtitle">Patient Data</div>
+                </div>
+
+                <div class="node facility-node" id="edt-node">
+                    <i class="fas fa-pills node-icon database-icon"></i>
+                    <div class="node-title">EDT System</div>
+                    <div class="node-subtitle">Dispensing Tool</div>
+                </div>
+
+                <div class="node facility-node" id="agent-node">
+                    <i class="fab fa-python node-icon python-icon"></i>
+                    <div class="node-title">Python ETL Agent</div>
+                    <div class="node-subtitle">Incremental Extract</div>
+                </div>
+
+                <div class="node facility-node" id="staff-node">
+                    <i class="fas fa-user-nurse node-icon"></i>
+                    <div class="node-title">Facility Staff</div>
+                    <div class="node-subtitle">Data Entry</div>
+                </div>
+
+                <!-- RME HUB NODES -->
+                <div class="node rme-node" id="api-gateway-node">
+                    <i class="fas fa-network-wired node-icon aws-icon"></i>
+                    <div class="node-title">API Gateway</div>
+                    <div class="node-subtitle">AWS Service</div>
+                </div>
+
+                <div class="node rme-node" id="flask-node">
+                    <i class="fas fa-flask node-icon api-icon"></i>
+                    <div class="node-title">Flask API</div>
+                    <div class="node-subtitle">REST Service</div>
+                </div>
+
+                <div class="node rme-node" id="staging-node">
+                    <i class="fas fa-server node-icon aws-icon"></i>
+                    <div class="node-title">RDS Database</div>
+                    <div class="node-subtitle">Staging</div>
+                </div>
+
+                <div class="node process-node" id="etl-node">
+                    <i class="fas fa-cogs node-icon"></i>
+                    <div class="node-title">ETL Pipeline</div>
+                    <div class="node-subtitle">Databricks</div>
+                </div>
+
+                <div class="node rme-node" id="clean-node">
+                    <i class="fas fa-database node-icon database-icon"></i>
+                    <div class="node-title">Clean Database</div>
+                    <div class="node-subtitle">PostgreSQL</div>
+                </div>
+
+                <div class="node rme-node" id="dashboard-node">
+                    <i class="fas fa-chart-line node-icon"></i>
+                    <div class="node-title">RME Dashboard</div>
+                    <div class="node-subtitle">Grafana</div>
+                </div>
+
+                <div class="node rme-node" id="rme-users-node">
+                    <i class="fas fa-users-cog node-icon"></i>
+                    <div class="node-title">RME Analysts</div>
+                    <div class="node-subtitle">Users</div>
+                </div>
+
+                <div class="node process-node" id="dq-node">
+                    <i class="fas fa-check-circle node-icon aws-icon"></i>
+                    <div class="node-title">Quality Checker</div>
+                    <div class="node-subtitle">Lambda</div>
+                </div>
+
+                <div class="node feedback-node" id="feedback-node">
+                    <i class="fas fa-sync-alt node-icon"></i>
+                    <div class="node-title">Feedback Queue</div>
+                    <div class="node-subtitle">SQS</div>
+                </div>
+
+                <!-- NDW NODES -->
+                <div class="node ndw-node" id="ndw-gateway-node">
+                    <i class="fas fa-door-open node-icon aws-icon"></i>
+                    <div class="node-title">NDW Gateway</div>
+                    <div class="node-subtitle">Intake API</div>
+                </div>
+
+                <div class="node ndw-node" id="warehouse-node">
+                    <i class="fas fa-warehouse node-icon aws-icon"></i>
+                    <div class="node-title">Data Warehouse</div>
+                    <div class="node-subtitle">MongoDB</div>
+                </div>
+
+                <div class="node ndw-node" id="lab-node">
+                    <i class="fas fa-vial node-icon database-icon"></i>
+                    <div class="node-title">Lab Repository</div>
+                    <div class="node-subtitle">Meditech</div>
+                </div>
+
+                <div class="node process-node" id="linkage-node">
+                    <i class="fas fa-link node-icon aws-icon"></i>
+                    <div class="node-title">Linkage Engine</div>
+                    <div class="node-subtitle">Analytics</div>
+                </div>
+
+                <div class="node ndw-node" id="unified-node">
+                    <i class="fas fa-id-card node-icon aws-icon"></i>
+                    <div class="node-title">Unified Records</div>
+                    <div class="node-subtitle">DynamoDB</div>
+                </div>
+
+                <div class="node ndw-node" id="analytics-node">
+                    <i class="fas fa-tachometer-alt node-icon aws-icon"></i>
+                    <div class="node-title">National Dashboard</div>
+                    <div class="node-subtitle">QuickSight</div>
+                </div>
+
+                <div class="node ndw-node" id="leaders-node">
+                    <i class="fas fa-users-cog node-icon"></i>
+                    <div class="node-title">MoHSS Leaders</div>
+                    <div class="node-subtitle">Stakeholders</div>
+                </div>
+
+                <!-- Flow Labels -->
+                <div class="flow-label data" style="top: 380px; left: 220px;">Secure Transfer</div>
+                <div class="flow-label clean" style="top: 470px; left: 720px;">Clean & Validate</div>
+                <div class="flow-label feedback" style="top: 320px; left: 700px;">DQ Feedback</div>
+                <div class="flow-label clean" style="top: 600px; left: 700px;">Clean Data</div>
+                <div class="flow-label lab" style="top: 720px; left: 900px;">Lab Integration</div>
+                <div class="flow-label lab" style="top: 720px; left: 1350px;">Analytics</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

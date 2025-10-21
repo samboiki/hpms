@@ -1,0 +1,139 @@
+=== DATABASE PERFORMANCE ANALYSIS ===
+
+
+📊 TABLE: users
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: practices
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: patients
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: visits
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: system_notifications
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: internal_channel_members
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: practice_sms_subscriptions
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+📊 TABLE: practice_email_subscriptions
+────────────────────────────────────────────────────────────────────────────────
+Error fetching indexes: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+Error fetching policies: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+
+📡 RPC FUNCTIONS ANALYSIS
+────────────────────────────────────────────────────────────────────────────────
+No RPC functions found or error: {
+  code: 'P0001',
+  details: null,
+  hint: null,
+  message: 'Only SELECT queries on information_schema are allowed'
+}
+
+
+⚡ PERFORMANCE INSIGHTS
+────────────────────────────────────────────────────────────────────────────────
+
+
+✅ Analysis Complete!

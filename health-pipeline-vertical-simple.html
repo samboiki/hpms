@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Information Data Pipeline - Vertical Layout</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'base',
+            themeVariables: {
+                primaryColor: '#E8F5E9',
+                primaryTextColor: '#000',
+                primaryBorderColor: '#4CAF50',
+                lineColor: '#5e5e5e',
+                secondaryColor: '#E3F2FD',
+                secondaryBorderColor: '#1976D2',
+                tertiaryColor: '#FFF3E0',
+                tertiaryBorderColor: '#F57C00',
+                background: 'white',
+                fontSize: '14px'
+            },
+            flowchart: {
+                nodeSpacing: 50,
+                rankSpacing: 50,
+                curve: 'basis',
+                useMaxWidth: true
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: white;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .mermaid {
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>Health Information Data Pipeline</h1>
+
+    <pre class="mermaid">
+graph TD
+    subgraph "Healthcare Facilities [263 Sites]"
+        QE[Quantum ePMS<br/>Patient Data]
+        EDT[EDT<br/>Dispensing Tool]
+        Agent[Python ETL Agent<br/>Incremental Extract]
+        Staff[Facility Staff]
+
+        QE -.->|Extract New/Updated| Agent
+        EDT -.->|Extract New/Updated| Agent
+    end
+
+    subgraph "Stage 1: RM&E 'Gatekeeper' Hub"
+        API[Flask API<br/>Secure Receiver]
+        Staging[(Staging DB<br/>Raw Data)]
+        ETL[ETL Engine<br/>Clean & Validate]
+        Clean[(Clean Database<br/>Consolidated)]
+        DQ[Data Quality<br/>Checker]
+        Dedup[Deduplication<br/>Engine]
+        Dashboard[RM&E Dashboard<br/>Real-time Reports]
+        RME[RM&E Analysts]
+        Feedback[JSON Feedback<br/>Generator]
+
+        API --> Staging
+        Staging --> ETL
+        ETL --> DQ
+        DQ --> Dedup
+        Dedup --> Clean
+        Clean --> Dashboard
+        Dashboard --> RME
+        DQ -.->|Errors Found| Feedback
+    end
+
+    subgraph "Stage 2: NDW 'Master Assembler'"
+        Intake[NDW Intake<br/>Clean Data Only]
+        NDW[(National Data<br/>Warehouse)]
+        Meditech[Meditech API<br/>Lab Results]
+        LabRepo[(National Lab<br/>Repository)]
+        Linkage[Master Linkage<br/>Engine]
+        Unified[(Unified Patient<br/>Records)]
+        Analytics[National<br/>Dashboards]
+        Stakeholders[MoHSS<br/>Stakeholders]
+
+        Intake --> NDW
+        Meditech -.->|Lab Data API| LabRepo
+        LabRepo --> Linkage
+        NDW --> Linkage
+        Linkage --> Unified
+        Unified --> Analytics
+        Analytics --> Stakeholders
+    end
+
+    %% Main data flows
+    Agent ==>|Secure Transfer<br/>Incremental| API
+    Clean ==>|Clean Data| Intake
+
+    %% Feedback loops
+    Feedback -.->|DQ Feedback| Agent
+    Agent -.->|Error Reports| Staff
+    Unified -.->|Enhanced Feedback<br/>with Lab Data| Feedback
+
+    %% Monitoring
+    Monitor[Pipeline Health<br/>Monitoring]
+    API -.-> Monitor
+    ETL -.-> Monitor
+    Linkage -.-> Monitor
+
+    classDef facility fill:#E8F5E9,stroke:#4CAF50,stroke-width:2px
+    classDef rme fill:#E3F2FD,stroke:#1976D2,stroke-width:3px
+    classDef ndw fill:#FFF3E0,stroke:#F57C00,stroke-width:3px
+    classDef feedback fill:#FCE4EC,stroke:#C2185B,stroke-width:2px
+    classDef monitoring fill:#F3E5F5,stroke:#7B1FA2,stroke-width:1px
+
+    class QE,EDT,Agent,Staff facility
+    class API,Staging,ETL,Clean,DQ,Dedup,Dashboard,RME,Feedback rme
+    class Intake,NDW,Meditech,LabRepo,Linkage,Unified,Analytics,Stakeholders ndw
+    class Monitor monitoring
+    </pre>
+</body>
+</html>

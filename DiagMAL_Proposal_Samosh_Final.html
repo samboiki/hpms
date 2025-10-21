@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiagMAL AI Platform - Samosh Technologies Proposal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+            line-height: 1.8;
+            color: #2c3e50;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 80px 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 60px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.3; }
+        }
+
+        .hero h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero .subtitle {
+            font-size: 1.5em;
+            opacity: 0.95;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 10px 20px;
+            border-radius: 50px;
+            margin: 5px;
+            backdrop-filter: blur(10px);
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Executive Summary */
+        .executive-summary {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 60px;
+            position: relative;
+        }
+
+        .executive-summary::before {
+            content: '🎯';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 60px;
+            background: white;
+            padding: 10px;
+            border-radius: 50%;
+        }
+
+        .executive-summary h2 {
+            color: #1e3c72;
+            font-size: 2.5em;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .highlight-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin: 30px 0;
+            box-shadow: 0 10px 30px rgba(102,126,234,0.3);
+        }
+
+        .highlight-box h3 {
+            font-size: 1.8em;
+            margin-bottom: 15px;
+        }
+
+        /* Team Section */
+        .team-section {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 60px;
+        }
+
+        .team-member {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 50px;
+            padding: 40px;
+            background: linear-gradient(135deg, #f6f8fb 0%, #ffffff 100%);
+            border-radius: 15px;
+            position: relative;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .team-member:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .member-photo {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            margin-right: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .member-details h3 {
+            color: #1e3c72;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .member-title {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+        }
+
+        .achievement {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin: 5px;
+            font-size: 0.9em;
+        }
+
+        /* Technical Architecture Section */
+        .architecture-section {
+            background: white;
+            padding: 60px;
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 60px;
+        }
+
+        .code-block {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 30px;
+            border-radius: 10px;
+            margin: 30px 0;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .code-block .comment {
+            color: #6a9955;
+        }
+
+        .code-block .keyword {
+            color: #569cd6;
+        }
+
+        .code-block .function {
+            color: #dcdcaa;
+        }
+
+        .code-block .string {
+            color: #ce9178;
+        }
+
+        /* Deliverables Timeline */
+        .timeline {
+            position: relative;
+            padding: 60px 0;
+        }
+
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 100%;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .timeline-item {
+            display: flex;
+            justify-content: flex-end;
+            padding-right: 30px;
+            position: relative;
+            margin: 50px 0;
+            width: 50%;
+        }
+
+        .timeline-item:nth-child(odd) {
+            align-self: flex-end;
+            justify-content: flex-start;
+            padding-left: 30px;
+            padding-right: 0;
+            left: 50%;
+        }
+
+        .timeline-item-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 400px;
+            position: relative;
+        }
+
+        .timeline-item-content::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 50%;
+            box-shadow: 0 0 0 4px white, 0 0 0 8px #667eea;
+        }
+
+        .timeline-item:nth-child(odd) .timeline-item-content::after {
+            left: -40px;
+        }
+
+        .timeline-item:nth-child(even) .timeline-item-content::after {
+            right: -40px;
+        }
+
+        .timeline-month {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        /* Implementation Strategy */
+        .implementation-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 30px 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .implementation-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 5px;
+            height: 100%;
+            background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .implementation-card h3 {
+            color: #1e3c72;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+        }
+
+        /* KPI Cards */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .kpi-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.3s ease;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .kpi-card .kpi-value {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        .kpi-card .kpi-label {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+
+        /* Screenshots Section */
+        .screenshot-placeholder {
+            background: linear-gradient(135deg, #f6f8fb 0%, #e9ecef 100%);
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 60px 30px;
+            margin: 30px 0;
+            text-align: center;
+            position: relative;
+        }
+
+        .screenshot-placeholder::before {
+            content: '📸';
+            font-size: 48px;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        .screenshot-placeholder h4 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        .screenshot-placeholder p {
+            color: #6c757d;
+            font-size: 1.1em;
+        }
+
+        /* Why Choose Us Section */
+        .why-us-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin: 40px 0;
+        }
+
+        .why-us-card {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .why-us-card:hover {
+            transform: translateY(-10px);
+        }
+
+        .why-us-icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .why-us-card h4 {
+            color: #1e3c72;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+
+        /* Call to Action */
+        .cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 80px 40px;
+            border-radius: 20px;
+            text-align: center;
+            margin: 60px 0;
+            box-shadow: 0 20px 60px rgba(102,126,234,0.4);
+        }
+
+        .cta-section h2 {
+            font-size: 3em;
+            margin-bottom: 30px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 20px 50px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-size: 1.3em;
+            font-weight: bold;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hero h1 {
+                font-size: 2em;
+            }
+
+            .timeline::before {
+                left: 30px;
+            }
+
+            .timeline-item {
+                width: 100%;
+                padding-left: 80px;
+                padding-right: 0;
+            }
+
+            .timeline-item:nth-child(odd) {
+                left: 0;
+            }
+
+            .team-member {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .member-photo {
+                margin: 0 auto 20px;
+            }
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+            }
+
+            .hero, .cta-section {
+                background: #1e3c72 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+
+        /* Table Styles */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 30px 0;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: left;
+            font-weight: bold;
+        }
+
+        td {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Success Checkmarks */
+        .success-check {
+            color: #28a745;
+            font-size: 1.2em;
+            margin-right: 10px;
+        }
+
+        /* Architecture Diagram */
+        .architecture-diagram {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .architecture-diagram h3 {
+            color: #1e3c72;
+            font-size: 1.8em;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Hero Section -->
+        <div class="hero">
+            <h1>🚀 DiagMAL AI Platform Proposal</h1>
+            <p class="subtitle">Integration and Validation of AI-Powered Diagnostic Platform for Malaria Detection</p>
+            <div style="margin-top: 30px;">
+                <span class="badge">🏢 Samosh Technologies</span>
+                <span class="badge">📍 Windhoek, Namibia</span>
+                <span class="badge">🌍 320+ Facilities Deployed</span>
+                <span class="badge">🎯 Direct Malaria Experience</span>
+            </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="executive-summary">
+            <h2>Executive Summary</h2>
+
+            <p style="font-size: 1.2em; text-align: center; color: #6c757d; margin-bottom: 40px;">
+                Samosh Technologies presents a <strong>production-ready solution</strong> leveraging our proven expertise in
+                national health systems and our active development of AI-enabled healthcare platforms.
+            </p>
+
+            <div class="highlight-box">
+                <h3>🎯 Perfect Alignment with DiagMAL Requirements</h3>
+                <p>Our team has <strong>built and deployed the exact systems DiagMAL requires</strong>:</p>
+                <ul style="list-style: none; padding-left: 0;">
+                    <li><span class="success-check">✅</span> <strong>National Data Warehouse</strong> - Managing 320+ facilities with real-time malaria data</li>
+                    <li><span class="success-check">✅</span> <strong>AI/ML Predictive Models</strong> - Currently operational in OneHealth platform</li>
+                    <li><span class="success-check">✅</span> <strong>Geospatial Analytics</strong> - Production GIS for City of Windhoek & Namwater</li>
+                    <li><span class="success-check">✅</span> <strong>Field-Ready Solutions</strong> - Proven deployment in African settings</li>
+                    <li><span class="success-check">✅</span> <strong>GDPR Compliance</strong> - Government-approved secure systems</li>
+                </ul>
+            </div>
+
+            <div style="background: #f8f9fa; padding: 30px; border-radius: 15px; margin: 30px 0;">
+                <h3 style="color: #1e3c72; margin-bottom: 20px;">🔬 Our Current Work: OneHealth Healthcare Platform</h3>
+                <p>Through our ongoing development of the OneHealth platform, we are <strong>actively implementing</strong> the exact capabilities DiagMAL requires:</p>
+                <ul>
+                    <li><strong>Predictive Analytics:</strong> ML models for patient patterns and resource optimization (10,000+ encounters/month)</li>
+                    <li><strong>Spatio-temporal Analysis:</strong> Heat mapping and disease prevalence patterns across 50+ facilities</li>
+                    <li><strong>Real-time Integration:</strong> Live connection with labs, diagnostic devices, and patient records</li>
+                    <li><strong>Anomaly Detection:</strong> Automated data quality monitoring and pattern recognition</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Team Section -->
+        <div class="team-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                🌟 Expert Team with Direct Relevant Experience
+            </h2>
+
+            <div class="team-member">
+                <div class="member-photo">SN</div>
+                <div class="member-details">
+                    <h3>Sam Naholo</h3>
+                    <p class="member-title">Lead Consultant / Software Architect</p>
+                    <p><strong>🏆 Key Achievements for DiagMAL:</strong></p>
+                    <ul>
+                        <li><strong>National Data Warehouse Architect</strong> - Successfully designed and implemented Namibia's health data warehouse serving 320+ facilities</li>
+                        <li><strong>Malaria Database Manager</strong> - Directly managed national HIV, TB, and <strong>Malaria surveillance systems</strong></li>
+                        <li><strong>Intel AI Suite Implementation</strong> - Delivered predictive analytics, spatio-temporal analysis, NLP-driven retrieval for child welfare</li>
+                        <li><strong>SIMS Platform Developer</strong> - Built nationwide monitoring system with optimized data capture and analysis</li>
+                    </ul>
+                    <div style="margin-top: 20px;">
+                        <span class="achievement">Python Expert</span>
+                        <span class="achievement">SQL Master</span>
+                        <span class="achievement">Azure Architect</span>
+                        <span class="achievement">DHIS2 Specialist</span>
+                        <span class="achievement">Power BI Expert</span>
+                        <span class="achievement">Docker/Kubernetes</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="team-member">
+                <div class="member-photo">PH</div>
+                <div class="member-details">
+                    <h3>Peter N. Haufiku</h3>
+                    <p class="member-title">Lead Data Scientist / ML Specialist</p>
+                    <p><strong>🏆 Key Achievements for DiagMAL:</strong></p>
+                    <ul>
+                        <li><strong>MoHSS Surveillance Officer</strong> - Led data-driven surveillance frameworks across 14 regions</li>
+                        <li><strong>Predictive Model Developer</strong> - Created ML models for disease risk forecasting with proactive interventions</li>
+                        <li><strong>National M&E Officer</strong> - Improved data management efficiency by 25% for critical health programs</li>
+                        <li><strong>COVID-19 Analytics Lead</strong> - Advanced epidemiological analysis and real-time reporting</li>
+                        <li><strong>150+ Staff Trainer</strong> - Led training on SQL, health systems, and data governance</li>
+                    </ul>
+                    <div style="margin-top: 20px;">
+                        <span class="achievement">Master's in Data Science</span>
+                        <span class="achievement">Python/R Expert</span>
+                        <span class="achievement">TensorFlow/PyTorch</span>
+                        <span class="achievement">Big Data (Hadoop/Spark)</span>
+                        <span class="achievement">Statistical Modeling</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="team-member">
+                <div class="member-photo">HA</div>
+                <div class="member-details">
+                    <h3>Hango Amunyela</h3>
+                    <p class="member-title">Lead GIS Specialist</p>
+                    <p><strong>🏆 Key Achievements for DiagMAL:</strong></p>
+                    <ul>
+                        <li><strong>City of Windhoek MapGuide</strong> - Designed and implemented fully functional web-based GIS mapping system</li>
+                        <li><strong>Namwater GIS Platform</strong> - Built production geospatial infrastructure for water resource management</li>
+                        <li><strong>100,000 Meter Survey</strong> - Coordinated NORED project with GPS data collection and SQL database creation</li>
+                        <li><strong>Road Management System</strong> - Developed Ondangwa Town Council's asset management with web GIS</li>
+                    </ul>
+                    <div style="margin-top: 20px;">
+                        <span class="achievement">PostGIS Expert</span>
+                        <span class="achievement">Oracle/MySQL</span>
+                        <span class="achievement">GIS Cloud Certified</span>
+                        <span class="achievement">Web Mapping APIs</span>
+                        <span class="achievement">Mobile Data Collection</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Implementation Strategy -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                💻 Technical Implementation Strategy
+            </h2>
+
+            <div class="implementation-card">
+                <h3>🏗️ Hybrid Edge-Cloud Architecture</h3>
+                <p>Based on our successful National Data Warehouse implementation, we propose a robust hybrid architecture that ensures both powerful centralized analytics and field-level resilience:</p>
+
+                <div class="code-block">
+<span class="comment"># DiagMAL Data Processing Pipeline - Python Implementation</span>
+<span class="keyword">from</span> typing <span class="keyword">import</span> Dict, List, Tuple
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+<span class="keyword">from</span> sklearn.cluster <span class="keyword">import</span> DBSCAN
+<span class="keyword">import</span> geopandas <span class="keyword">as</span> gpd
+
+<span class="keyword">class</span> <span class="function">MalariaOutbreakDetector</span>:
+    <span class="string">"""
+    Real-time malaria outbreak detection system
+    Proven architecture from our National Health Data Warehouse
+    """</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, config: Dict):
+        self.spatial_threshold = config[<span class="string">'spatial_threshold'</span>]  <span class="comment"># 5km radius</span>
+        self.temporal_window = config[<span class="string">'temporal_window'</span>]      <span class="comment"># 7 days</span>
+        self.min_cluster_size = config[<span class="string">'min_cluster_size'</span>]    <span class="comment"># 3 cases</span>
+
+    <span class="keyword">async def</span> <span class="function">process_diagnostic_result</span>(self, result: Dict) -> Dict:
+        <span class="string">"""Process incoming DiagMAL diagnostic data"""</span>
+        <span class="comment"># Validate and standardize incoming data</span>
+        validated_data = <span class="keyword">await</span> self.validate_diagnostic_data(result)
+
+        <span class="comment"># Perform spatio-temporal clustering</span>
+        clusters = self.detect_clusters(
+            location=validated_data[<span class="string">'gps_coordinates'</span>],
+            timestamp=validated_data[<span class="string">'test_timestamp'</span>]
+        )
+
+        <span class="comment"># Generate predictive risk assessment</span>
+        risk_prediction = <span class="keyword">await</span> self.ml_engine.predict_outbreak_risk(
+            clusters=clusters,
+            environmental_factors=self.fetch_environmental_data()
+        )
+
+        <span class="comment"># Optimize resource allocation</span>
+        resource_plan = self.optimize_resources(
+            risk_map=risk_prediction,
+            available_resources=self.get_resource_inventory()
+        )
+
+        <span class="keyword">return</span> {
+            <span class="string">'clusters'</span>: clusters,
+            <span class="string">'risk_level'</span>: risk_prediction[<span class="string">'risk_score'</span>],
+            <span class="string">'resource_allocation'</span>: resource_plan,
+            <span class="string">'alerts'</span>: self.generate_alerts(risk_prediction)
+        }
+
+    <span class="keyword">def</span> <span class="function">detect_clusters</span>(self, location: Tuple, timestamp: str) -> List:
+        <span class="string">"""
+        DBSCAN clustering algorithm for outbreak detection
+        Successfully implemented in our child welfare AI system
+        """</span>
+        recent_cases = self.fetch_recent_cases(timestamp, self.temporal_window)
+
+        <span class="comment"># Convert to spatial coordinates</span>
+        coordinates = np.array([
+            [case.latitude, case.longitude]
+            <span class="keyword">for</span> case <span class="keyword">in</span> recent_cases
+        ])
+
+        <span class="comment"># Apply DBSCAN clustering</span>
+        clustering = DBSCAN(
+            eps=self.spatial_threshold,
+            min_samples=self.min_cluster_size
+        ).fit(coordinates)
+
+        <span class="keyword">return</span> self.format_clusters(clustering.labels_, recent_cases)
+</div>
+            </div>
+
+            <div class="implementation-card">
+                <h3>🤖 ML Model Suite - Proven in Production</h3>
+                <p>Leveraging our experience from the OneHealth platform and Intel AI Suite implementation:</p>
+
+                <div class="code-block">
+<span class="comment"># Predictive Outbreak Mapping Model</span>
+<span class="keyword">class</span> <span class="function">OutbreakPredictionModel</span>:
+    <span class="string">"""
+    Spatio-temporal prediction using proven architecture
+    from our national surveillance systems
+    """</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self):
+        self.model = self.load_pretrained_model()
+        self.feature_extractor = FeatureEngineering()
+
+    <span class="keyword">def</span> <span class="function">predict_risk_zones</span>(self, current_data: gpd.GeoDataFrame) -> Dict:
+        <span class="comment"># Extract environmental features (NDVI, precipitation, temperature)</span>
+        env_features = self.feature_extractor.extract_environmental(
+            sources=[<span class="string">'sentinel2'</span>, <span class="string">'GPM'</span>, <span class="string">'MODIS'</span>]
+        )
+
+        <span class="comment"># Add demographic and infrastructure features</span>
+        demo_features = self.feature_extractor.extract_demographic(
+            sources=[<span class="string">'worldpop'</span>, <span class="string">'osm'</span>]
+        )
+
+        <span class="comment"># Combine with historical patterns</span>
+        historical_patterns = self.analyze_historical_trends(
+            lookback_days=90
+        )
+
+        <span class="comment"># Generate predictions with confidence intervals</span>
+        predictions = self.model.predict_proba(
+            features=np.concatenate([
+                env_features,
+                demo_features,
+                historical_patterns
+            ])
+        )
+
+        <span class="keyword">return</span> {
+            <span class="string">'risk_map'</span>: self.generate_risk_heatmap(predictions),
+            <span class="string">'hotspots'</span>: self.identify_hotspots(predictions, threshold=0.7),
+            <span class="string">'confidence'</span>: self.calculate_confidence_intervals(predictions)
+        }
+</div>
+            </div>
+        </div>
+
+        <!-- Implementation Timeline -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                📅 Implementation Timeline & Deliverables
+            </h2>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-item-content">
+                        <span class="timeline-month">Months 1-3</span>
+                        <h3>D1: System Architecture</h3>
+                        <p><strong>Leveraging our National Data Warehouse architecture</strong></p>
+                        <ul>
+                            <li>Stakeholder workshops and requirements gathering</li>
+                            <li>Technical specifications for DiagMAL integration</li>
+                            <li>API design for device data streams</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-item-content">
+                        <span class="timeline-month">Months 4-6</span>
+                        <h3>D2: Functional Prototype</h3>
+                        <p><strong>Adapting our OneHealth dashboard</strong></p>
+                        <ul>
+                            <li>Data integration pipeline implementation</li>
+                            <li>Real-time visualization dashboard</li>
+                            <li>Geospatial mapping interface</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-item-content">
+                        <span class="timeline-month">Months 7-9</span>
+                        <h3>D3: ML Models Validated</h3>
+                        <p><strong>Deploying proven predictive models</strong></p>
+                        <ul>
+                            <li>Outbreak prediction algorithms (>80% AUC)</li>
+                            <li>Case clustering implementation</li>
+                            <li>Resource optimization engine</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-item-content">
+                        <span class="timeline-month">Months 10-12</span>
+                        <h3>D4: Full Integration</h3>
+                        <p><strong>Complete system deployment</strong></p>
+                        <ul>
+                            <li>DiagMAL device integration</li>
+                            <li>Mobile app with offline capability</li>
+                            <li>End-to-end testing</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-item-content">
+                        <span class="timeline-month">Months 13-15</span>
+                        <h3>D5: Validation & Training</h3>
+                        <p><strong>Field testing and knowledge transfer</strong></p>
+                        <ul>
+                            <li>European & African simulations</li>
+                            <li>User training materials</li>
+                            <li>Technical documentation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs Section -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                📊 Key Performance Indicators
+            </h2>
+
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">System Uptime</div>
+                    <div class="kpi-value">>99.5%</div>
+                    <div class="kpi-label">Cloud service availability</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">Prediction Accuracy</div>
+                    <div class="kpi-value">>0.80 AUC</div>
+                    <div class="kpi-label">Outbreak detection models</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">Detection Speed</div>
+                    <div class="kpi-value">50% Faster</div>
+                    <div class="kpi-label">vs. manual reporting</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">User Satisfaction</div>
+                    <div class="kpi-value">>80%</div>
+                    <div class="kpi-label">Usability score target</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- OneHealth Screenshots Section -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                🖼️ OneHealth Platform - Live Demonstrations
+            </h2>
+
+            <div class="screenshot-placeholder">
+                <h4>Dashboard Overview - Real-time Analytics</h4>
+                <p>Screenshot suggestion: Capture the main OneHealth dashboard showing patient statistics, appointment scheduling grid, and real-time data visualizations</p>
+                <p style="color: #28a745; margin-top: 20px;"><strong>Path: Login → Dashboard Home</strong></p>
+            </div>
+
+            <div class="screenshot-placeholder">
+                <h4>Predictive Analytics Module</h4>
+                <p>Screenshot suggestion: Show the appointment prediction interface or resource utilization forecasting screens</p>
+                <p style="color: #28a745; margin-top: 20px;"><strong>Path: Analytics → Predictive Models</strong></p>
+            </div>
+
+            <div class="screenshot-placeholder">
+                <h4>Geospatial Patient Mapping</h4>
+                <p>Screenshot suggestion: Display the patient location mapping feature showing geographical distribution</p>
+                <p style="color: #28a745; margin-top: 20px;"><strong>Path: Patients → Geographic View</strong></p>
+            </div>
+
+            <div class="screenshot-placeholder">
+                <h4>Data Integration Pipeline</h4>
+                <p>Screenshot suggestion: Show the lab results integration or diagnostic data processing screens</p>
+                <p style="color: #28a745; margin-top: 20px;"><strong>Path: Settings → Integrations → Laboratory Systems</strong></p>
+            </div>
+
+            <div class="screenshot-placeholder">
+                <h4>Mobile-Responsive Interface</h4>
+                <p>Screenshot suggestion: Capture the mobile view of the OneHealth system showing field-ready capabilities</p>
+                <p style="color: #28a745; margin-top: 20px;"><strong>Access from mobile device or use browser dev tools</strong></p>
+            </div>
+        </div>
+
+        <!-- Direct Mapping to Requirements -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                ✅ Direct Mapping to DiagMAL Requirements
+            </h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>DiagMAL Requirement</th>
+                        <th>Our Proven Solution</th>
+                        <th>Evidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Aggregate diagnostic results, geospatial info, patient metadata</strong></td>
+                        <td>National Data Warehouse + OneHealth Platform</td>
+                        <td>✅ 320+ facilities integrated<br>✅ Real-time data flow operational</td>
+                    </tr>
+                    <tr>
+                        <td><strong>AI/ML models for predictive outbreak mapping</strong></td>
+                        <td>Intel AI Suite + OneHealth Predictive Analytics</td>
+                        <td>✅ Models in production<br>✅ 87% accuracy achieved</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Mobile and web-based applications</strong></td>
+                        <td>SIMS + OneHealth Multi-platform System</td>
+                        <td>✅ Field-tested in Namibia<br>✅ Offline capability proven</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Secure data transmission & GDPR compliance</strong></td>
+                        <td>Government-approved security protocols</td>
+                        <td>✅ MoHSS certified<br>✅ National deployment approved</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Validation in Europe and Africa</strong></td>
+                        <td>320+ African facilities + International standards</td>
+                        <td>✅ Field experience<br>✅ Adaptable architecture</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Why Choose Samosh -->
+        <div class="architecture-section">
+            <h2 style="text-align: center; color: #1e3c72; font-size: 2.5em; margin-bottom: 50px;">
+                🏆 Why Choose Samosh Technologies
+            </h2>
+
+            <div class="why-us-grid">
+                <div class="why-us-card">
+                    <div class="why-us-icon">🎯</div>
+                    <h4>Direct Malaria Experience</h4>
+                    <p>We managed Namibia's National Malaria Database - we know malaria surveillance intimately</p>
+                </div>
+
+                <div class="why-us-card">
+                    <div class="why-us-icon">🚀</div>
+                    <h4>Production Systems</h4>
+                    <p>Not theoretical - our systems are operational, processing 10,000+ encounters monthly</p>
+                </div>
+
+                <div class="why-us-card">
+                    <div class="why-us-icon">🌍</div>
+                    <h4>African Field Experience</h4>
+                    <p>320+ facility deployments in challenging environments - we understand the realities</p>
+                </div>
+
+                <div class="why-us-card">
+                    <div class="why-us-icon">🤖</div>
+                    <h4>AI/ML in Production</h4>
+                    <p>Our predictive models are live in OneHealth, not just concepts on paper</p>
+                </div>
+
+                <div class="why-us-card">
+                    <div class="why-us-icon">🗺️</div>
+                    <h4>GIS Excellence</h4>
+                    <p>Production mapping systems for City of Windhoek and Namwater - proven at scale</p>
+                </div>
+
+                <div class="why-us-card">
+                    <div class="why-us-icon">🏛️</div>
+                    <h4>Government Trust</h4>
+                    <p>Long-standing collaboration with Namibian Ministry of Health - credibility assured</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Risk Mitigation -->
+        <div class="implementation-card">
+            <h3>🛡️ Risk Mitigation Strategy</h3>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Risk</th>
+                        <th>Mitigation Approach</th>
+                        <th>Our Advantage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Integration delays</td>
+                        <td>Embedded integration engineer + data simulator</td>
+                        <td>Experience with 320+ integrations</td>
+                    </tr>
+                    <tr>
+                        <td>Poor data quality</td>
+                        <td>Automated validation + anomaly detection</td>
+                        <td>Proven in OneHealth platform</td>
+                    </tr>
+                    <tr>
+                        <td>Model underperformance</td>
+                        <td>MLOps pipeline for continuous improvement</td>
+                        <td>Active ML in production</td>
+                    </tr>
+                    <tr>
+                        <td>Low user adoption</td>
+                        <td>User-centered design + local training</td>
+                        <td>Trained 150+ health workers</td>
+                    </tr>
+                    <tr>
+                        <td>Connectivity issues</td>
+                        <td>Offline-first architecture</td>
+                        <td>Field-tested in rural Namibia</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="cta-section">
+            <h2>Ready to Transform Malaria Detection & Response</h2>
+            <p style="font-size: 1.3em; margin-bottom: 40px;">
+                Partner with the team that has already built what DiagMAL needs
+            </p>
+
+            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap;">
+                <a href="mailto:ksnahol@gmail.com" class="cta-button">📧 Contact Us</a>
+                <a href="tel:+264812222331" class="cta-button">📞 Call Now</a>
+            </div>
+
+            <div style="margin-top: 50px; opacity: 0.9;">
+                <p><strong>Sam Naholo</strong></p>
+                <p>Lead Consultant, Samosh Technologies</p>
+                <p>77 on Independence Avenue, Windhoek, Namibia</p>
+                <p>Email: ksnahol@gmail.com | Phone: +264 81 222 2331</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; padding: 40px 0; color: #6c757d;">
+            <p>© 2025 Samosh Technologies. All rights reserved.</p>
+            <p>This proposal contains confidential and proprietary information.</p>
+        </div>
+    </div>
+</body>
+</html>

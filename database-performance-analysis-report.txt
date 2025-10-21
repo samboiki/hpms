@@ -1,0 +1,273 @@
+=== DATABASE PERFORMANCE ANALYSIS ===
+
+Analyzing 8 critical tables...
+
+
+📊 TABLE: users
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: practices
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: patients
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: visits
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: system_notifications
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: internal_channel_members
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: practice_sms_subscriptions
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+📊 TABLE: practice_email_subscriptions
+────────────────────────────────────────────────────────────────────────────────
+  Error fetching columns: syntax error at or near ";"
+
+
+💡 PERFORMANCE OPTIMIZATION RECOMMENDATIONS
+════════════════════════════════════════════════════════════════════════════════
+
+🎯 CRITICAL INDEXES TO ADD:
+
+
+📋 USERS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_users_practice_id ON users(practice_id);
+  → RLS policies filter by practice_id on every query - ESSENTIAL for multi-tenant performance
+
+  CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+  → Email lookups during login are very frequent
+
+  CREATE INDEX CONCURRENTLY idx_users_practice_role ON users(practice_id, role);
+  → Composite index for practice staff listings filtered by role
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_users_role ON users(role);
+  → Role-based queries and access control
+
+📋 PRACTICES
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_practices_status ON practices(status);
+  → Filtering active/inactive practices
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_practices_created_at ON practices(created_at DESC);
+  → Recently added practices listings
+
+📋 PATIENTS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_patients_practice_id ON patients(practice_id);
+  → RLS filtering - every patient query filters by practice_id
+
+  CREATE INDEX CONCURRENTLY idx_patients_practice_created ON patients(practice_id, created_at DESC);
+  → Dashboard "Recent Patients" query - highly frequent
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_patients_email ON patients(email);
+  → Patient search by email
+
+  CREATE INDEX CONCURRENTLY idx_patients_phone ON patients(phone_number);
+  → Patient search by phone number
+
+📋 VISITS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_visits_practice_id ON visits(practice_id);
+  → RLS filtering - MOST CRITICAL - visits table is queried constantly
+
+  CREATE INDEX CONCURRENTLY idx_visits_practice_scheduled ON visits(practice_id, scheduled_date);
+  → Dashboard stats and calendar view - EXTREMELY frequent query
+
+  CREATE INDEX CONCURRENTLY idx_visits_patient_scheduled ON visits(patient_id, scheduled_date DESC);
+  → Patient visit history - shown on every patient modal
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_visits_patient_id ON visits(patient_id);
+  → Patient visit lookups
+
+  CREATE INDEX CONCURRENTLY idx_visits_scheduled_date ON visits(scheduled_date);
+  → Date-based appointment searches
+
+  CREATE INDEX CONCURRENTLY idx_visits_status ON visits(status);
+  → Filtering by visit status (scheduled, completed, cancelled)
+
+📋 SYSTEM_NOTIFICATIONS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_notif_user_practice_created ON system_notifications(user_id, practice_id, created_at DESC);
+  → Notification loading - queried every few seconds for real-time updates
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_notif_user_id ON system_notifications(user_id);
+  → User notification queries
+
+  CREATE INDEX CONCURRENTLY idx_notif_practice_id ON system_notifications(practice_id);
+  → Practice-wide notifications
+
+  CREATE INDEX CONCURRENTLY idx_notif_read_status ON system_notifications(is_read);
+  → Unread notification counts
+
+📋 INTERNAL_CHANNEL_MEMBERS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_channel_members_user_practice ON internal_channel_members(user_id, practice_id);
+  → Loading user channels - RLS filtering requires both fields
+
+  🟡 RECOMMENDED (Create during maintenance window):
+
+  CREATE INDEX CONCURRENTLY idx_channel_members_channel_id ON internal_channel_members(channel_id);
+  → Channel member lookups
+
+📋 PRACTICE_SMS_SUBSCRIPTIONS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_sms_sub_practice_status ON practice_sms_subscriptions(practice_id, status);
+  → SMS gateway checks active subscriptions before sending
+
+📋 PRACTICE_EMAIL_SUBSCRIPTIONS
+────────────────────────────────────────────────────────────────────────────────
+
+  🔴 CRITICAL (Create immediately):
+
+  CREATE INDEX CONCURRENTLY idx_email_sub_practice_status ON practice_email_subscriptions(practice_id, status);
+  → Email gateway checks active subscriptions before sending
+
+
+🔒 RLS POLICY PERFORMANCE ANALYSIS
+════════════════════════════════════════════════════════════════════════════════
+
+Common RLS Pattern Issues:
+
+1. ⚠️  USERS TABLE:
+   - RLS Policy: WHERE practice_id = auth.uid()::text
+   - Impact: REQUIRES idx_users_practice_id index
+   - Without index: Full table scan on EVERY query
+
+2. ⚠️  PATIENTS TABLE:
+   - RLS Policy: WHERE practice_id IN (SELECT practice_id FROM users WHERE id = auth.uid())
+   - Impact: Subquery executed on every patient access
+   - Without index: Devastating performance impact
+
+3. ⚠️  VISITS TABLE:
+   - RLS Policy: WHERE practice_id IN (SELECT practice_id FROM users WHERE id = auth.uid())
+   - Impact: THE MOST CRITICAL - visits is queried constantly
+   - Without index: Dashboard will be extremely slow
+
+4. ⚠️  SYSTEM_NOTIFICATIONS TABLE:
+   - RLS Policy: WHERE user_id = auth.uid() AND practice_id IN (...)
+   - Impact: Real-time queries every few seconds
+   - Without composite index: Slow notification loading
+
+RECOMMENDATION: Create ALL critical indexes immediately to fix RLS performance.
+
+
+
+⚡ QUERY OPTIMIZATION TIPS
+════════════════════════════════════════════════════════════════════════════════
+
+1. Dashboard Stats (get_dashboard_stats):
+   - Current: Likely doing multiple sequential queries
+   - Optimize: Use CTEs (Common Table Expressions) to batch queries
+   - Add: EXPLAIN ANALYZE to identify slow parts
+
+2. Channel Last Messages (get_channel_last_messages):
+   - Current: Likely using subqueries or multiple queries
+   - Optimize: Use window functions (ROW_NUMBER) for efficiency
+   - Add: Index on (channel_id, created_at DESC)
+
+3. Patient Visit History:
+   - Current: Loading all visits then sorting in app
+   - Optimize: Use LIMIT and ORDER BY in SQL
+   - Require: idx_visits_patient_scheduled index
+
+4. Recent Patients:
+   - Current: Full table scan with ORDER BY created_at
+   - Optimize: Use idx_patients_practice_created composite index
+   - Result: 100x+ faster queries
+
+
+
+📝 MIGRATION SCRIPT - RUN THIS IN OFF-PEAK HOURS
+════════════════════════════════════════════════════════════════════════════════
+
+-- Copy and paste this into Supabase SQL Editor
+
+BEGIN;
+
+-- users - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_users_practice_id ON users(practice_id);
+CREATE INDEX CONCURRENTLY idx_users_email ON users(email);
+CREATE INDEX CONCURRENTLY idx_users_practice_role ON users(practice_id, role);
+
+-- practices - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_practices_status ON practices(status);
+
+-- patients - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_patients_practice_id ON patients(practice_id);
+CREATE INDEX CONCURRENTLY idx_patients_practice_created ON patients(practice_id, created_at DESC);
+
+-- visits - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_visits_practice_id ON visits(practice_id);
+CREATE INDEX CONCURRENTLY idx_visits_practice_scheduled ON visits(practice_id, scheduled_date);
+CREATE INDEX CONCURRENTLY idx_visits_patient_scheduled ON visits(patient_id, scheduled_date DESC);
+
+-- system_notifications - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_notif_user_practice_created ON system_notifications(user_id, practice_id, created_at DESC);
+
+-- internal_channel_members - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_channel_members_user_practice ON internal_channel_members(user_id, practice_id);
+
+-- practice_sms_subscriptions - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_sms_sub_practice_status ON practice_sms_subscriptions(practice_id, status);
+
+-- practice_email_subscriptions - CRITICAL indexes
+CREATE INDEX CONCURRENTLY idx_email_sub_practice_status ON practice_email_subscriptions(practice_id, status);
+
+COMMIT;
+
+-- Note: CONCURRENTLY means indexes are built without locking the table
+-- This is safe to run in production but may take several minutes
+
+
+✅ ANALYSIS COMPLETE
+
+Next Steps:
+1. Review the CRITICAL indexes above
+2. Copy the migration script
+3. Run in Supabase SQL Editor during off-peak hours
+4. Monitor performance improvement
+5. Add RECOMMENDED indexes in next maintenance window

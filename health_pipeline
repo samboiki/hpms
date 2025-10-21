@@ -1,0 +1,118 @@
+digraph "Integrated Health Information Pipeline" {
+	graph [bgcolor=white fontcolor="#2D3436" fontname="Sans-Serif" fontsize=14 label="Integrated Health Information Pipeline" nodesep=0.8 pad=0.5 rankdir=TB ranksep=1.5 splines=ortho]
+	node [fixedsize=true fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 height=1.4 imagescale=true labelloc=b shape=box style=rounded width=1.4]
+	edge [color="#7B8894"]
+	ef82d236f9bc474abcfd7320d5bc4c54 [label="Phased Incremental Data Pipeline
+From Facilities to National Level" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/generic/blank\blank.png" shape=none]
+	subgraph "cluster_Healthcare Facilities (263 Sites)" {
+		graph [bgcolor="#E8F5E9" fontname="Sans-Serif" fontsize=12 label="Healthcare Facilities (263 Sites)" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style="rounded,filled"]
+		subgraph "cluster_Facility Systems" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="Facility Systems" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			b542feca52194a3d8bde3e832df5df49 [label="Quantum ePMS
+(Patient Data)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/generic/storage\storage.png" shape=none]
+			b213edf2d7cf4e579c2da690a7f11165 [label="EDT
+(Dispensing Tool)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/generic/storage\storage.png" shape=none]
+		}
+		subgraph "cluster_ETL Agent" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="ETL Agent" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"2b8541f5fc6f4bd0ab72fcad70be83ec" [label="Python ETL Agent
+(Incremental Extract)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/programming/language\python.png" shape=none]
+		}
+		"0c69467261554e1995fdda7becd4d0b5" [label="Facility Staff" height=1.9 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/client\users.png" shape=none]
+	}
+	b542feca52194a3d8bde3e832df5df49 -> "2b8541f5fc6f4bd0ab72fcad70be83ec" [label="Extract New/Updated" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	b213edf2d7cf4e579c2da690a7f11165 -> "2b8541f5fc6f4bd0ab72fcad70be83ec" [label="Extract New/Updated" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	subgraph "cluster_Stage 1: RME 'Gatekeeper' Hub" {
+		graph [bgcolor="#E3F2FD" fontname="Sans-Serif" fontsize=12 label="Stage 1: RME 'Gatekeeper' Hub" labeljust=l pencolor="#AEB6BE" penwidth=2 rankdir=LR shape=box style="rounded,filled"]
+		subgraph "cluster_Data Ingestion" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="Data Ingestion" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			ebd24a20d2ec4665872086e1616f4c32 [label="Flask API
+(Secure Receiver)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/programming/framework\flask.png" shape=none]
+		}
+		subgraph "cluster_Data Processing" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="Data Processing" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			cd08868e6d7b4ae7bb1a8653f143ce3e [label="Staging DB
+(Raw Data)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/database\postgresql.png" shape=none]
+			"294f46992c454fe5978ccc912e3dd4c4" [label="ETL Engine
+(Clean & Validate)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/analytics\databricks.png" shape=none]
+			b022a58c1e714723887b2b83dc5496fb [label="Clean Database
+(Consolidated)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/database\postgresql.png" shape=none]
+		}
+		subgraph "cluster_Quality Control" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="Quality Control" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"93a118a7364f49e095017e95ee89a4fd" [label="Data Quality
+Checker" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/aws/analytics\analytics.png" shape=none]
+			a87295830340499c98859eb8211af6fd [label="Deduplication
+Engine" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/compute\server.png" shape=none]
+		}
+		subgraph "cluster_RME Operations" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="RME Operations" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"47dca9ed303043388f8ac7b62ab87ac9" [label="RME Dashboard
+(Real-time Reports)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/monitoring\grafana.png" shape=none]
+			a9a1da13815041e78dc3f5afbc637092 [label="RME Analysts" height=1.9 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/client\users.png" shape=none]
+		}
+	}
+	ebd24a20d2ec4665872086e1616f4c32 -> cd08868e6d7b4ae7bb1a8653f143ce3e [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	cd08868e6d7b4ae7bb1a8653f143ce3e -> "294f46992c454fe5978ccc912e3dd4c4" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"294f46992c454fe5978ccc912e3dd4c4" -> "93a118a7364f49e095017e95ee89a4fd" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"93a118a7364f49e095017e95ee89a4fd" -> a87295830340499c98859eb8211af6fd [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	a87295830340499c98859eb8211af6fd -> b022a58c1e714723887b2b83dc5496fb [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	b022a58c1e714723887b2b83dc5496fb -> "47dca9ed303043388f8ac7b62ab87ac9" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"47dca9ed303043388f8ac7b62ab87ac9" -> a9a1da13815041e78dc3f5afbc637092 [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	f70d777f95bb4ed0923f072499bea9ed [label="JSON Feedback
+Generator" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/aws/integration\simple-queue-service-sqs.png" shape=none]
+	"93a118a7364f49e095017e95ee89a4fd" -> f70d777f95bb4ed0923f072499bea9ed [label="Errors Found" color=red dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	subgraph "cluster_Stage 2: NDW 'Master Assembler'" {
+		graph [bgcolor="#FFF3E0" fontname="Sans-Serif" fontsize=12 label="Stage 2: NDW 'Master Assembler'" labeljust=l pencolor="#AEB6BE" penwidth=2 rankdir=LR shape=box style="rounded,filled"]
+		subgraph "cluster_National Integration" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="National Integration" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"35aaf00d143b4b48bdc4e0b3c42c808d" [label="NDW Intake
+(Clean Data Only)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/compute\server.png" shape=none]
+			"3ba7c8b16ac8454aa8000040c399ad78" [label="National Data
+Warehouse" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/database\mongodb.png" shape=none]
+		}
+		subgraph "cluster_External Sources" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="External Sources" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			cf8cd5586be449af820242f671033e19 [label="Meditech API
+(Lab Results)" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/generic/storage\storage.png" shape=none]
+			"0943291aa95b4ff7b48fafde49efd1a7" [label="National Lab
+Repository" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/database\postgresql.png" shape=none]
+		}
+		subgraph "cluster_Data Linkage" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="Data Linkage" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"454a78eacee840daa37a36850725f787" [label="Master Linkage
+Engine" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/analytics\databricks.png" shape=none]
+			"12b91eebff5049c78a4012fd94518c55" [label="Unified Patient
+Records" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/generic/storage\storage.png" shape=none]
+		}
+		subgraph "cluster_National Analytics" {
+			graph [bgcolor="#EBF3E7" fontname="Sans-Serif" fontsize=12 label="National Analytics" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=rounded]
+			"7ee63f6877be460ea6c78c73264b22b3" [label="National
+Dashboards" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/monitoring\grafana.png" shape=none]
+			"2e4deb059e8a471bbb01797db5e80b77" [label="MoHSS
+Stakeholders" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/client\users.png" shape=none]
+		}
+	}
+	b022a58c1e714723887b2b83dc5496fb -> "35aaf00d143b4b48bdc4e0b3c42c808d" [label="Clean Data" color=green dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2]
+	"35aaf00d143b4b48bdc4e0b3c42c808d" -> "3ba7c8b16ac8454aa8000040c399ad78" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	cf8cd5586be449af820242f671033e19 -> "0943291aa95b4ff7b48fafde49efd1a7" [label="Lab Data API" dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dotted]
+	"0943291aa95b4ff7b48fafde49efd1a7" -> "454a78eacee840daa37a36850725f787" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"3ba7c8b16ac8454aa8000040c399ad78" -> "454a78eacee840daa37a36850725f787" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"454a78eacee840daa37a36850725f787" -> "12b91eebff5049c78a4012fd94518c55" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"12b91eebff5049c78a4012fd94518c55" -> "7ee63f6877be460ea6c78c73264b22b3" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"7ee63f6877be460ea6c78c73264b22b3" -> "2e4deb059e8a471bbb01797db5e80b77" [dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13]
+	"2b8541f5fc6f4bd0ab72fcad70be83ec" -> ebd24a20d2ec4665872086e1616f4c32 [label="Secure Transfer
+(Incremental)" color=blue dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2]
+	f70d777f95bb4ed0923f072499bea9ed -> "2b8541f5fc6f4bd0ab72fcad70be83ec" [label="DQ Feedback" color=purple dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 penwidth=2 style=dashed]
+	"2b8541f5fc6f4bd0ab72fcad70be83ec" -> "0c69467261554e1995fdda7becd4d0b5" [label="Error Reports" color=purple dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	"12b91eebff5049c78a4012fd94518c55" -> f70d777f95bb4ed0923f072499bea9ed [label="Enhanced Feedback
+(with Lab Data)" color=orange dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dashed]
+	subgraph "cluster_System Monitoring" {
+		graph [bgcolor="#E5F5FD" fontname="Sans-Serif" fontsize=12 label="System Monitoring" labeljust=l pencolor="#AEB6BE" rankdir=LR shape=box style=dashed]
+		b00da296d78241549fa58a89e5d14c9d [label="Pipeline Health
+Monitoring" height=2.3 image="C:\Users\Happyou2\AppData\Roaming\Python\Python313\site-packages\resources/onprem/monitoring\grafana.png" shape=none]
+	}
+	ebd24a20d2ec4665872086e1616f4c32 -> b00da296d78241549fa58a89e5d14c9d [color=gray dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dotted]
+	"294f46992c454fe5978ccc912e3dd4c4" -> b00da296d78241549fa58a89e5d14c9d [color=gray dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dotted]
+	"454a78eacee840daa37a36850725f787" -> b00da296d78241549fa58a89e5d14c9d [color=gray dir=forward fontcolor="#2D3436" fontname="Sans-Serif" fontsize=13 style=dotted]
+}

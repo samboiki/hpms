@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Health Data Pipeline - Professional Compact Flow</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#e8f5e9',
+                primaryTextColor: '#000',
+                primaryBorderColor: '#4caf50',
+                secondaryColor: '#e3f2fd',
+                tertiaryColor: '#fff3e0',
+                background: 'white',
+                mainBkg: '#e8f5e9',
+                secondBkg: '#e3f2fd',
+                tertiaryBkg: '#fff3e0',
+                lineColor: '#333',
+                fontSize: '16px'
+            },
+            flowchart: {
+                htmlLabels: true,
+                curve: 'linear',
+                rankSpacing: 80,
+                nodeSpacing: 50,
+                padding: 20,
+                useMaxWidth: true
+            }
+        });
+    </script>
+    <style>
+        @page {
+            size: A4;
+            margin: 10mm;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none !important;
+                margin: 0 !important;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 26px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            padding: 15px;
+            background: #fafafa;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+        }
+
+        .color-box {
+            width: 25px;
+            height: 18px;
+            border-radius: 4px;
+            border: 2px solid;
+        }
+
+        .green-box { background: #e8f5e9; border-color: #4caf50; }
+        .blue-box { background: #e3f2fd; border-color: #1976d2; }
+        .orange-box { background: #fff3e0; border-color: #ff9800; }
+
+        .mermaid-wrapper {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+
+        /* Custom Mermaid styling */
+        .node rect {
+            rx: 5 !important;
+            ry: 5 !important;
+        }
+
+        .label {
+            font-family: 'Segoe UI', sans-serif !important;
+        }
+
+        .footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #e0e0e0;
+            text-align: center;
+            font-size: 12px;
+            color: #95a5a6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Information Data Pipeline Architecture</h1>
+            <p class="subtitle">Automated Flow from 263 Healthcare Facilities to National Data Warehouse</p>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="color-box green-box"></div>
+                <span><strong>Stage 1:</strong> Healthcare Facilities</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box blue-box"></div>
+                <span><strong>Stage 2:</strong> RM&E Gatekeeper Hub</span>
+            </div>
+            <div class="legend-item">
+                <div class="color-box orange-box"></div>
+                <span><strong>Stage 3:</strong> NDW Master Assembler</span>
+            </div>
+        </div>
+
+        <div class="mermaid-wrapper">
+            <pre class="mermaid">
+flowchart LR
+    %% Stage 1: Healthcare Facilities
+    subgraph Stage1[" "]
+        direction TB
+        Quantum[Quantum ePMS<br/>Patient Data]
+        EDT[EDT System<br/>Dispensing Tool]
+        Python[Python ETL Agent<br/>Incremental Extract]
+        Staff[Facility Staff<br/>263 Sites]
+
+        Quantum -.-> Python
+        EDT -.-> Python
+        Staff --> Python
+    end
+
+    %% Stage 2: RME Hub
+    subgraph Stage2[" "]
+        direction TB
+        APIGw[API Gateway<br/>Secure Entry]
+        Flask[Flask API<br/>REST Service]
+        RDS[PostgreSQL RDS<br/>Staging DB]
+        Databricks[Databricks<br/>ETL Pipeline]
+        Lambda[Lambda<br/>Quality Check]
+        CleanDB[Clean Database<br/>Validated Data]
+        Grafana[Grafana<br/>Monitoring]
+        FeedbackGen[Feedback<br/>Generator]
+
+        APIGw --> Flask
+        Flask --> RDS
+        RDS --> Databricks
+        Databricks --> Lambda
+        Lambda --> CleanDB
+        CleanDB --> Grafana
+        Lambda -.-> FeedbackGen
+    end
+
+    %% Stage 3: NDW
+    subgraph Stage3[" "]
+        direction TB
+        NDWGate[NDW Gateway<br/>Data Intake]
+        MongoDB[MongoDB Atlas<br/>Data Warehouse]
+        Meditech[Meditech<br/>Lab Results]
+        DynamoDB[DynamoDB<br/>Unified Records]
+        QuickSight[QuickSight<br/>Analytics]
+        Tableau[Tableau<br/>Reports]
+        MoHSS[MoHSS<br/>Leadership]
+
+        NDWGate --> MongoDB
+        Meditech --> MongoDB
+        MongoDB --> DynamoDB
+        DynamoDB --> QuickSight
+        DynamoDB --> Tableau
+        QuickSight --> MoHSS
+        Tableau --> MoHSS
+    end
+
+    %% Main Flow Connections
+    Python ===> APIGw
+    CleanDB ===> NDWGate
+
+    %% Feedback Loops
+    FeedbackGen -.-> Python
+    DynamoDB -.-> FeedbackGen
+
+    %% Styling
+    classDef facilities fill:#e8f5e9,stroke:#4caf50,stroke-width:2px,color:#1b5e20
+    classDef rme fill:#e3f2fd,stroke:#1976d2,stroke-width:2px,color:#0d47a1
+    classDef ndw fill:#fff3e0,stroke:#ff9800,stroke-width:2px,color:#e65100
+    classDef feedback fill:#fce4ec,stroke:#c2185b,stroke-width:1px,color:#880e4f
+
+    class Quantum,EDT,Python,Staff facilities
+    class APIGw,Flask,RDS,Databricks,Lambda,CleanDB,Grafana rme
+    class NDWGate,MongoDB,Meditech,DynamoDB,QuickSight,Tableau,MoHSS ndw
+    class FeedbackGen feedback
+
+    %% Subgraph Styling
+    style Stage1 fill:#f1f8e9,stroke:#689f38,stroke-width:2px
+    style Stage2 fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
+    style Stage3 fill:#fff8e1,stroke:#f57c00,stroke-width:2px
+            </pre>
+        </div>
+
+        <div class="footer">
+            <p>© 2024 Health Information Pipeline - Ministry of Health and Social Services</p>
+        </div>
+    </div>
+
+    <script>
+        // Add stage labels after Mermaid renders
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                // Add labels to subgraphs
+                const svg = document.querySelector('.mermaid svg');
+                if (svg) {
+                    // Find subgraph groups and add labels
+                    const subgraphs = svg.querySelectorAll('.cluster');
+                    const labels = [
+                        'STAGE 1: Healthcare Facilities',
+                        'STAGE 2: RM&E Gatekeeper Hub',
+                        'STAGE 3: NDW Master Assembler'
+                    ];
+
+                    subgraphs.forEach((subgraph, index) => {
+                        const rect = subgraph.querySelector('rect');
+                        if (rect && labels[index]) {
+                            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                            text.setAttribute('x', rect.getAttribute('x') + rect.getAttribute('width')/2);
+                            text.setAttribute('y', parseFloat(rect.getAttribute('y')) + 25);
+                            text.setAttribute('text-anchor', 'middle');
+                            text.setAttribute('font-size', '14');
+                            text.setAttribute('font-weight', 'bold');
+                            text.setAttribute('fill', '#333');
+                            text.textContent = labels[index];
+                            subgraph.appendChild(text);
+                        }
+                    });
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>
