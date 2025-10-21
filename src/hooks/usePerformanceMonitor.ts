@@ -26,48 +26,7 @@ export function usePerformanceMonitor(componentName: string) {
 
           // Show performance warning
           toast.error(
-            <div>
-              <strong>Slow Network Detected</strong>
-              <p>Queries are taking {(queryTime/1000).toFixed(1)}s</p>
-              <p>Using local cache to speed things up!</p>
-              <button
-                onClick={() => {
-                  // Clear cache and reload
-                  localCache.clearAll();
-                  window.location.reload();
-                }}
-                style={{
-                  marginTop: '8px',
-                  padding: '4px 8px',
-                  background: '#ef4444',
-                  color: 'white',
-                  borderRadius: '4px',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear Cache & Reload
-              </button>
-              <button
-                onClick={() => {
-                  // Run diagnostics
-                  window.location.href = '#diagnostics';
-                  window.location.reload();
-                }}
-                style={{
-                  marginTop: '8px',
-                  marginLeft: '8px',
-                  padding: '4px 8px',
-                  background: '#3b82f6',
-                  color: 'white',
-                  borderRadius: '4px',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                Run Diagnostics
-              </button>
-            </div>,
+            `Slow Network Detected! Queries are taking ${(queryTime/1000).toFixed(1)}s. Using local cache to speed things up!`,
             {
               duration: 10000,
               id: 'slow-network-warning'
@@ -114,11 +73,7 @@ export function usePerformanceMonitor(componentName: string) {
     showCacheStatus: () => {
       const stats = localCache.getStats();
       toast.success(
-        <div>
-          <strong>Cache Status</strong>
-          <p>Entries: {stats.totalEntries}</p>
-          <p>Size: {(stats.totalSize / 1024).toFixed(1)}KB</p>
-        </div>,
+        `Cache Status - Entries: ${stats.totalEntries}, Size: ${(stats.totalSize / 1024).toFixed(1)}KB`,
         { duration: 3000 }
       );
     }
