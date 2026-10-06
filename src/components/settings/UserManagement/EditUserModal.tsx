@@ -8,6 +8,9 @@ import toast from 'react-hot-toast';
 import { DepartmentSelectionModal } from './DepartmentSelectionModal';
 import DateInput from '../../ui/DateInput';
 import { getGenderAppropriateAvatar } from '../../../utils/avatarUtils';
+import { useAuthStore } from '../../../stores/authStore';
+import type { Database } from '../../../types/database.types';
+import { describeDbError, ensureRowsUpdated } from './staffUtils';
 
 interface UserData {
   id: string;
@@ -27,7 +30,10 @@ interface UserData {
   account_number?: string;
   account_type?: string;
   gender?: string;
+  hpcsa_number?: string | null;
 }
+
+type UserUpdate = Database['public']['Tables']['users']['Update'] & { gender?: string | null };
 
 interface EditUserModalProps {
   user: UserData;
@@ -36,6 +42,9 @@ interface EditUserModalProps {
 }
 
 export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSuccess }) => {
+  const { user: currentUser } = useAuthStore();
+  const isEditingSelf = currentUser?.id === user.id;
+  const bankingLoaded = 'bank_name' in user || 'account_number' in user;
   const [loading, setLoading] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -50,13 +59,11 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
     address: user.address || '',
     employee_number: user.employee_number || '',
     start_date: user.start_date || '',
-    is_active: user.is_active,
     bank_name: user.bank_name || '',
     account_number: user.account_number || '',
     account_type: user.account_type || '',
     gender: user.gender || '',
-    newPassword: '',
-    confirmPassword: ''
+    hpcsa_number: user.hpcsa_number || ''
   });
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -110,14 +117,15 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.newPassword && formData.newPassword !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+
+    const fullName = formData.full_name.trim();
+    if (!fullName) {
+      toast.error('Full name is required');
       return;
     }
 
-    if (formData.newPassword && formData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (isEditingSelf && user.role === 'admin' && formData.role !== 'admin') {
+      toast.error('You cannot remove your own administrator role. Ask another administrator to change it.');
       return;
     }
 
@@ -137,44 +145,45 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
         avatarUrl = getGenderAppropriateAvatar(formData.gender, user.email);
       }
 
-      // Update user record
-      const { error: userError } = await supabase
+      // Status changes go through Deactivate/Reactivate (with confirmation), not this form.
+      // Passwords cannot be set from the browser: auth admin APIs need the service role key.
+      const updates: UserUpdate = {
+        full_name: fullName,
+        role: formData.role,
+        job_title: formData.job_title.trim() || null,
+        department: formData.department || null,
+        contact_number: formData.contact_number.trim() || null,
+        address: formData.address.trim() || null,
+        employee_number: formData.employee_number.trim() || null,
+        start_date: formData.start_date || null,
+        hpcsa_number: formData.hpcsa_number.trim() || null,
+        avatar: avatarUrl || null,
+        updated_at: new Date().toISOString()
+      };
+      // Only write banking details that were actually loaded, so a partial record can never blank them
+      if (bankingLoaded) {
+        updates.bank_name = formData.bank_name.trim() || null;
+        updates.account_number = formData.account_number.trim() || null;
+        updates.account_type = formData.account_type || null;
+      }
+      // `gender` is not in the generated schema; only send it when the loaded row has the column
+      if ('gender' in user) {
+        updates.gender = formData.gender || null;
+      }
+
+      const { data: updatedRows, error: userError } = await supabase
         .from('users')
-        .update({
-          full_name: formData.full_name,
-          role: formData.role,
-          job_title: formData.job_title || null,
-          department: formData.department || null,
-          contact_number: formData.contact_number || null,
-          address: formData.address || null,
-          employee_number: formData.employee_number || null,
-          start_date: formData.start_date || null,
-          is_active: formData.is_active,
-          bank_name: formData.bank_name || null,
-          account_number: formData.account_number || null,
-          account_type: formData.account_type || null,
-          gender: formData.gender || null,
-          avatar: avatarUrl || null
-        })
-        .eq('id', user.id);
+        .update(updates)
+        .eq('id', user.id)
+        .select('id');
 
       if (userError) throw userError;
-
-      // Update password if provided
-      if (formData.newPassword) {
-        const { error: passwordError } = await supabase.auth.admin.updateUserById(
-          user.id,
-          { password: formData.newPassword }
-        );
-
-        if (passwordError) throw passwordError;
-      }
+      ensureRowsUpdated(updatedRows, `${fullName}'s details`);
 
       onSuccess();
     } catch (error) {
       console.error('Error updating user:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update user';
-      toast.error(errorMessage);
+      toast.error(describeDbError(error, 'Could not save staff details'));
     } finally {
       setLoading(false);
     }
@@ -299,17 +308,18 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
+                    <label htmlFor="edit-hpcsa-number" className="block text-sm font-medium text-gray-700 mb-1">
+                      Professional Registration No.
                     </label>
-                    <select
-                      value={formData.is_active.toString()}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'true' })}
+                    <input
+                      id="edit-hpcsa-number"
+                      type="text"
+                      value={formData.hpcsa_number}
+                      onChange={(e) => setFormData({ ...formData, hpcsa_number: e.target.value })}
+                      placeholder={formData.role === 'doctor' || formData.role === 'nurse' ? 'e.g. MP 12345' : 'Not required for this role'}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    >
-                      <option value="true">Active</option>
-                      <option value="false">Inactive</option>
-                    </select>
+                    />
+                    <p className="text-xs text-gray-500 mt-1">HPCNA/HPCSA number printed on medical aid claims.</p>
                   </div>
                 </div>
               </div>
@@ -419,7 +429,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                 </div>
               </div>
 
-              {/* Banking Details */}
+              {/* Banking Details (only when the full record was loaded) */}
+              {bankingLoaded && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Banking Details</h3>
                 <div className="grid grid-cols-2 gap-4">
@@ -464,41 +475,20 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                   </div>
                 </div>
               </div>
+              )}
 
-              {/* Password Reset */}
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Reset Password (Optional)</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.newPassword}
-                      onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Leave blank to keep current"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                </div>
+              {/* Passwords are managed by each staff member */}
+              <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                <Icon icon={SolarIcons.lock} className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p>
+                  Passwords are private to each staff member. They change their own password under
+                  Settings &rarr; Account &rarr; Security. Status changes use the Deactivate / Reactivate action on the profile.
+                </p>
               </div>
 
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <Button variant="outline" onClick={onClose} disabled={loading}>
+                <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
                   Cancel
                 </Button>
                 <Button
@@ -524,10 +514,9 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
         </Card>
       </motion.div>
 
-      {/* Department Selection Modal */}
+      {/* Department Selection Modal - only updates the form; saved with "Save Changes" so Cancel discards it */}
       {showDepartmentModal && (
         <DepartmentSelectionModal
-          userId={user.id}
           currentDepartment={formData.department}
           onClose={() => setShowDepartmentModal(false)}
           onSuccess={(departmentName) => {

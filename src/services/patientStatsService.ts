@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 
 export interface PatientStats {
@@ -91,7 +92,8 @@ export class PatientStatsService {
         .from('visits')
         .select('patient_id')
         .in('patient_id', patientData.map(p => p.id))
-        .gte('visit_date', sixMonthsAgo.toISOString().split('T')[0]);
+        // visit_date is a DATE column: compare with the local calendar date, not the UTC one
+        .gte('visit_date', format(sixMonthsAgo, 'yyyy-MM-dd'));
 
       const activePatients = visitsError 
         ? 0 

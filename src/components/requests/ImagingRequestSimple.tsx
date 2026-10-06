@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Calendar, Building2, Camera, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
 import DatePickerModal from '../ui/DatePickerModal';
 
@@ -53,40 +54,45 @@ export default function ImagingRequestSimple({
 
   const handleSubmit = async () => {
     if (!user) {
-      alert('You must be logged in to create requests');
+      toast.error('You must be signed in to save imaging requests.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      const requestData = {
-        patient_id: patientId,
-        visit_id: visitId,
+      // Only the fields on this form. An edit must not reset a completed request to pending or
+      // overwrite the body part, clinical indication and requester set when it was created.
+      const editedFields = {
         imaging_type: imagingType,
         request_date: format(requestDate, 'yyyy-MM-dd'),
         expected_results_date: expectedResultsDate ? format(expectedResultsDate, 'yyyy-MM-dd') : null,
-        facility_name: imagingFacility || null,
-        requested_by: user.id,
-        status: 'pending',
-        // Set default values for required fields
-        body_part: 'Not specified',
-        clinical_indication: 'As per clinical assessment',
-        priority: 'routine'
+        facility_name: imagingFacility || null
       };
 
       let result;
       if (editRequest) {
         result = await supabase
           .from('imaging_requests')
-          .update(requestData)
+          .update(editedFields)
           .eq('id', editRequest.id)
           .select()
           .single();
       } else {
         result = await supabase
           .from('imaging_requests')
-          .insert([requestData])
+          .insert([{
+            ...editedFields,
+            patient_id: patientId,
+            // An empty id (visit not saved yet) is not a valid uuid
+            visit_id: visitId || null,
+            requested_by: user.id,
+            status: 'pending',
+            // Set default values for required fields
+            body_part: 'Not specified',
+            clinical_indication: 'As per clinical assessment',
+            priority: 'routine'
+          }])
           .select()
           .single();
       }
@@ -99,7 +105,7 @@ export default function ImagingRequestSimple({
       onClose();
     } catch (error) {
       console.error('Error saving imaging request:', error);
-      alert('Failed to save imaging request. Please try again.');
+      toast.error('Could not save the imaging request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

@@ -19,12 +19,13 @@ import {
   Pill,
   FlaskConical
 } from 'lucide-react';
-import { format, differenceInMinutes, differenceInHours, isToday, isTomorrow } from 'date-fns';
+import { isToday } from 'date-fns';
 import { cn } from '../../utils/cn';
 import { useMessagingStore } from '../../stores/messagingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationSubscription } from '../../hooks/useRealtimeMessaging';
 import { SystemNotification } from '../../types/internal-messaging.types';
+import { formatNotificationTime } from './notificationTime';
 
 export interface Notification {
   id: string;
@@ -149,19 +150,6 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
       case 'message': return 'from-gray-500 to-gray-600';
       default: return 'from-gray-400 to-gray-500';
     }
-  };
-
-  const getTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffMinutes = differenceInMinutes(now, date);
-    const diffHours = differenceInHours(now, date);
-
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (isToday(date)) return format(date, 'h:mm a');
-    if (isTomorrow(date)) return `Tomorrow ${format(date, 'h:mm a')}`;
-    return format(date, 'MMM d, h:mm a');
   };
 
   const filteredNotifications = notifications.filter(notif => {
@@ -323,7 +311,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs text-gray-400">
-                              {getTimeAgo(notification.time)}
+                              {formatNotificationTime(notification.time)}
                             </span>
                             <ChevronRight className={cn(
                               "w-4 h-4 text-gray-400 transition-transform",

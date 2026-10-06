@@ -902,12 +902,12 @@ export const smartRoutingRules: SmartRoutingRule[] = [
 export const notificationTemplates = {
   // Visit/Appointment Templates
   appointment_confirmation_sms: {
-    content: "Hi {{patient_name}}, your appointment is confirmed for {{scheduled_date}} at {{scheduled_time}} with Dr. {{doctor_name}}. Reply CONFIRM to acknowledge.",
+    content: "Hi {{patient_name}}, your appointment is confirmed for {{scheduled_date}} at {{scheduled_time}} with Dr. {{doctor_name}}. To change or cancel it, please call the practice.",
     variables: ['patient_name', 'scheduled_date', 'scheduled_time', 'doctor_name']
   },
   
   appointment_reminder_24h: {
-    content: "Reminder: You have an appointment tomorrow {{scheduled_date}} at {{scheduled_time}} with Dr. {{doctor_name}} at {{practice_name}}. Reply CONFIRM if you're still coming.",
+    content: "Reminder: You have an appointment tomorrow {{scheduled_date}} at {{scheduled_time}} with Dr. {{doctor_name}} at {{practice_name}}. If you can't make it, please call the practice.",
     variables: ['scheduled_date', 'scheduled_time', 'doctor_name', 'practice_name']
   },
 

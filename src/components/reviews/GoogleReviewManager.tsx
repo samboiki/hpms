@@ -148,7 +148,7 @@ export default function GoogleReviewManager() {
 
   const updateGooglePlaceId = async () => {
     // TODO: Implement google_place_id and google_review_url columns in practices table
-    toast.info('Google Review integration is coming soon!');
+    toast('Google Review integration is coming soon.');
   };
 
   if (loading) {

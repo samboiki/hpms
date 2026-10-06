@@ -52,7 +52,7 @@ export default function FollowUpAutomationMonitor() {
   const processQueue = async () => {
     setIsProcessing(true);
     try {
-      await supabase.functions.invoke('follow-up-queue-processor');
+      await supabase.functions.invoke('process-automation-queue');
       await fetchQueueStatus();
       await fetchRecentJobs();
     } catch (error) {

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import Html2CanvasPDF from './Html2CanvasPDF';
-import PuppeteerPDF from './PuppeteerPDF';
 
 interface Invoice {
   id: string;
@@ -54,33 +53,34 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
   const [selectedMethod, setSelectedMethod] = useState<PDFMethod>('html2canvas');
   const [generating, setGenerating] = useState(false);
 
-  const methods = [
+  // A method with unavailableReason is listed with the reason but cannot be chosen
+  const methods: Array<{
+    id: PDFMethod;
+    name: string;
+    description: string;
+    recommended: boolean;
+    unavailableReason?: string;
+  }> = [
     {
-      id: 'html2canvas' as PDFMethod,
-      name: 'HTML2Canvas + jsPDF',
-      description: 'Client-side PDF generation from HTML',
-      pros: ['✅ Works immediately', '✅ No server setup', '✅ Perfect font rendering'],
-      cons: ['⚠️ Large file sizes', '⚠️ Image-based text'],
-      recommended: true,
-      status: '🟢 Ready'
+      id: 'html2canvas',
+      name: 'Download PDF',
+      description: 'Saves the invoice as a PDF file on this computer.',
+      recommended: true
     },
     {
-      id: 'puppeteer' as PDFMethod,
-      name: 'Puppeteer (Server-side)',
-      description: 'Professional PDF generation using headless Chrome',
-      pros: ['✅ Perfect rendering', '✅ Small file sizes', '✅ Searchable text', '✅ Production ready'],
-      cons: ['⚠️ Requires server setup', '⚠️ Node.js dependency'],
+      id: 'puppeteer',
+      name: 'Server PDF',
+      description: 'Creates the PDF on a server.',
       recommended: false,
-      status: '🟡 Needs API setup'
+      // The app has no /api/generate-pdf endpoint (only an example in server-examples/), and this
+      // option never received the practice details, so its button failed without a message
+      unavailableReason: 'Not available: no PDF server has been set up for this system.'
     },
     {
-      id: 'browser-print' as PDFMethod,
-      name: 'Browser Print (CSS)',
-      description: 'Use browser\'s native print functionality',
-      pros: ['✅ Zero dependencies', '✅ Perfect fonts', '✅ Lightweight'],
-      cons: ['⚠️ Manual user action', '⚠️ Inconsistent across browsers'],
-      recommended: false,
-      status: '🟢 Ready'
+      id: 'browser-print',
+      name: 'Print',
+      description: "Opens your browser's print window for this page.",
+      recommended: false
     }
   ];
 
@@ -92,10 +92,10 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
     <div className="bg-white rounded-lg border border-gray-200 p-6">
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          🚀 Choose PDF Generation Method
+          Download or print this invoice
         </h3>
         <p className="text-sm text-gray-600">
-          Select the best PDF generation method for your needs. Each has different trade-offs.
+          Choose how you want a copy of this invoice.
         </p>
       </div>
 
@@ -104,53 +104,41 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
         {methods.map((method) => (
           <div
             key={method.id}
-            className={`border rounded-lg p-4 cursor-pointer transition-all ${
-              selectedMethod === method.id
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
+            className={`border rounded-lg p-4 transition-all ${
+              method.unavailableReason
+                ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                : selectedMethod === method.id
+                  ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                  : 'border-gray-200 hover:border-gray-300 cursor-pointer'
             } ${method.recommended ? 'ring-2 ring-green-200' : ''}`}
-            onClick={() => setSelectedMethod(method.id)}
+            onClick={() => {
+              if (!method.unavailableReason) setSelectedMethod(method.id);
+            }}
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={selectedMethod === method.id}
-                  onChange={() => setSelectedMethod(method.id)}
-                  className="text-blue-600"
-                />
-                <h4 className="font-medium text-gray-900">
-                  {method.name}
-                  {method.recommended && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                      Recommended
-                    </span>
-                  )}
-                </h4>
-              </div>
-              <span className="text-sm">{method.status}</span>
+            <div className="flex items-center gap-2 mb-2">
+              <input
+                type="radio"
+                name="invoice-copy-method"
+                checked={selectedMethod === method.id}
+                disabled={Boolean(method.unavailableReason)}
+                onChange={() => setSelectedMethod(method.id)}
+                className="text-blue-600"
+                aria-label={method.name}
+              />
+              <h4 className={`font-medium ${method.unavailableReason ? 'text-gray-500' : 'text-gray-900'}`}>
+                {method.name}
+                {method.recommended && (
+                  <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                    Recommended
+                  </span>
+                )}
+              </h4>
             </div>
-            
-            <p className="text-sm text-gray-600 mb-3">{method.description}</p>
-            
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <h5 className="text-xs font-medium text-green-700 mb-1">Pros:</h5>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  {method.pros.map((pro, index) => (
-                    <li key={index}>{pro}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h5 className="text-xs font-medium text-amber-700 mb-1">Considerations:</h5>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  {method.cons.map((con, index) => (
-                    <li key={index}>{con}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+
+            <p className="text-sm text-gray-600">{method.description}</p>
+            {method.unavailableReason && (
+              <p className="mt-1 text-xs font-medium text-amber-700">{method.unavailableReason}</p>
+            )}
           </div>
         ))}
       </div>
@@ -164,18 +152,6 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
               patient={patient}
               onGenerating={setGenerating}
             />
-          )}
-          
-          {selectedMethod === 'puppeteer' && (
-            <div className="flex flex-col gap-2">
-              <PuppeteerPDF
-                invoice={invoice}
-                patient={patient}
-              />
-              <p className="text-xs text-amber-600">
-                ⚠️ Requires server-side API setup (see instructions below)
-              </p>
-            </div>
           )}
           
           {selectedMethod === 'browser-print' && (
@@ -201,48 +177,6 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
           </div>
         </div>
       )}
-
-      {/* Setup Instructions */}
-      {selectedMethod === 'puppeteer' && (
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h4 className="font-medium text-yellow-800 mb-2">
-            🛠️ Puppeteer Setup Required
-          </h4>
-          <div className="text-sm text-yellow-700 space-y-2">
-            <p>To use Puppeteer PDF generation, you need to set up a server-side API:</p>
-            <div className="bg-yellow-100 p-3 rounded border font-mono text-xs overflow-x-auto">
-              <div className="mb-2"># 1. Install dependencies</div>
-              <div className="mb-2">npm install puppeteer express</div>
-              <div className="mb-2"># 2. Create server/pdf-service.js (see documentation)</div>
-              <div># 3. Add API endpoint: POST /api/generate-pdf</div>
-            </div>
-            <p>
-              <a 
-                href="https://github.com/puppeteer/puppeteer" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-yellow-800 underline hover:text-yellow-900"
-              >
-                View Puppeteer documentation →
-              </a>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Migration Notice */}
-      <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h4 className="font-medium text-green-800 mb-2">
-          ✅ Migration from React-PDF Complete
-        </h4>
-        <div className="text-sm text-green-700 space-y-1">
-          <p>• ✅ Montserrat font now renders perfectly</p>
-          <p>• ✅ No more "Buffer is not defined" errors</p>
-          <p>• ✅ No more "Font family not registered" errors</p>
-          <p>• ✅ Professional grey color scheme applied</p>
-          <p>• ✅ Fixed INVOICE/invoice number spacing</p>
-        </div>
-      </div>
     </div>
   );
 };

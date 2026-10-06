@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 // Removed framer-motion for stable, premium experience
 import { format, isSameDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
@@ -30,6 +31,9 @@ import { cn } from '../../utils/cn';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
 import { HandoffCardPrintButtons } from './HandoffCardPrintButtons';
+import { toast } from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/formatDoctorName';
+import { DOCK_SLOT_IDS } from '../layout/dockSlots';
 
 interface Visit {
   id: string;
@@ -57,7 +61,37 @@ interface FloatingVisitTrackerProps {
   onOpenPatientModal?: (patientId: string, defaultTab?: 'overview' | 'encounters') => void;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex = 50, onOpenPatientModal }) => {
+/** Donut showing the share of the day's visits that are completed */
+const ProgressRing: React.FC<{ size: number; stroke: number; percentage: number; trackClassName: string; barClassName: string }> = ({
+  size,
+  stroke,
+  percentage,
+  trackClassName,
+  barClassName
+}) => {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={stroke} className={trackClassName} />
+      {percentage > 0 && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${(percentage / 100) * circumference} ${circumference}`}
+          className={barClassName}
+        />
+      )}
+    </svg>
+  );
+};
+
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex: zIndexProp, onOpenPatientModal }) => {
+  const zIndex = zIndexProp ?? 50;
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -133,14 +167,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   
   // Calculate visit statistics using the enhanced visits structure
   const safeVisits = visits || [];
-  const totalCount = safeVisits.length;
   const scheduledCount = safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled).length;
   const readyCount = safeVisits.filter(v => v?.is_ready && !v?.is_cancelled).length;
   const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).length;
   const handedOffCount = safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed').length;
   const completedCount = safeVisits.filter(v => v?.status === 'completed').length;
   const cancelledCount = safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled').length;
-  const noShowCount = safeVisits.filter(v => v?.status === 'no_show').length;
+  // The store writes 'no-show' (hyphen); counting 'no_show' always gave 0
+  const noShowCount = safeVisits.filter(v => v?.status === 'no-show' || v?.status === 'no_show').length;
   
   // Calculate percentage: completed vs all other statuses (excluding cancelled)
   const nonCancelledVisits = safeVisits.filter(v => !v?.is_cancelled && v?.status !== 'cancelled');
@@ -150,18 +184,19 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
   // The data is now fetched via the useTodayAppointments hook
 
-  // SVG path for donut chart
-  const createPath = (percentage: number) => {
-    const radius = 30; // Match the actual circle radius
-    const circumference = radius * 2 * Math.PI;
-    const strokeLength = (percentage / 100) * circumference;
-    const strokeDasharray = `${strokeLength} ${circumference}`;
-    
-    return {
-      strokeDasharray,
-      strokeDashoffset: 0
-    };
-  };
+  // Pages dock the tracker in the app shell (desktop sidebar, or the app bar below lg) so it never covers
+  // page content. Callers that stack it above their own overlay (a z-index override) keep it floating.
+  const canDock = zIndexProp === undefined;
+  const [dockTargets, setDockTargets] = useState<{ sidebar: HTMLElement | null; appBar: HTMLElement | null } | null>(null);
+  useLayoutEffect(() => {
+    if (!canDock) return;
+    setDockTargets({
+      sidebar: document.getElementById(DOCK_SLOT_IDS.sidebar),
+      appBar: document.getElementById(DOCK_SLOT_IDS.appBar)
+    });
+  }, [canDock]);
+  const isDocked = canDock && !!dockTargets && !!(dockTargets.sidebar || dockTargets.appBar);
+  const showFloating = !canDock || (!!dockTargets && !isDocked);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -236,82 +271,93 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
         setIsEditVisitModalOpen(true);
       } catch (error) {
         console.error('Error starting visit:', error);
+        toast.error('Could not start the visit. Please try again.');
       }
     }
   }, [startVisit]);
 
+  // Tracker buttons report back like the same actions in the scheduler (they used to fail silently)
+  const runVisitAction = async (action: () => Promise<void>, success: string, failure: string) => {
+    try {
+      await action();
+      toast.success(success);
+    } catch (error) {
+      console.error(failure, error);
+      toast.error(failure);
+    }
+  };
+
+  const isToday = !selectedDate || isSameDay(selectedDate, new Date());
+  const visitWord = nonCancelledCount === 1 ? 'visit' : 'visits';
+  const openLabel = `Open the visit tracker: ${nonCancelledCount} ${visitWord}, ${completedCount} completed${
+    unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
+  }`;
+  const unreadBadge = unreadCount > 0 && (
+    <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white tabular-nums ring-2 ring-white">
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  );
+
+  // Desktop sidebar: ring with the count; the label shows when the sidebar is expanded
+  const sidebarTrigger = (
+    <button
+      type="button"
+      onClick={() => setIsOpen(true)}
+      title={openLabel}
+      aria-label={openLabel}
+      className="flex w-full min-h-[48px] items-center gap-3 rounded-xl px-2 py-1.5 text-left text-white/90 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 group-data-[collapsed=true]:justify-center group-data-[collapsed=true]:px-0"
+    >
+      <span className="relative flex-none">
+        <ProgressRing size={40} stroke={4} percentage={completionPercentage} trackClassName="stroke-white/25" barClassName="stroke-white" />
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-bold tabular-nums text-white">{nonCancelledCount}</span>
+        {unreadBadge}
+      </span>
+      <span className="min-w-0 group-data-[collapsed=true]:hidden">
+        <span className="block truncate text-sm font-medium text-white">{isToday ? "Today's visits" : 'Visits'}</span>
+        <span className="block truncate text-xs text-white/70 tabular-nums">{completedCount} of {nonCancelledCount} completed</span>
+      </span>
+    </button>
+  );
+
+  // App bar (below lg): compact pill
+  const appBarTrigger = (
+    <button
+      type="button"
+      onClick={() => setIsOpen(true)}
+      title={openLabel}
+      aria-label={openLabel}
+      className="relative flex h-10 items-center gap-1.5 rounded-full border border-gray-200 bg-white pl-1 pr-3 text-sm text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+    >
+      <ProgressRing size={32} stroke={4} percentage={completionPercentage} trackClassName="stroke-gray-200" barClassName="stroke-cyan-500" />
+      <span className="font-semibold tabular-nums">{nonCancelledCount}</span>
+      <span className="text-gray-500">{visitWord}</span>
+      {unreadBadge}
+    </button>
+  );
+
   return (
     <>
-      {/* Floating Button */}
-      <div className="fixed bottom-6 right-6 float-animation" style={{ zIndex }}>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="relative w-20 h-20 bg-white rounded-full shadow-2xl backdrop-blur-xl group hover:shadow-3xl"
-          style={{ 
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)',
-            overflow: 'visible'
-          }}
-        >
-          {/* Donut Chart */}
-          <svg className="absolute inset-1 w-[72px] h-[72px]" viewBox="0 0 72 72">
-            {/* Full background circle in light grey */}
-            <circle
-              cx="36"
-              cy="36"
-              r="30"
-              fill="none"
-              stroke="#D1D5DB"
-              strokeWidth="6"
-              style={{
-                transformOrigin: '50% 50%',
-                transform: 'rotate(-90deg)'
-              }}
-            />
-            
-            {/* Completed segment - darker grey, overlays on top */}
-            {completionPercentage > 0 && (
-              <circle
-                cx="36"
-                cy="36"
-                r="30"
-                fill="none"
-                stroke="#6B7280"
-                strokeWidth="6"
-                strokeLinecap="round"
-                style={{
-                  strokeDasharray: createPath(completionPercentage).strokeDasharray,
-                  strokeDashoffset: createPath(completionPercentage).strokeDashoffset,
-                  transition: 'none',
-                  transformOrigin: '50% 50%',
-                  transform: 'rotate(-90deg)'
-                }}
-              />
-            )}
-          </svg>
-
-          {/* Center content */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800">{nonCancelledCount}</p>
-              <p className="text-xs text-gray-500 -mt-1">Visits</p>
-            </div>
-          </div>
-
-        </button>
-        
-        {/* Notification Badge - Outside button to avoid clipping */}
-        {unreadCount > 0 && (
-          <div className="absolute -top-1 -right-1">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
-              <div className="relative bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-lg">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {/* Visit tracker trigger: docked in the app shell, or floating above the caller's overlay */}
+      {isDocked && dockTargets?.sidebar && createPortal(sidebarTrigger, dockTargets.sidebar)}
+      {isDocked && dockTargets?.appBar && createPortal(appBarTrigger, dockTargets.appBar)}
+      {/* Above a full-screen modal there is no shell to dock in: a slim tab on the right edge, clear of the
+          corners where modals keep their close and save buttons */}
+      {showFloating && (
+        <div className="fixed right-0 top-1/2 -translate-y-1/2" style={{ zIndex }}>
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            title={openLabel}
+            aria-label={openLabel}
+            className="relative flex flex-col items-center gap-1 rounded-l-xl bg-white/95 py-2 pl-1.5 pr-1 shadow-xl ring-1 ring-black/5 backdrop-blur transition-shadow hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+          >
+            <ProgressRing size={28} stroke={3.5} percentage={completionPercentage} trackClassName="stroke-gray-200" barClassName="stroke-cyan-500" />
+            <span className="text-sm font-bold leading-none tabular-nums text-gray-800">{nonCancelledCount}</span>
+            <span className="text-[10px] leading-none text-gray-500">{visitWord}</span>
+            {unreadBadge}
+          </button>
+        </div>
+      )}
 
       {/* Modal */}
       {isOpen && (
@@ -324,16 +370,20 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             />
 
             {/* Modal Content */}
+            {/* Full-height sheet on phones, right-hand panel from md */}
             <div
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="visit-tracker-title"
+              className="fixed inset-0 md:inset-y-4 md:right-4 md:left-auto md:w-[560px] bg-white md:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
               style={{ zIndex: zIndex + 20 }}
             >
               {/* Fixed Header */}
               <div className="flex-shrink-0 border-b border-gray-100 bg-white">
-                <div className="p-6 pb-0">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-800">
+                <div className="p-4 pb-0 sm:p-6 sm:pb-0">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h2 id="visit-tracker-title" className="text-xl sm:text-2xl font-bold text-gray-800">
                         {activeTab === 'visits' 
                           ? (selectedDate && !isSameDay(selectedDate, new Date()) ? 'Visits' : "Today's Visits")
                           : 'Messages & Notifications'
@@ -341,7 +391,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                       </h2>
                       <p className="text-sm text-gray-500 mt-1">
                         {activeTab === 'visits' 
-                          ? format(selectedDate || new Date(), 'EEEE, MMMM d, yyyy')
+                          ? format(selectedDate || new Date(), 'EEEE, d MMMM yyyy')
                           : `${unreadNotificationCount} unread notifications`
                         }
                       </p>
@@ -349,6 +399,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     <button
                       onClick={() => setIsOpen(false)}
                       className="p-2 hover:bg-gray-100 rounded-xl"
+                      title="Close"
+                      aria-label="Close"
                     >
                       <X className="w-6 h-6 text-gray-400" />
                     </button>
@@ -415,14 +467,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                         willChange: 'scroll-position'
                       }}
                     >
-                      <div className="p-6 space-y-6">
+                      <div className="p-4 sm:p-6 space-y-6">
                     {/* Full Width Progress Bar */}
                     <div className="w-full">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <span className="text-sm font-semibold text-gray-700">Daily Progress</span>
                           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                            {completedCount} of {totalCount} visits completed
+                            {completedCount} of {nonCancelledCount} visits completed
                           </span>
                         </div>
                         <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
@@ -467,7 +519,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   {visit.patient?.first_name} {visit.patient?.last_name}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Ready since {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                  {formatDoctorName(visit.doctor?.full_name, 'Unassigned')} • Booked for {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
@@ -514,7 +566,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     {visit.patient?.first_name} {visit.patient?.last_name}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                    {formatDoctorName(visit.doctor?.full_name, 'Unassigned')} • Booked for {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
                                   </p>
                                 </div>
                               </div>
@@ -524,8 +576,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const { handoffVisit } = useVisitsStore.getState();
-                                    handoffVisit(visit.id);
+                                    runVisitAction(
+                                      () => useVisitsStore.getState().handoffVisit(visit.id),
+                                      'Handed off to nurse',
+                                      'Could not hand off the visit. Please try again.'
+                                    );
                                   }}
                                   className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md"
                                 >
@@ -534,8 +589,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const { completeVisit } = useVisitsStore.getState();
-                                    completeVisit(visit.id);
+                                    runVisitAction(
+                                      () => useVisitsStore.getState().completeVisit(visit.id),
+                                      'Visit completed',
+                                      'Could not complete the visit. Please try again.'
+                                    );
                                   }}
                                   className="px-3 py-1.5 bg-[#01b9d4] hover:bg-[#00a5be] text-white text-sm font-medium rounded-md"
                                 >
@@ -557,7 +615,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     ) : safeVisits.length === 0 ? (
                       <div className="text-center py-8">
                         <Calendar className="w-12 h-12 text-gray-300 mx-auto" />
-                        <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          {selectedDate && !isSameDay(selectedDate, new Date()) ? 'No visits scheduled for this day' : 'No visits scheduled for today'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">Book one with Schedule on the dashboard.</p>
                       </div>
                     ) : (
                       // Group visits by status and render each category
@@ -715,7 +776,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         
                                         {/* Visit type and Doctor */}
                                         <div className="text-xs text-gray-500 mb-2">
-                                          {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                          {visit.visit_type || 'Consultation'} • {formatDoctorName(visit.doctor?.full_name, 'Unassigned')}
                                         </div>
                                         
                                         {/* Status and actions for non-handoff cards */}
@@ -749,14 +810,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                                   <span className="text-xs font-medium text-blue-600">Scheduled</span>
                                                 </div>
                                                 <button
-                                                  onClick={async (e) => {
+                                                  onClick={(e) => {
                                                     e.stopPropagation();
                                                     e.preventDefault();
-                                                    try {
-                                                      await checkInPatient(visit.id);
-                                                    } catch (error) {
-                                                      console.error('Error checking in patient:', error);
-                                                    }
+                                                    runVisitAction(
+                                                      () => checkInPatient(visit.id),
+                                                      'Patient checked in',
+                                                      'Could not check in the patient. Please try again.'
+                                                    );
                                                   }}
                                                   className="ml-auto px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-medium rounded-md shadow-sm"
                                                 >
@@ -806,8 +867,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              const { completeVisit } = useVisitsStore.getState();
-                                              completeVisit(visit.id);
+                                              runVisitAction(
+                                                () => useVisitsStore.getState().completeVisit(visit.id),
+                                                'Visit completed',
+                                                'Could not complete the visit. Please try again.'
+                                              );
                                             }}
                                             className="px-3 py-1 bg-gradient-to-r from-[#01b9d4] to-[#00a5be] hover:from-[#00a5be] hover:to-[#0096b7] text-white text-xs font-medium rounded-md shadow-sm"
                                           >

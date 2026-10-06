@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { getOptimizedTariffs, getOptimizedFrequentTariffs } from '../lib/optimizedQueries';
+import { useAuthStore } from '../stores/authStore';
+import { selectBillableTariffs, type TariffRow } from '../utils/billing/pricing';
+import { todayKey } from '../utils/billing/dates';
 
 interface PracticeTariff {
   id: string;
@@ -18,6 +21,7 @@ interface PracticeTariff {
   unit?: string;
   is_active?: boolean;
   effective_from?: string;
+  effective_to?: string;
   category?: string;
   subcategory?: string;
   practice_type_name?: string;
@@ -29,6 +33,8 @@ interface PracticeTariffsContextType {
   practiceType: string;
   isLoading: boolean;
   error: string | null;
+  /** Tariff rows left out because they are inactive, expired, not yet effective or ambiguous. */
+  excludedCount: number;
   getTariffsByType: (type: string) => PracticeTariff[];
   searchTariffs: (query: string) => PracticeTariff[];
   getTariffByCode: (code: string) => PracticeTariff | undefined;
@@ -46,31 +52,38 @@ interface PracticeTariffsProviderProps {
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes
 const CACHE_KEY_PREFIX = 'practice_tariffs_';
 
-// Fallback tariffs for offline/error scenarios
-const getFallbackTariffs = (): PracticeTariff[] => [
-  { id: '1', code: '8101', description: 'Full mouth examination, charting and treatment planning', price: 254.7, official_2025_price_nad: 254.7, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '254.7 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '2', code: '8102', description: 'Comprehensive consultation', price: 479, official_2025_price_nad: 479, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '479.0 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '3', code: '8104', description: 'Examination or consultation for a specific problem', price: 137.4, official_2025_price_nad: 137.4, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '137.4 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '4', code: '8107', description: 'Intra-oral radiographs, per film', price: 135.4, official_2025_price_nad: 135.4, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'YES', can_be_multiplied: 'YES', business_rule_formula: 'Base price × number of X-rays', example_calculation: '135.4 × 3 = 406.20 (for 3 X-rays)', notes: '', unit: 'per item', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '5', code: '8211', description: 'Removal of unerupted/impacted tooth', price: 802.4, official_2025_price_nad: 802.4, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'YES', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price per tooth', example_calculation: '802.4 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '6', code: '8341', description: 'Amalgam - one surface', price: 373.9, official_2025_price_nad: 373.9, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'YES', can_be_multiplied: 'YES', business_rule_formula: 'Per tooth', example_calculation: '373.9 per tooth', notes: '', unit: 'per item', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '7', code: '8315', description: 'Root canal treatment - single rooted tooth', price: 1087.2, official_2025_price_nad: 1087.2, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'YES', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price per tooth', example_calculation: '1087.2 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '8', code: '8621', description: 'Prophylaxis', price: 234.4, official_2025_price_nad: 234.4, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '234.4 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '9', code: '8711', description: 'Complete upper denture', price: 3456.8, official_2025_price_nad: 3456.8, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '3456.8 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' },
-  { id: '10', code: '8826', description: 'CBCT capture both arches with orbits', price: 988.3, official_2025_price_nad: 988.3, on_2025_list: 'YES', found_in_claims: 'YES', requires_tooth_number: 'NO', can_be_multiplied: 'NO', business_rule_formula: 'Fixed price', example_calculation: '988.3 NAD', notes: '', unit: 'per visit', is_active: true, effective_from: '2025-01-01', practice_type_name: 'dental' }
-];
+/**
+ * Keeps only the rows that may be billed today (active, in effect, one version per code) and
+ * returns how many rows were left out. There is deliberately no hard-coded fallback price list:
+ * billing from it whenever loading failed is how outdated prices reached patients.
+ */
+const keepBillable = (rows: PracticeTariff[]): { tariffs: PracticeTariff[]; excludedCount: number } => {
+  const { tariffs, excluded } = selectBillableTariffs(rows as unknown as TariffRow[], todayKey());
+  const billableById = new Map(tariffs.map(tariff => [tariff.id, tariff]));
+  const kept = rows.flatMap(row => {
+    const billable = billableById.get(row.id);
+    // The price is the cleaned, cent-rounded tariff price used everywhere else
+    return billable ? [{ ...row, price: billable.unitPrice }] : [];
+  });
+  return { tariffs: kept, excludedCount: excluded.length };
+};
 
 export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = ({ children }) => {
+  // Practice scoping: the practice a super admin switched to, otherwise the user's own practice
+  const selectedPracticeId = useAuthStore(state => state.selectedPracticeId);
+  const userPracticeId = useAuthStore(state => state.user?.practice_id);
+  const practiceId = selectedPracticeId || userPracticeId || null;
+
   const [allTariffs, setAllTariffs] = useState<PracticeTariff[]>([]);
   const [frequentTariffs, setFrequentTariffs] = useState<PracticeTariff[]>([]);
   const [practiceType, setPracticeType] = useState<string>('dental');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
+  const [excludedCount, setExcludedCount] = useState(0);
 
-  // Cache management
+  // Cache management: raw rows are cached; effective dates are checked again on every load
   const getCacheKey = (practiceType: string) => `${CACHE_KEY_PREFIX}${practiceType}`;
-  
+
   const loadFromCache = (practiceType: string): { tariffs: PracticeTariff[]; frequent: PracticeTariff[]; timestamp: number } | null => {
     try {
       const cacheKey = getCacheKey(practiceType);
@@ -101,7 +114,6 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
         timestamp: Date.now()
       };
       localStorage.setItem(cacheKey, JSON.stringify(data));
-      setCacheTimestamp(data.timestamp);
       console.log('💾 Saved tariffs to cache');
     } catch (err) {
       console.warn('Cache write error:', err);
@@ -115,41 +127,40 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
           localStorage.removeItem(key);
         }
       });
-      setCacheTimestamp(null);
       console.log('🗑️ Cache invalidated');
     } catch (err) {
       console.warn('Cache invalidation error:', err);
     }
   }, []);
 
-  const fetchPracticeType = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userProfile } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('id', user.id)
-          .single();
+  // The practice's type decides its tariff list; no guessing ("dental") when it is unknown
+  const fetchPracticeType = async (): Promise<string | null> => {
+    if (!practiceId) return null;
+    const { data: practice, error: practiceError } = await supabase
+      .from('practices')
+      .select('practice_type')
+      .eq('id', practiceId)
+      .maybeSingle();
+    if (practiceError) throw new Error(practiceError.message);
+    return practice?.practice_type ?? null;
+  };
 
-        if (userProfile?.practice_id) {
-          const { data: practice } = await supabase
-            .from('practices')
-            .select('practice_type')
-            .eq('id', userProfile.practice_id)
-            .single();
+  const clearTariffs = (message: string | null) => {
+    setAllTariffs([]);
+    setFrequentTariffs([]);
+    setExcludedCount(0);
+    setError(message);
+  };
 
-          if (practice?.practice_type) {
-            setPracticeType(practice.practice_type);
-            return practice.practice_type;
-          }
-        }
-      }
-      return 'dental'; // Default fallback
-    } catch (err) {
-      console.error('Error fetching practice type:', err);
-      return 'dental';
-    }
+  // Shows only tariffs that can be billed today; frequent codes are limited to those too
+  const applyRows = (rows: PracticeTariff[], frequentRows: PracticeTariff[]) => {
+    const { tariffs, excludedCount: excludedRows } = keepBillable(rows);
+    const billableIds = new Set(tariffs.map(tariff => tariff.id));
+    const frequent = keepBillable(frequentRows).tariffs.filter(tariff => billableIds.has(tariff.id));
+    setAllTariffs(tariffs);
+    setFrequentTariffs(frequent.length > 0 ? frequent : tariffs.slice(0, 8));
+    setExcludedCount(excludedRows);
+    if (tariffs.length === 0) setError('No tariff codes are in effect today. Ask an administrator to check the tariff list.');
   };
 
   const fetchTariffs = async (currentPracticeType: string, useCache = true) => {
@@ -161,85 +172,66 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
       if (useCache) {
         const cached = loadFromCache(currentPracticeType);
         if (cached) {
-          setAllTariffs(cached.tariffs);
-          setFrequentTariffs(cached.frequent);
-          setCacheTimestamp(cached.timestamp);
-          setIsLoading(false);
+          applyRows(cached.tariffs, cached.frequent);
           return;
         }
       }
 
       console.log('🔍 Fetching fresh tariff data...');
 
-      try {
-        // Use optimized queries with caching
-        const [allTariffsData, frequentData] = await Promise.all([
-          getOptimizedTariffs(currentPracticeType),
-          getOptimizedFrequentTariffs(currentPracticeType)
-        ]);
+      const [allTariffsData, frequentData] = await Promise.all([
+        getOptimizedTariffs(currentPracticeType),
+        getOptimizedFrequentTariffs(currentPracticeType)
+      ]);
 
-        if (!allTariffsData || allTariffsData.length === 0) {
-          console.warn('No tariffs found, using fallback tariffs');
-          const fallbackTariffs = getFallbackTariffs();
-          setAllTariffs(fallbackTariffs);
-          setFrequentTariffs(fallbackTariffs.slice(0, 8));
-          setError(null); // Don't show error if we have fallback
-          return;
-        }
-
-        // If no frequent data, use first 8 tariffs as frequent
-        const frequentTariffsToUse = frequentData?.length > 0 
-          ? frequentData 
-          : allTariffsData.slice(0, 8);
-
-        const tariffs = allTariffsData || [];
-        setAllTariffs(tariffs);
-        setFrequentTariffs(frequentTariffsToUse);
-
-        // Save to cache
-        if (tariffs.length > 0) {
-          saveToCache(currentPracticeType, tariffs, frequentTariffsToUse);
-        }
-
-        console.log(`✅ Loaded ${tariffs.length} tariffs, ${frequentTariffsToUse.length} frequent`);
-      } catch (err) {
-        console.error('Error fetching tariffs:', err);
-        
-        // Use fallback tariffs
-        const fallbackTariffs = getFallbackTariffs();
-        setAllTariffs(fallbackTariffs);
-        setFrequentTariffs(fallbackTariffs.slice(0, 8));
-        setError(null); // Don't show error if we have fallback data
-        
-        console.log('✅ Using fallback tariffs due to fetch error');
+      // No fallback price list: billing must stop until the real tariff list loads
+      if (!allTariffsData || allTariffsData.length === 0) {
+        clearTariffs(`No tariff codes could be loaded for ${currentPracticeType} practices. Services cannot be billed until the tariff list loads.`);
+        return;
       }
+
+      const rows = allTariffsData as unknown as PracticeTariff[];
+      const frequentRows = (frequentData ?? []) as unknown as PracticeTariff[];
+      applyRows(rows, frequentRows);
+      saveToCache(currentPracticeType, rows, frequentRows);
     } catch (err) {
       console.error('Error in fetchTariffs:', err);
-      setError('Failed to load tariffs');
-      
-      // Use fallback tariffs
-      const fallbackTariffs = getFallbackTariffs();
-      setAllTariffs(fallbackTariffs);
-      setFrequentTariffs(fallbackTariffs.slice(0, 8));
+      clearTariffs('Could not load the tariff list. Services cannot be billed until it loads.');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadForPractice = async (useCache: boolean) => {
+    if (!practiceId) {
+      clearTariffs(null);
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const currentPracticeType = await fetchPracticeType();
+      if (!currentPracticeType) {
+        clearTariffs('The practice type is not set, so its tariff list is unknown.');
+        setIsLoading(false);
+        return;
+      }
+      setPracticeType(currentPracticeType);
+      await fetchTariffs(currentPracticeType, useCache);
+    } catch (err) {
+      console.error('Error fetching practice type:', err);
+      clearTariffs('Could not load the practice details, so its tariff list cannot be loaded.');
       setIsLoading(false);
     }
   };
 
   const refreshTariffs = async () => {
     invalidateCache();
-    const currentPracticeType = await fetchPracticeType();
-    await fetchTariffs(currentPracticeType, false); // Skip cache
+    await loadForPractice(false); // Skip cache
   };
 
   useEffect(() => {
-    const initializeTariffs = async () => {
-      const currentPracticeType = await fetchPracticeType();
-      await fetchTariffs(currentPracticeType, true); // Use cache
-    };
-
-    initializeTariffs();
-  }, []);
+    loadForPractice(true); // Use cache
+  }, [practiceId]);
 
   const getTariffsByType = useCallback((type: string): PracticeTariff[] => {
     return allTariffs.filter(tariff => 
@@ -268,6 +260,7 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
     practiceType,
     isLoading,
     error,
+    excludedCount,
     getTariffsByType,
     searchTariffs,
     getTariffByCode,

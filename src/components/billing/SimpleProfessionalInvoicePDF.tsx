@@ -302,14 +302,13 @@ interface SimpleProfessionalInvoicePDFProps {
   practice?: Partial<PracticeInfo>;
 }
 
+// Blank rather than invented: a made-up name, phone and practice number used to fill any gap
 const defaultPractice: PracticeInfo = {
-  name: 'OneHealth Medical Practice',
-  tagline: 'Comprehensive Healthcare Excellence',
-  address: '123 Healthcare Avenue, Windhoek, Namibia',
-  phone: '+264 61 123 4567',
-  email: 'info@onehealth.com.na',
-  website: 'www.onehealth.com.na',
-  registration: 'Practice No: HP-2024-001',
+  name: '',
+  tagline: '',
+  address: '',
+  phone: '',
+  email: '',
 };
 
 const SimpleProfessionalInvoicePDF: React.FC<SimpleProfessionalInvoicePDFProps> = ({

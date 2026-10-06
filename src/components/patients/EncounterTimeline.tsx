@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO, isToday, isFuture, isPast } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import toast from 'react-hot-toast';
 import {
   Clock,
   Heart,
@@ -29,8 +30,15 @@ import {
   CheckCircle2,
   CreditCard,
   Receipt,
-  ScrollText
+  ScrollText,
+  ClipboardList,
+  ClipboardCheck
 } from 'lucide-react';
+import { formatDoctorName } from '../../utils/formatDoctorName';
+import { checkBloodPressure } from '../../utils/vitalSigns';
+
+// Tabs of FullScreenEditVisitModal that the card's quick buttons open
+export type VisitQuickTab = 'media' | 'laboratory' | 'imaging' | 'leave' | 'billing' | 'medications';
 
 // Professional Status Toggle Component
 const StatusToggle: React.FC<{
@@ -41,7 +49,12 @@ const StatusToggle: React.FC<{
 }> = ({ visitId, currentStatus, onStatusChange, disabled = false }) => {
   const [localStatus, setLocalStatus] = useState(currentStatus);
   const [isUpdating, setIsUpdating] = useState(false);
-  
+
+  // Follow status changes made elsewhere (e.g. Complete/Reopen in the visit screen)
+  useEffect(() => {
+    setLocalStatus(currentStatus);
+  }, [currentStatus]);
+
   const isCompleted = localStatus === 'completed';
   
   const handleToggle = async (e: React.MouseEvent) => {
@@ -53,6 +66,12 @@ const StatusToggle: React.FC<{
     
     const newStatus = isCompleted ? 'in-progress' : 'completed';
     const previousStatus = localStatus;
+
+    // One stray click used to complete or reopen a visit silently; ask first
+    const confirmMessage = isCompleted
+      ? 'Reopen this visit? It will move back to In Progress.'
+      : 'Mark this visit as completed?';
+    if (!window.confirm(confirmMessage)) return;
     
     try {
       setIsUpdating(true);
@@ -78,9 +97,7 @@ const StatusToggle: React.FC<{
       
       // Revert optimistic update on error
       setLocalStatus(previousStatus);
-      
-      // Simple error notification
-      console.error('Failed to update visit status');
+      toast.error('Could not update the visit status. Please try again.');
     } finally {
       setIsUpdating(false);
     }
@@ -170,6 +187,7 @@ interface EncounterTimelineProps {
   onAddVisit?: () => void;
   onAddVisitTabs?: () => void;
   onEditVisit?: (visit: Visit) => void;
+  onOpenVisitTab?: (visit: Visit, tab: VisitQuickTab) => void;  // Open the visit on a specific edit tab
   onCreateFollowUp?: (visit: Visit) => void;
   onStartAppointment?: (visit: Visit) => void;  // Now handles scheduled visits
   onVisitStatusChange?: (visitId: string, newStatus: string) => void;
@@ -261,6 +279,7 @@ const TimelineNode: React.FC<{
   isExpanded: boolean;
   onToggle: () => void;
   onEditVisit?: (visit: Visit) => void;
+  onOpenVisitTab?: (visit: Visit, tab: VisitQuickTab) => void;
   onCreateFollowUp?: (visit: Visit) => void;
   onVisitStatusChange?: (visitId: string, newStatus: string) => void;
   onStartAppointment?: (visit: Visit) => void;
@@ -269,9 +288,19 @@ const TimelineNode: React.FC<{
   // Date/time info for mobile integration
   displayDate?: string;
   displayTime?: string;
-}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts, displayDate, displayTime }) => {
+}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onOpenVisitTab, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts, displayDate, displayTime }) => {
   const [isHovered, setIsHovered] = useState(false);
-  
+
+  // Quick buttons open this visit on the matching edit tab (and must not trigger the card click)
+  const openVisitTab = (tab: VisitQuickTab) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onOpenVisitTab) {
+      onOpenVisitTab(visit, tab);
+    } else if (onEditVisit) {
+      onEditVisit(visit);
+    }
+  };
+
   // ⚡ PERFORMANCE OPTIMIZATION: Use pre-calculated counts instead of individual queries
   // This eliminates the N+1 query problem that was causing 3-4 second delays
   const counts = {
@@ -280,9 +309,12 @@ const TimelineNode: React.FC<{
     imaging: visitCounts?.[visit.id]?.imaging ?? visit.imaging_count ?? 0,
     // Add new counts - these will need to be populated from the backend
     leave: visit.leave_count ?? 0,
-    billing: visit.billing_count ?? 1, // Most visits have billing
+    // No count means no count: a default of 1 put a "1" badge on Billing for visits with no invoice
+    billing: visit.billing_count ?? 0,
     prescriptions: visit.prescriptions_count ?? 0
   };
+  // Blood pressure on the card is flagged in words as well as colour when it is high
+  const bloodPressureCheck = checkBloodPressure(visit.vitals?.blood_pressure);
   const visitDate = parseISO(visit.visit_date);
   const isTodayVisit = isToday(visitDate);
   const isFutureVisit = isFuture(visitDate);
@@ -508,22 +540,45 @@ const TimelineNode: React.FC<{
                   {visit.chief_complaint && (
                     <>
                       <Stethoscope className={`w-4 h-4 ${theme.iconColor} flex-shrink-0`} />
-                      <p 
+                      <p
                         className={`text-sm ${theme.textSecondary} font-medium relative z-10 truncate`}
+                        title={visit.chief_complaint}
                       >
                         {visit.chief_complaint}
                       </p>
                     </>
                   )}
                 </div>
-                
+
+                {/* Row 1b: Diagnosis and treatment plan (when recorded) */}
+                {(visit.diagnosis?.trim() || visit.treatment_plan?.trim()) && (
+                  <div className="mb-3 space-y-1.5">
+                    {visit.diagnosis?.trim() && (
+                      <div className="flex items-start gap-2">
+                        <ClipboardList className={`w-4 h-4 mt-0.5 ${theme.iconColor} flex-shrink-0`} />
+                        <p className={`text-sm ${theme.textSecondary} line-clamp-2 min-w-0`} title={visit.diagnosis}>
+                          <span className="font-semibold">Diagnosis:</span> {visit.diagnosis}
+                        </p>
+                      </div>
+                    )}
+                    {visit.treatment_plan?.trim() && (
+                      <div className="flex items-start gap-2">
+                        <ClipboardCheck className={`w-4 h-4 mt-0.5 ${theme.iconColor} flex-shrink-0`} />
+                        <p className={`text-sm ${theme.textSecondary} line-clamp-2 min-w-0`} title={visit.treatment_plan}>
+                          <span className="font-semibold">Plan:</span> {visit.treatment_plan}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Row 2: Doctor info (if available) */}
                 {(visit.doctor?.full_name || visit.doctor_name) && (
                   <div className="mb-3">
                     <div className="flex items-center gap-2 text-gray-600">
                       <User className="w-3.5 h-3.5" />
                       <span className="font-semibold text-sm">
-                        Dr. {visit.doctor?.full_name || visit.doctor_name}
+                        {formatDoctorName(visit.doctor?.full_name || visit.doctor_name)}
                       </span>
                     </div>
                   </div>
@@ -558,11 +613,20 @@ const TimelineNode: React.FC<{
                 {(visit.vitals?.blood_pressure || (visit.medications && visit.medications.length > 0) || (visit.lab_results && visit.lab_results.length > 0)) && (
                   <div className="flex items-center gap-2 mb-3">
                     {visit.vitals?.blood_pressure && (
-                      <div 
-                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-red-50 to-pink-50 rounded-lg px-2.5 py-1.5 border border-red-100"
+                      // Red only when the reading is high, so red keeps meaning "look at this"
+                      <div
+                        className={`flex items-center gap-1.5 text-xs rounded-lg px-2.5 py-1.5 border ${
+                          bloodPressureCheck.message ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'
+                        }`}
+                        title={bloodPressureCheck.message ?? 'Blood pressure (mmHg)'}
                       >
-                        <Heart className="w-3.5 h-3.5 text-red-500" />
-                        <span className="font-semibold text-red-700">{visit.vitals.blood_pressure}</span>
+                        <Heart className={`w-3.5 h-3.5 ${bloodPressureCheck.message ? 'text-red-500' : 'text-gray-500'}`} aria-hidden="true" />
+                        <span className={`font-semibold ${bloodPressureCheck.message ? 'text-red-700' : 'text-gray-700'}`}>
+                          BP {visit.vitals.blood_pressure}
+                        </span>
+                        {bloodPressureCheck.message && (
+                          <span className="font-bold uppercase text-red-700">High</span>
+                        )}
                       </div>
                     )}
                     {visit.medications && visit.medications.length > 0 && (
@@ -590,7 +654,7 @@ const TimelineNode: React.FC<{
                 {/* Action buttons grid - Desktop: Single row, Mobile: 3 per row */}
                 <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2 w-full sm:w-full desktop-button-container">
                   {/* Media Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('media')} className="premium-action-button group relative">
                     <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 group-hover:text-blue-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-blue-700">Media</span>
                     {counts.media > 0 && (
@@ -599,7 +663,7 @@ const TimelineNode: React.FC<{
                   </button>
                   
                   {/* Lab Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('laboratory')} className="premium-action-button group relative">
                     <FlaskConical className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 group-hover:text-emerald-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-emerald-700">Lab</span>
                     {counts.lab > 0 && (
@@ -608,7 +672,7 @@ const TimelineNode: React.FC<{
                   </button>
                   
                   {/* Imaging Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('imaging')} className="premium-action-button group relative">
                     <Hexagon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 group-hover:text-purple-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-purple-700">Imaging</span>
                     {counts.imaging > 0 && (
@@ -617,7 +681,7 @@ const TimelineNode: React.FC<{
                   </button>
                   
                   {/* Leave Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('leave')} className="premium-action-button group relative">
                     <ScrollText className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 group-hover:text-amber-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-amber-700">Leave</span>
                     {counts.leave > 0 && (
@@ -626,7 +690,7 @@ const TimelineNode: React.FC<{
                   </button>
                   
                   {/* Billing Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('billing')} className="premium-action-button group relative">
                     <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 group-hover:text-green-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-green-700">Billing</span>
                     {counts.billing > 0 && (
@@ -635,7 +699,7 @@ const TimelineNode: React.FC<{
                   </button>
                   
                   {/* Prescriptions Button */}
-                  <button className="premium-action-button group relative">
+                  <button type="button" onClick={openVisitTab('medications')} className="premium-action-button group relative">
                     <Pill className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 group-hover:text-indigo-700 transition-all" />
                     <span className="text-xs sm:text-sm font-medium text-indigo-700">Rx</span>
                     {counts.prescriptions > 0 && (
@@ -659,7 +723,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
   appointments = [],
   onAddVisit, 
   onAddVisitTabs,
-  onEditVisit, 
+  onEditVisit,
+  onOpenVisitTab,
   onCreateFollowUp,
   onStartAppointment,
   onVisitStatusChange,
@@ -762,6 +827,16 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
             totalItems: timelineItems.length,
             itemBreakdown: timelineItems.map(item => ({ type: item.type, id: item.id, date: item.displayDate }))
           })}
+          {timelineItems.length === 0 && (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-white p-8 text-center">
+              <p className="font-semibold text-gray-800">No visits yet</p>
+              <p className="mt-1 text-sm text-gray-500">
+                {onAddVisit
+                  ? "Use 'Add New Visit' to record this patient's first visit."
+                  : "This patient's visits will appear here."}
+              </p>
+            </div>
+          )}
           {timelineItems.map((item, index) => {
             console.log(`🔄 RENDERING ITEM ${index}:`, { type: item.type, id: item.id, data: item });
             return (
@@ -801,6 +876,7 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                   isExpanded={expandedVisits.has(item.id)}
                   onToggle={() => toggleVisit(item.id)}
                   onEditVisit={onEditVisit}
+                  onOpenVisitTab={onOpenVisitTab}
                   onCreateFollowUp={onCreateFollowUp}
                   onVisitStatusChange={onVisitStatusChange}
                   onStartAppointment={onStartAppointment}
@@ -867,140 +943,6 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
                 </div>
               </div>
             </motion.div>
-            
-            {/* Play Medical History Tile */}
-            <div className="mt-6 play-medical-history-section">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.6 }}
-                whileHover={{ y: -4 }}
-              >
-                <div className="relative group cursor-pointer">
-                  {/* Premium glassmorphic card */}
-                  <div 
-                    className="relative bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-purple-300/20"
-                    onClick={() => {
-                      // TODO: Implement medical history playback functionality
-                      console.log('Playing medical history for patient...');
-                    }}
-                  >
-                    {/* Animated background pattern */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/20 via-indigo-100/10 to-purple-100/20 pointer-events-none" />
-                    
-                    {/* Content */}
-                    <div className="relative z-10">
-                      <div className="text-center mb-4">
-                        <h3 className="text-lg font-bold text-gray-900">Play Medical History</h3>
-                      </div>
-                      
-                      {/* Audio Controls */}
-                      <div className="space-y-4">
-                        {/* Play/Pause and Control Buttons */}
-                        <div className="flex items-center justify-center gap-3">
-                          {/* Previous/Restart Button */}
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
-                          >
-                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                            </svg>
-                          </motion.button>
-                          
-                          {/* Main Play Button */}
-                          <motion.div
-                            className="relative"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl group-hover:shadow-purple-500/50 transition-all duration-300">
-                              <motion.svg 
-                                className="w-5 h-5 text-white ml-1" 
-                                fill="currentColor" 
-                                viewBox="0 0 24 24"
-                                whileHover={{ scale: 1.2 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <path d="M8 5v14l11-7z"/>
-                              </motion.svg>
-                            </div>
-                            
-                            {/* Ripple effect */}
-                            <motion.div
-                              className="absolute inset-0 bg-purple-400 rounded-full"
-                              animate={{
-                                scale: [1, 1.5, 1],
-                                opacity: [0.3, 0, 0.3]
-                              }}
-                              transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: "easeOut"
-                              }}
-                            />
-                          </motion.div>
-                          
-                          {/* Stop Button */}
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
-                          >
-                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 6h12v12H6z"/>
-                            </svg>
-                          </motion.button>
-                        </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="px-2">
-                          <div className="flex items-center gap-3 text-xs text-gray-600">
-                            <span>0:00</span>
-                            <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden cursor-pointer">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-purple-400 to-indigo-500 rounded-full"
-                                style={{ width: '0%' }}
-                                whileHover={{ opacity: 0.8 }}
-                              />
-                            </div>
-                            <span>2:45</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Subtle decorative elements */}
-                    <motion.div
-                      className="absolute -top-6 -left-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
-                      animate={{
-                        scale: [1, 1.3, 1],
-                        opacity: [0.2, 0.4, 0.2],
-                      }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                    />
-                    <motion.div
-                      className="absolute -bottom-4 -right-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
-                      animate={{
-                        scale: [1, 1.2, 1],
-                        opacity: [0.3, 0.5, 0.3],
-                      }}
-                      transition={{
-                        duration: 3,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                        delay: 1.5,
-                      }}
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            </div>
           </div>
         </div>
       </div>

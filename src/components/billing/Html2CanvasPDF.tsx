@@ -2,8 +2,10 @@ import React, { useRef, useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { format, parseISO } from 'date-fns';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { formatNad } from '../../utils/billing/money';
 
 interface Invoice {
   id: string;
@@ -88,24 +90,38 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
   onGenerating
 }) => {
   const invoiceRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuthStore();
+  const { user, selectedPracticeId } = useAuthStore();
   const [practice, setPractice] = useState<PracticeInfo | null>(null);
   const [loading, setLoading] = useState(true);
-  
-  const currency = practice?.country === 'Namibia' ? 'N$' : '$';
-  
+  // Due date stored on the invoice; null until loaded or if it could not be read
+  const [dueDate, setDueDate] = useState<string | null>(null);
+
   // Header color
   const headerColor = '#80788a';
-  
+
   // Fetch practice details from database
   useEffect(() => {
     const fetchPracticeData = async () => {
-      if (!user?.id) return;
-      
+      if (!user?.id) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        // Get user's practice_id - first try user metadata, then direct property
-        let practiceId = user.practice_id;
-        
+        // The invoice's own practice decides the letterhead and bank details. The user's practice is
+        // only a fallback: someone who works at several practices may be viewing another one's invoice.
+        const { data: invoiceRow, error: invoiceError } = await supabase
+          .from('invoices_enhanced')
+          .select('practice_id, due_date')
+          .eq('id', invoice.id)
+          .maybeSingle();
+        if (invoiceError) {
+          console.error('Error fetching the invoice practice and due date:', invoiceError);
+        }
+        setDueDate(invoiceRow?.due_date ?? null);
+
+        let practiceId = invoiceRow?.practice_id || selectedPracticeId || user.practice_id;
+
         if (!practiceId && user.user_metadata?.practice_id) {
           practiceId = user.user_metadata.practice_id;
         }
@@ -161,7 +177,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
     };
     
     fetchPracticeData();
-  }, [user?.id, user?.practice_id, user?.user_metadata?.practice_id, patient.medicalAidProvider]);
+  }, [invoice.id, selectedPracticeId, user?.id, user?.practice_id, user?.user_metadata?.practice_id, patient.medicalAidProvider]);
 
   const generatePDF = async () => {
     if (!practice) return;
@@ -406,10 +422,10 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
           pdf.text(service.quantity.toString(), colX, rowY + 5);
           colX += colWidths.quantity;
           
-          pdf.text(`R ${service.unit_price.toFixed(2)}`, colX, rowY + 5);
+          pdf.text(formatNad(service.unit_price), colX, rowY + 5);
           colX += colWidths.unitPrice;
-          
-          pdf.text(`R ${service.total_price.toFixed(2)}`, colX, rowY + 5);
+
+          pdf.text(formatNad(service.total_price), colX, rowY + 5);
           
           rowY += rowHeight;
         });
@@ -423,18 +439,18 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
           
           pdf.setFont('helvetica', 'normal');
           pdf.text('Subtotal:', totalsX, rowY);
-          pdf.text(`R ${invoice.total.toFixed(2)}`, totalsX + 40, rowY);
+          pdf.text(formatNad(invoice.total), totalsX + 40, rowY);
           rowY += 6;
-          
+
           if (invoice.medical_aid_covered > 0) {
             pdf.text('Medical Aid:', totalsX, rowY);
-            pdf.text(`R ${invoice.medical_aid_covered.toFixed(2)}`, totalsX + 40, rowY);
+            pdf.text(formatNad(invoice.medical_aid_covered), totalsX + 40, rowY);
             rowY += 6;
           }
-          
+
           pdf.setFont('helvetica', 'bold');
           pdf.text('Patient Portion:', totalsX, rowY);
-          pdf.text(`R ${invoice.patient_portion.toFixed(2)}`, totalsX + 40, rowY);
+          pdf.text(formatNad(invoice.patient_portion), totalsX + 40, rowY);
           
           // Payment status
           rowY += 10;
@@ -452,7 +468,8 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
       console.log('✅ Enhanced multi-page PDF generated successfully');
     } catch (error) {
       console.error('❌ Enhanced PDF generation failed:', error);
-      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Rethrowing from a click handler only reaches the console, so the button looked dead
+      toast.error(`Could not create the invoice PDF: ${error instanceof Error ? error.message : 'unknown error'}`);
     } finally {
       onGenerating?.(false);
     }
@@ -469,7 +486,9 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
   if (!practice) {
     return (
       <div className="flex items-center justify-center p-4">
-        <div className="text-red-600">Error: Could not load practice details</div>
+        <div className="text-red-600">
+          Could not load the practice details needed for this invoice. Close this window and open the invoice again to retry.
+        </div>
       </div>
     );
   }
@@ -485,20 +504,8 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          Download Enhanced Multi-Page PDF
+          Download invoice PDF
         </button>
-        
-        <div className="text-sm text-gray-600">
-          <p>✨ Enhanced Features:</p>
-          <ul className="list-disc list-inside mt-1 space-y-1">
-            <li>Professional multi-page layout with proper pagination</li>
-            <li>Headers and footers on every page</li>
-            <li>Page numbering (Page X of Y)</li>
-            <li>Proper table continuation across pages</li>
-            <li>Practice branding and colors</li>
-            <li>Searchable text (not image-based)</li>
-          </ul>
-        </div>
       </div>
 
       {/* Invoice Content - Hidden but rendered for PDF generation */}
@@ -669,7 +676,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', marginBottom: '2px', fontSize: '8px' }}>DUE DATE</div>
-                  <div style={{ fontWeight: '600' }}>{format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</div>
+                  <div style={{ fontWeight: '600' }}>{dueDate ? format(parseISO(dueDate), 'dd MMM yyyy') : '—'}</div>
                 </div>
               </div>
             </div>
@@ -790,7 +797,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                     fontWeight: 'bold'
                   }}
                 >
-                  Coverage: {currency} {invoice.medical_aid_covered.toFixed(2)}
+                  Coverage: {formatNad(invoice.medical_aid_covered)}
                 </div>
               </div>
             </div>
@@ -993,7 +1000,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                       fontWeight: '600'
                     }}
                   >
-                    {currency} {service.unit_price.toFixed(2)}
+                    {formatNad(service.unit_price)}
                   </td>
                   <td
                     style={{
@@ -1004,7 +1011,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                       fontWeight: '600'
                     }}
                   >
-                    {currency} {service.medical_aid_covered.toFixed(2)}
+                    {formatNad(service.medical_aid_covered)}
                   </td>
                   <td
                     style={{
@@ -1015,7 +1022,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                       fontWeight: '600'
                     }}
                   >
-                    {currency} {service.total_price.toFixed(2)}
+                    {formatNad(service.total_price)}
                   </td>
                 </tr>
               ))}
@@ -1054,7 +1061,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                   color: '#1f2937'
                 }}
               >
-                {currency} {invoice.services.reduce((sum, s) => sum + s.total_price, 0).toFixed(2)}
+                {formatNad(invoice.services.reduce((sum, s) => sum + s.total_price, 0))}
               </span>
             </div>
 
@@ -1092,7 +1099,7 @@ const Html2CanvasPDF: React.FC<Html2CanvasPDFProps> = ({
                     color: '#ffffff'
                   }}
                 >
-                  {currency} {invoice.total.toFixed(2)}
+                  {formatNad(invoice.total)}
                 </span>
               </div>
             </div>

@@ -3,7 +3,6 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Building2,
-  FileText,
   Phone,
   Mail,
   MapPin,
@@ -14,16 +13,8 @@ import {
   Users,
   Loader2,
   Heart,
-  Activity,
-  Stethoscope,
-  Pill,
-  Clipboard,
   AlertCircle,
-  CheckCircle2,
-  XCircle,
-  ArrowRight,
-  Brain,
-  Sparkles
+  XCircle
 } from 'lucide-react';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
@@ -36,7 +27,7 @@ import AddVisitForm from '../components/forms/AddVisitForm';
 import ManageBeneficiariesModal from '../components/modals/ManageBeneficiariesModal';
 import { supabase } from '../lib/supabase';
 import { logDatabaseError } from '../lib/supabase';
-import { format } from 'date-fns';
+import { calculateAge } from '../hooks/usePatient';
 import VisitsTimeline from '../components/visits/VisitsTimeline';
 
 interface Patient {
@@ -73,7 +64,9 @@ interface Patient {
 }
 
 const PatientDetail: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  // App.tsx routes this page as patients/:patientId/visit/:visitId, so `id` alone was always undefined
+  const { id: idParam, patientId } = useParams<{ id?: string; patientId?: string }>();
+  const id = patientId || idParam;
   const navigate = useNavigate();
   const location = useLocation();
   const [patient, setPatient] = useState<Patient | null>(null);
@@ -83,7 +76,6 @@ const PatientDetail: React.FC = () => {
   const [isAddRecordModalOpen, setIsAddRecordModalOpen] = useState(false);
   const [isNextOfKinModalOpen, setIsNextOfKinModalOpen] = useState(false);
   const [isEditPatientModalOpen, setIsEditPatientModalOpen] = useState(false);
-  const [isMedicalAidModalOpen, setIsMedicalAidModalOpen] = useState(false);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [isManageBeneficiariesModalOpen, setIsManageBeneficiariesModalOpen] = useState(false);
   const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
@@ -108,6 +100,9 @@ const PatientDetail: React.FC = () => {
   useEffect(() => {
     if (id) {
       fetchPatientDetails();
+    } else {
+      // Without an id nothing will load: show "Patient not found" instead of an endless spinner
+      setIsLoading(false);
     }
   }, [id]);
 
@@ -236,117 +231,6 @@ const PatientDetail: React.FC = () => {
     }
   };
 
-  const calculateAge = (dateOfBirth: string) => {
-    return new Date().getFullYear() - new Date(dateOfBirth).getFullYear();
-  };
-
-  const generateAISummary = (patient: Patient | null) => {
-    if (!patient) return null;
-
-    const age = calculateAge(patient.dateOfBirth);
-    const medicalAid = patient.medicalAidDetails?.[0];
-    const nextOfKin = patient.nextOfKin?.[0];
-
-    return (
-      <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-                <Brain size={20} className="text-indigo-600" />
-              </div>
-              <CardTitle>AI Health Summary</CardTitle>
-            </div>
-            <div className="flex items-center text-xs text-indigo-600">
-              <Sparkles size={14} className="mr-1" />
-              AI Generated
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="prose prose-indigo">
-            <div className="bg-white rounded-lg p-4 shadow-sm">
-              <h4 className="text-lg font-medium text-gray-900 mb-2">Patient Overview</h4>
-              <p className="text-gray-600 leading-relaxed">
-                {patient.firstName} {patient.lastName} is a {age}-year-old {patient.gender} 
-                who is currently {patient.occupation ? `employed as a ${patient.occupation}` : 'employed'}.
-                {medicalAid ? ` The patient is covered under ${medicalAid.provider} medical aid scheme.` : ''}
-                {nextOfKin ? ` Emergency contact is ${nextOfKin.name} (${nextOfKin.relationship}).` : ''}
-              </p>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                  <Activity size={16} className="text-indigo-600 mr-2" />
-                  Health Status
-                </h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-center">
-                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                    Regular check-ups maintained
-                  </li>
-                  <li className="flex items-center">
-                    <CheckCircle2 size={14} className="text-emerald-500 mr-2" />
-                    Up-to-date with vaccinations
-                  </li>
-                  {patient.chronicConditions?.length > 0 && (
-                    <li className="flex items-center">
-                      <AlertCircle size={14} className="text-amber-500 mr-2" />
-                      Managing {patient.chronicConditions.join(', ')}
-                    </li>
-                  )}
-                </ul>
-              </div>
-
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                  <Stethoscope size={16} className="text-indigo-600 mr-2" />
-                  Recent Observations
-                </h4>
-                <ul className="space-y-2 text-sm text-gray-600">
-                  <li className="flex items-center">
-                    <Clock size={14} className="text-indigo-600 mr-2" />
-                    Last visit: {format(new Date(), 'MMM d, yyyy')}
-                  </li>
-                  <li className="flex items-center">
-                    <Pill size={14} className="text-indigo-600 mr-2" />
-                    Medication adherence: Good
-                  </li>
-                  <li className="flex items-center">
-                    <Activity size={14} className="text-indigo-600 mr-2" />
-                    Vitals: Stable
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-4 bg-white rounded-lg p-4 shadow-sm">
-              <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
-                <Clipboard size={16} className="text-indigo-600 mr-2" />
-                Recommendations
-              </h4>
-              <ul className="space-y-2 text-sm text-gray-600">
-                <li className="flex items-center">
-                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                  Schedule next check-up in 3 months
-                </li>
-                <li className="flex items-center">
-                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                  Monitor blood pressure regularly
-                </li>
-                <li className="flex items-center">
-                  <ArrowRight size={14} className="text-indigo-600 mr-2" />
-                  Continue current medication regimen
-                </li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -398,6 +282,8 @@ const PatientDetail: React.FC = () => {
             size="sm"
             onClick={handleBackNavigation}
             className="mr-4"
+            aria-label="Back"
+            title="Back"
           >
             <ChevronLeft size={16} />
           </Button>
@@ -409,10 +295,6 @@ const PatientDetail: React.FC = () => {
           </div>
         </div>
         <div className="flex space-x-3">
-          <Button variant="outline">
-            <FileText size={16} className="mr-2" />
-            Export Data
-          </Button>
           <Button onClick={() => setIsAddVisitModalOpen(true)}>
             <Clock size={16} className="mr-2" />
             Record Visit
@@ -441,15 +323,14 @@ const PatientDetail: React.FC = () => {
                   {patient.firstName} {patient.lastName}
                 </h2>
                 <p className="text-gray-500 mt-1">
-                  {calculateAge(patient.dateOfBirth)} years • {patient.gender}
+                  {patient.dateOfBirth ? `${calculateAge(patient.dateOfBirth)} years` : 'Age not recorded'} • {patient.gender || 'Gender not recorded'}
                 </p>
                 
-                <div className="flex justify-center mt-3 space-x-2">
-                  <Badge variant="success">Active Patient</Badge>
-                  {patient.medicalAidDetails && (
+                {patient.medicalAidDetails?.[0] && (
+                  <div className="flex justify-center mt-3 space-x-2">
                     <Badge variant="azure">Insured</Badge>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="mt-6 space-y-3">
                   <div className="flex items-center justify-center text-gray-600">
@@ -466,22 +347,7 @@ const PatientDetail: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-100 pt-6">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-[#01b9d4]">12</div>
-                    <div className="text-xs text-gray-500">Visits</div>
-                  </div>
-                  <div className="text-center border-x border-gray-100">
-                    <div className="text-2xl font-bold text-[#01b9d4]">4</div>
-                    <div className="text-xs text-gray-500">Reports</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-[#01b9d4]">2</div>
-                    <div className="text-xs text-gray-500">Referrals</div>
-                  </div>
-                </div>
-
-                <Button 
+                <Button
                   variant="outline" 
                   className="mt-6 w-full"
                   onClick={() => setIsEditPatientModalOpen(true)}
@@ -500,8 +366,16 @@ const PatientDetail: React.FC = () => {
                   <Building2 size={20} className="mr-2" />
                   Medical Aid
                 </CardTitle>
-                {patient.medicalAidDetails && (
-                  <Button variant="ghost" size="sm" className="text-white" onClick={() => setIsMedicalAidModalOpen(true)}>
+                {/* Medical aid is edited in the Edit Patient form, which saves medical_aid_details */}
+                {patient.medicalAidDetails?.[0] && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-white"
+                    onClick={() => setIsEditPatientModalOpen(true)}
+                    aria-label="Edit medical aid"
+                    title="Edit medical aid"
+                  >
                     <Edit3 size={16} />
                   </Button>
                 )}
@@ -516,7 +390,6 @@ const PatientDetail: React.FC = () => {
                       <p className="text-lg font-semibold text-gray-900">{patient.medicalAidDetails[0].provider}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <Badge variant="success">Active</Badge>
                       <Badge variant="azure" className="text-xs">
                         {beneficiariesCount} {beneficiariesCount === 1 ? 'Member' : 'Members'}
                       </Badge>
@@ -549,7 +422,7 @@ const PatientDetail: React.FC = () => {
                       variant="outline" 
                       size="sm" 
                       className="w-full"
-                      onClick={() => setIsMedicalAidModalOpen(true)}
+                      onClick={() => setIsEditPatientModalOpen(true)}
                     >
                       <Edit3 size={14} className="mr-2" />
                       Update Details
@@ -572,7 +445,7 @@ const PatientDetail: React.FC = () => {
                   <Button 
                     variant="outline" 
                     size="sm"
-                    onClick={() => setIsMedicalAidModalOpen(true)}
+                    onClick={() => setIsEditPatientModalOpen(true)}
                   >
                     <Edit3 size={14} className="mr-2" />
                     Add Medical Aid
@@ -595,6 +468,8 @@ const PatientDetail: React.FC = () => {
                     size="sm"
                     className="text-white"
                     onClick={() => setIsNextOfKinModalOpen(true)}
+                    aria-label="Edit next of kin"
+                    title="Edit next of kin"
                   >
                     <Edit3 size={16} />
                   </Button>
@@ -660,8 +535,6 @@ const PatientDetail: React.FC = () => {
           variants={itemVariants}
           className="lg:col-span-2 space-y-6"
         >
-          {generateAISummary(patient)}
-
           <VisitsTimeline patientId={id || ''} />
         </motion.div>
       </div>

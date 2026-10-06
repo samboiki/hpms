@@ -189,9 +189,9 @@ export function useVisits(patientId?: string) {
         .from('visits')
         .select(`
           *,
-          patient:patients(id, first_name, last_name),
+          patient:patients!fk_visits_patient_id(id, first_name, last_name),
           doctor:users!visits_doctor_id_fkey(id, email, full_name),
-          vitals(*)
+          vitals!fk_vitals_visit_id(*)
         `)
         .order('visit_date', { ascending: false });
       

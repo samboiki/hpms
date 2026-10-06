@@ -166,9 +166,9 @@ async function fetchVisitDetails(visitId: string) {
     .from('visits')
     .select(`
       *,
-      patient:patients(first_name, last_name),
+      patient:patients!fk_visits_patient_id(first_name, last_name),
       doctor:users!doctor_id(full_name),
-      vitals(*),
+      vitals!fk_vitals_visit_id(*),
       lab_requests(count),
       imaging_requests(count),
       patient_media(count)

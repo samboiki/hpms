@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuthStore } from '../../stores/authStore';
+import { useAuthStore, AccountDeactivatedError } from '../../stores/authStore';
 import Button from '../../components/ui/Button';
 import { Building2, Lock, Mail, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -28,7 +28,11 @@ const Login: React.FC = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError('An error occurred during login. Please try again.');
+      setError(
+        err instanceof AccountDeactivatedError
+          ? err.message
+          : 'An error occurred during login. Please try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -113,22 +117,15 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-brand-primary focus:ring-brand-primary border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                  Remember me
-                </label>
-              </div>
-
+            {/* No "Remember me": Supabase always keeps the session. There is no self-service password reset,
+                so the link goes to support */}
+            <div className="flex items-center justify-end">
               <div className="text-sm">
-                <a href="#" className="font-medium text-brand-primary hover:text-brand-dark">
-                  Forgot password?
+                <a
+                  href="mailto:support@onehealthsystems.com?subject=Password%20reset"
+                  className="font-medium text-brand-primary hover:text-brand-dark"
+                >
+                  Forgot password? Email support
                 </a>
               </div>
             </div>
@@ -142,6 +139,8 @@ const Login: React.FC = () => {
             </Button>
           </form>
 
+          {/* Demo account shortcuts are for local development only, like the test routes in App.tsx */}
+          {import.meta.env.DEV && (
           <div className="mt-8">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -195,6 +194,7 @@ const Login: React.FC = () => {
               </button>
             </div>
           </div>
+          )}
         </motion.div>
       </div>
     </div>

@@ -15,6 +15,8 @@ interface PremiumTimeRangePickerProps {
   min?: string;
   max?: string;
   step?: number;
+  /** Appointment date (yyyy-MM-dd). When it is today, start times earlier than now are disabled. */
+  date?: string;
 }
 
 export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
@@ -28,7 +30,8 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
   bookedTimes = [],
   min = '08:00',
   max = '18:00',
-  step = 15
+  step = 15,
+  date
 }) => {
   const [duration, setDuration] = useState(30);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(30);
@@ -88,6 +91,10 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
     }
   };
 
+  // Current time (HH:mm) when the selected date is today; recomputed each render so it stays fresh
+  const now = new Date();
+  const pastCutoff = date === format(now, 'yyyy-MM-dd') ? format(now, 'HH:mm') : null;
+
   const timeSlots = useMemo(() => {
     const slots = [];
     const [minHours, minMinutes] = min.split(':').map(Number);
@@ -102,11 +109,13 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
     while (current <= end) {
       const timeStr = format(current, 'HH:mm');
       const isBooked = bookedTimes.includes(timeStr);
+      const isPast = pastCutoff !== null && timeStr < pastCutoff;
       
       slots.push({
         time: timeStr,
         display: format(current, 'h:mm a'),
         isBooked,
+        isPast,
         period: current.getHours() < 12 ? 'morning' : current.getHours() < 17 ? 'afternoon' : 'evening'
       });
       
@@ -114,7 +123,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
     }
     
     return slots;
-  }, [min, max, step, bookedTimes]);
+  }, [min, max, step, bookedTimes, pastCutoff]);
 
   return (
     <div className="space-y-4">
@@ -152,15 +161,18 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
                 <motion.button
                   key={slot.time}
                   type="button"
-                  disabled={slot.isBooked}
-                  whileHover={!slot.isBooked ? { scale: 1.02 } : {}}
-                  whileTap={!slot.isBooked ? { scale: 0.98 } : {}}
+                  disabled={slot.isBooked || slot.isPast}
+                  title={slot.isPast ? 'This time has already passed' : undefined}
+                  whileHover={!slot.isBooked && !slot.isPast ? { scale: 1.02 } : {}}
+                  whileTap={!slot.isBooked && !slot.isPast ? { scale: 0.98 } : {}}
                   onClick={() => handleStartTimeChange(slot.time)}
                   className={`w-full py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200
                     ${startTime === slot.time
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md'
                       : slot.isBooked
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40 line-through'
+                      : slot.isPast
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40'
                       : 'bg-white hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-300'
                     }`}
                 >

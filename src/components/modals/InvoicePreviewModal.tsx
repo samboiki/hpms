@@ -14,8 +14,7 @@ import {
   Clock,
   AlertTriangle,
   Download,
-  Printer,
-  Share2
+  Printer
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
@@ -166,7 +165,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   Invoice #{invoice.invoice_number}
                 </h2>
                 <p className="text-blue-100 text-sm">
-                  Created: {format(parseISO(invoice.created_at), 'MMMM dd, yyyy')}
+                  Created: {format(parseISO(invoice.created_at), 'd MMMM yyyy')}
                 </p>
               </div>
             </div>
@@ -183,6 +182,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
               <button
                 onClick={onClose}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -233,7 +234,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                   <div className="flex justify-between">
                     <span className="text-gray-600">Visit Date:</span>
                     <span className="font-medium text-gray-900">
-                      {format(parseISO(invoice.visit_date), 'MMMM dd, yyyy')}
+                      {format(parseISO(invoice.visit_date), 'd MMMM yyyy')}
                     </span>
                   </div>
                 )}
@@ -358,19 +359,10 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         {/* Actions Footer */}
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            Invoice generated on {format(parseISO(invoice.created_at), 'MMMM dd, yyyy')}
+            Invoice generated on {format(parseISO(invoice.created_at), 'd MMMM yyyy')}
           </div>
           
           <div className="flex items-center gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <Share2 className="w-4 h-4" />
-              Share
-            </motion.button>
-            
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

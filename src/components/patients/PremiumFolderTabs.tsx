@@ -1521,12 +1521,11 @@ const AIIntelligenceContent: React.FC<{
                 </div>
                 
                 <div className="text-sm text-gray-600 leading-relaxed mb-4">
+                  {/* Counts only: this text used to state "stable vital signs", "all key indicators
+                      within normal ranges" and a positive prognosis for every patient, whatever the readings */}
                   <p className="mb-0">
-                    {patient?.first_name} {patient?.last_name} has been under our care with <strong className="text-gray-800">{visits.length} medical encounters</strong> recorded. 
-                    The patient demonstrates <strong className="text-gray-800">excellent compliance</strong> with scheduled appointments and treatment protocols. 
-                    Clinical assessments show <strong className="text-gray-800">stable vital signs</strong> across {vitals.length} recorded measurements, 
-                    with all key indicators within normal ranges. Overall prognosis is <strong className="text-gray-800">positive</strong> with continued 
-                    monitoring recommended for optimal health outcomes.
+                    {patient?.first_name} {patient?.last_name} has <strong className="text-gray-800">{visits.length} recorded {visits.length === 1 ? 'visit' : 'visits'}</strong> and{' '}
+                    {vitals.length} vital-sign {vitals.length === 1 ? 'recording' : 'recordings'}. Open the Vitals tab to review the readings.
                   </p>
                 </div>
                 
@@ -1664,77 +1663,9 @@ const AIIntelligenceContent: React.FC<{
         )}
       </div>
       
-      {/* AI Health Intelligence Dashboard - Text Based */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden"
-      >
-        <div className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-gray-100 rounded-lg">
-              <Sparkles className="w-5 h-5 text-gray-700" />
-            </div>
-            <div>
-              <h4 className="text-lg font-semibold text-gray-800">AI Health Intelligence Dashboard</h4>
-              <p className="text-sm text-gray-500">Comprehensive Health Analysis and Insights</p>
-            </div>
-          </div>
-          
-          <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
-            <div>
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Patient Overview</h5>
-              <p className="text-sm leading-relaxed">
-                {patient?.first_name} {patient?.last_name} presents with a comprehensive medical history spanning {visits.length} documented encounters. 
-                Analysis of clinical data reveals a patient who has demonstrated consistent engagement with healthcare services, 
-                with {vitals.length} vital sign recordings providing longitudinal health monitoring data.
-              </p>
-            </div>
-
-            <div>
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Clinical Summary</h5>
-              <p className="text-sm leading-relaxed">
-                The patient's medical journey indicates regular healthcare utilization with an average visit frequency suggesting 
-                proactive health management. Vital sign trends across recorded measurements show stable physiological parameters. 
-                {visits.length > 0 && visits[0].chief_complaint && (
-                  <span> Most recent visit addressed: "{visits[0].chief_complaint}" which was managed according to established clinical protocols.</span>
-                )}
-              </p>
-            </div>
-
-            <div>
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Health Status Assessment</h5>
-              <p className="text-sm leading-relaxed">
-                Based on available clinical data, the patient demonstrates stable health indicators with no apparent acute concerns 
-                requiring immediate intervention. The consistency of follow-up appointments suggests good adherence to recommended 
-                care plans. {vitals.length > 0 && "Recent vital sign measurements fall within expected ranges for the patient's demographic profile."}
-              </p>
-            </div>
-
-            <div>
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Recommendations</h5>
-              <p className="text-sm leading-relaxed">
-                Continue current management strategies with emphasis on preventive care measures. Maintain regular follow-up 
-                appointments to monitor health status and address any emerging concerns promptly. Consider comprehensive health 
-                screening based on age-appropriate guidelines to identify potential risk factors early. Encourage continued 
-                engagement with healthcare services to maintain optimal health outcomes.
-              </p>
-            </div>
-
-            <div>
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Preventive Care Considerations</h5>
-              <p className="text-sm leading-relaxed">
-                Implement lifestyle modifications including regular physical activity, balanced nutrition, and stress management 
-                techniques. Schedule routine health assessments including blood pressure monitoring, metabolic panel screening, 
-                and age-appropriate cancer screenings. Ensure immunizations are current according to national guidelines. 
-                Consider referral to specialist services if specific risk factors are identified during routine assessments.
-              </p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-      
+      {/* An "AI Health Intelligence Dashboard" used to follow here: fixed text that told every
+          patient their vitals were within expected ranges with no acute concerns, whatever the
+          readings. No analysis existed behind it, so it was removed. */}
     </div>
     </>
   );

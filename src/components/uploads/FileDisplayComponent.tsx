@@ -26,6 +26,8 @@ import {
   CreditCard,
   Shield
 } from 'lucide-react';
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -199,7 +201,9 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
         } else if (error.message && error.message.includes('Failed to fetch')) {
           console.error('💡 Network connection issue - check internet connectivity or try refreshing the page');
         }
-        
+
+        // Otherwise a failed load looks the same as "no files uploaded"
+        toast.error('Could not load the files. Check your connection and try again.');
         setFiles([]);
         setLoading(false);
         return;
@@ -256,7 +260,8 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
           return;
         }
       }
-      
+
+      toast.error('Could not load the files. Check your connection and try again.');
       setFiles([]);
     } finally {
       setLoading(false);
@@ -289,16 +294,26 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
     }
   };
 
-  // Handle file download
+  // Handle file download. Browsers ignore "download" on a link to another site (the storage
+  // server) and open the file in place of the app, losing unsaved work, so fetch it first.
   const handleDownload = async (file: DisplayedFile) => {
-    const url = await getFileUrl(file.storagePath);
-    if (url) {
+    try {
+      const { data, error } = await supabase.storage
+        .from(getBucketName())
+        .download(file.storagePath);
+      if (error || !data) throw error ?? new Error('The file is empty');
+
+      const url = URL.createObjectURL(data);
       const link = document.createElement('a');
       link.href = url;
       link.download = file.originalName;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('❌ Error downloading file:', error);
+      toast.error('Could not download the file. Please try again.');
     }
   };
 
@@ -308,6 +323,8 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
     if (url) {
       setSelectedFile({ ...file, url });
       setShowPreview(true);
+    } else {
+      toast.error('Could not open the file. Please try again, or download it instead.');
     }
   };
 
@@ -349,7 +366,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
 
       if (error) {
         console.error('❌ Error updating file:', error);
-        alert('Failed to update file. Please try again.');
+        toast.error('Failed to save the changes. Please try again.');
         return;
       }
 
@@ -366,17 +383,18 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
       ));
 
       console.log('✅ File updated successfully');
+      toast.success('Changes saved');
       setShowEditModal(false);
       setEditingFile(null);
     } catch (error) {
       console.error('💥 Error in handleSaveEdit:', error);
-      alert('Failed to update file. Please try again.');
+      toast.error('Failed to save the changes. Please try again.');
     }
   };
 
   // Handle file deletion
   const handleDelete = async (file: DisplayedFile) => {
-    if (!confirm(`Are you sure you want to delete "${file.originalName}"?`)) {
+    if (!window.confirm(`Delete "${file.title || file.originalName}" from this patient's files? This cannot be undone.`)) {
       return;
     }
 
@@ -409,10 +427,11 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
       onFileDelete?.(file.id);
 
       console.log('✅ File deleted successfully');
+      toast.success('File deleted');
 
     } catch (error) {
       console.error('💥 Error deleting file:', error);
-      alert('Failed to delete file. Please try again.');
+      toast.error('Failed to delete the file. Please try again.');
     }
   };
 
@@ -457,15 +476,10 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  // Format date
+  // Format date: day-month-year with a 24-hour time, as used across the app
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const date = dateString ? new Date(dateString) : null;
+    return date && !isNaN(date.getTime()) ? format(date, 'dd MMM yyyy, HH:mm') : '—';
   };
 
   if (loading) {
@@ -545,7 +559,13 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
       {filteredFiles.length === 0 ? (
         <div className="text-center py-12">
           <File className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500">No files uploaded yet</p>
+          <p className="text-gray-500">
+            {files.length > 0
+              ? 'No files match your search. Clear the search or choose All Types.'
+              : visitId === ''
+                ? 'Save the visit first, then open it again to see and add files.'
+                : 'No files uploaded yet.'}
+          </p>
         </div>
       ) : viewMode === 'grid' ? (
         /* Grid View */
@@ -675,6 +695,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                       }}
                       className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                       title="Preview"
+                      aria-label={`View ${file.title || file.originalName}`}
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -688,6 +709,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                       }}
                       className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
                       title="Download"
+                      aria-label={`Download ${file.title || file.originalName}`}
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -704,6 +726,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                         }}
                         className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                         title="Edit"
+                        aria-label={`Edit ${file.title || file.originalName}`}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -718,6 +741,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                       }}
                       className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                       title="Delete"
+                      aria-label={`Delete ${file.title || file.originalName}`}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -760,8 +784,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                               e.preventDefault();
                               e.stopPropagation();
                               console.log('🔘 FileDisplay - Image preview clicked:', file.originalName);
-                              setSelectedFile(file);
-                              setShowPreview(true);
+                              handlePreview(file);
                             }}
                           />
                         ) : (
@@ -837,11 +860,12 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                             e.preventDefault();
                             e.stopPropagation();
                             console.log('🔘 FileDisplay - View button clicked:', file.originalName);
-                            setSelectedFile(file);
-                            setShowPreview(true);
+                            // Only images have a link loaded with the list; PDFs and videos need one fetched
+                            handlePreview(file);
                           }}
                           className="p-1 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           title="View"
+                          aria-label={`View ${file.title || file.originalName}`}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -855,6 +879,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                           }}
                           className="p-1 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
                           title="Download"
+                          aria-label={`Download ${file.title || file.originalName}`}
                         >
                           <Download className="w-4 h-4" />
                         </button>
@@ -869,6 +894,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                             }}
                             className="p-1 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                             title="Edit"
+                            aria-label={`Edit ${file.title || file.originalName}`}
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
@@ -883,6 +909,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                           }}
                           className="p-1 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                           title="Delete"
+                          aria-label={`Delete ${file.title || file.originalName}`}
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -931,6 +958,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                     }}
                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded text-white"
                     title="Download"
+                    aria-label={`Download ${selectedFile.title || selectedFile.originalName}`}
                   >
                     <Download className="w-5 h-5" />
                   </button>
@@ -943,6 +971,7 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                     }}
                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded text-white"
                     title="Close"
+                    aria-label="Close the preview"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1055,6 +1084,8 @@ const FileDisplayComponent: React.FC<FileDisplayProps> = ({
                     type="button"
                     onClick={() => setShowEditModal(false)}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Close"
+                    title="Close"
                   >
                     <X className="w-5 h-5 text-gray-500" />
                   </button>

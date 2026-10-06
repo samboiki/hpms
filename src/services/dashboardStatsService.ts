@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { format, subDays, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { financialKpiService } from './financialKpiService';
 
 export interface DashboardStats {
   patients: {
@@ -70,7 +71,7 @@ class DashboardStatsService {
         this.getPatientsStats(practiceId, monthStart, last6Months),
         this.getVisitStats(practiceId, monthStart, last6Months),
         this.getAppointmentStats(practiceId, monthStart),
-        this.getFinanceStats(practiceId, monthStart, last6Months),
+        this.getFinanceStats(practiceId),
         this.getMedicalAidStats(practiceId),
         this.getCommunicationStats(practiceId)
       ]);
@@ -285,63 +286,22 @@ class DashboardStatsService {
     };
   }
 
-  private async getFinanceStats(practiceId: string, monthStart: Date, last6Months: Date) {
-    // For now, generate realistic mock data since we don't have invoice tables yet
-    // In a real implementation, this would query invoice/billing tables
-    
-    const mockInvoices = this.generateMockFinanceData();
-    
-    const totalRevenue = mockInvoices.reduce((sum, invoice) => sum + invoice.amount, 0);
-    const thisMonth = mockInvoices
-      .filter(invoice => new Date(invoice.date) >= monthStart)
-      .reduce((sum, invoice) => sum + invoice.amount, 0);
-    
-    const paidInvoices = mockInvoices.filter(i => i.status === 'paid').length;
-    const unpaidInvoices = mockInvoices.filter(i => i.status === 'pending').length;
-    const outstanding = mockInvoices
-      .filter(i => i.status === 'pending')
-      .reduce((sum, invoice) => sum + invoice.amount, 0);
-
-    // Revenue data for last 6 months
-    const revenueData: number[] = [];
-    for (let i = 5; i >= 0; i--) {
-      const monthDate = subMonths(new Date(), i);
-      const monthStartDate = startOfMonth(monthDate);
-      const monthEndDate = endOfMonth(monthDate);
-      
-      const monthlyRevenue = mockInvoices
-        .filter(invoice => 
-          new Date(invoice.date) >= monthStartDate && 
-          new Date(invoice.date) <= monthEndDate &&
-          invoice.status === 'paid'
-        )
-        .reduce((sum, invoice) => sum + invoice.amount, 0);
-      
-      revenueData.push(monthlyRevenue);
-    }
-
-    // Payment methods breakdown
-    const paymentCounts: { [key: string]: number } = {};
-    mockInvoices
-      .filter(i => i.status === 'paid')
-      .forEach(invoice => {
-        paymentCounts[invoice.paymentMethod] = (paymentCounts[invoice.paymentMethod] || 0) + invoice.amount;
-      });
-
-    const paymentMethods = Object.entries(paymentCounts).map(([method, amount], index) => ({
-      method,
-      amount,
-      color: ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'][index % 4]
-    }));
+  private async getFinanceStats(practiceId: string): Promise<DashboardStats['finance']> {
+    // Real invoices (invoices_enhanced) through the loader the Finance page uses. This used to
+    // invent 100 random invoices with random amounts, statuses and payment methods.
+    const kpis = await financialKpiService.getFinancialKPIs(practiceId, '6m');
+    const { paid, pending, overdue } = kpis.statusSummary;
 
     return {
-      totalRevenue,
-      thisMonth,
-      outstanding,
-      paidInvoices,
-      unpaidInvoices,
-      revenueData,
-      paymentMethods
+      totalRevenue: paid.amount + pending.amount + overdue.amount,
+      thisMonth: kpis.totalBilledMTD,
+      outstanding: kpis.totalOutstanding,
+      paidInvoices: paid.count,
+      unpaidInvoices: pending.count + overdue.count,
+      // Billed per month (cancelled invoices excluded) for the last 6 months
+      revenueData: kpis.monthlyRevenueTrend.map(month => month.revenue),
+      // The loader has no per-payment-method totals; an empty list shows "no data", not made-up splits
+      paymentMethods: []
     };
   }
 
@@ -359,45 +319,16 @@ class DashboardStatsService {
     return medicalAids || [];
   }
 
-  private generateNotificationStats() {
-    // Mock notification data - in real implementation, query notifications table
-    const types = [
-      { type: 'Appointments', count: 12, color: '#3B82F6' },
-      { type: 'Lab Results', count: 8, color: '#10B981' },
-      { type: 'Payments', count: 5, color: '#F59E0B' },
-      { type: 'System', count: 3, color: '#EF4444' }
-    ];
-
-    const weeklyData = [5, 8, 12, 15, 9, 11, 14]; // Last 7 days
-
+  private generateNotificationStats(): DashboardStats['notifications'] {
+    // No notification counts are read here, so report none rather than the made-up
+    // 28 / 15 unread / 4 urgent this used to return
     return {
-      total: 28,
-      unread: 15,
-      urgent: 4,
-      types,
-      weeklyData
+      total: 0,
+      unread: 0,
+      urgent: 0,
+      types: [],
+      weeklyData: []
     };
-  }
-
-  private generateMockFinanceData() {
-    const invoices = [];
-    const paymentMethods = ['Cash', 'Card', 'Transfer', 'Medical Aid'];
-    const statuses = ['paid', 'pending'];
-    
-    for (let i = 0; i < 100; i++) {
-      const daysAgo = Math.floor(Math.random() * 180);
-      const date = subDays(new Date(), daysAgo);
-      
-      invoices.push({
-        id: `inv-${i}`,
-        date: date.toISOString(),
-        amount: Math.floor(Math.random() * 2000) + 200,
-        status: statuses[Math.floor(Math.random() * statuses.length)],
-        paymentMethod: paymentMethods[Math.floor(Math.random() * paymentMethods.length)]
-      });
-    }
-    
-    return invoices;
   }
 
   private async getCommunicationStats(practiceId: string) {

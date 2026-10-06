@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import SearchDuotone from '../components/icons/SearchDuotone';
 import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths, isValid, getDay } from 'date-fns';
 import { usePractice } from '../contexts/PracticeContext';
 import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -58,14 +58,30 @@ interface ActivityItem {
   color: string;
 }
 
-interface LayoutContext {
-  toggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean;
+// The user's photo, or their initials when there is none. A stock photo of a stranger (loaded from a
+// third-party site) used to stand in for the signed-in user
+function UserAvatarImage({ avatar, name }: { avatar?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (avatar && !failed) {
+    return <img src={avatar} alt={name} className="h-full w-full object-cover" onError={() => setFailed(true)} />;
+  }
+  const initials = (name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
+  return (
+    <div role="img" aria-label={name} className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-semibold">
+      {initials}
+    </div>
+  );
+}
+
+// date-fns format() throws on an invalid date, so a visit saved without a date or time shows the
+// fallback instead of breaking the dashboard
+function formatVisitStart(visit: Pick<Visit, 'scheduled_date' | 'scheduled_time'>, pattern: string, fallback: string): string {
+  const start = new Date(`${visit.scheduled_date}T${visit.scheduled_time}`);
+  return isValid(start) ? format(start, pattern) : fallback;
 }
 
 function Dashboard() {
   const { user, logout } = useAuthStore();
-  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
   const { practiceData, colors } = usePracticeData();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -105,6 +121,8 @@ function Dashboard() {
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  // Set when the consultation screen closes because the visit was completed (patient is leaving)
+  const visitCompletedOnCloseRef = useRef(false);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [editingVisitData, setEditingVisitData] = useState<{ id: string; patient_id: string } | null>(null);
@@ -113,7 +131,12 @@ function Dashboard() {
   const calendarScrollRef = useRef<HTMLDivElement>(null);
   
   // Fetch all dashboard stats using optimized hook
-  const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading,
+    isError: isDashboardError,
+    refetch: refetchDashboardStats
+  } = useOptimizedDashboardStats();
   
   // Fetch communication stats separately for PremiumStatCard
   const { data: realCommunicationStats, isLoading: isCommunicationLoading } = useCommunicationStats();
@@ -233,12 +256,20 @@ function Dashboard() {
     if (currentPracticeId && selectedDate) {
       const formattedDate = format(selectedDate, 'yyyy-MM-dd');
       console.log('📅 Dashboard: Selected date changed to:', formattedDate);
-      fetchVisits({ 
-        date: formattedDate, 
-        practiceId: currentPracticeId 
+      fetchVisits({
+        date: formattedDate,
+        practiceId: currentPracticeId
       });
     }
   }, [selectedDate, currentPracticeId, fetchVisits]);
+
+  // Reload the day the schedule is showing after a save. fetchTodayVisits replaced the list with
+  // today's visits, so saving while another date was open left that day's schedule blank
+  const refreshSelectedDayVisits = () => {
+    if (currentPracticeId) {
+      fetchVisits({ date: format(selectedDate, 'yyyy-MM-dd'), practiceId: currentPracticeId });
+    }
+  };
 
   // Auto-scroll to center today's date only on initial load
   useEffect(() => {
@@ -358,7 +389,7 @@ function Dashboard() {
           type: 'booking',
           priority: 'high',
           title: 'New Booking Request',
-          description: `${visit.patient?.first_name} ${visit.patient?.last_name} requested a ${visit.visit_type} visit for ${format(new Date(visit.scheduled_date + 'T' + visit.scheduled_time), 'MMM d, h:mm a')}`,
+          description: `${visit.patient?.first_name} ${visit.patient?.last_name} requested a ${visit.visit_type} visit for ${formatVisitStart(visit, 'd MMM, h:mm a', 'a time not yet set')}`,
           time: new Date(visit.created_at || new Date()),
           actionRequired: true,
           read: false,
@@ -520,10 +551,12 @@ function Dashboard() {
         { duration: 3000, icon: '🏥' }
       );
       
-      // Navigate to patient detail page after a short delay
-      setTimeout(() => {
-        navigate(`/patients/${visit.patient_id}`);
-      }, 500);
+      // Open the consultation screen on the dashboard (same as the scheduler's onEditVisit)
+      if (visit.patient_id) {
+        setEditingVisitId(visit.id);
+        setEditingVisitData({ id: visit.id, patient_id: visit.patient_id });
+        setIsEditVisitModalOpen(true);
+      }
       
     } catch (error) {
       console.error('Error starting visit:', error);
@@ -596,14 +629,7 @@ function Dashboard() {
                       
                       {/* Avatar circle */}
                       <div className="relative h-12 w-12 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        <UserAvatarImage avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -637,30 +663,20 @@ function Dashboard() {
                           secondaryColor="#37415180"
                         />
                       </div>
+                      {/* Typing here never searched anything (console only); patient search lives on the Patients page */}
                       <input
                         type="text"
-                        placeholder="Search patients, appointments..."
-                        className="relative w-full pl-12 pr-4 py-3 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
-                        onChange={(e) => {
-                          console.log('Search:', e.target.value);
-                        }}
+                        placeholder="Search patients on the Patients page"
+                        disabled
+                        title="Not available here yet: search for patients on the Patients page"
+                        aria-label="Search (not available here yet)"
+                        className="relative w-full pl-12 pr-4 py-3 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Mobile Menu Button - Right side on mobile/tablet */}
-                <div className="lg:hidden">
-                  <button 
-                    onClick={toggleMobileSidebar}
-                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
-                    <span className="text-sm font-medium hidden sm:block">Menu</span>
-                  </button>
-                </div>
-
-                {/* User Avatar - Desktop only (right side) */}
+                {/* User Avatar - Desktop only (right side). Below lg the menu button is in the app bar (Layout) */}
                 {user && (
                   <div className="relative hidden lg:block">
                     <button
@@ -674,14 +690,7 @@ function Dashboard() {
                       
                       {/* Avatar circle */}
                       <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        <UserAvatarImage avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -689,7 +698,7 @@ function Dashboard() {
 
                 {/* User dropdown - shared for both mobile and desktop */}
                 {user && isAvatarDropdownOpen && createPortal(
-                  <>
+                  <div>
                     <div 
                       className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
                       onClick={() => setIsAvatarDropdownOpen(false)}
@@ -707,9 +716,11 @@ function Dashboard() {
                     >
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
-                        <button 
+                        <button
                           onClick={() => setIsAvatarDropdownOpen(false)}
                           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          title="Close"
+                          aria-label="Close"
                         >
                           <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                         </button>
@@ -719,11 +730,7 @@ function Dashboard() {
                         <div className="flex items-start gap-3">
                           <div className="relative flex-shrink-0">
                             <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                              <img 
-                                src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                alt={user.name}
-                                className="h-full w-full object-cover"
-                              />
+                              <UserAvatarImage avatar={user.avatar} name={user.name} />
                             </div>
                             <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                           </div>
@@ -759,15 +766,37 @@ function Dashboard() {
                         Logout
                       </button>
                     </div>
-                  </>,
+                  </div>,
                   document.body
                 )}
               </div>
             </div>
 
 
-            {/* Premium Dashboard Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* A failed stats load used to show silent zeros (e.g. N$0 revenue); say so instead */}
+            {isDashboardError && (
+              <div
+                role="alert"
+                className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+                  {dashboardData
+                    ? 'Dashboard figures could not be refreshed. Showing the last loaded numbers.'
+                    : 'Dashboard figures could not be loaded, so the cards below may show zeros.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { void refetchDashboardStats(); }}
+                  className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 font-medium text-red-700 border border-red-200 hover:bg-red-100"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Premium Dashboard Stats: four across only from xl, where each tile has room for its figure */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-4">
               {true ? [
                 // Patients Card - Now using real database stats by practice
                 <PremiumStatCard
@@ -805,21 +834,21 @@ function Dashboard() {
                 <PremiumStatCard
                   key="communication"
                   title="Communication"
-                  mainValue={realCommunicationStats?.overall_percentage_available ? `${realCommunicationStats.overall_percentage_available}%` : '88%'}
+                  mainValue={realCommunicationStats ? `${realCommunicationStats.overall_percentage_available ?? 0}%` : '-'}
                   subtitle="Service usage"
                   icon={null}
                   iconName="solar:monitor-smartphone-bold-duotone"
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
-                    { label: 'SMS Available', value: realCommunicationStats?.sms?.available || 850, color: '#EF4444' },
-                    { label: 'Email Available', value: realCommunicationStats?.email?.available || 460, color: '#F59E0B' }
+                    { label: 'SMS Available', value: realCommunicationStats?.sms?.available ?? '-', color: '#EF4444' },
+                    { label: 'Email Available', value: realCommunicationStats?.email?.available ?? '-', color: '#F59E0B' }
                   ]}
                   comparison={{
                     label1: 'SMS Available',
-                    value1: realCommunicationStats?.sms?.available || 850,
-                    label2: 'Email Available', 
-                    value2: realCommunicationStats?.email?.available || 460,
+                    value1: realCommunicationStats?.sms?.available ?? 0,
+                    label2: 'Email Available',
+                    value2: realCommunicationStats?.email?.available ?? 0,
                     color1: '#EF4444',
                     color2: '#F97316'
                   }}
@@ -970,6 +999,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Previous month"
+                            aria-label="Previous month"
                           >
                             <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -983,6 +1014,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Next month"
+                            aria-label="Next month"
                           >
                             <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1023,6 +1056,8 @@ function Dashboard() {
                           <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
                               onClick={() => setInternalViewMode('grid')}
+                              title="Grid view"
+                              aria-label="Grid view"
                               className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'grid'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
@@ -1034,6 +1069,8 @@ function Dashboard() {
                             </button>
                             <button
                               onClick={() => setInternalViewMode('timeline')}
+                              title="Timeline view"
+                              aria-label="Timeline view"
                               className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'timeline'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
@@ -1064,6 +1101,8 @@ function Dashboard() {
                             }
                           }}
                           className={`px-3 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
+                          title="Go to today"
+                          aria-label="Go to today"
                         >
                             <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
                             <span className="hidden sm:inline">Today</span>
@@ -1075,6 +1114,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Previous month"
+                            aria-label="Previous month"
                           >
                             <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1088,6 +1129,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Next month"
+                            aria-label="Next month"
                           >
                             <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1236,6 +1279,7 @@ function Dashboard() {
                             duration: 30,
                             type: (v.visit_type || 'consultation') as any,
                             status: v.is_cancelled ? 'cancelled' : 
+                                   v.status === 'no-show' ? 'no-show' :
                                    v.status === 'completed' ? 'completed' :
                                    v.status === 'in-progress' ? 'in-progress' :
                                    v.is_ready ? 'ready' :
@@ -1268,7 +1312,7 @@ function Dashboard() {
                           onAppointmentClick={(apt) => {
                             // Navigate to patient page on encounters tab
                             if (apt.patient_id) {
-                              navigate(`/patients/${apt.patient_id}?tab=encounters`);
+                              navigate(`/patients?patientId=${encodeURIComponent(apt.patient_id)}&tab=encounters`);
                             }
                           }}
                           onEditAppointment={async (appointment) => {
@@ -1413,8 +1457,8 @@ function Dashboard() {
             
             // The form already creates a visit in the visits table
             // So we just need to refresh the visits list
-            if (newVisit && currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
+            if (newVisit) {
+              refreshSelectedDayVisits();
             }
           }}
           onCancel={() => {
@@ -1527,18 +1571,21 @@ function Dashboard() {
 
       {/* Add Visit Modal (keeping for direct visit creation) */}
       {isAddVisitModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Schedule New Visit</h2>
-                <button
-                  onClick={() => setIsAddVisitModalOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
+        // Bottom sheet on phones (up to full height), centred dialog from sm; the title row stays in view
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="schedule-visit-title" className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-2xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex-none flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
+              <h2 id="schedule-visit-title" className="text-lg sm:text-xl font-bold text-gray-900">Schedule New Visit</h2>
+              <button
+                onClick={() => setIsAddVisitModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Close"
+                aria-label="Close"
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
               <AddScheduledVisitForm
                 practiceId={currentPracticeId || ''}
                 onSuccess={() => {
@@ -1560,7 +1607,7 @@ function Dashboard() {
               <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Visit</h3>
               <p className="text-gray-600 mb-6">
                 Confirm visit for {selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name} 
-                on {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMM d, h:mm a')}?
+                on {formatVisitStart(selectedVisit, 'd MMM, h:mm a', 'a date not yet set')}?
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -1579,7 +1626,10 @@ function Dashboard() {
                   Confirm
                 </button>
                 <button
-                  onClick={() => handleRejectVisit(selectedVisit.id, 'Rejected by practice')}
+                  onClick={() => {
+                    if (!window.confirm('Reject this booking request? The appointment will be cancelled.')) return;
+                    handleRejectVisit(selectedVisit.id, 'Rejected by practice');
+                  }}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Reject
@@ -1603,6 +1653,8 @@ function Dashboard() {
                     setSelectedVisit(null);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
@@ -1616,7 +1668,7 @@ function Dashboard() {
                 <div>
                   <h4 className="font-medium text-gray-700">Date & Time</h4>
                   <p className="text-gray-900">
-                    {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMMM d, yyyy h:mm a')}
+                    {formatVisitStart(selectedVisit, 'd MMMM yyyy h:mm a', 'Not set')}
                   </p>
                 </div>
                 <div>
@@ -1725,6 +1777,8 @@ function Dashboard() {
                   setShowMonthDropdown(false);
                 }}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
               </button>
@@ -1733,11 +1787,14 @@ function Dashboard() {
             {/* View Mode Toggles */}
             <div className="flex items-center justify-center mb-4">
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                {/* The dashboard loads one day of visits, so week/month only ever showed the selected day */}
                 {['day', 'week', 'month'].map((mode) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode as any)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors capitalize ${
+                    disabled={mode !== 'day'}
+                    title={mode !== 'day' ? 'Not available yet: the dashboard shows one day at a time' : undefined}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors capitalize disabled:opacity-50 disabled:cursor-not-allowed ${
                       viewMode === mode
                         ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                         : 'text-gray-600 hover:text-gray-900 hover:bg-white'
@@ -1754,6 +1811,8 @@ function Dashboard() {
               <button
                 onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                title="Previous month"
+                aria-label="Previous month"
               >
                 <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
@@ -1836,6 +1895,8 @@ function Dashboard() {
               <button
                 onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                title="Next month"
+                aria-label="Next month"
               >
                 <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
@@ -1847,6 +1908,10 @@ function Dashboard() {
                 <div key={day} className="text-sm font-semibold text-gray-500 text-center py-3">
                   {day}
                 </div>
+              ))}
+              {/* Empty cells so the 1st sits under its own weekday (it was always drawn under "Su") */}
+              {Array.from({ length: getDay(startOfMonth(selectedDate)) }, (_, i) => (
+                <div key={`blank-${i}`} aria-hidden="true" />
               ))}
               {eachDayOfInterval({
                 start: startOfMonth(selectedDate),
@@ -1926,7 +1991,7 @@ function Dashboard() {
           disablePatientModal={true}
           onOpenPatientModal={(patientId, defaultTab) => {
             // Navigate to patient page with optional tab parameter
-            navigate(`/patients/${patientId}?tab=${defaultTab || 'overview'}`);
+            navigate(`/patients?patientId=${encodeURIComponent(patientId)}&tab=${defaultTab || 'overview'}`);
           }}
         />
       )}
@@ -1936,20 +2001,25 @@ function Dashboard() {
         <FullScreenEditVisitModal
           isOpen={isEditVisitModalOpen}
           onClose={() => {
+            const patientId = editingVisitData.patient_id;
+            const completed = visitCompletedOnCloseRef.current;
+            visitCompletedOnCloseRef.current = false;
             setIsEditVisitModalOpen(false);
             setEditingVisitId(null);
             setEditingVisitData(null);
+            // Like a real consult room: while the patient is still with the doctor, closing the visit
+            // goes to that patient's encounter history (with a way back to the dashboard). Completing
+            // the visit means the patient is leaving, so the doctor stays on the dashboard for the next one.
+            if (!completed && patientId) {
+              navigate(`/patients?${new URLSearchParams({ patientId, tab: 'encounters', returnTo: 'dashboard' }).toString()}`);
+            }
           }}
           visitId={editingVisitData.id}
           patientId={editingVisitData.patient_id}
-          onSuccess={() => {
-            setIsEditVisitModalOpen(false);
-            setEditingVisitId(null);
-            setEditingVisitData(null);
+          onSuccess={(result) => {
+            visitCompletedOnCloseRef.current = !!result?.completed;
             // Refresh visits
-            if (currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
-            }
+            refreshSelectedDayVisits();
           }}
         />
       )}
@@ -1976,9 +2046,7 @@ function Dashboard() {
             setIsEditAppointmentModalOpen(false);
             setEditingAppointment(null);
             // Refresh visits
-            if (currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
-            }
+            refreshSelectedDayVisits();
           }}
           onCancel={() => {
             setIsEditAppointmentModalOpen(false);

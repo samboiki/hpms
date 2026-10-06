@@ -239,6 +239,13 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     }
   };
 
+  // A button is only enabled once its document exists, so the tooltip says why it is greyed out
+  const buttonTitle = (docType: 'prescription' | 'leave_form' | 'invoice', name: string) => {
+    if (existingDocs[docType]) return `Print ${name}`;
+    if (availableData[docType]) return `No ${name} document yet: open the visit to create it`;
+    return `No ${name} for this visit`;
+  };
+
   return (
     <div className={`flex items-center ${showLabels ? 'gap-2' : 'gap-1'}`} onClick={(e) => e.stopPropagation()}>
       {/* Prescription Button */}
@@ -251,7 +258,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.prescription}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.prescription ? 'bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-blue-50 rounded-md transition-colors'} group relative`}
-        title="Print Prescription"
+        title={buttonTitle('prescription', 'prescription')}
+        aria-label={buttonTitle('prescription', 'prescription')}
       >
         <Icon icon="solar:medical-kit-bold-duotone" className={`w-5 h-5 ${existingDocs.prescription ? 'text-blue-600 group-hover:text-blue-700' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.prescription ? 'text-blue-700' : 'text-gray-500'}`}>Prescription</span>}
@@ -270,7 +278,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.leave_form}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.leave_form ? 'bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
-        title="Print Leave Form"
+        title={buttonTitle('leave_form', 'leave form')}
+        aria-label={buttonTitle('leave_form', 'leave form')}
       >
         <Icon icon="solar:document-medicine-bold-duotone" className={`w-5 h-5 ${existingDocs.leave_form ? 'text-orange-600 group-hover:text-orange-700' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.leave_form ? 'text-orange-700' : 'text-gray-500'}`}>Leave Form</span>}
@@ -289,7 +298,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.invoice}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.invoice ? 'bg-[#00a7ad]/10 hover:bg-[#00a7ad]/20 border border-[#00a7ad]/30 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-[#00a7ad]/10 rounded-md transition-colors'} group relative`}
-        title="Print Invoice"
+        title={buttonTitle('invoice', 'invoice')}
+        aria-label={buttonTitle('invoice', 'invoice')}
       >
         <Icon icon="solar:wallet-bold-duotone" className={`w-5 h-5 ${existingDocs.invoice ? 'text-[#00a7ad] group-hover:text-[#00959a]' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.invoice ? 'text-[#00a7ad]' : 'text-gray-500'}`}>Invoice</span>}

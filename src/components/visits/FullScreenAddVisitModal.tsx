@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { Icon } from '@iconify/react';
 import {
   X,
   FileText,
@@ -14,16 +13,20 @@ import {
   Loader2,
   Stethoscope,
   CalendarCheck,
-  Plus
+  Plus,
+  History
 } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import AddVisitTabs from './AddVisitTabs';
+import PatientHistoryPanel from './PatientHistoryPanel';
 import FormModal from '../modals/FormModal';
 import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import PremiumAddAppointmentForm from '../forms/PremiumAddAppointmentForm';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { ServiceSelection } from '../../types/billing';
+import { nadParts } from '../../utils/billing/money';
+import { sumServiceTotals } from './visitBillingLines';
 import { useLocation } from 'react-router-dom';
 
 interface FullScreenAddVisitModalProps {
@@ -60,6 +63,12 @@ const tabs: Tab[] = [
     label: 'General',
     icon: FileText,
     tooltip: 'Visit details and clinical notes'
+  },
+  {
+    id: 'history',
+    label: 'History',
+    icon: History,
+    tooltip: 'Previous visits, vitals, medications and labs'
   },
   {
     id: 'vitals',
@@ -119,6 +128,8 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
   const [followUpRequired, setFollowUpRequired] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
+  // Added up in whole cents, so the header total equals the sum of the billing lines
+  const servicesTotal = sumServiceTotals(selectedServices);
   const { user } = useAuthStore();
   const location = useLocation();
   
@@ -197,6 +208,7 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
       <div className="px-4 sm:px-6">
         <div className="flex overflow-x-auto scrollbar-none sm:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
+            const TabIcon = tab.icon;
             const isActive = activeTab === tab.id;
             const isHovered = hoveredTab === tab.id;
             
@@ -258,7 +270,7 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                   </motion.div>
                 )}
                 
-                <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 flex-shrink-0 ${
+                <TabIcon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 flex-shrink-0 ${
                   isActive ? 'text-purple-600' : ''
                 }`} />
                 
@@ -346,6 +358,20 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
               )}
 
               {/* Other Tab Headers - Left Aligned */}
+              {activeTab === 'history' && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <History className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      Patient History
+                    </h3>
+                    <p className="text-sm text-gray-600">Previous visits, vitals, medications and lab requests (read-only)</p>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'vitals' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-red-100 rounded-lg">
@@ -473,7 +499,7 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                       <div className="text-center">
                         <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#30b4be' }}>Total</div>
                         <motion.div 
-                          key={selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0)}
+                          key={servicesTotal}
                           initial={{ scale: 1.1 }}
                           animate={{ scale: 1 }}
                           transition={{ duration: 0.2 }}
@@ -481,10 +507,10 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
                           style={{ fontFamily: 'Rubik, sans-serif' }}
                         >
                           <span style={{ color: '#30b4be' }}>
-                            N${Math.floor(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0))}
+                            N${nadParts(servicesTotal).whole}
                           </span>
                           <span style={{ color: '#30b4be60' }}>
-                            .{String(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)).split('.')[1]}
+                            .{nadParts(servicesTotal).cents}
                           </span>
                         </motion.div>
                       </div>
@@ -496,6 +522,8 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
             </div>
             <div className="flex-1 overflow-auto">
               <div className="p-6">
+                {/* History is read-only; AddVisitTabs stays mounted below so the new visit's form state persists */}
+                {activeTab === 'history' && <PatientHistoryPanel patientId={patientId} />}
                 <AddVisitTabs
                   patientId={patientId}
                   activeTab={activeTab}

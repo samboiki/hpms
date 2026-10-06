@@ -1,7 +1,40 @@
 import { create } from 'zustand';
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { Visit } from '../types/enhanced-visit.types';
 import { validatePracticeId } from '../lib/supabaseValidator';
+import { getStageUpdate, getVisitStage, STAGE_LABELS, type VisitStage } from '../utils/visitStage';
+import { blocksReopen, INVOICE_LOCK_MESSAGES, loadVisitInvoiceLocks } from '../utils/invoiceLock';
+
+export const NO_SHOW_NOT_ACCEPTED_MESSAGE =
+  'This database does not accept the no-show status yet; ask the administrator to apply the visits status fix.';
+
+/** A delete the database does not allow removes nothing and reports no error, so it is checked by row count */
+export const VISIT_DELETE_NOT_ALLOWED_MESSAGE =
+  'Not deleted: only a practice administrator can delete a booking, and only before the patient checks in.';
+export const VISIT_HAS_RECORDS_MESSAGE =
+  'This visit has records attached (vitals, lab requests, media or an invoice), so it cannot be deleted. Cancel it instead.';
+
+/**
+ * Reads one visit with the same patient and doctor joins as fetchVisits. Realtime events carry only
+ * the visits columns, and storing those as-is made the scheduler show "Unknown Patient".
+ */
+const fetchVisitWithPeople = async (visitId: string): Promise<Visit | null> => {
+  const { data, error } = await supabase
+    .from('visits')
+    .select(`
+      *,
+      patient:patients!visits_patient_id_fkey(id, first_name, last_name, cell_number, email, date_of_birth),
+      doctor:users!doctor_id(id, full_name, role)
+    `)
+    .eq('id', visitId)
+    .single();
+  if (error) {
+    console.error('Could not reload a visit after a live update:', error);
+    return null;
+  }
+  return data as unknown as Visit;
+};
 
 interface VisitsState {
   visits: Visit[];
@@ -37,6 +70,7 @@ interface VisitsActions {
   markPatientReady: (visitId: string) => Promise<void>;
   startVisit: (visitId: string) => Promise<void>;
   completeVisit: (visitId: string) => Promise<void>;
+  moveVisitToStage: (visitId: string, stage: VisitStage, expectedFrom?: VisitStage) => Promise<void>;
   handoffVisit: (visitId: string) => Promise<void>;
   cancelVisit: (visitId: string, reason?: string) => Promise<void>;
   markNoShow: (visitId: string) => Promise<void>;
@@ -173,7 +207,8 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Fetch today's visits
   fetchTodayVisits: async (practiceId?: string) => {
     const today = new Date();
-    const todayISO = today.toISOString().split('T')[0]; // 2025-06-25
+    // Local calendar date: toISOString() is UTC, which is still yesterday before 02:00 in Namibia
+    const todayISO = format(today, 'yyyy-MM-dd');
     const todayUS = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`; // 6/25/2025
     
     const state = get();
@@ -256,8 +291,12 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
         updated_at: new Date().toISOString()
       };
 
+      // Keep the clinical notes: the reason used to overwrite them. Append it as a marked line instead
+      // (visits has no cancellation_reason column yet).
       if (reason) {
-        updateData.notes = reason;
+        const { data: current } = await supabase.from('visits').select('notes').eq('id', visitId).single();
+        const existingNotes = (current?.notes || '').trim();
+        updateData.notes = existingNotes ? `${existingNotes}\n\n[Cancelled: ${reason}]` : `[Cancelled: ${reason}]`;
       }
 
       const { error } = await supabase
@@ -271,7 +310,7 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       set(state => ({
         visits: state.visits.map(visit =>
           visit.id === visitId
-            ? { ...visit, is_cancelled: true, status: 'cancelled', notes: reason || visit.notes }
+            ? { ...visit, is_cancelled: true, status: 'cancelled', notes: updateData.notes ?? visit.notes }
             : visit
         )
       }));
@@ -396,6 +435,65 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     }
   },
 
+  // Correct a visit's stage (e.g. reopen a visit completed by mistake, back to the nurse handoff,
+  // undo a check-in or a no-show). Column values come from the shared stage definition.
+  moveVisitToStage: async (visitId: string, stage: VisitStage, expectedFrom?: VisitStage) => {
+    try {
+      // Read the visit as it is now, so a stale screen can't overwrite a change someone else made
+      const { data: current, error: readError } = await supabase
+        .from('visits')
+        .select('status, is_checked_in, is_ready, is_handoff, is_cancelled')
+        .eq('id', visitId)
+        .single();
+      if (readError) throw readError;
+
+      const currentStage = getVisitStage(current);
+      if (expectedFrom && currentStage !== expectedFrom) {
+        throw new Error(
+          `This visit is now "${STAGE_LABELS[currentStage]}". Someone may have changed it; refresh and try again.`
+        );
+      }
+
+      // A billed visit (invoice paid, or its claim already sent to the medical aid) must not be reopened:
+      // real practices correct those with a credit note and an addendum, never by editing the record.
+      // An invoice still waiting in the unsent claim batch does not block reopening.
+      if (currentStage === 'completed' && stage !== 'completed') {
+        const blocking = (await loadVisitInvoiceLocks(visitId)).find(invoice => blocksReopen(invoice.lock));
+        if (blocking?.lock) {
+          throw new Error(`Can't reopen this visit. ${INVOICE_LOCK_MESSAGES[blocking.lock]}`);
+        }
+      }
+
+      const stageFields = getStageUpdate(stage);
+      const { error } = await supabase
+        .from('visits')
+        .update({
+          ...stageFields,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', visitId);
+
+      if (error) {
+        if (stage === 'no-show' && `${error.message ?? ''} ${error.details ?? ''}`.includes('visits_status_check')) {
+          throw new Error(NO_SHOW_NOT_ACCEPTED_MESSAGE);
+        }
+        throw error;
+      }
+
+      set(state => ({
+        visits: state.visits.map(visit =>
+          visit.id === visitId ? { ...visit, ...stageFields } : visit
+        )
+      }));
+
+      get().updateCounts();
+    } catch (error) {
+      console.error('Error moving visit to stage:', error);
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
   // Handoff visit
   handoffVisit: async (visitId: string) => {
     try {
@@ -441,7 +539,14 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
         })
         .eq('id', visitId);
 
-      if (error) throw error;
+      if (error) {
+        // Some databases' visits_status_check constraint doesn't list 'no-show' yet. Say so plainly
+        // instead of showing staff a raw constraint error.
+        if (`${error.message ?? ''} ${error.details ?? ''}`.includes('visits_status_check')) {
+          throw new Error(NO_SHOW_NOT_ACCEPTED_MESSAGE);
+        }
+        throw error;
+      }
 
       // Update local state
       set(state => ({
@@ -464,6 +569,10 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       const updateData: any = {
         scheduled_date: newDate,
         scheduled_time: newTime,
+        // Bookings write both pairs and some screens read visit_*; moving only scheduled_* left the
+        // visit showing, and blocking, its old slot
+        visit_date: newDate,
+        visit_time: newTime,
         updated_at: new Date().toISOString()
       };
 
@@ -485,7 +594,14 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
       set(state => ({
         visits: state.visits.map(visit =>
           visit.id === visitId
-            ? { ...visit, scheduled_date: newDate, scheduled_time: newTime, notes: updateData.notes || visit.notes }
+            ? {
+                ...visit,
+                scheduled_date: newDate,
+                scheduled_time: newTime,
+                visit_date: newDate,
+                visit_time: newTime,
+                notes: updateData.notes || visit.notes
+              }
             : visit
         )
       }));
@@ -563,7 +679,7 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
   // Update counts
   updateCounts: () => {
     const { visits } = get();
-    const today = new Date().toISOString().split('T')[0];
+    const today = format(new Date(), 'yyyy-MM-dd');
 
     const unconfirmedCount = visits.filter(v => v.is_scheduled && !v.is_confirmed && !v.is_cancelled).length;
     const checkedInCount = visits.filter(v => v.is_checked_in && !v.is_ready && !v.is_cancelled).length;
@@ -612,26 +728,52 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
         { event: '*', schema: 'public', table: 'visits', filter: `practice_id=eq.${practiceId}` },
         (payload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
-          
+
           if (eventType === 'INSERT' && newRecord) {
-            // Add new visit
-            set(state => ({
-              visits: [newRecord as Visit, ...state.visits]
-            }));
+            // Add the new visit once its patient and doctor are loaded (raw row if that fails)
+            const inserted = newRecord as Visit;
+            void fetchVisitWithPeople(inserted.id).then(full => {
+              const visit = full ?? inserted;
+              set(state => ({
+                visits: state.visits.some(v => v.id === visit.id) ? state.visits : [visit, ...state.visits]
+              }));
+              get().updateCounts();
+            });
+            return;
           } else if (eventType === 'UPDATE' && newRecord) {
-            // Update existing visit
-            set(state => ({
-              visits: state.visits.map(visit =>
-                visit.id === newRecord.id ? newRecord as Visit : visit
-              )
-            }));
+            const updated = newRecord as Visit;
+            const existing = get().visits.find(visit => visit.id === updated.id);
+            // Visits outside the loaded list stay out of it, as before
+            if (!existing) return;
+            if (existing.patient_id === updated.patient_id && existing.doctor_id === updated.doctor_id) {
+              // Same patient and doctor: keep the details already loaded
+              set(state => ({
+                visits: state.visits.map(visit =>
+                  visit.id === updated.id ? { ...updated, patient: existing.patient, doctor: existing.doctor } : visit
+                )
+              }));
+            } else {
+              void fetchVisitWithPeople(updated.id).then(full => {
+                // If the reload fails, never show the previous doctor's or patient's name on it
+                const fallback: Visit = {
+                  ...updated,
+                  patient: existing.patient_id === updated.patient_id ? existing.patient : undefined,
+                  doctor: existing.doctor_id === updated.doctor_id ? existing.doctor : undefined
+                };
+                set(state => ({
+                  visits: state.visits.map(visit => (visit.id === updated.id ? full ?? fallback : visit))
+                }));
+                get().updateCounts();
+              });
+              return;
+            }
           } else if (eventType === 'DELETE' && oldRecord) {
             // Remove deleted visit
             set(state => ({
               visits: state.visits.filter(visit => visit.id !== oldRecord.id)
             }));
           }
-          
+
           // Update counts after any change
           get().updateCounts();
         }
@@ -731,15 +873,18 @@ export const useVisitsStore = create<VisitsState & VisitsActions>((set, get) => 
     }
   },
 
-  // Delete visit
+  // Delete visit: the database allows it only for a practice administrator and a booking that has not started
+  // (see proposals/2026-10-06-data-fixes.sql, section 8)
   deleteVisit: async (visitId: string) => {
     try {
-      const { error } = await supabase
+      const { error, count } = await supabase
         .from('visits')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', visitId);
 
+      if (error?.code === '23503') throw new Error(VISIT_HAS_RECORDS_MESSAGE);
       if (error) throw error;
+      if (count === 0) throw new Error(VISIT_DELETE_NOT_ALLOWED_MESSAGE);
 
       // Remove from local state
       set(state => ({

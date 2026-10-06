@@ -50,7 +50,7 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
   const availableYears = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 
   // Fetch practice statistics
-  const { data: practiceStats } = useQuery({
+  const { data: practiceStats, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ['practice-carryover-stats', user?.practice_id, selectedFromYear],
     queryFn: async () => {
       if (!user?.practice_id) return null;
@@ -151,6 +151,12 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
     onClose();
   };
 
+  // Show people and leave types by name rather than raw database ids
+  const staffName = (userId: string) =>
+    practiceStats?.userDetails.find(member => member.id === userId)?.full_name ?? 'Former staff member';
+  const leaveTypeName = (leaveTypeId: string) =>
+    practiceStats?.leaveTypeDetails.find(type => type.id === leaveTypeId)?.name ?? 'Leave type';
+
   if (!isOpen) return null;
 
   return (
@@ -202,7 +208,12 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
                         </label>
                         <select
                           value={selectedFromYear}
-                          onChange={(e) => setSelectedFromYear(parseInt(e.target.value))}
+                          onChange={(e) => {
+                            const fromYear = parseInt(e.target.value);
+                            setSelectedFromYear(fromYear);
+                            // Keep the target year after the source year
+                            if (selectedToYear <= fromYear) setSelectedToYear(fromYear + 1);
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                         >
                           {availableYears.map(year => (
@@ -255,6 +266,11 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
                           <div className="text-2xl font-bold text-amber-600">{practiceStats.totalUnusedDays.toFixed(1)}</div>
                           <div className="text-sm text-amber-600">Total Unused Days</div>
                         </div>
+                      </div>
+                    ) : statsError ? (
+                      <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                        <span>Practice leave statistics could not be loaded.</span>
+                        <Button size="sm" variant="outline" onClick={() => refetchStats()}>Try again</Button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-center py-8">
@@ -355,9 +371,9 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
                           {results.map((result, index) => (
                             <div key={index} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                               <div>
-                                <div className="font-medium text-green-800">{result.leaveTypeName}</div>
+                                <div className="font-medium text-green-800">{staffName(result.userId)}</div>
                                 <div className="text-sm text-green-600">
-                                  User ID: {result.userId} • Action: {result.action}
+                                  {result.leaveTypeName} • balance {result.action}
                                 </div>
                               </div>
                               <div className="text-right">
@@ -388,8 +404,8 @@ export const CarryoverProcessingModal: React.FC<CarryoverProcessingModalProps> =
                         <div className="space-y-2">
                           {errors.map((error, index) => (
                             <div key={index} className="p-3 bg-red-50 rounded-lg">
-                              <div className="font-medium text-red-800">User ID: {error.userId}</div>
-                              <div className="text-sm text-red-600">Leave Type: {error.leaveTypeId}</div>
+                              <div className="font-medium text-red-800">{staffName(error.userId)}</div>
+                              <div className="text-sm text-red-600">{leaveTypeName(error.leaveTypeId)}</div>
                               <div className="text-sm text-red-700 mt-1">{error.error}</div>
                             </div>
                           ))}

@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { TemplateProcessor } from './template-processor.ts';
+import { maySendToOptedOutPatient } from '../_shared/smsMessagePolicy.ts';
+import { normalizePhoneNumber, storedPhoneSearchPattern } from '../_shared/smsPhone.ts';
 
 // CORS headers with additional allowed headers
 const corsHeaders = {
@@ -9,6 +11,49 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Has the recipient replied STOP (patients.sms_opt_out)? Checks the patient the message is for and
+ * every patient file of the practice with the same number (a shared family phone).
+ * Before the two-way SMS database change the column does not exist, so nobody has opted out.
+ * Any other failure counts as opted out: a non-essential message is never worth that risk.
+ */
+async function recipientHasOptedOut(
+  supabase: SupabaseClient,
+  practiceId: string,
+  patientId: unknown,
+  recipientPhone: string
+): Promise<boolean> {
+  const columnMissing = (error: { code?: string }) => error.code === '42703';
+
+  if (typeof patientId === 'string' && UUID_PATTERN.test(patientId)) {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('id', patientId)
+      .eq('sms_opt_out', true)
+      .maybeSingle();
+    if (error) return !columnMissing(error);
+    if (data) return true;
+  }
+
+  const recipient = normalizePhoneNumber(recipientPhone);
+  const pattern = storedPhoneSearchPattern(recipient);
+  if (!recipient || !pattern) return false;
+  const { data, error } = await supabase
+    .from('patients')
+    .select('cell_number')
+    .eq('practice_id', practiceId)
+    .eq('sms_opt_out', true)
+    .ilike('cell_number', pattern)
+    .limit(50);
+  if (error) return !columnMissing(error);
+  return ((data ?? []) as Array<{ cell_number: string | null }>).some(
+    (patient) => normalizePhoneNumber(patient.cell_number) === recipient
+  );
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -92,8 +137,29 @@ serve(async (req) => {
           success: false,
           error: 'Missing required fields: practiceId, recipientPhone, and either messageContent or valid templateId'
         }),
-        { 
+        {
           status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // A patient who replied STOP gets only essential messages (appointments, results, replies they
+    // asked for). The message type lists are in ../_shared/smsMessagePolicy.ts.
+    if (
+      !maySendToOptedOutPatient(messageType, metadata) &&
+      await recipientHasOptedOut(supabase, practiceId, patientId, String(recipientPhone))
+    ) {
+      console.log('SMS not sent: the recipient opted out of non-essential SMS', { practiceId, messageType });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'blocked',
+          code: 'PATIENT_OPTED_OUT',
+          error: 'Not sent: this patient replied STOP to opt out of non-essential SMS. Appointment, results and other essential messages can still be sent.'
+        }),
+        {
+          status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -213,18 +279,29 @@ serve(async (req) => {
 
     // Send SMS via SMS Portal v3 API - Using the working format
     try {
-      // Format phone number
+      // Format phone number: the same rules as normalizePhoneNumber in src/components/patients/patientContact.ts.
+      // A number saved without its leading 0 ("81 123 4567") is Namibian, not +81 (Japan).
+      const typedPlus = recipientPhone.trim().startsWith('+');
       let cleanPhone = recipientPhone.replace(/\D/g, '');
-      
-      // Handle Namibian numbers
-      if (cleanPhone.startsWith('0')) {
-        cleanPhone = '264' + cleanPhone.substring(1);
+
+      if (!typedPlus) {
+        if (cleanPhone.startsWith('00')) {
+          cleanPhone = cleanPhone.substring(2);
+        } else if (cleanPhone.startsWith('264') && cleanPhone.length > 10) {
+          // Country code typed without "+"
+        } else if (cleanPhone.startsWith('0')) {
+          cleanPhone = '264' + cleanPhone.substring(1);
+        } else if (cleanPhone.length === 8 || cleanPhone.length === 9) {
+          cleanPhone = '264' + cleanPhone;
+        }
       }
-      
-      // Add + if not present
-      if (!cleanPhone.startsWith('+')) {
-        cleanPhone = '+' + cleanPhone;
+
+      // "+264 (0)81 ..." keeps the trunk 0 after the country code; it must not be dialled
+      if (cleanPhone.startsWith('2640')) {
+        cleanPhone = '264' + cleanPhone.substring(4);
       }
+
+      cleanPhone = '+' + cleanPhone;
       
       // Create Basic Auth credentials
       const credentials = `${smsPortalClientId}:${smsPortalApiSecret}`;
@@ -244,7 +321,9 @@ serve(async (req) => {
           {
             content: finalMessageContent,
             destination: cleanPhone,
-            customerId: metadata.reference || `msg-${Date.now()}`
+            // The log row id by default: SMSPortal returns it with a patient's reply, so the reply
+            // finds its message, practice, patient and appointment (see sms-reply-webhook)
+            customerId: metadata.reference || logEntry.id
           }
         ]
       };

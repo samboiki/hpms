@@ -9,6 +9,11 @@ import { supabase } from '../../lib/supabase';
 import AppointmentApprovalModal from '../modals/AppointmentApprovalModal';
 import RescheduleAppointmentModal from '../modals/RescheduleAppointmentModal';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/formatDoctorName';
+
+// Status values such as 'in-progress' or 'no-show' are shown to staff as plain words
+const statusLabel = (value: string) => value.replace(/-/g, ' ');
 
 interface AppointmentGridViewProps {
   status: 'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready';
@@ -56,6 +61,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
       setAppointments(data || []);
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      toast.error('Could not load appointments. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -149,7 +155,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
   };
 
   const handleDelete = async (appointmentId: string) => {
-    if (confirm('Are you sure you want to delete this appointment?')) {
+    if (confirm('Delete this appointment? This cannot be undone.')) {
       try {
         const { error } = await supabase
           .from('appointments')
@@ -158,9 +164,10 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
 
         if (error) throw error;
         fetchAppointments();
+        toast.success('Appointment deleted');
       } catch (error) {
         console.error('Error deleting appointment:', error);
-        alert('Failed to delete appointment');
+        toast.error('Failed to delete appointment');
       }
     }
   };
@@ -179,7 +186,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
       fetchAppointments();
     } catch (error) {
       console.error('Error updating appointment status:', error);
-      alert('Failed to update appointment status');
+      toast.error('Failed to update appointment status');
     }
   };
 
@@ -214,10 +221,10 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
       if (updateError) throw updateError;
       
       fetchAppointments();
-      alert('Visit started successfully');
+      toast.success('Visit started');
     } catch (error) {
       console.error('Error starting visit:', error);
-      alert('Failed to start visit');
+      toast.error('Failed to start visit');
     }
   };
 
@@ -247,10 +254,10 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
       if (updateError) throw updateError;
       
       fetchAppointments();
-      alert('Visit completed successfully');
+      toast.success('Visit completed');
     } catch (error) {
       console.error('Error completing visit:', error);
-      alert('Failed to complete visit');
+      toast.error('Failed to complete visit');
     }
   };
 
@@ -289,7 +296,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
         <div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-6 rounded-t-xl">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold capitalize">{status} Appointments</h2>
+              <h2 className="text-2xl font-bold capitalize">{statusLabel(status)} Appointments</h2>
               <p className="text-primary-100 mt-1">
                 {filteredAppointments.length} {filteredAppointments.length === 1 ? 'appointment' : 'appointments'} found
               </p>
@@ -297,6 +304,8 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
             <button
               onClick={onClose}
               className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+              title="Close"
+              aria-label="Close"
             >
               <X className="w-6 h-6" />
             </button>
@@ -340,7 +349,10 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
           ) : filteredAppointments.length === 0 ? (
             <div className="text-center py-12">
               <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No {status} appointments found</p>
+              <p className="text-gray-500">No {statusLabel(status)} appointments found</p>
+              {(searchTerm || dateFilter !== 'all') && (
+                <p className="text-sm text-gray-400 mt-1">Try clearing the search or choosing "All Dates".</p>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -350,14 +362,16 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                   className="bg-white border rounded-lg shadow-sm hover:shadow-md transition-shadow p-4"
                 >
                   <div className="flex justify-between items-start mb-3">
-                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(appointment.status)}`}>
+                    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border capitalize ${getStatusColor(appointment.status)}`}>
                       {getStatusIcon(appointment.status)}
-                      {appointment.status}
+                      {statusLabel(String(appointment.status ?? ''))}
                     </div>
                     <div className="relative">
                       <button
                         onClick={() => setShowActionMenu(showActionMenu === appointment.id ? null : appointment.id)}
                         className="text-gray-400 hover:text-gray-600 p-1"
+                        title="Appointment actions"
+                        aria-label="Appointment actions"
                       >
                         <MoreVertical className="w-4 h-4" />
                       </button>
@@ -413,7 +427,11 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                                 Reschedule
                               </button>
                               <button
-                                onClick={() => handleStatusChange(appointment.id, 'cancelled')}
+                                onClick={() => {
+                                  if (!window.confirm('Cancel this appointment?')) return;
+                                  handleStatusChange(appointment.id, 'cancelled');
+                                  setShowActionMenu(null);
+                                }}
                                 className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <XCircle className="w-4 h-4 text-red-600" />
@@ -434,7 +452,11 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                                 Complete Visit
                               </button>
                               <button
-                                onClick={() => handleStatusChange(appointment.id, 'cancelled')}
+                                onClick={() => {
+                                  if (!window.confirm('Cancel this visit? It is already in progress.')) return;
+                                  handleStatusChange(appointment.id, 'cancelled');
+                                  setShowActionMenu(null);
+                                }}
                                 className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2"
                               >
                                 <XCircle className="w-4 h-4 text-red-600" />
@@ -465,7 +487,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                     
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Calendar className="w-4 h-4 text-gray-400" />
-                      {format(new Date(appointment.date), 'MMM d, yyyy')}
+                      {format(new Date(appointment.date), 'd MMM yyyy')}
                     </div>
                     
                     <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -476,7 +498,7 @@ export default function AppointmentGridView({ status, practiceId, onClose }: App
                     {appointment.doctor && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <UserCheck className="w-4 h-4 text-gray-400" />
-                        Dr. {appointment.doctor.full_name}
+                        {formatDoctorName(appointment.doctor.full_name)}
                       </div>
                     )}
 

@@ -30,8 +30,9 @@ export const GmailOAuthSettings: React.FC = () => {
   }> | null>(null);
 
   // OAuth configuration - Client-side callback
-  // Use the exact redirect URI that's configured in Google Cloud Console
-  const GMAIL_REDIRECT_URI = 'http://localhost:5000/settings';
+  // Must equal the redirect_uri Settings.tsx sends when it starts Google sign-in, or Google
+  // rejects the code exchange (a hard-coded localhost URI broke Gmail connect in production)
+  const GMAIL_REDIRECT_URI = `${window.location.origin}/settings`;
   
   const SCOPES = [
     'https://www.googleapis.com/auth/gmail.send',

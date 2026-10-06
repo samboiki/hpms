@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../ui/Card';
 import { cn } from '../../utils/cn';
+import { checkBloodPressure, checkTemperature } from '../../utils/vitalSigns';
 
 interface VitalsDisplayProps {
   vitals: {
@@ -19,8 +20,6 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
   const isAbnormal = (value: number | undefined, type: string) => {
     if (!value) return false;
     switch (type) {
-      case 'temperature':
-        return value < 36 || value > 37.5;
       case 'pulse_rate':
         return value < 60 || value > 100;
       case 'respiratory_rate':
@@ -60,8 +59,10 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
     );
   }
 
-  const systolicBP = vitals.blood_pressure?.split('/')?.[0];
-  const isHighBP = systolicBP ? parseInt(systolicBP) > 140 : false;
+  // Shared limits from utils/vitalSigns: blood pressure flags at 140/90 (the diastolic too), fever at 38.0 °C
+  const bloodPressureCheck = checkBloodPressure(vitals.blood_pressure);
+  const temperatureCheck = checkTemperature(vitals.temperature);
+  const isHighBP = bloodPressureCheck.status !== 'normal';
 
   return (
     <Card>
@@ -76,11 +77,13 @@ const VitalsDisplay: React.FC<VitalsDisplayProps> = ({ vitals }) => {
           <div className={getVitalStyles(isHighBP)}>
             <div className="text-xs text-gray-500 mb-1">Blood Pressure</div>
             <div className="text-base font-semibold text-gray-900">{vitals.blood_pressure || '--/--'} mmHg</div>
+            {bloodPressureCheck.message && <div className="mt-1 text-xs font-medium text-red-600">{bloodPressureCheck.message}</div>}
           </div>
 
-          <div className={getVitalStyles(isAbnormal(vitals.temperature, 'temperature'))}>
+          <div className={getVitalStyles(temperatureCheck.status !== 'normal')}>
             <div className="text-xs text-gray-500 mb-1">Temperature</div>
             <div className="text-base font-semibold text-gray-900">{vitals.temperature?.toFixed(1) || '--'}°C</div>
+            {temperatureCheck.message && <div className="mt-1 text-xs font-medium text-red-600">{temperatureCheck.message}</div>}
           </div>
 
           <div className={getVitalStyles(isAbnormal(vitals.pulse_rate, 'pulse_rate'))}>

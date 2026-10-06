@@ -56,7 +56,7 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
         await loadDocuments();
         onDocumentsGenerated?.();
       } else {
-        toast.info('No documents to generate for this visit');
+        toast('No documents to generate for this visit');
       }
     } catch (error) {
       console.error('Error generating documents:', error);

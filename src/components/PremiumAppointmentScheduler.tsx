@@ -62,6 +62,8 @@ import BookingRequestModal from './modals/BookingRequestModal';
 import EnhancedSmsModal from './messages/EnhancedSmsModal';
 import { useVisitsStore } from '../stores/visitsStore';
 import { HandoffCardPrintButtons } from './dashboard/HandoffCardPrintButtons';
+import { formatDoctorName } from '../utils/formatDoctorName';
+import { getVisitStage, getMoveConfirmMessage, STAGE_LABELS, type VisitStage } from '../utils/visitStage';
 
 interface AppointmentPatient {
   id: string;
@@ -229,6 +231,29 @@ const getStatusColorClasses = (status: Appointment['status']) => {
   }
 };
 
+type StatusFilterKey = 'pending' | 'scheduled' | 'checked-in' | 'in-progress' | 'completed' | 'cancelled';
+
+// Puts every appointment in exactly one status chip, so chip counts always add up to the total shown
+// VisitActionModal names a checked-in patient "ready"; every other stage keeps its name
+const toActionModalStatus = (stage: VisitStage) => (stage === 'checked-in' ? 'ready' : stage);
+
+const getStatusFilterKey = (apt: Appointment): StatusFilterKey => {
+  if (apt.status === 'cancelled' || apt.status === 'no-show' || apt.is_cancelled) return 'cancelled';
+  if (apt.status === 'completed') return 'completed';
+  // Handed-off visits are still open consultations (status stays in-progress)
+  if (apt.status === 'in-progress' || apt.is_handoff) return 'in-progress';
+  // Dashboard maps is_checked_in / is_ready to status 'ready'
+  if (apt.status === 'ready' || apt.is_checked_in || apt.is_ready) return 'checked-in';
+  // Unconfirmed visits, including website booking requests
+  if (apt.status === 'pending' || !apt.is_confirmed) return 'pending';
+  return 'scheduled';
+};
+
+// Badge text in plain words (staff never see raw values like 'no-show'). 'pending' means not yet
+// confirmed, which is not a visit stage, so it keeps its own word
+const getStatusBadgeLabel = (apt: Appointment): string =>
+  apt.status === 'pending' ? 'Pending' : STAGE_LABELS[getVisitStage(apt)];
+
 const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = (props) => {
   const {
     appointments,
@@ -274,6 +299,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   const [isSMSModalOpen, setIsSMSModalOpen] = useState(false);
   const [selectedBookingRequest, setSelectedBookingRequest] = useState<Appointment | null>(null);
   const [isBookingRequestModalOpen, setIsBookingRequestModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<StatusFilterKey | null>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -291,17 +317,25 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }
   };
 
-  // Handle Start Visit - changes status to in-progress
-  const handleStartVisit = async (visitId: string) => {
+  // Handle Start Visit - changes status to in-progress, then opens the consultation screen
+  const handleStartVisit = async (appointment: Appointment) => {
     try {
       // Use visitsStore action for immediate state update
       const { startVisit } = useVisitsStore.getState();
-      await startVisit(visitId);
+      await startVisit(appointment.id);
       
       toast.success('Visit started!');
     } catch (error) {
       console.error('Error starting visit:', error);
       toast.error('Failed to start visit');
+      return;
+    }
+
+    // Open the chart the same way "View Details" does so the doctor lands in the consultation
+    if (props.onEditVisit) {
+      props.onEditVisit(appointment);
+    } else {
+      onAppointmentClick(appointment);
     }
   };
 
@@ -333,6 +367,31 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     }
   };
 
+  // Correct a visit's stage: reopen a completed visit (to doctor or nurse), take a patient back
+  // from the nurse, undo a check-in, or undo a no-show when the patient arrives late
+  const handleMoveToStage = async (appointment: Appointment, stage: VisitStage) => {
+    const from = getVisitStage(appointment);
+    if (!window.confirm(getMoveConfirmMessage(from, stage))) return;
+    try {
+      await useVisitsStore.getState().moveVisitToStage(appointment.id, stage, from);
+      toast.success(`Moved to: ${STAGE_LABELS[stage]}`);
+    } catch (error) {
+      console.error('Error changing visit stage:', error);
+      toast.error((error as Error)?.message || 'Could not change the visit stage. Please try again.', { duration: 6000 });
+    }
+  };
+
+  // Doctor hands the patient to the nurse (procedure, injection, dressing) without closing the visit
+  const handleHandoffVisit = async (visitId: string) => {
+    try {
+      await useVisitsStore.getState().handoffVisit(visitId);
+      toast.success('Handed off to nurse');
+    } catch (error) {
+      console.error('Error handing off visit:', error);
+      toast.error('Could not hand off the visit. Please try again.');
+    }
+  };
+
   // Handle Re-schedule - changes status back to scheduled from completed or cancelled
   const handleRevertToScheduled = async (visitId: string) => {
     try {
@@ -361,15 +420,33 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
 
   // Handle Cancel Visit - marks visit as cancelled
   const handleCancelVisit = async (visitId: string) => {
+    if (!window.confirm('Cancel this appointment? The patient will no longer be expected at this time.')) return;
     try {
       // Use visitsStore action for immediate state update
       const { cancelVisit } = useVisitsStore.getState();
       await cancelVisit(visitId);
       
-      toast.success('Visit cancelled successfully!');
+      toast.success('Appointment cancelled');
     } catch (error) {
       console.error('Error cancelling visit:', error);
-      toast.error('Failed to cancel visit');
+      toast.error('Could not cancel the appointment. Please try again.');
+    }
+  };
+
+  // Administrators: delete a booking made by mistake (the database allows it only before the patient checks in)
+  const handleDeleteBooking = async (visit: { id: string; patient?: { first_name?: string; last_name?: string }; scheduled_date?: string; visit_date?: string; scheduled_time?: string; visit_time?: string }) => {
+    const patientName = `${visit.patient?.first_name || ''} ${visit.patient?.last_name || ''}`.trim() || 'this patient';
+    const day = visit.scheduled_date || visit.visit_date;
+    const time = (visit.scheduled_time || visit.visit_time || '').slice(0, 5);
+    const when = day ? ` on ${format(parseISO(day), 'dd MMM yyyy')}${time ? ` at ${time}` : ''}` : '';
+    if (!window.confirm(`Delete the booking for ${patientName}${when}? It is removed for good. If the patient is just not coming, use Cancel Visit instead.`)) return;
+    try {
+      const { deleteVisit } = useVisitsStore.getState();
+      await deleteVisit(visit.id);
+      toast.success('Booking deleted');
+    } catch (error) {
+      console.error('Error deleting booking:', error);
+      toast.error(error instanceof Error ? error.message : 'Could not delete the booking. Please try again.');
     }
   };
 
@@ -434,7 +511,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
   }, [selectedDate]);
 
   // Filter appointments based on view mode
-  const filteredAppointments = useMemo(() => {
+  const dateFilteredAppointments = useMemo(() => {
     let filtered = appointments;
     
     // Log website bookings
@@ -502,6 +579,23 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     return filtered;
   }, [appointments, selectedDate, selectedDoctorId, viewMode, weekDates]);
 
+  // Chip counts come from the date/doctor-filtered list so they don't change when a chip is selected
+  const statusCounts = useMemo(() => {
+    const counts: Record<StatusFilterKey, number> = {
+      'pending': 0, 'scheduled': 0, 'checked-in': 0, 'in-progress': 0, 'completed': 0, 'cancelled': 0
+    };
+    dateFilteredAppointments.forEach((apt) => {
+      counts[getStatusFilterKey(apt)] += 1;
+    });
+    return counts;
+  }, [dateFilteredAppointments]);
+
+  // Apply the status chip filter
+  const filteredAppointments = useMemo(() => {
+    if (!statusFilter) return dateFilteredAppointments;
+    return dateFilteredAppointments.filter((apt) => getStatusFilterKey(apt) === statusFilter);
+  }, [dateFilteredAppointments, statusFilter]);
+
   // Generate time slots
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -565,29 +659,18 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
     return { top, height: Math.max(height, 40), left, width };
   };
 
-  // Handle appointment drop
+  // Handle appointment drop. The cards are rows from `visits` (Dashboard maps them), so the move is
+  // saved there; the old `appointments` update matched no row and reported success without moving anything
   const handleAppointmentDrop = async (appointmentId: string, newTime: Date, newDoctorId: string) => {
     try {
       const appointment = appointments.find(apt => apt.id === appointmentId);
       if (!appointment) return false;
 
-      const newDate = format(newTime, 'yyyy-MM-dd');
-      const newTimeStr = format(newTime, 'HH:mm:ss');
-
-      const { error } = await supabase
-        .from('appointments')
-        .update({
-          date: newDate,
-          time: newTimeStr,
-          doctor_id: newDoctorId,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', appointmentId);
-
-      if (error) {
-        console.error('Error updating appointment:', error);
-        return false;
-      }
+      await useVisitsStore.getState().updateVisit(appointmentId, {
+        scheduled_date: format(newTime, 'yyyy-MM-dd'),
+        scheduled_time: format(newTime, 'HH:mm:ss'),
+        doctor_id: newDoctorId
+      });
 
       // Refresh data
       if (onRefresh) {
@@ -683,11 +766,16 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               {viewMode === 'all'
                 ? 'All time appointments'
                 : viewMode === 'week' 
-                ? `Week of ${format(weekDates[0], 'MMM d')} - ${format(weekDates[6], 'MMM d, yyyy')}`
+                ? `Week of ${format(weekDates[0], 'd MMM')} - ${format(weekDates[6], 'd MMM yyyy')}`
                 : viewMode === 'month'
                 ? format(selectedDate, 'MMMM yyyy')
-                : format(selectedDate, 'MMMM d, yyyy')
+                : format(selectedDate, 'd MMMM yyyy')
               }
+            </p>
+            <p className="text-sm text-gray-500 mt-3">
+              {statusFilter
+                ? 'A status filter is on. Click the highlighted status above to show all appointments.'
+                : 'Click "Schedule" above to book an appointment.'}
             </p>
           </div>
         ) : (
@@ -742,33 +830,36 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             </div>
                           </div>
 
-                          {/* Status badge - top right */}
-                          <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-orange-100 text-orange-700">
-                              Website Booking
-                            </span>
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-yellow-100 text-yellow-700">
-                              Needs Confirmation
-                            </span>
-                          </div>
-
                           {/* Clean compact content */}
                           <div className="relative">
                             {/* Top section with number badge and patient info side by side */}
                             <div className="flex gap-3 px-4 pt-4 pb-4">
                               {/* Space for number badge on the left */}
-                              <div className="w-8"></div>
-                              
+                              <div className="w-8 flex-none"></div>
+
                               {/* Patient details column - positioned next to number badge */}
-                              <div className="flex-1 space-y-2">
-                                {/* Patient name with icon */}
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg">
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Patient name with icon; the status badges sit in the same row (wrapping below
+                                    on narrow cards) so they can never cover the name */}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <div className="p-1.5 rounded-lg flex-none">
                                     <User className="h-4 w-4 text-orange-600" />
                                   </div>
-                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  <h3
+                                    className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1 min-w-0"
+                                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                                    title={`${appointment.patient.first_name} ${appointment.patient.last_name}`}
+                                  >
                                     {appointment.patient.first_name} {appointment.patient.last_name}
                                   </h3>
+                                  <div className="ml-auto flex flex-none flex-wrap items-center gap-2">
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                                      Website booking
+                                    </span>
+                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
+                                      Needs confirmation
+                                    </span>
+                                  </div>
                                 </div>
 
                                 {/* Phone number with badge */}
@@ -806,7 +897,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   {/* Date section */}
                                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg backdrop-blur-sm bg-orange-50 text-orange-700">
                                     <Calendar className="h-3.5 w-3.5" />
-                                    <span className="text-xs font-semibold">{format(aptDate, 'MMM d, yyyy')}</span>
+                                    <span className="text-xs font-semibold">{format(aptDate, 'd MMM yyyy')}</span>
                                   </div>
 
                                   {/* Time section */}
@@ -852,6 +943,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                     }}
                                     className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
                                     title="Manage Booking"
+                                    aria-label="Manage booking"
                                   >
                                     <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                   </button>
@@ -923,30 +1015,31 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             </div>
                           </div>
 
-                          {/* Status badge - top right */}
-                          <div className="absolute top-3 right-3 z-10">
-                            <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-purple-100 text-purple-700">
-                              Handed Off
-                            </span>
-                          </div>
-
                           {/* Clean compact content */}
                           <div className="relative">
                             {/* Top section with number badge and patient info side by side */}
                             <div className="flex gap-3 px-4 pt-4 pb-4">
                               {/* Space for number badge on the left */}
-                              <div className="w-8"></div>
-                              
+                              <div className="w-8 flex-none"></div>
+
                               {/* Patient details column - positioned next to number badge */}
-                              <div className="flex-1 space-y-2">
-                                {/* Patient name with icon */}
-                                <div className="flex items-center gap-2">
-                                  <div className="p-1.5 rounded-lg">
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Patient name with icon; the status badge sits in the same row (wrapping below on
+                                    narrow cards) so it can never cover the name */}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <div className="p-1.5 rounded-lg flex-none">
                                     <User className="h-4 w-4 text-purple-600" />
                                   </div>
-                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  <h3
+                                    className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1 min-w-0"
+                                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                                    title={`${appointment.patient.first_name} ${appointment.patient.last_name}`}
+                                  >
                                     {appointment.patient.first_name} {appointment.patient.last_name}
                                   </h3>
+                                  <span className="ml-auto flex-none px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                                    Handed off
+                                  </span>
                                 </div>
 
                                 {/* Phone number with badge */}
@@ -964,9 +1057,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                   <div className="p-1.5 rounded-lg">
                                     <Stethoscope className="h-3.5 w-3.5 text-purple-600" />
                                   </div>
-                                  <span className="text-sm text-gray-600">Dr. {(() => {
+                                  <span className="text-sm text-gray-600">{(() => {
                                     const doctor = doctors.find(d => d.id === appointment.doctor_id);
-                                    return doctor?.user_metadata?.full_name || doctor?.email || 'Unassigned';
+                                    return formatDoctorName(doctor?.user_metadata?.full_name || doctor?.email, 'Unassigned');
                                   })()}</span>
                                 </div>
                               </div>
@@ -1132,71 +1225,19 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             </div>
                           </div>
 
-                          {/* Status badge - top right */}
-                          <div className="absolute top-3 right-3 z-10">
-                            {/* Show scheduled badge when: scheduled, confirmed, not checked in, not ready, not cancelled */}
-                            {appointment.status === 'scheduled' && 
-                             appointment.is_confirmed && 
-                             !appointment.is_checked_in && 
-                             !appointment.is_ready && 
-                             !appointment.is_cancelled && (
-                              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-blue-100 text-blue-700">
-                                Scheduled
-                              </span>
-                            )}
-                            
-                            {/* Show checked in badge if checked in but not ready */}
-                            {appointment.status === 'scheduled' && appointment.is_checked_in && !appointment.is_ready && (
-                              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm bg-emerald-100 text-emerald-700">
-                                Checked In
-                              </span>
-                            )}
-                            
-                            {/* Show ready badge for ready status */}
-                            {appointment.status === 'ready' && (
-                              <span 
-                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide text-white inline-block shadow-sm"
-                                style={{ backgroundColor: '#01b8d8' }}
-                              >
-                                Ready
-                              </span>
-                            )}
-                            
-                            {/* Show in-progress badge with animation */}
-                            {appointment.status === 'in-progress' && (
-                              <span 
-                                className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-amber-100 text-amber-700 inline-block shadow-sm"
-                              >
-                                In Progress
-                              </span>
-                            )}
-                            
-                            {/* Show other status badges */}
-                            {appointment.status !== 'scheduled' && appointment.status !== 'ready' && appointment.status !== 'in-progress' && (
-                              <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm ${
-                                appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
-                                appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                                'bg-purple-100 text-purple-700'
-                              }`}>
-                                {appointment.status}
-                              </span>
-                            )}
-                          </div>
-
                           {/* Clean compact content */}
                           <div className="relative">
                             {/* Top section with number badge and patient info side by side */}
                             <div className="flex gap-3 px-4 pt-4 pb-4">
                               {/* Space for number badge on the left */}
-                              <div className="w-8"></div>
-                              
+                              <div className="w-8 flex-none"></div>
+
                               {/* Patient details column - positioned next to number badge */}
-                              <div className="flex-1 space-y-2">
-                                {/* Patient name with icon */}
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-lg ${
-                                    ''
-                                  }`}>
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Patient name with icon; the status badge sits in the same row (wrapping below on
+                                    narrow cards) so it can never cover the name */}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <div className="p-1.5 rounded-lg flex-none">
                                     <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
@@ -1206,9 +1247,59 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  <h3
+                                    className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1 min-w-0"
+                                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                                    title={`${appointment.patient.first_name} ${appointment.patient.last_name}`}
+                                  >
                                     {appointment.patient.first_name} {appointment.patient.last_name}
                                   </h3>
+                                  <div className="ml-auto flex flex-none items-center">
+                                    {/* Show scheduled badge when: scheduled, confirmed, not checked in, not ready, not cancelled */}
+                                    {appointment.status === 'scheduled' &&
+                                     appointment.is_confirmed &&
+                                     !appointment.is_checked_in &&
+                                     !appointment.is_ready &&
+                                     !appointment.is_cancelled && (
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                                        Scheduled
+                                      </span>
+                                    )}
+
+                                    {/* Show checked in badge if checked in but not ready */}
+                                    {appointment.status === 'scheduled' && appointment.is_checked_in && !appointment.is_ready && (
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+                                        Checked in
+                                      </span>
+                                    )}
+
+                                    {/* Show ready badge for ready status */}
+                                    {appointment.status === 'ready' && (
+                                      <span
+                                        className="px-2.5 py-1 rounded-full text-xs font-semibold text-white inline-block"
+                                        style={{ backgroundColor: '#01b8d8' }}
+                                      >
+                                        Ready
+                                      </span>
+                                    )}
+
+                                    {appointment.status === 'in-progress' && (
+                                      <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 inline-block">
+                                        In progress
+                                      </span>
+                                    )}
+
+                                    {/* Show other status badges */}
+                                    {appointment.status !== 'scheduled' && appointment.status !== 'ready' && appointment.status !== 'in-progress' && (
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                        appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                        'bg-purple-100 text-purple-700'
+                                      }`}>
+                                        {getStatusBadgeLabel(appointment)}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
 
                                 {/* Phone number with badge */}
@@ -1249,9 +1340,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <span className="text-sm text-gray-600">Dr. {(() => {
+                                  <span className="text-sm text-gray-600">{(() => {
                                     const doctor = doctors.find(d => d.id === appointment.doctor_id);
-                                    return doctor?.user_metadata?.full_name || doctor?.email || 'Unassigned';
+                                    return formatDoctorName(doctor?.user_metadata?.full_name || doctor?.email, 'Unassigned');
                                   })()}</span>
                                 </div>
                               </div>
@@ -1310,7 +1401,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setIsActionModalOpen(true);
                                       }}
                                       className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
-                                      title="Actions"
+                                      title="Visit actions"
+                                      aria-label="Visit actions"
                                     >
                                       <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
@@ -1411,31 +1503,19 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             </div>
                           </div>
 
-                          {/* Status badge - top right */}
-                          <div className="absolute top-3 right-3 z-10">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm ${
-                              appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
-                              appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                              'bg-purple-100 text-purple-700'
-                            }`}>
-                              {appointment.status}
-                            </span>
-                          </div>
-
                           {/* Clean compact content */}
                           <div className="relative">
                             {/* Top section with number badge and patient info side by side */}
                             <div className="flex gap-3 px-4 pt-4 pb-4">
                               {/* Space for number badge on the left */}
-                              <div className="w-8"></div>
-                              
+                              <div className="w-8 flex-none"></div>
+
                               {/* Patient details column - positioned next to number badge */}
-                              <div className="flex-1 space-y-2">
-                                {/* Patient name with icon */}
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-lg ${
-                                    ''
-                                  }`}>
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Patient name with icon; the status badge sits in the same row (wrapping below on
+                                    narrow cards) so it can never cover the name */}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <div className="p-1.5 rounded-lg flex-none">
                                     <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
@@ -1445,9 +1525,20 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  <h3
+                                    className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1 min-w-0"
+                                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                                    title={`${appointment.patient.first_name} ${appointment.patient.last_name}`}
+                                  >
                                     {appointment.patient.first_name} {appointment.patient.last_name}
                                   </h3>
+                                  <span className={`ml-auto flex-none px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                    appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                    appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {getStatusBadgeLabel(appointment)}
+                                  </span>
                                 </div>
 
                                 {/* Phone number with badge */}
@@ -1488,9 +1579,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <span className="text-sm text-gray-600">Dr. {(() => {
+                                  <span className="text-sm text-gray-600">{(() => {
                                     const doctor = doctors.find(d => d.id === appointment.doctor_id);
-                                    return doctor?.user_metadata?.full_name || doctor?.email || 'Unassigned';
+                                    return formatDoctorName(doctor?.user_metadata?.full_name || doctor?.email, 'Unassigned');
                                   })()}</span>
                                 </div>
                               </div>
@@ -1549,7 +1640,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setIsActionModalOpen(true);
                                       }}
                                       className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
-                                      title="Actions"
+                                      title="Visit actions"
+                                      aria-label="Visit actions"
                                     >
                                       <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
@@ -1650,31 +1742,19 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                             </div>
                           </div>
 
-                          {/* Status badge - top right */}
-                          <div className="absolute top-3 right-3 z-10">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm ${
-                              appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
-                              appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
-                              'bg-purple-100 text-purple-700'
-                            }`}>
-                              {appointment.status}
-                            </span>
-                          </div>
-
                           {/* Clean compact content */}
                           <div className="relative">
                             {/* Top section with number badge and patient info side by side */}
                             <div className="flex gap-3 px-4 pt-4 pb-4">
                               {/* Space for number badge on the left */}
-                              <div className="w-8"></div>
-                              
+                              <div className="w-8 flex-none"></div>
+
                               {/* Patient details column - positioned next to number badge */}
-                              <div className="flex-1 space-y-2">
-                                {/* Patient name with icon */}
-                                <div className="flex items-center gap-2">
-                                  <div className={`p-1.5 rounded-lg ${
-                                    ''
-                                  }`}>
+                              <div className="flex-1 min-w-0 space-y-2">
+                                {/* Patient name with icon; the status badge sits in the same row (wrapping below on
+                                    narrow cards) so it can never cover the name */}
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                  <div className="p-1.5 rounded-lg flex-none">
                                     <User className={`h-4 w-4 ${
                                       appointment.status === 'scheduled' ? 'text-blue-600' :
                                       appointment.status === 'ready' ? 'text-[#01b8d8]' :
@@ -1684,9 +1764,20 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <h3 className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                                  <h3
+                                    className="font-bold text-[#4f575e] text-base tracking-tight truncate flex-1 min-w-0"
+                                    style={{ fontFamily: 'Poppins, sans-serif' }}
+                                    title={`${appointment.patient.first_name} ${appointment.patient.last_name}`}
+                                  >
                                     {appointment.patient.first_name} {appointment.patient.last_name}
                                   </h3>
+                                  <span className={`ml-auto flex-none px-2.5 py-1 rounded-full text-xs font-semibold ${
+                                    appointment.status === 'completed' ? 'bg-gray-100 text-gray-700' :
+                                    appointment.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                                    'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {getStatusBadgeLabel(appointment)}
+                                  </span>
                                 </div>
 
                                 {/* Phone number with badge */}
@@ -1727,9 +1818,9 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       'text-purple-600'
                                     }`} />
                                   </div>
-                                  <span className="text-sm text-gray-600">Dr. {(() => {
+                                  <span className="text-sm text-gray-600">{(() => {
                                     const doctor = doctors.find(d => d.id === appointment.doctor_id);
-                                    return doctor?.user_metadata?.full_name || doctor?.email || 'Unassigned';
+                                    return formatDoctorName(doctor?.user_metadata?.full_name || doctor?.email, 'Unassigned');
                                   })()}</span>
                                 </div>
                               </div>
@@ -1788,7 +1879,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                         setIsActionModalOpen(true);
                                       }}
                                       className="p-2.5 bg-gray-50 hover:bg-gray-100 rounded-xl  duration-200 group"
-                                      title="Actions"
+                                      title="Visit actions"
+                                      aria-label="Visit actions"
                                     >
                                       <Settings className="w-5 h-5 text-gray-600 group-hover:text-gray-800" />
                                     </button>
@@ -1993,7 +2085,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleStartVisit(appointment.id);
+                                          handleStartVisit(appointment);
                                         }}
                                         className="px-1.5 py-0.5 bg-purple-500 hover:bg-purple-600 text-white text-[10px] rounded shadow-sm "
                                         title="Start Visit"
@@ -2011,7 +2103,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       if (appointment.status === 'scheduled') {
                                         handleMarkReady(appointment.id);
                                       } else {
-                                        handleStartVisit(appointment.id);
+                                        handleStartVisit(appointment);
                                       }
                                     }}
                                     className={`absolute bottom-1 right-1 px-1.5 py-0.5 ${
@@ -2129,7 +2221,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleStartVisit(appointment.id);
+                                          handleStartVisit(appointment);
                                         }}
                                         className="px-2 py-1 bg-purple-500 hover:bg-purple-600 text-white text-xs rounded-md shadow-md "
                                       >
@@ -2220,10 +2312,11 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               {selectedDoctorId ? (
                 <>
                   <span className="hidden sm:inline">Doctor: </span>
-                  <span className="sm:hidden">Dr. </span>
-                  {doctors.find(d => d.id === selectedDoctorId)?.user_metadata?.full_name || 
-                   doctors.find(d => d.id === selectedDoctorId)?.email?.split('@')[0] || 
-                   'Unknown'}
+                  {formatDoctorName(
+                    doctors.find(d => d.id === selectedDoctorId)?.user_metadata?.full_name ||
+                    doctors.find(d => d.id === selectedDoctorId)?.email?.split('@')[0],
+                    'Unknown'
+                  )}
                 </>
               ) : (
                 <>
@@ -2240,6 +2333,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
               <button
                 onClick={onRefresh}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Refresh appointments"
+                aria-label="Refresh appointments"
               >
                 <RefreshCw className="h-4 w-4 text-gray-600" />
               </button>
@@ -2265,15 +2360,25 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
         {/* Appointment Status Filters - Improved mobile scrolling */}
         <div className="relative -mx-3 px-3 md:mx-0 md:px-0">
           <div className="flex items-center gap-1.5 sm:gap-1 p-1.5 bg-gradient-to-r from-gray-100 to-gray-200 rounded-lg w-full shadow-sm overflow-x-auto scrollbar-hide">
-            {[
-              { status: 'scheduled', label: 'Scheduled', count: filteredAppointments.filter(a => a.status === 'scheduled' && a.is_confirmed && !a.is_checked_in).length, gradient: 'from-blue-500 to-blue-600', bg: 'bg-white', text: 'text-gray-700' },
-              { status: 'checked-in', label: 'Checked In', count: filteredAppointments.filter(a => a.is_checked_in && a.status !== 'completed' && a.status !== 'in-progress').length, gradient: 'from-purple-500 to-purple-600', bg: 'bg-white', text: 'text-gray-700' },
-              { status: 'completed', label: 'Completed', count: filteredAppointments.filter(a => a.status === 'completed').length, gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-white', text: 'text-gray-700' },
-              { status: 'cancelled', label: 'Cancelled', count: filteredAppointments.filter(a => a.status === 'cancelled' || a.is_cancelled).length, gradient: 'from-red-500 to-red-600', bg: 'bg-white', text: 'text-gray-700' }
-            ].map((filter) => (
+            {([
+              { status: 'pending', label: 'Pending', count: statusCounts['pending'], gradient: 'from-orange-500 to-yellow-500', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'scheduled', label: 'Scheduled', count: statusCounts['scheduled'], gradient: 'from-blue-500 to-blue-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'checked-in', label: 'Checked In', count: statusCounts['checked-in'], gradient: 'from-purple-500 to-purple-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'in-progress', label: 'In Progress', count: statusCounts['in-progress'], gradient: 'from-amber-500 to-amber-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'completed', label: 'Completed', count: statusCounts['completed'], gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-white', text: 'text-gray-700' },
+              { status: 'cancelled', label: 'Cancelled', count: statusCounts['cancelled'], gradient: 'from-red-500 to-red-600', bg: 'bg-white', text: 'text-gray-700' }
+            ] as { status: StatusFilterKey; label: string; count: number; gradient: string; bg: string; text: string }[]).map((filter) => (
               <button
                 key={filter.status}
-                className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-md ${filter.bg} ${filter.text} hover:shadow-md border border-gray-200 hover:border-gray-300 min-w-[80px] sm:min-w-[100px] md:min-w-[120px] transition-all`}
+                type="button"
+                aria-pressed={statusFilter === filter.status}
+                title={statusFilter === filter.status ? 'Show all statuses' : `Show only ${filter.label.toLowerCase()}`}
+                onClick={() => setStatusFilter(prev => (prev === filter.status ? null : filter.status))}
+                className={`flex-shrink-0 flex flex-col sm:flex-row items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-md ${filter.bg} ${filter.text} hover:shadow-md border min-w-[80px] sm:min-w-[100px] md:min-w-[120px] transition-all ${
+                  statusFilter === filter.status
+                    ? 'border-[#01b9d5] ring-2 ring-[#01b9d5]/40 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
               >
                 <span className="whitespace-nowrap text-[11px] sm:text-xs">{filter.label}</span>
                 <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r ${filter.gradient} text-white shadow-sm min-w-[24px]`}>
@@ -2386,6 +2491,8 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
                   <button
                     onClick={() => setShowDoctorModal(false)}
                     className="p-2 hover:bg-gray-100 rounded-xl "
+                    title="Close"
+                    aria-label="Close"
                   >
                     <XCircle className="w-6 h-6 text-gray-400" />
                   </button>
@@ -2485,15 +2592,12 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             setSelectedVisitForAction(null);
           }}
           visit={selectedVisitForAction}
-          visitStatus={
-            selectedVisitForAction.status === 'in-progress' ? 'in-progress' :
-            selectedVisitForAction.status === 'ready' ? 'ready' :
-            selectedVisitForAction.status === 'completed' ? 'completed' :
-            'scheduled'
-          }
+          visitStatus={toActionModalStatus(getVisitStage(selectedVisitForAction))}
           isCheckedIn={selectedVisitForAction.is_checked_in}
-          onStartVisit={() => handleStartVisit(selectedVisitForAction.id)}
+          onStartVisit={() => handleStartVisit(selectedVisitForAction)}
           onCompleteVisit={() => handleCompleteVisit(selectedVisitForAction.id)}
+          onMoveToStage={(stage) => handleMoveToStage(selectedVisitForAction, stage)}
+          onHandoffVisit={() => handleHandoffVisit(selectedVisitForAction.id)}
           onCheckIn={() => handleCheckIn(selectedVisitForAction.id)}
           onMarkReady={() => handleMarkReady(selectedVisitForAction.id)}
           onReschedule={() => {
@@ -2502,6 +2606,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             }
           }}
           onCancel={() => handleCancelVisit(selectedVisitForAction.id)}
+          onDelete={currentUserRole === 'admin' ? () => handleDeleteBooking(selectedVisitForAction) : undefined}
           onNoShow={() => handleNoShow(selectedVisitForAction.id)}
           onViewDetails={() => {
             if (props.onEditVisit) {
@@ -2526,6 +2631,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
             setSelectedVisitForSMS(null);
           }}
           patientId={selectedVisitForSMS.patient_id}
+          visitId={selectedVisitForSMS.id}
           patientName={`${selectedVisitForSMS.patient?.first_name || ''} ${selectedVisitForSMS.patient?.last_name || ''}`}
           patientPhone={selectedVisitForSMS.patient?.cell_number || ''}
         />

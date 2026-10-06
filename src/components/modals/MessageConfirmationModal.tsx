@@ -26,7 +26,7 @@ const MessageConfirmationModal: React.FC<MessageConfirmationModalProps> = ({
       onClose={onClose}
       title=""
       hideHeader={true}
-      maxWidth="max-w-md"
+      className="max-w-md"
     >
       <div className="relative bg-gradient-to-br from-white via-green-50/30 to-emerald-50/20 rounded-2xl shadow-2xl overflow-hidden">
         {/* Success Header */}
@@ -40,12 +40,14 @@ const MessageConfirmationModal: React.FC<MessageConfirmationModalProps> = ({
               <div>
                 <h2 className="text-2xl font-bold">Message Sent!</h2>
                 <p className="text-green-100 text-sm">
-                  Your {isEmail ? 'email' : 'SMS'} has been delivered successfully
+                  Your {isEmail ? 'email' : 'SMS'} has been sent
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
+              title="Close"
               className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -69,7 +71,7 @@ const MessageConfirmationModal: React.FC<MessageConfirmationModalProps> = ({
               )}
             </div>
             <h3 className="text-lg font-bold text-gray-800 mb-2">
-              {isEmail ? 'Email Delivered' : 'SMS Delivered'}
+              {isEmail ? 'Email Sent' : 'SMS Sent'}
             </h3>
             <p className="text-gray-600 text-sm">
               Your message has been successfully sent
@@ -89,11 +91,11 @@ const MessageConfirmationModal: React.FC<MessageConfirmationModalProps> = ({
                 <CheckCircle className="w-4 h-4 text-blue-600" />
               </div>
               <div className="flex-1">
-                <h4 className="font-semibold text-gray-800 text-sm">Delivery Confirmed</h4>
+                <h4 className="font-semibold text-gray-800 text-sm">What happens next</h4>
                 <p className="text-xs text-gray-600 mt-1">
                   {isEmail 
                     ? 'The email has been queued for delivery and will reach the recipient shortly.'
-                    : 'The SMS has been delivered to the mobile network and should arrive within minutes.'
+                    : 'The SMS has been passed to the SMS provider and usually arrives within a few minutes.'
                   }
                 </p>
               </div>

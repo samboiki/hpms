@@ -5,6 +5,10 @@ import { usePractice } from '../../contexts/PracticeContext';
 import Button from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+
+// Must match the redirect_uri Settings.tsx uses to start Google sign-in and to exchange the code
+const getGmailRedirectUri = () => `${window.location.origin}/settings`;
 
 interface GmailSettingsModalProps {
   isOpen: boolean;
@@ -141,6 +145,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
       setCredentials(creds);
     } catch (error) {
       console.error('Error checking Gmail status:', error);
+      toast.error('Could not check the Gmail connection. Please close this window and try again.');
     } finally {
       setLoading(false);
     }
@@ -182,7 +187,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
             code,
             client_id: oauthApp.client_id,
             client_secret: oauthApp.client_secret,
-            redirect_uri: 'http://localhost:5000/settings',
+            redirect_uri: getGmailRedirectUri(),
             grant_type: 'authorization_code',
           }),
         });
@@ -268,7 +273,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
 
       const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       authUrl.searchParams.append('client_id', oauthApp.client_id);
-      authUrl.searchParams.append('redirect_uri', 'http://localhost:5000/settings');
+      authUrl.searchParams.append('redirect_uri', getGmailRedirectUri());
       authUrl.searchParams.append('response_type', 'code');
       authUrl.searchParams.append('scope', [
         'https://www.googleapis.com/auth/gmail.send',
@@ -394,6 +399,8 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                   </div>
                   <button
                     onClick={onClose}
+                    aria-label="Close Gmail settings"
+                    title="Close"
                     className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
                   >
                     <Icon icon="solar:close-bold" className="w-5 h-5" />
@@ -432,7 +439,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                             <div className="flex items-center gap-2">
                               <Icon icon="solar:calendar-bold" className="w-4 h-4 text-green-600" />
                               <span className="text-sm text-green-800">
-                                Connected {new Date(credentials.connected_at).toLocaleDateString()}
+                                Connected {format(new Date(credentials.connected_at), 'dd MMM yyyy')}
                               </span>
                             </div>
                             
@@ -440,7 +447,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                               <div className="flex items-center gap-2">
                                 <Icon icon="solar:history-bold" className="w-4 h-4 text-green-600" />
                                 <span className="text-sm text-green-800">
-                                  Last used {new Date(credentials.last_used_at).toLocaleDateString()}
+                                  Last used {format(new Date(credentials.last_used_at), 'dd MMM yyyy')}
                                 </span>
                               </div>
                             )}
@@ -542,20 +549,23 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
                           <Icon icon="solar:info-circle-bold-duotone" className="w-6 h-6 text-amber-600 mx-auto mb-2" />
                           <p className="text-sm text-amber-800 mb-3">
-                            OAuth credentials required to connect Gmail
+                            Gmail needs your practice's Google sign-in details first. Close this window, click
+                            "Add Account" on this page, choose Gmail and enter your Google OAuth Client ID and
+                            Client Secret.
                           </p>
+                          {/* This button only closes the window: the 'navigate-to-oauth' listener in Settings.tsx
+                              looks for a tab element that does not exist, so the steps above say where to go */}
                           <Button
                             variant="outline"
                             onClick={() => {
                               onClose();
-                              // Navigate to OAuth Applications tab
                               const event = new CustomEvent('navigate-to-oauth');
                               window.dispatchEvent(event);
                             }}
                             className="text-amber-700 border-amber-300 hover:bg-amber-50"
                           >
                             <Icon icon="solar:settings-bold" className="w-4 h-4 mr-2" />
-                            Configure OAuth App
+                            Close and add Gmail details
                           </Button>
                         </div>
                       )}

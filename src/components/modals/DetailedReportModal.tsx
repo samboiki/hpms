@@ -13,8 +13,7 @@ import {
   Calendar,
   BarChart3,
   PieChart,
-  Filter,
-  Download
+  Filter
 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
@@ -64,7 +63,6 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
 }) => {
   const { currentTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'overview' | 'charts' | 'insights'>('overview');
-  const [dateRange, setDateRange] = useState<'7d' | '30d' | '3m' | '6m'>('30d');
 
   if (!isOpen) return null;
 
@@ -85,8 +83,11 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
   };
 
   const renderChart = () => {
-    const maxValue = Math.max(...data.chartData.datasets[0].data);
-    
+    // While the dashboard is still loading it passes empty datasets: show empty charts, not a crash
+    const chartValues = data.chartData.datasets[0]?.data ?? [];
+    const trendValues = data.timeSeriesData?.datasets[0]?.data ?? [];
+    const maxValue = Math.max(...chartValues);
+
     return (
       <div className="space-y-6">
         {/* Bar chart */}
@@ -97,7 +98,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
           </h4>
           <div className="space-y-3">
             {data.chartData.labels.map((label, index) => {
-              const value = data.chartData.datasets[0].data[index];
+              const value = chartValues[index];
               const percentage = (value / maxValue) * 100;
               
               return (
@@ -156,11 +157,11 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
           <div className="bg-gray-50 rounded-xl p-6">
             <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <TrendingUp className="w-5 h-5" />
-              Trend Analysis (Last {dateRange})
+              Trend Analysis ({data.overview.period})
             </h4>
             <div className="flex items-end justify-between h-32 bg-white rounded-lg p-4">
-              {data.timeSeriesData.datasets[0].data.map((value, index) => {
-                const height = (value / Math.max(...data.timeSeriesData!.datasets[0].data)) * 100;
+              {trendValues.map((value, index) => {
+                const height = (value / Math.max(...trendValues)) * 100;
                 return (
                   <div key={index} className="flex flex-col items-center gap-2">
                     <motion.div
@@ -207,12 +208,11 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                <Download className="w-5 h-5" />
-              </button>
               <button
                 onClick={onClose}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -220,7 +220,7 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
           </div>
 
           {/* Overview stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
             <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
               <p className="text-white/80 text-sm">Total</p>
               <p className="text-2xl font-bold">{data.overview.total}</p>
@@ -239,19 +239,6 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
             <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
               <p className="text-white/80 text-sm">Period</p>
               <p className="text-lg font-semibold">{data.overview.period}</p>
-            </div>
-            <div className="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
-              <p className="text-white/80 text-sm">Date Range</p>
-              <select 
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value as any)}
-                className="bg-transparent text-white font-semibold focus:outline-none cursor-pointer"
-              >
-                <option value="7d" className="text-gray-900">Last 7 days</option>
-                <option value="30d" className="text-gray-900">Last 30 days</option>
-                <option value="3m" className="text-gray-900">Last 3 months</option>
-                <option value="6m" className="text-gray-900">Last 6 months</option>
-              </select>
             </div>
           </div>
         </div>
@@ -311,16 +298,17 @@ const DetailedReportModal: React.FC<DetailedReportModalProps> = ({
                     ))}
                   </div>
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold text-gray-800">Quick Actions</h3>
+                    {/* Suggestions from the dashboard data, not clickable actions */}
+                    <h3 className="text-lg font-semibold text-gray-800">Recommended Actions</h3>
                     {data.actionItems?.map((action, index) => (
-                      <button
+                      <div
                         key={index}
-                        className="w-full text-left p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200"
+                        className="w-full text-left p-4 bg-blue-50 rounded-lg border border-blue-200"
                       >
                         <p className="font-medium text-blue-900">{action}</p>
-                      </button>
+                      </div>
                     )) || (
-                      <p className="text-gray-500 italic">No quick actions available</p>
+                      <p className="text-gray-500 italic">No recommended actions</p>
                     )}
                   </div>
                 </div>

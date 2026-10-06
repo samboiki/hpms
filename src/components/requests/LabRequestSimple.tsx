@@ -213,7 +213,7 @@ export default function LabRequestSimple({
                 type="text"
                 value={testValue}
                 onChange={(e) => setTestValue(e.target.value)}
-                placeholder="e.g., 95"
+                placeholder="e.g., 5.4"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
             </div>
@@ -226,7 +226,7 @@ export default function LabRequestSimple({
                 type="text"
                 value={testUnit}
                 onChange={(e) => setTestUnit(e.target.value)}
-                placeholder="e.g., mg/dL"
+                placeholder="e.g., mmol/L"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
             </div>
@@ -239,7 +239,7 @@ export default function LabRequestSimple({
                 type="text"
                 value={referenceRange}
                 onChange={(e) => setReferenceRange(e.target.value)}
-                placeholder="e.g., 70-100"
+                placeholder="e.g., 3.9-5.6"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
               />
             </div>

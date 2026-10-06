@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 
@@ -110,21 +111,22 @@ const PatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         return;
       }
 
-      // Add practice_id to patient data
+      // The patient belongs to the signed-in user's practice. There is no default practice: the old
+      // fallback filed patients under one specific practice whenever the lookup failed.
       const { data: { user } } = await supabase.auth.getUser();
-      let practiceId = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'; // Default to Dr. Polina's practice
-
-      // Try to get user's practice from users table
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (userData?.practice_id) {
-          practiceId = userData.practice_id;
-        }
+      if (!user) {
+        toast.error('Please sign in before registering a patient.');
+        return;
+      }
+      const { data: userData } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', user.id)
+        .single();
+      const practiceId = userData?.practice_id;
+      if (!practiceId) {
+        toast.error('No practice is assigned to your account, so the patient was not registered.');
+        return;
       }
 
       // Insert patient data

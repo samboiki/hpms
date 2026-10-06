@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Plus, FileText, Calendar, Loader2, Trash2, CheckCircle, Clock, Building2, ChevronDown, ChevronUp, Wand2 } from 'lucide-react';
 import { format } from 'date-fns';
 import LabRequestUltraSimple from './LabRequestUltraSimple';
+import { getResultStatus } from '../../utils/labResultStatus';
 
 interface LabResultsUltraSimpleProps {
   patientId: string;
@@ -111,23 +112,45 @@ export default function LabResultsUltraSimple({ patientId, visitId }: LabResults
         .delete()
         .eq('lab_request_id', request.id);
 
-      // Re-extract using AI
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          imageUrl: request.media_url,
-          fileType: 'image',
-          extractionType: 'results'
-        })
-      });
+      // Re-extract using AI — try Gemini first, fall back to legacy edge function
+      let results: any[] = [];
+      let extractionOk = false;
 
-      if (response.ok) {
-        const { results } = await response.json();
-        
+      try {
+        const { geminiExtractLabResults, isGeminiConfigured } = await import('../../lib/geminiClient');
+        if (isGeminiConfigured()) {
+          const gem = await geminiExtractLabResults({
+            fileUrl: request.media_url,
+            mimeType: 'application/pdf',
+          });
+          results = gem.results;
+          extractionOk = true;
+        }
+      } catch (gemErr) {
+        console.warn('Gemini extraction failed, falling back to edge function:', gemErr);
+      }
+
+      if (!extractionOk) {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            imageUrl: request.media_url,
+            fileType: 'image',
+            extractionType: 'results'
+          })
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          results = payload.results || [];
+          extractionOk = true;
+        }
+      }
+
+      if (extractionOk) {
         if (results && results.length > 0) {
           // Insert new results
           const testResults = results.map((result: any) => ({
@@ -191,24 +214,6 @@ export default function LabResultsUltraSimple({ patientId, visitId }: LabResults
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const getResultStatus = (value: string, range: string | null): string => {
-    if (!range || !value) return 'normal';
-    
-    // Simple logic - can be enhanced
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return 'normal';
-    
-    // Parse range (e.g., "70-100" or "< 5.0")
-    const rangeMatch = range.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-    if (rangeMatch) {
-      const [, min, max] = rangeMatch;
-      if (numValue < parseFloat(min)) return 'low';
-      if (numValue > parseFloat(max)) return 'high';
-    }
-    
-    return 'normal';
   };
 
   const getResultStatusColor = (status: string) => {

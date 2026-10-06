@@ -1,7 +1,9 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { errorMessage } from './formErrors';
 
 interface NextOfKinFormData {
   name: string;
@@ -12,23 +14,33 @@ interface NextOfKinFormData {
 
 interface Props {
   patientId: string;
-  initialData?: NextOfKinFormData;
+  /** The saved contact; PatientDetail passes the row from the patient view, including its id */
+  initialData?: NextOfKinFormData & { id?: string };
   onSuccess: () => void;
 }
 
 const NextOfKinForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) => {
-  const { register, handleSubmit, formState: { errors } } = useForm<NextOfKinFormData>({
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<NextOfKinFormData>({
     defaultValues: initialData
   });
 
   const onSubmit = async (data: NextOfKinFormData) => {
+    // Only the contact's own columns: the form data also carries every other key of initialData
+    const fields = {
+      name: data.name,
+      relationship: data.relationship,
+      phone: data.phone,
+      address: data.address
+    };
     try {
       if (initialData) {
-        // Update existing next of kin
-        const { error } = await supabase
+        // Update only this contact: matching on patient_id alone overwrote every next of kin the patient has
+        const query = supabase
           .from('next_of_kin')
-          .update(data)
-          .eq('patient_id', patientId);
+          .update(fields);
+        const { error } = initialData.id
+          ? await query.eq('id', initialData.id)
+          : await query.eq('patient_id', patientId);
 
         if (error) throw error;
       } else {
@@ -37,16 +49,18 @@ const NextOfKinForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) =
           .from('next_of_kin')
           .insert([{
             patient_id: patientId,
-            ...data
+            ...fields
           }]);
 
         if (error) throw error;
       }
-
-      onSuccess();
     } catch (error) {
       console.error('Error saving next of kin:', error);
+      toast.error(`Couldn't save the next of kin: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Next of kin saved');
+    onSuccess();
   };
 
   return (
@@ -100,8 +114,8 @@ const NextOfKinForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) =
         <Button type="button" variant="outline" onClick={() => onSuccess()}>
           Cancel
         </Button>
-        <Button type="submit">
-          {initialData ? 'Update' : 'Add'} Next of Kin
+        <Button type="submit" disabled={isSubmitting}>
+          {isSubmitting ? 'Saving...' : `${initialData ? 'Update' : 'Add'} Next of Kin`}
         </Button>
       </div>
     </form>

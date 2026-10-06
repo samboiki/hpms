@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 const UniversalCallback: React.FC = () => {
   const [status, setStatus] = useState<'processing' | 'success' | 'error'>('processing');
-  const [message, setMessage] = useState('Processing OAuth callback...');
+  const [message, setMessage] = useState('Finishing the Google sign-in...');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -23,13 +23,16 @@ const UniversalCallback: React.FC = () => {
 
       console.log('OAuth callback received:', { code: !!code, state: !!state, error });
 
-      // Handle OAuth errors
+      // Handle OAuth errors (messages below are shown to clinic staff, technical detail goes to the console)
       if (error) {
-        throw new Error(`OAuth error: ${urlParams.get('error_description') || error}`);
+        console.error('Google returned an OAuth error:', error, urlParams.get('error_description'));
+        throw new Error(error === 'access_denied'
+          ? 'Google sign-in was cancelled, so Gmail was not connected.'
+          : 'Google sign-in did not complete. Please try connecting Gmail again.');
       }
 
       if (!code || !state) {
-        throw new Error('Missing OAuth parameters');
+        throw new Error('No Google sign-in response was found. Please start connecting Gmail again from Settings.');
       }
 
       // Decode state
@@ -37,7 +40,7 @@ const UniversalCallback: React.FC = () => {
       try {
         stateData = JSON.parse(atob(state));
       } catch (e) {
-        throw new Error('Invalid state parameter');
+        throw new Error('The Google sign-in response was not recognised. Please start connecting Gmail again from Settings.');
       }
 
       const { practice_id } = stateData;
@@ -45,11 +48,11 @@ const UniversalCallback: React.FC = () => {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('Not authenticated');
+        throw new Error('You are signed out of HPMS. Please sign in and connect Gmail again.');
       }
 
       // Get OAuth app credentials
-      setMessage('Retrieving OAuth configuration...');
+      setMessage('Checking the practice Gmail settings...');
       const { data: oauthApp, error: oauthError } = await supabase
         .from('practice_oauth_apps')
         .select('client_id, client_secret')
@@ -59,11 +62,11 @@ const UniversalCallback: React.FC = () => {
 
       if (oauthError || !oauthApp) {
         console.error('OAuth app error:', oauthError);
-        throw new Error('OAuth app not configured for this practice');
+        throw new Error('Gmail is not set up for this practice yet. Set it up under Settings > Social first.');
       }
 
       // Exchange code for tokens
-      setMessage('Exchanging authorization code...');
+      setMessage('Confirming access with Google...');
       
       // For development, use the exact URL that's configured in Google Cloud Console
       const isDevelopment = window.location.hostname === 'localhost';
@@ -90,7 +93,7 @@ const UniversalCallback: React.FC = () => {
       if (!tokenResponse.ok) {
         const errorData = await tokenResponse.text();
         console.error('Token exchange failed:', errorData);
-        throw new Error('Failed to exchange authorization code');
+        throw new Error('Google did not accept the sign-in. Please try connecting Gmail again.');
       }
 
       const tokens = await tokenResponse.json();
@@ -101,7 +104,7 @@ const UniversalCallback: React.FC = () => {
       });
 
       // Get user info
-      setMessage('Getting user information...');
+      setMessage('Reading the Google account details...');
       const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
           Authorization: `Bearer ${tokens.access_token}`,
@@ -109,14 +112,14 @@ const UniversalCallback: React.FC = () => {
       });
 
       if (!userInfoResponse.ok) {
-        throw new Error('Failed to get user info');
+        throw new Error('Could not read the Google account details. Please try connecting Gmail again.');
       }
 
       const userInfo = await userInfoResponse.json();
       console.log('User info:', { email: userInfo.email });
 
       // Save credentials to database
-      setMessage('Saving credentials...');
+      setMessage('Saving the Gmail connection...');
       const credentialData = {
         practice_id,
         provider: 'google',
@@ -157,7 +160,8 @@ const UniversalCallback: React.FC = () => {
         });
 
         if (functionError) {
-          throw new Error(`Failed to save credentials: ${dbError.message}`);
+          console.error('Saving through the edge function also failed:', functionError);
+          throw new Error('The Gmail connection could not be saved. Please try again.');
         }
       }
 
@@ -167,20 +171,22 @@ const UniversalCallback: React.FC = () => {
       setMessage(`Gmail connected successfully for ${userInfo.email}!`);
       toast.success(`Gmail connected successfully for ${userInfo.email}!`);
       
-      // Redirect to settings with success
+      // Back to Settings > Social, where the Gmail card shows the connection. The result was already
+      // toasted here; oauth_* params would only be read by the Social tab and toasted a second time.
       setTimeout(() => {
-        navigate('/settings?oauth_success=true&oauth_email=' + encodeURIComponent(userInfo.email));
+        navigate('/settings?tab=social');
       }, 2000);
-      
+
     } catch (error: any) {
       console.error('OAuth callback error:', error);
+      const friendlyMessage = error?.message || 'Gmail could not be connected. Please try again.';
       setStatus('error');
-      setMessage(error.message || 'Failed to process OAuth callback');
-      toast.error(error.message);
-      
-      // Redirect to settings with error after a delay
+      setMessage(friendlyMessage);
+      toast.error(friendlyMessage);
+
+      // Redirect to settings after a delay
       setTimeout(() => {
-        navigate('/settings?oauth_error=' + encodeURIComponent(error.message || 'Unknown error'));
+        navigate('/settings?tab=social');
       }, 3000);
     }
   };
@@ -196,7 +202,7 @@ const UniversalCallback: React.FC = () => {
                 className="w-16 h-16 text-blue-500 mx-auto mb-4 animate-spin" 
               />
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                Processing OAuth Callback
+                Connecting Gmail
               </h2>
               <p className="text-gray-600">{message}</p>
             </>
@@ -223,7 +229,7 @@ const UniversalCallback: React.FC = () => {
                 className="w-16 h-16 text-red-500 mx-auto mb-4" 
               />
               <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                OAuth Error
+                Gmail was not connected
               </h2>
               <p className="text-red-600 mb-4">{message}</p>
               <p className="text-gray-600 text-sm">
@@ -234,7 +240,7 @@ const UniversalCallback: React.FC = () => {
 
           <div className="mt-8">
             <p className="text-xs text-gray-500">
-              OneHealth OAuth Handler
+              OneHealth Gmail connection
             </p>
           </div>
         </div>

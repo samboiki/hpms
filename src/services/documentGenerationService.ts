@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase';
-import { format } from 'date-fns';
+import { format, isValid, parse } from 'date-fns';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { formatNad } from '../utils/billing/money';
 
 interface DocumentGenerationOptions {
   visitId: string;
@@ -1432,8 +1433,31 @@ export class DocumentGenerationService {
     };
     
     const subtotal = calculateSubtotal(services);
-    const patientPortion = (invoice.total || 0) - (invoice.medical_aid_covered || 0);
-    
+    // invoices_enhanced stores the split itself. It has no medical_aid_covered column, so subtracting
+    // that showed the whole total as the patient's portion.
+    const patientPortion = invoice?.patient_total ?? ((Number(invoice?.total) || 0) - (Number(invoice?.medical_aid_total) || 0));
+    const dueDate = invoice?.due_date ? parse(String(invoice.due_date).slice(0, 10), 'yyyy-MM-dd', new Date()) : null;
+    const dueDateText = dueDate && isValid(dueDate) ? format(dueDate, 'dd MMM yyyy') : 'N/A';
+    const practiceLocation = [[practice.city, practice.country].filter(Boolean).join(', '), practice.postal_code]
+      .filter(Boolean)
+      .join(' ');
+    const practiceContact = [practice.contact_phone, practice.contact_email].filter(Boolean).join(' • ');
+    // Only the practice's own banking details. Invented ones could send a patient's payment to an
+    // account that isn't the practice's.
+    const bankingDetailsHTML = practice.account_number
+      ? `
+          <div style="margin-bottom: 20px;">
+            <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">BANKING DETAILS</h3>
+            <div style="font-size: 10px; line-height: 1.5; color: #4b5563;">
+              ${[
+                practice.bank_name ? `Bank: ${practice.bank_name}` : '',
+                `Account: ${practice.account_number}`,
+                practice.branch_code ? `Branch: ${practice.branch_code}` : ''
+              ].filter(Boolean).join(' ')}
+            </div>
+          </div>`
+      : '';
+
     // Create function to generate page HTML with beautiful styling
     const createPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
       // Recalculate subtotal for safety
@@ -1464,7 +1488,7 @@ export class DocumentGenerationService {
             <div style="text-align: right; flex: 1; max-width: 300px;">
               <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
                 ${practice.address ? `<div style="margin-bottom: 2px;">${practice.address}</div>` : ''}
-                <div style="margin-bottom: 2px;">${practice.city}, ${practice.country} ${practice.postal_code || ''}</div>
+                ${practiceLocation ? `<div style="margin-bottom: 2px;">${practiceLocation}</div>` : ''}
                 ${practice.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practice.contact_phone}</div>` : ''}
                 ${practice.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practice.contact_email}</div>` : ''}
                 ${practice.domain ? `<div>www.${practice.domain}</div>` : ''}
@@ -1479,17 +1503,17 @@ export class DocumentGenerationService {
               <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
                 <span style="color: #5f6578;">MEDICAL</span> <span style="color: #888;">INVOICE</span>
               </div>
-              <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number || 'N/A'}</span>
+              <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${safeInvoice.invoice_number || 'N/A'}</span>
             </div>
             <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
               <div style="text-align: center;">
                 <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DATE PREPARED</div>
-                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${invoice.created_at ? format(new Date(invoice.created_at), 'dd MMM yyyy') : 'N/A'}</div>
+                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${safeInvoice.created_at ? format(new Date(safeInvoice.created_at), 'dd MMM yyyy') : 'N/A'}</div>
               </div>
               <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
               <div style="text-align: center;">
                 <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DUE DATE</div>
-                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</div>
+                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${dueDateText}</div>
               </div>
             </div>
           </div>
@@ -1552,9 +1576,9 @@ export class DocumentGenerationService {
                       <div style="color: #4b5563;">${service?.description || 'Service'}</div>
                     </td>
                     <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service?.quantity || 1}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${(parseFloat(service?.unit_price) || 0).toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(parseFloat(service?.medical_aid_covered) || 0).toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${(parseFloat(service?.total_price) || 0).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">${formatNad(parseFloat(service?.unit_price) || 0)}</td>
+                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">${formatNad(parseFloat(service?.medical_aid_covered) || 0)}</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">${formatNad(parseFloat(service?.total_price) || 0)}</td>
                   </tr>
                 `}).join('')}
                 
@@ -1562,19 +1586,19 @@ export class DocumentGenerationService {
                 <!-- Summary Rows -->
                 <tr>
                   <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${(pageSubtotal || 0).toFixed(2)}</td>
+                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">${formatNad(pageSubtotal || 0)}</td>
                 </tr>
                 
                 <!-- Patient Portion Row -->
                 <tr>
                   <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(safePatientPortion || 0).toFixed(2)}</td>
+                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">${formatNad(Number(safePatientPortion) || 0)}</td>
                 </tr>
                 
                 <!-- Total Row -->
                 <tr>
                   <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Total Amount Due:</td>
-                  <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${(safeInvoice.total || 0).toFixed(2)}</td>
+                  <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">${formatNad(Number(safeInvoice.total) || 0)}</td>
                 </tr>
                 ` : ''}
               </tbody>
@@ -1582,19 +1606,13 @@ export class DocumentGenerationService {
           </div>
 
           ${isLastPage ? `
-          <!-- Banking Details Section - Clean Format from Invoice -->
-          <div style="margin-bottom: 20px;">
-            <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">BANKING DETAILS</h3>
-            <div style="font-size: 10px; line-height: 1.5; color: #4b5563;">
-              Bank: ${practice.bank_name || 'FNB Namibia'} Account: ${practice.account_number || '11223344556'} Branch: ${practice.branch_code || '282273'}
-            </div>
-          </div>
+          ${bankingDetailsHTML}
 
           <!-- Professional Footer -->
           <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
             <div style="text-align: center;">
               <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
-                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practice.name}</strong> For inquiries: ${practice.contact_phone} • ${practice.contact_email}
+                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practice.name}</strong>${practiceContact ? ` For inquiries: ${practiceContact}` : ''}
               </p>
               <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
                 Invoice generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024

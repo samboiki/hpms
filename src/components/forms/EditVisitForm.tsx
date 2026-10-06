@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { getResultStatus } from '../../utils/labResultStatus';
 import { Image as ImageIcon, X, Upload, Plus, Wand2, Receipt, DollarSign } from 'lucide-react';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
@@ -453,18 +454,13 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
 
           if (Array.isArray(responseData.results)) {
             const newAiLabResults = responseData.results.map((item: any) => {
-              let formStatus: 'normal' | 'high' | 'low' | 'critical' = 'normal';
               const aiStatus = item.status ? String(item.status).toLowerCase() : 'normal';
-
-              if (aiStatus === 'low') {
-                formStatus = 'low';
-              } else if (aiStatus === 'high') {
-                formStatus = 'high';
-              } else if (aiStatus === 'critical') {
-                formStatus = 'critical';
-              } else if (aiStatus === 'normal' || aiStatus === 'borderline') {
-                formStatus = 'normal';
-              }
+              // Keep the AI's high/low/critical; anything else ("normal", "borderline", unknown) is checked
+              // against the reference range, so an out-of-range value is never shown as Normal
+              const formStatus: 'normal' | 'high' | 'low' | 'critical' =
+                aiStatus === 'low' || aiStatus === 'high' || aiStatus === 'critical'
+                  ? aiStatus
+                  : getResultStatus(item.value, item.referenceRange);
 
               return {
                 id: crypto.randomUUID(),
@@ -502,20 +498,9 @@ const EnhancedEditVisitForm: React.FC<Props> = ({ visitId, patientId, initialDat
           }
 
           const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while processing the image';
+          // No placeholder result: a row named "Processing Failed" with the value "Error" passed
+          // validation and was saved to the patient's record as a real lab result
           setProcessingError(errorMessage);
-          
-          setValue('lab_results', [
-            ...labResults,
-            {
-              id: crypto.randomUUID(),
-              name: 'Untitled Test (Processing Failed)',
-              value: 'Error',
-              unit: '',
-              reference_range: '',
-              status: 'normal',
-              date: new Date().toISOString().split('T')[0]
-            }
-          ]);
         } finally {
           setIsProcessingImage(false);
         }

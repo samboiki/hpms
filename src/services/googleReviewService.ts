@@ -48,7 +48,7 @@ export class GoogleReviewService {
         practiceId: data.practiceId,
         recipientPhone: data.patientPhone,
         messageContent: message,
-        messageType: 'review_request',
+        messageType: 'follow_up',
         patientId: data.patientId,
         visitId: data.visitId
       });

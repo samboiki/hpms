@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, Loader2, Wand2 } from 'lucide-react';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { geminiExtractLabResults, isGeminiConfigured } from '../../lib/geminiClient';
 
 interface LabResultUploadProps {
   onUpload: (data: {
@@ -45,26 +46,46 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
         .from('media')
         .getPublicUrl(filePath);
 
-      // Call the edge function to process the image
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          imageUrl: publicUrl,
-          fileType: file.type
-        })
-      });
+      // Path A — Gemini Flash (PDF + image native support, free tier)
+      // Path B — legacy Supabase Edge Function (requires OPENAI_API_KEY secret)
+      let result: any;
+      if (isGeminiConfigured()) {
+        console.log('✨ Extracting with Gemini 1.5 Flash');
+        const gem = await geminiExtractLabResults({
+          fileBlob: file,
+          mimeType: file.type,
+        });
+        // Map Gemini's testValue/testUnit shape to this component's value/unit shape
+        result = {
+          results: gem.results.map(r => ({
+            testName: r.testName,
+            value: r.testValue,
+            unit: r.testUnit ?? '',
+            referenceRange: r.referenceRange ?? '',
+            status: 'normal',
+          })),
+        };
+      } else {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imageUrl: publicUrl,
+            fileType: file.type
+          })
+        });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Processing error:', errorData);
-        throw new Error('Failed to process image');
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Processing error:', errorData);
+          throw new Error('Failed to process image');
+        }
+
+        result = await response.json();
       }
-
-      const result = await response.json();
 
       // Handle the response from the updated edge function
       if (result.results && Array.isArray(result.results) && result.results.length > 0) {

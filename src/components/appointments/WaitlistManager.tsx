@@ -24,6 +24,7 @@ import { useAuthStore } from '../../stores/authStore';
 import Button from '../ui/Button';
 import FormModal from '../modals/FormModal';
 import { toast } from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/formatDoctorName';
 
 interface WaitlistEntry {
   id: string;
@@ -396,7 +397,7 @@ const WaitlistManager: React.FC = () => {
                             {entry.doctor && (
                               <div className="flex items-center gap-1">
                                 <Users className="h-3.5 w-3.5" />
-                                <span>Dr. {entry.doctor.full_name}</span>
+                                <span>{formatDoctorName(entry.doctor.full_name)}</span>
                               </div>
                             )}
                           </div>

@@ -28,6 +28,8 @@ import {
   RadialBarChart,
   RadialBar
 } from 'recharts';
+import { format } from 'date-fns';
+import { ageInYears, countRegisteredInMonth } from './patientSummary';
 // Extended Patient interface with database fields
 interface Patient {
   id: string;
@@ -91,8 +93,9 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
     };
 
     patients.forEach(patient => {
-      if (patient.date_of_birth) {
-        const age = new Date().getFullYear() - new Date(patient.date_of_birth).getFullYear();
+      // Exact age (birth year alone counted a 17-year-old as 18 for most of the year)
+      const age = ageInYears(patient.date_of_birth);
+      if (age !== null) {
         if (age < 18) ageGroups['0-17']++;
         else if (age <= 30) ageGroups['18-30']++;
         else if (age <= 45) ageGroups['31-45']++;
@@ -104,7 +107,7 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
     return Object.entries(ageGroups).map(([group, count]) => ({
       name: group,
       count,
-      percentage: Math.round((count / patients.length) * 100)
+      percentage: patients.length > 0 ? Math.round((count / patients.length) * 100) : 0
     }));
   }, [patients]);
 
@@ -113,9 +116,10 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
     const withAid = patients.filter(p => p.medical_aid_details && p.medical_aid_details.length > 0).length;
     const withoutAid = patients.length - withAid;
     
+    const percentage = (count: number) => (patients.length > 0 ? Math.round((count / patients.length) * 100) : 0);
     return [
-      { name: 'With Medical Aid', value: withAid, percentage: Math.round((withAid / patients.length) * 100) },
-      { name: 'Without Medical Aid', value: withoutAid, percentage: Math.round((withoutAid / patients.length) * 100) }
+      { name: 'With Medical Aid', value: withAid, percentage: percentage(withAid) },
+      { name: 'Without Medical Aid', value: withoutAid, percentage: percentage(withoutAid) }
     ];
   }, [patients]);
 
@@ -126,7 +130,7 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
     
     for (let i = 11; i >= 0; i--) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      const monthYear = format(date, 'MMM yyyy');
       
       const count = patients.filter(p => {
         if (!p.created_at) return false;
@@ -187,7 +191,8 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
           <p className="text-gray-600 font-medium">Total Patients</p>
           <div className="mt-2 text-sm text-blue-600 font-medium">
             <TrendingUp className="w-4 h-4 inline mr-1" />
-            +{Math.round(patients.length * 0.15)} this month
+            {/* Registered this calendar month (was a made-up 15% of the total) */}
+            +{countRegisteredInMonth(patients)} this month
           </div>
         </motion.div>
 
@@ -204,7 +209,9 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
             <Sparkles className="w-5 h-5 text-purple-400" />
           </div>
           <h3 className="text-3xl font-bold text-gray-800">
-            {Math.round((patients.filter(p => p.gender?.toLowerCase() === 'female').length / patients.length) * 100)}%
+            {patients.length > 0
+              ? `${Math.round((patients.filter(p => p.gender?.toLowerCase() === 'female').length / patients.length) * 100)}%`
+              : '—'}
           </h3>
           <p className="text-gray-600 font-medium">Female Patients</p>
           <div className="mt-2 text-sm text-purple-600 font-medium">
@@ -226,7 +233,9 @@ const PatientAnalytics: React.FC<PatientAnalyticsProps> = ({ patients = [] }) =>
             <Sparkles className="w-5 h-5 text-green-400" />
           </div>
           <h3 className="text-3xl font-bold text-gray-800">
-            {Math.round((patients.filter(p => p.medical_aid_details && p.medical_aid_details.length > 0).length / patients.length) * 100)}%
+            {patients.length > 0
+              ? `${Math.round((patients.filter(p => p.medical_aid_details && p.medical_aid_details.length > 0).length / patients.length) * 100)}%`
+              : '—'}
           </h3>
           <p className="text-gray-600 font-medium">Medical Aid Coverage</p>
           <div className="mt-2 text-sm text-green-600 font-medium">

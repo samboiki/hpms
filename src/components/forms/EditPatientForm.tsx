@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 import { User, Phone, Stethoscope, Shield, Users, MapPin, Heart } from 'lucide-react';
+import { errorMessage } from './formErrors';
 
 interface EditPatientFormData {
   first_name: string;
@@ -84,7 +86,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
   const [medicalAidDetails, setMedicalAidDetails] = useState<MedicalAidDetails | null>(null);
   const [nextOfKinDetails, setNextOfKinDetails] = useState<NextOfKinDetails | null>(null);
   
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<EditPatientFormData>({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors, isSubmitting } } = useForm<EditPatientFormData>({
     defaultValues: {
       ...initialData,
       medicalAid: {
@@ -131,6 +133,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         setProviders(data || []);
       } catch (error) {
         console.error('Error fetching providers:', error);
+        toast.error(`Couldn't load the medical aid list: ${errorMessage(error)}`);
       } finally {
         setLoadingProviders(false);
       }
@@ -155,6 +158,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
           setSchemes(data || []);
         } catch (error) {
           console.error('Error fetching schemes:', error);
+          toast.error(`Couldn't load the schemes for this medical aid: ${errorMessage(error)}`);
         } finally {
           setLoadingSchemes(false);
         }
@@ -165,6 +169,13 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
       setSchemes([]);
     }
   }, [selectedProvider]);
+
+  // The saved record holds the scheme's name but the options are keyed by id, so the patient's scheme
+  // showed as "Select scheme". Once the options have rendered, select the one with the saved name.
+  useEffect(() => {
+    const savedScheme = schemes.find(scheme => scheme.name === getValues('medicalAid.scheme'));
+    if (savedScheme) setValue('medicalAid.scheme', savedScheme.id);
+  }, [schemes, getValues, setValue]);
 
   // Fetch existing medical aid details
   useEffect(() => {
@@ -190,6 +201,8 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         }
       } catch (error) {
         console.error('Error fetching medical aid details:', error);
+        // Without the saved record, choosing a provider would add a second medical aid instead of updating it
+        toast.error(`Couldn't load this patient's medical aid. Close and reopen the form before changing it. (${errorMessage(error)})`);
       }
     };
 
@@ -218,6 +231,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         }
       } catch (error) {
         console.error('Error fetching next of kin details:', error);
+        toast.error(`Couldn't load this patient's next of kin. Close and reopen the form before changing it. (${errorMessage(error)})`);
       }
     };
 
@@ -225,9 +239,31 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
   }, [patientId, setValue]);
 
   const onSubmit = async (data: EditPatientFormData) => {
+    // The provider list starts empty when the saved record has no provider id, so only a provider that
+    // was loaded and then cleared means "remove"; leaving an empty list as it was must not delete anything
+    const removesMedicalAid = !data.medicalAid.provider && !!medicalAidDetails?.medical_aid_provider_id;
+    const removesNextOfKin = !data.nextOfKin.name && !!nextOfKinDetails;
+    if (removesMedicalAid && !window.confirm(`Remove the ${medicalAidDetails?.provider} medical aid from this patient? This cannot be undone.`)) return;
+    if (removesNextOfKin && !window.confirm(`Remove ${nextOfKinDetails?.name} as this patient's next of kin? This cannot be undone.`)) return;
+
     try {
-      // Update patient basic info (exclude medical aid and nextOfKin from patient update)
-      const { medicalAid, nextOfKin, ...patientData } = data;
+      // Only the columns this form edits: PatientDetail passes its whole camelCase patient object as
+      // initialData, and sending those extra keys made every update fail
+      const patientData = {
+        first_name: data.first_name,
+        last_name: data.last_name,
+        email: data.email,
+        cell_number: data.cell_number,
+        date_of_birth: data.date_of_birth,
+        gender: data.gender,
+        marital_status: data.marital_status,
+        occupation: data.occupation,
+        employer: data.employer,
+        home_language: data.home_language,
+        home_address: data.home_address,
+        postal_address: data.postal_address,
+        postal_code: data.postal_code
+      };
       const { error: patientError } = await supabase
         .from('patients')
         .update(patientData)
@@ -268,7 +304,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
 
           if (medicalAidError) throw medicalAidError;
         }
-      } else if (medicalAidDetails) {
+      } else if (removesMedicalAid && medicalAidDetails) {
         // Remove medical aid details if provider is cleared
         const { error: deleteError } = await supabase
           .from('medical_aid_details')
@@ -304,7 +340,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
 
           if (nextOfKinError) throw nextOfKinError;
         }
-      } else if (nextOfKinDetails) {
+      } else if (removesNextOfKin && nextOfKinDetails) {
         // Remove next of kin details if cleared
         const { error: deleteError } = await supabase
           .from('next_of_kin')
@@ -314,10 +350,13 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         if (deleteError) throw deleteError;
       }
 
-      onSuccess();
     } catch (error) {
       console.error('Error updating patient:', error);
+      toast.error(`Couldn't save the patient's changes: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Patient details saved');
+    onSuccess();
   };
 
   const tabs = [
@@ -339,6 +378,9 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
+                // The text label is hidden on small screens, leaving only the icon
+                aria-label={tab.label}
+                title={tab.label}
                 className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all duration-300 relative ${
                   activeTab === tab.id
                     ? 'text-white border-white bg-gradient-to-t from-white/10 to-transparent'
@@ -548,7 +590,7 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
                   <option value="">Select Medical Aid Provider</option>
                   {providers.map((provider) => (
                     <option key={provider.id} value={provider.id}>
-                      {provider.name} ({provider.short_name})
+                      {provider.name}{provider.short_name ? ` (${provider.short_name})` : ''}
                     </option>
                   ))}
                 </select>
@@ -734,9 +776,10 @@ const EditPatientForm: React.FC<Props> = ({ patientId, initialData, onSuccess })
         </button>
         <button
           type="submit"
-          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all font-medium transform hover:scale-105"
+          disabled={isSubmitting}
+          className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-6 py-2.5 rounded-lg hover:shadow-lg transition-all font-medium transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Update Patient
+          {isSubmitting ? 'Saving...' : 'Update Patient'}
         </button>
       </div>
     </form>

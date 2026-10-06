@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, addDays, addWeeks, addMonths, parseISO } from 'date-fns';
 
@@ -35,7 +35,7 @@ export default function ScheduleFollowUpModal({
   practiceId,
   branchId,
 }: ScheduleFollowUpModalProps) {
-  const { user } = useAuth();
+  const user = useAuthStore((s) => s.user);
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<FollowUpTemplate | null>(null);
   const [eddDate, setEddDate] = useState('');

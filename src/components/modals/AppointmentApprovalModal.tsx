@@ -3,6 +3,8 @@ import { X, Calendar, Clock, User, CheckCircle, XCircle, Edit3, UserPlus } from 
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/formatDoctorName';
 
 interface AppointmentApprovalModalProps {
   isOpen: boolean;
@@ -55,12 +57,13 @@ export default function AppointmentApprovalModal({
       }
     } catch (error) {
       console.error('❌ Error fetching doctors:', error);
+      toast.error('Could not load the list of doctors. Please close and try again.');
     }
   };
 
   const handleApprove = async () => {
     if (!selectedDoctor) {
-      alert('Please select a doctor');
+      toast.error('Please select a doctor');
       return;
     }
 
@@ -70,7 +73,7 @@ export default function AppointmentApprovalModal({
       onClose();
     } catch (error) {
       console.error('Error approving appointment:', error);
-      alert('Failed to approve appointment');
+      toast.error('Failed to approve appointment');
     } finally {
       setIsProcessing(false);
     }
@@ -83,7 +86,7 @@ export default function AppointmentApprovalModal({
       onClose();
     } catch (error) {
       console.error('Error rejecting appointment:', error);
-      alert('Failed to reject appointment');
+      toast.error('Failed to reject appointment');
     } finally {
       setIsProcessing(false);
     }
@@ -111,6 +114,8 @@ export default function AppointmentApprovalModal({
               <button
                 onClick={onClose}
                 className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -149,7 +154,7 @@ export default function AppointmentApprovalModal({
                 <div>
                   <span className="text-gray-600">Date:</span>
                   <span className="ml-2 font-medium">
-                    {format(new Date(appointment.date), 'EEEE, MMMM d, yyyy')}
+                    {format(new Date(appointment.date), 'EEEE, d MMMM yyyy')}
                   </span>
                 </div>
                 <div>
@@ -193,7 +198,7 @@ export default function AppointmentApprovalModal({
                   <option value="">Select a doctor...</option>
                   {doctors.map((doctor) => (
                     <option key={doctor.id} value={doctor.id}>
-                      Dr. {doctor.full_name}
+                      {formatDoctorName(doctor.full_name)}
                     </option>
                   ))}
                 </select>
@@ -237,6 +242,7 @@ export default function AppointmentApprovalModal({
                   <button
                     onClick={handleApprove}
                     disabled={isProcessing || !selectedDoctor}
+                    title={!selectedDoctor ? 'Select a doctor first' : undefined}
                     className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2 disabled:opacity-50"
                   >
                     <CheckCircle className="w-4 h-4" />
@@ -250,7 +256,7 @@ export default function AppointmentApprovalModal({
                     disabled={isProcessing}
                     className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
                   >
-                    Cancel
+                    Back
                   </button>
                   <button
                     onClick={handleReject}

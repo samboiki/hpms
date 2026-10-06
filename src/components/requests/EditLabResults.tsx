@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Trash2, Loader2, Save, Edit3 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { findIncompleteResultRow } from './labResultRows';
 
 interface EditLabResultsProps {
   requestId: string;
@@ -24,6 +26,7 @@ export default function EditLabResults({
 }: EditLabResultsProps) {
   const [results, setResults] = useState<TestResult[]>([]);
   const [deletedIds, setDeletedIds] = useState<string[]>([]);
+  const [deletedNames, setDeletedNames] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -52,6 +55,7 @@ export default function EditLabResults({
       }
     } catch (error) {
       console.error('Error fetching lab results:', error);
+      toast.error('Could not load the saved results. Close this window and try again.');
     } finally {
       setLoading(false);
     }
@@ -75,6 +79,7 @@ export default function EditLabResults({
     } else {
       // Mark for deletion if it's an existing result
       setDeletedIds([...deletedIds, id]);
+      setDeletedNames([...deletedNames, results.find(r => r.id === id)?.test_name || 'an unnamed test']);
       setResults(results.filter(r => r.id !== id));
     }
   };
@@ -86,6 +91,23 @@ export default function EditLabResults({
   };
 
   const handleSave = async () => {
+    const incomplete = findIncompleteResultRow(results.map(r => ({
+      name: r.test_name,
+      value: r.test_value,
+      unit: r.test_unit,
+      range: r.reference_range,
+      saved: !r.isNew
+    })));
+    if (incomplete !== -1) {
+      toast.error(`Test ${incomplete + 1} needs both a test name and a value. Use the bin icon to remove a test.`);
+      return;
+    }
+
+    // Removed tests are only deleted here, so confirm before they are gone for good
+    if (deletedIds.length > 0 && !window.confirm(`Delete ${deletedNames.join(', ')} from this lab request? This cannot be undone.`)) {
+      return;
+    }
+
     setIsSaving(true);
     try {
       // Delete removed results
@@ -136,17 +158,19 @@ export default function EditLabResults({
 
       // Make sure the request is marked as completed if it has results
       if (results.filter(r => r.test_name && r.test_value).length > 0) {
-        await supabase
+        const { error: statusError } = await supabase
           .from('lab_requests')
           .update({ status: 'completed' })
           .eq('id', requestId);
+
+        if (statusError) throw statusError;
       }
 
       onResultsUpdated();
       onClose();
     } catch (error) {
       console.error('Error saving results:', error);
-      alert('Failed to save results. Please try again.');
+      toast.error('Failed to save results. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -188,6 +212,7 @@ export default function EditLabResults({
                     type="button"
                     onClick={() => removeResult(result.id)}
                     className="text-red-600 hover:text-red-700"
+                    aria-label={`Remove test ${index + 1}`}
                     title="Remove this test"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -216,7 +241,7 @@ export default function EditLabResults({
                       type="text"
                       value={result.test_value}
                       onChange={(e) => updateResult(result.id, 'test_value', e.target.value)}
-                      placeholder="e.g., 95"
+                      placeholder="e.g., 5.4"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>
@@ -229,7 +254,7 @@ export default function EditLabResults({
                       type="text"
                       value={result.test_unit || ''}
                       onChange={(e) => updateResult(result.id, 'test_unit', e.target.value)}
-                      placeholder="e.g., mg/dL"
+                      placeholder="e.g., mmol/L"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>
@@ -242,7 +267,7 @@ export default function EditLabResults({
                       type="text"
                       value={result.reference_range || ''}
                       onChange={(e) => updateResult(result.id, 'reference_range', e.target.value)}
-                      placeholder="e.g., 70-100"
+                      placeholder="e.g., 3.9-5.6"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>

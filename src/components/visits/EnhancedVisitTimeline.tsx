@@ -72,11 +72,10 @@ export default function EnhancedVisitTimeline({
         .from('visits')
         .select(`
           *,
-          patient:patients(id, first_name, last_name, cell_number, email),
+          patient:patients!fk_visits_patient_id(id, first_name, last_name, cell_number, email),
           doctor:users!doctor_id(id, full_name, role),
-          vitals(*),
-          lab_results(count),
-          media_requests(count)
+          vitals!fk_vitals_visit_id(*),
+          lab_requests(count)
         `)
         .order('scheduled_date', { ascending: false })
         .order('scheduled_time', { ascending: false })

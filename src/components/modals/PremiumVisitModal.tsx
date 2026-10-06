@@ -18,16 +18,16 @@ import {
   Weight,
   ChevronRight,
   Edit3,
-  Download,
-  Share,
   Sparkles
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 
 interface Visit {
   id: string;
   visit_date: string;
   visit_time?: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
   encounter_date?: string;
   chief_complaint?: string;
   diagnosis?: string;
@@ -60,6 +60,13 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
   const [activeTab, setActiveTab] = useState('overview');
 
   if (!isOpen || !visit) return null;
+
+  // A booked visit may not have a visit_date yet: new Date(null) showed 1970 and new Date(undefined)
+  // made format() throw, so fall back to the booked date and only format valid dates
+  const visitDateValue = visit.visit_date || visit.scheduled_date;
+  const visitDay = visitDateValue ? new Date(visitDateValue) : null;
+  const visitTime = visit.visit_time || visit.scheduled_time;
+  const encounterDay = visit.encounter_date ? new Date(visit.encounter_date) : null;
 
   const tabs = [
     {
@@ -152,12 +159,12 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
                 </div>
                 <div className="text-center p-4 bg-orange-50 rounded-xl">
                   <Thermometer className="w-6 h-6 text-orange-500 mx-auto mb-2" />
-                  <div className="text-lg font-bold text-gray-800">{visit.vitals.temperature || 'N/A'}°C</div>
+                  <div className="text-lg font-bold text-gray-800">{visit.vitals.temperature ? `${visit.vitals.temperature}°C` : 'N/A'}</div>
                   <div className="text-xs text-gray-500">Temperature</div>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-xl">
                   <Weight className="w-6 h-6 text-green-500 mx-auto mb-2" />
-                  <div className="text-lg font-bold text-gray-800">{visit.vitals.weight || 'N/A'}kg</div>
+                  <div className="text-lg font-bold text-gray-800">{visit.vitals.weight ? `${visit.vitals.weight}kg` : 'N/A'}</div>
                   <div className="text-xs text-gray-500">Weight</div>
                 </div>
               </div>
@@ -282,26 +289,31 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
               <div>
                 <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>Visit Details</h2>
                 <div className="text-blue-100 text-sm space-y-1">
-                  <p>Visit: {format(new Date(visit.visit_date), 'MMMM dd, yyyy')} • {visit.visit_time}</p>
-                  {visit.encounter_date && (
-                    <p>Encounter: {format(new Date(visit.encounter_date), 'MMMM dd, yyyy HH:mm')}</p>
+                  <p>
+                    Visit: {visitDay && isValid(visitDay) ? format(visitDay, 'd MMMM yyyy') : 'Date not recorded'}
+                    {visitTime ? ` • ${visitTime}` : ''}
+                  </p>
+                  {encounterDay && isValid(encounterDay) && (
+                    <p>Recorded: {format(encounterDay, 'd MMMM yyyy HH:mm')}</p>
                   )}
                 </div>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+              <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize ${
                 visit.status === 'completed' ? 'bg-green-500/20 text-green-100' :
                 visit.status === 'in-progress' ? 'bg-blue-500/20 text-blue-100' :
                 'bg-gray-500/20 text-gray-100'
               }`}>
-                {visit.status}
+                {visit.status?.replace(/-/g, ' ')}
               </span>
-              
+
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -373,26 +385,6 @@ const PremiumVisitModal: React.FC<PremiumVisitModalProps> = ({
                   Edit Visit
                 </motion.button>
               )}
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2.5 bg-blue-100 text-blue-700 rounded-xl flex items-center gap-2 hover:bg-blue-200 transition-all font-medium text-sm"
-              >
-                <Download className="w-4 h-4" />
-                Export
-              </motion.button>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="px-4 py-2.5 bg-purple-100 text-purple-700 rounded-xl flex items-center gap-2 hover:bg-purple-200 transition-all font-medium text-sm"
-              >
-                <Share className="w-4 h-4" />
-                Share
-              </motion.button>
             </div>
           </div>
         </div>

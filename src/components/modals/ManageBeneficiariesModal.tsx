@@ -98,9 +98,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
   const [relationship, setRelationship] = useState('');
   // const [dependentCode, setDependentCode] = useState(''); // Not supported in current schema
   const [editingMember, setEditingMember] = useState<MedicalAidMember | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'relationship' | 'date'>('name');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [totalPatientsInPractice, setTotalPatientsInPractice] = useState<number>(0);
@@ -357,7 +355,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
       if (error) throw error;
 
       toast.success('Member removed successfully');
-      setDeleteConfirm(null);
       fetchMembers();
       fetchAvailablePatients();
       onRefresh?.();
@@ -376,11 +373,9 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
     patient.id_number?.includes(searchTerm)
   );
 
-  const filteredAndSortedMembers = members
-    .filter(member => {
-      if (filterStatus === 'all') return true;
-      return member.status === filterStatus;
-    })
+  // Copy before sorting so the members state is never mutated. There is no member status in the
+  // schema (every member is mapped to 'active'), so there is no status filter or badge.
+  const filteredAndSortedMembers = [...members]
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
@@ -508,6 +503,8 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
             <button
               onClick={onClose}
               className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+              title="Close"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -557,20 +554,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                        className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                      >
-                        <option value="all">All Members</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                      </select>
-                    </div>
-                    
-                    <div className="relative">
                       <SortAsc className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <select
                         value={sortBy}
@@ -587,7 +570,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                   {!isMainMember && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-600" />
-                      <span className="text-sm text-amber-700">Only main member can manage beneficiaries</span>
+                      <span className="text-sm text-amber-700">To add or remove beneficiaries, open the main member's profile</span>
                     </div>
                   )}
                 </div>
@@ -662,15 +645,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                                     Main Member
                                   </span>
                                 )}
-                                <span className={`text-xs font-medium px-3 py-1 rounded-full ${
-                                  member.status === 'active'
-                                    ? 'bg-green-100 text-green-800 border border-green-200'
-                                    : member.status === 'suspended'
-                                    ? 'bg-red-100 text-red-800 border border-red-200'
-                                    : 'bg-gray-100 text-gray-800 border border-gray-200'
-                                }`}>
-                                  {member.status}
-                                </span>
                               </div>
                               
                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
@@ -729,28 +703,19 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
-                                  onClick={() => setDeleteConfirm(member.id)}
-                                  className={`p-2 rounded-lg transition-colors ${
-                                    deleteConfirm === member.id
-                                      ? 'bg-red-500 text-white'
-                                      : 'bg-red-100 text-red-600 hover:bg-red-200'
-                                  }`}
+                                  onClick={() => {
+                                    const name = member.patient
+                                      ? `${member.patient.first_name} ${member.patient.last_name}`
+                                      : 'this member';
+                                    if (!window.confirm(`Remove ${name} from this medical aid? Their medical aid details will be deleted. This cannot be undone.`)) return;
+                                    deleteMember(member.id);
+                                  }}
+                                  disabled={isLoading}
+                                  className="p-2 rounded-lg transition-colors bg-red-100 text-red-600 hover:bg-red-200 disabled:opacity-50"
                                   title="Remove Member"
+                                  aria-label="Remove member"
                                 >
-                                  {deleteConfirm === member.id ? (
-                                    <motion.div
-                                      initial={{ scale: 0 }}
-                                      animate={{ scale: 1 }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteMember(member.id);
-                                      }}
-                                    >
-                                      <Check className="w-4 h-4" />
-                                    </motion.div>
-                                  ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                  )}
+                                  <Trash2 className="w-4 h-4" />
                                 </motion.button>
                               </>
                             )}
@@ -819,7 +784,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                               ? `No patients match "${searchTerm}" in your practice`
                               : totalPatientsInPractice === 0
                               ? `No patients found in your practice. Please add patients first.`
-                              : `All ${totalPatientsInPractice} patients in your practice are already linked to medical aids`
+                              : `All ${totalPatientsInPractice} patients in your practice are already on this medical aid`
                             }
                           </p>
                           {searchTerm && (

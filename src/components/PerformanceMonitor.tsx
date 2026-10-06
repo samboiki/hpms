@@ -13,7 +13,19 @@ interface PerformanceStats {
   activeCacheEntries: number;
 }
 
+// Developer tool (mounted only in development). It stays hidden until toggled with Ctrl+Alt+P, remembered
+// in this browser, because its floating button covered page controls for everyone testing on the dev server.
+const ENABLED_KEY = 'hpms:perf-monitor';
+const readEnabled = (): boolean => {
+  try {
+    return localStorage.getItem(ENABLED_KEY) === '1';
+  } catch {
+    return false;
+  }
+};
+
 export const PerformanceMonitor: React.FC = () => {
+  const [enabled, setEnabled] = useState(readEnabled);
   const [stats, setStats] = useState<PerformanceStats>({
     cacheHits: 0,
     cacheMisses: 0,
@@ -27,6 +39,23 @@ export const PerformanceMonitor: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && event.altKey && event.key.toLowerCase() === 'p')) return;
+      setEnabled((previous) => {
+        try {
+          localStorage.setItem(ENABLED_KEY, previous ? '0' : '1');
+        } catch {
+          // Storage unavailable: the toggle still works for this page load
+        }
+        return !previous;
+      });
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!enabled) return;
     const updateStats = () => {
       const cacheStats = lightningCache.getStats();
       const supabaseStats = (window as any).__supabaseStats || { 
@@ -50,7 +79,9 @@ export const PerformanceMonitor: React.FC = () => {
     const interval = setInterval(updateStats, 2000); // Update every 2 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [enabled]);
+
+  if (!enabled) return null;
 
   if (!isVisible) {
     return (

@@ -20,7 +20,7 @@ export async function sendAppointmentReminderSMS(
   patientId?: string,
   appointmentId?: string
 ) {
-  const message = `Hi ${patientName}, this is a reminder for your appointment with Dr. ${doctorName} on ${appointmentDate} at ${appointmentTime}. Reply CONFIRM to confirm or CANCEL to cancel.`;
+  const message = `Hi ${patientName}, this is a reminder for your appointment with Dr. ${doctorName} on ${appointmentDate} at ${appointmentTime}. If you need to change or cancel it, please call the practice.`;
   
   return await communicationService.sendSMS({
     practiceId,

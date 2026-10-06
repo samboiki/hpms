@@ -61,6 +61,98 @@ export interface UpdateDeliveryStatusRequest {
   timestamp?: string;
 }
 
+export interface DeliveryStatistics {
+  total: number;
+  byChannel: {
+    inApp: { sent: number; delivered: number; failureRate: number };
+    email: { sent: number; delivered: number; opened: number; clicked: number; failureRate: number };
+    sms: { sent: number; delivered: number; failureRate: number };
+    push: { sent: number; delivered: number; clicked: number; failureRate: number };
+  };
+  byStatus: {
+    successful: number;
+    partial: number;
+    failed: number;
+  };
+}
+
+const failureRate = (sent: number, delivered: number): number => (sent > 0 ? ((sent - delivered) / sent) * 100 : 0);
+
+/**
+ * Delivery statistics from tracking rows. Every row starts with all four channels set to false,
+ * so false alone means "never tried": a channel only counts as sent once it has an outcome
+ * (delivered, a failure reason, or an open/click). Counting false as sent made every SMS-only
+ * notification look like three failed channels and a "partial" delivery.
+ */
+export function computeDeliveryStatistics(deliveries: NotificationDelivery[]): DeliveryStatistics {
+  const stats: DeliveryStatistics = {
+    total: deliveries.length,
+    byChannel: {
+      inApp: { sent: 0, delivered: 0, failureRate: 0 },
+      email: { sent: 0, delivered: 0, opened: 0, clicked: 0, failureRate: 0 },
+      sms: { sent: 0, delivered: 0, failureRate: 0 },
+      push: { sent: 0, delivered: 0, clicked: 0, failureRate: 0 }
+    },
+    byStatus: { successful: 0, partial: 0, failed: 0 }
+  };
+
+  deliveries.forEach(delivery => {
+    const channels = [
+      { attempted: delivery.in_app_delivered === true, delivered: delivery.in_app_delivered === true },
+      {
+        attempted: delivery.email_delivered === true || !!delivery.email_failure_reason || !!delivery.email_opened_at || !!delivery.email_clicked_at,
+        delivered: delivery.email_delivered === true
+      },
+      { attempted: delivery.sms_delivered === true || !!delivery.sms_failure_reason, delivered: delivery.sms_delivered === true },
+      {
+        attempted: delivery.push_delivered === true || !!delivery.push_failure_reason || !!delivery.push_clicked_at,
+        delivered: delivery.push_delivered === true
+      }
+    ];
+    const [inApp, email, sms, push] = channels;
+
+    if (inApp.attempted) {
+      stats.byChannel.inApp.sent++;
+      if (inApp.delivered) stats.byChannel.inApp.delivered++;
+    }
+    if (email.attempted) {
+      stats.byChannel.email.sent++;
+      if (email.delivered) stats.byChannel.email.delivered++;
+      if (delivery.email_opened_at) stats.byChannel.email.opened++;
+      if (delivery.email_clicked_at) stats.byChannel.email.clicked++;
+    }
+    if (sms.attempted) {
+      stats.byChannel.sms.sent++;
+      if (sms.delivered) stats.byChannel.sms.delivered++;
+    }
+    if (push.attempted) {
+      stats.byChannel.push.sent++;
+      if (push.delivered) stats.byChannel.push.delivered++;
+      if (delivery.push_clicked_at) stats.byChannel.push.clicked++;
+    }
+
+    const attempted = channels.filter(channel => channel.attempted);
+    // No outcome on any channel yet: still in progress, so neither a success nor a failure
+    if (attempted.length === 0) return;
+    const delivered = attempted.filter(channel => channel.delivered).length;
+    if (delivered === attempted.length) {
+      stats.byStatus.successful++;
+    } else if (delivered > 0) {
+      stats.byStatus.partial++;
+    } else {
+      stats.byStatus.failed++;
+    }
+  });
+
+  const { inApp, email, sms, push } = stats.byChannel;
+  inApp.failureRate = failureRate(inApp.sent, inApp.delivered);
+  email.failureRate = failureRate(email.sent, email.delivered);
+  sms.failureRate = failureRate(sms.sent, sms.delivered);
+  push.failureRate = failureRate(push.sent, push.delivered);
+
+  return stats;
+}
+
 class NotificationDeliveryService {
   private static instance: NotificationDeliveryService;
   
@@ -274,94 +366,9 @@ class NotificationDeliveryService {
       if (deliveryError) {
         throw new Error(`Failed to get deliveries: ${deliveryError.message}`);
       }
-      
-      // Calculate statistics
-      const stats = {
-        total: deliveries?.length || 0,
-        byChannel: {
-          inApp: { sent: 0, delivered: 0, failureRate: 0 },
-          email: { sent: 0, delivered: 0, opened: 0, clicked: 0, failureRate: 0 },
-          sms: { sent: 0, delivered: 0, failureRate: 0 },
-          push: { sent: 0, delivered: 0, clicked: 0, failureRate: 0 }
-        },
-        byStatus: {
-          successful: 0,
-          partial: 0,
-          failed: 0
-        }
-      };
-      
-      deliveries?.forEach(delivery => {
-        // Count by channel
-        if (delivery.in_app_delivered !== null) {
-          stats.byChannel.inApp.sent++;
-          if (delivery.in_app_delivered) stats.byChannel.inApp.delivered++;
-        }
-        
-        if (delivery.email_delivered !== null) {
-          stats.byChannel.email.sent++;
-          if (delivery.email_delivered) stats.byChannel.email.delivered++;
-          if (delivery.email_opened_at) stats.byChannel.email.opened++;
-          if (delivery.email_clicked_at) stats.byChannel.email.clicked++;
-        }
-        
-        if (delivery.sms_delivered !== null) {
-          stats.byChannel.sms.sent++;
-          if (delivery.sms_delivered) stats.byChannel.sms.delivered++;
-        }
-        
-        if (delivery.push_delivered !== null) {
-          stats.byChannel.push.sent++;
-          if (delivery.push_delivered) stats.byChannel.push.delivered++;
-          if (delivery.push_clicked_at) stats.byChannel.push.clicked++;
-        }
-        
-        // Count by overall status
-        const channelsAttempted = [
-          delivery.in_app_delivered !== null,
-          delivery.email_delivered !== null,
-          delivery.sms_delivered !== null,
-          delivery.push_delivered !== null
-        ].filter(Boolean).length;
-        
-        const channelsDelivered = [
-          delivery.in_app_delivered,
-          delivery.email_delivered,
-          delivery.sms_delivered,
-          delivery.push_delivered
-        ].filter(Boolean).length;
-        
-        if (channelsDelivered === channelsAttempted) {
-          stats.byStatus.successful++;
-        } else if (channelsDelivered > 0) {
-          stats.byStatus.partial++;
-        } else {
-          stats.byStatus.failed++;
-        }
-      });
-      
-      // Calculate failure rates
-      if (stats.byChannel.inApp.sent > 0) {
-        stats.byChannel.inApp.failureRate = 
-          ((stats.byChannel.inApp.sent - stats.byChannel.inApp.delivered) / stats.byChannel.inApp.sent) * 100;
-      }
-      
-      if (stats.byChannel.email.sent > 0) {
-        stats.byChannel.email.failureRate = 
-          ((stats.byChannel.email.sent - stats.byChannel.email.delivered) / stats.byChannel.email.sent) * 100;
-      }
-      
-      if (stats.byChannel.sms.sent > 0) {
-        stats.byChannel.sms.failureRate = 
-          ((stats.byChannel.sms.sent - stats.byChannel.sms.delivered) / stats.byChannel.sms.sent) * 100;
-      }
-      
-      if (stats.byChannel.push.sent > 0) {
-        stats.byChannel.push.failureRate = 
-          ((stats.byChannel.push.sent - stats.byChannel.push.delivered) / stats.byChannel.push.sent) * 100;
-      }
-      
-      return stats;
+
+      // notification_deliveries is missing from the generated database types, hence the cast
+      return computeDeliveryStatistics((deliveries || []) as unknown as NotificationDelivery[]);
     } catch (error) {
       console.error('Error getting delivery statistics:', error);
       throw error;

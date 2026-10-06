@@ -410,8 +410,5 @@ export function createSMSService(practiceSettings: any): SMSPortalService | null
   });
 }
 
-// Default instance with provided credentials (for testing)
-export const defaultSMSService = new SMSPortalService({
-  clientId: '7c193f5e-c862-43be-baa9-73e45e676e74',
-  apiSecret: 'db3defe7-b01e-4983-b28d-88f228c16301',
-});
+// The hard-coded SMS Portal credentials that were exported here have been removed: a secret in
+// source code ships to every browser and stays in git history. Use communicationService.sendSMS.

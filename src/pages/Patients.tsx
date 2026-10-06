@@ -9,21 +9,23 @@ import PatientAnalytics from '../components/patients/PatientAnalytics';
 import { usePatientsStoreNew } from '../stores/patientsStoreNew';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePatientSettings } from '../hooks/usePatientSettings';
-import { useOutletContext } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../stores/themeStore';
 import { usePracticeData } from '../hooks/usePracticeData';
+import { toast } from 'react-hot-toast';
+import { PageTabs, type PageTab } from '../components/ui/PageTabs';
 
-interface LayoutContext {
-  toggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean;
-}
+const PATIENT_PAGE_TABS: readonly PageTab<'patients' | 'analytics' | 'settings'>[] = [
+  { key: 'patients', label: 'Patients', icon: 'solar:users-group-two-rounded-bold-duotone' },
+  { key: 'analytics', label: 'Analytics', icon: 'solar:chart-square-bold-duotone' },
+  { key: 'settings', label: 'Settings', icon: 'solar:settings-minimalistic-bold-duotone' }
+];
 
 // Main Patients Page Component
 const Patients: React.FC = () => {
   const { practiceId } = usePractice();
   const { user, logout } = useAuthStore();
   const { patients } = usePatientsStoreNew();
-  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
   const { practiceData, colors } = usePracticeData();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
@@ -34,6 +36,13 @@ const Patients: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const [searchParams] = useSearchParams();
+  const deepLinkPatientId = searchParams.get('patientId');
+
+  // A patient deep link (handled in PatientManagementView) needs the Patients tab mounted
+  useEffect(() => {
+    if (deepLinkPatientId) setActiveTab('patients');
+  }, [deepLinkPatientId]);
 
   // Update local settings when loaded from database
   React.useEffect(() => {
@@ -115,18 +124,7 @@ const Patients: React.FC = () => {
               
               {/* Right Side */}
               <div className="flex items-center gap-3">
-                {/* Mobile Menu Button - Right side on mobile/tablet */}
-                <div className="lg:hidden">
-                  <button 
-                    onClick={toggleMobileSidebar}
-                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
-                    <span className="text-sm font-medium hidden sm:block">Menu</span>
-                  </button>
-                </div>
-                
-                {/* User Avatar - Desktop only (right side) */}
+                {/* User Avatar - Desktop only (right side). Below lg the menu button is in the app bar (Layout) */}
                 {user && (
                   <div className="relative hidden lg:block">
                     <button
@@ -182,6 +180,8 @@ const Patients: React.FC = () => {
                 <button 
                   onClick={() => setIsAvatarDropdownOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
@@ -227,42 +227,14 @@ const Patients: React.FC = () => {
         )}
 
         {/* Main Tab Navigation - Professional Style */}
-        <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden mx-0 sm:mx-0">
-          <div className="grid grid-cols-3 gap-0 w-full">
-            {(['patients', 'analytics', 'settings'] as const).map((tab, index) => {
-              const tabConfig = {
-                patients: { icon: 'solar:users-group-two-rounded-bold-duotone', label: 'Patients' },
-                analytics: { icon: 'solar:chart-square-bold-duotone', label: 'Analytics' },
-                settings: { icon: 'solar:settings-minimalistic-bold-duotone', label: 'Settings' }
-              };
-              const { icon, label } = tabConfig[tab];
-              const isActive = activeTab === tab;
-              const isFirst = index === 0;
-              const isLast = index === 2;
-              
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize ${
-                    isFirst ? 'rounded-l-xl' : ''
-                  } ${
-                    isLast ? 'rounded-r-xl' : ''
-                  } ${
-                    !isFirst ? '-ml-px' : ''
-                  } flex-1 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg z-10'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="text-[10px] sm:text-sm">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <PageTabs
+          tabs={PATIENT_PAGE_TABS}
+          active={activeTab}
+          onChange={setActiveTab}
+          label="Patients sections"
+          activeClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
+          className="rounded-none sm:rounded-2xl border-x-0 sm:border-x"
+        />
 
         {/* Tab Content */}
         <div className="min-h-[600px]">
@@ -318,6 +290,15 @@ const Patients: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Only inactiveThresholdDays is read anywhere (PatientManagementView); the rest is stored only */}
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+                  <span>
+                    Only the Inactive Patient Threshold is applied in HPMS today. The other options are saved,
+                    but nothing uses them yet (for example, records are not anonymised automatically).
+                  </span>
+                </div>
+
                 {/* Default Values Section */}
                 <div className="border-b border-gray-200 pb-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Default Values</h3>
@@ -482,11 +463,15 @@ const Patients: React.FC = () => {
                       Cancel
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={async () => {
                       const success = await saveSettings(localSettings);
                       if (success) {
                         setHasChanges(false);
+                        toast.success('Patient settings saved');
+                      } else {
+                        // usePatientSettings only records the failure in its error state, which this page does not show
+                        toast.error('Patient settings could not be saved. Please try again.');
                       }
                     }}
                     disabled={!hasChanges || saving}

@@ -6,6 +6,7 @@ import { Patient } from '../../stores/patientsStoreNew';
 import { usePractice } from '../../contexts/PracticeContext';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { fillPlaceholders, findPlaceholders, formatMessageDate } from './messageText';
 
 interface ProfessionalEmailModalProps {
   isOpen: boolean;
@@ -25,17 +26,21 @@ interface EmailTemplate {
   color: string;
 }
 
+// Filled per recipient: here for a single patient, by the sender (onSend) for a bulk send
+const PATIENT_VARIABLES = ['patientName', 'patientFirstName', 'patientLastName'];
+
 const emailTemplates: EmailTemplate[] = [
   {
     id: 'appointment-confirmation',
     name: 'Appointment Confirmation',
     subject: 'Appointment Confirmation - {{practiceName}}',
+    // The appointment date and time must be typed in; they used to be filled with today's date and the current time
     content: `Dear {{patientName}},
 
 This email confirms your appointment with {{practiceName}}.
 
-Date: {{currentDate}}
-Time: {{currentTime}}
+Date: {{appointmentDate}}
+Time: {{appointmentTime}}
 
 Please arrive 15 minutes early for check-in. If you need to reschedule, please contact us at {{practicePhone}}.
 
@@ -86,8 +91,6 @@ The {{practiceName}} Team`,
 
 On behalf of everyone at {{practiceName}}, we wish you a very Happy Birthday!
 
-As our birthday gift to you, enjoy {{birthdayOffer}} on your next visit.
-
 Warmest wishes,
 The {{practiceName}} Family`,
     icon: 'solar:gift-bold-duotone',
@@ -112,10 +115,6 @@ const availableVariables = [
   { key: '{{practiceEmail}}', description: 'Practice email' },
   { key: '{{currentDate}}', description: 'Today\'s date' },
   { key: '{{currentTime}}', description: 'Current time' },
-  { key: '{{birthdayOffer}}', description: 'Birthday offer' },
-  { key: '{{referralBonus}}', description: 'Referral bonus' },
-  { key: '{{reviewLink}}', description: 'Review link' },
-  { key: '{{programName}}', description: 'Program name' },
 ];
 
 export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
@@ -187,33 +186,26 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
     return 'Unknown';
   };
 
+  // Only real values are filled in; anything unknown stays as {{variable}} and blocks sending.
+  // (Offers, referral bonuses, a review link and a programme name used to be made up here.)
+  const practiceValues = (): Record<string, string> => ({
+    practiceName: practiceData?.name || '',
+    practicePhone: practiceData?.contact_phone || '',
+    practiceEmail: practiceData?.contact_email || practiceData?.email || '',
+    currentDate: formatMessageDate(new Date()),
+    currentTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  });
+
   const replaceVariables = (text: string, specificPatient?: any): string => {
     const targetPatient = specificPatient || patient || recipients[0];
-    const firstName = targetPatient?.first_name || 'John';
-    const lastName = targetPatient?.last_name || 'Smith';
-    const fullName = `${firstName} ${lastName}`;
-    
-    const variables: Record<string, string> = {
-      '{{patientName}}': fullName,
-      '{{patientFirstName}}': firstName,
-      '{{patientLastName}}': lastName,
-      '{{practiceName}}': practiceData?.name || '',
-      '{{practicePhone}}': practiceData?.contact_phone || '',
-      '{{practiceEmail}}': practiceData?.contact_email || practiceData?.email || '',
-      '{{currentDate}}': new Date().toLocaleDateString(),
-      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      '{{birthdayOffer}}': '15% off your next visit',
-      '{{referralBonus}}': '$50 credit',
-      '{{reviewLink}}': 'https://g.page/r/healthcare/review',
-      '{{programName}}': 'Wellness Wednesday',
-    };
-
-    let processedText = text;
-    Object.entries(variables).forEach(([key, value]) => {
-      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+    const firstName = (targetPatient?.first_name || '').trim();
+    const lastName = (targetPatient?.last_name || '').trim();
+    return fillPlaceholders(text, {
+      ...practiceValues(),
+      patientName: `${firstName} ${lastName}`.trim(),
+      patientFirstName: firstName,
+      patientLastName: lastName,
     });
-    
-    return processedText;
   };
 
   const insertVariable = (variable: string) => {
@@ -272,7 +264,12 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
         // Single patient - process template for this specific patient
         const processedSubject = replaceVariables(subject, patient);
         const processedMessage = replaceVariables(message, patient);
-        
+        const unfilled = findPlaceholders(`${processedSubject}\n${processedMessage}`);
+        if (unfilled.length > 0) {
+          toast.error(`Please replace ${unfilled.join(', ')} before sending`);
+          return;
+        }
+
         recipientsList = [{ 
           id: patient.id, 
           first_name: patient.first_name, 
@@ -293,8 +290,18 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
         return;
       }
       
+      // Practice details and today's date are the same for every recipient, so fill them here;
+      // the sender fills in each patient's name
+      const bulkSubject = fillPlaceholders(subject, practiceValues());
+      const bulkMessage = fillPlaceholders(message, practiceValues());
+      const unfilled = findPlaceholders(`${bulkSubject}\n${bulkMessage}`, PATIENT_VARIABLES);
+      if (unfilled.length > 0) {
+        toast.error(`Please replace ${unfilled.join(', ')} before sending`);
+        return;
+      }
+
       // Call the bulk handler with all recipients at once (templates will be processed individually)
-      const result = await onSend(recipientsList, subject, message, attachments);
+      const result = await onSend(recipientsList, bulkSubject, bulkMessage, attachments);
       
       // Modal is closed by the parent component based on success
       if (result.success) {
@@ -483,6 +490,8 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                               return newAttachments;
                             });
                           }}
+                          aria-label={`Remove ${file.name}`}
+                          title="Remove attachment"
                           className="text-red-500 hover:text-red-700 transition-colors"
                         >
                           <Icon icon="solar:trash-bin-trash-bold" className="w-4 h-4" />
@@ -531,8 +540,10 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">From:</span>
-                    <span className="text-sm font-medium">{practiceData?.name || 'Your Practice'}</span>
-                    <span className="text-sm text-gray-500">&lt;{practiceData?.contact_email || practiceData?.email || 'contact@practice.com'}&gt;</span>
+                    <span className="text-sm font-medium">{practiceData?.name || 'Your practice'}</span>
+                    {(practiceData?.contact_email || practiceData?.email) && (
+                      <span className="text-sm text-gray-500">&lt;{practiceData?.contact_email || practiceData?.email}&gt;</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-600">To:</span>
@@ -569,6 +580,7 @@ export const ProfessionalEmailModal: React.FC<ProfessionalEmailModalProps> = ({
             whileTap={{ scale: 0.98 }}
             onClick={handleSend}
             disabled={!subject.trim() || !message.trim() || isSending}
+            title={!subject.trim() ? 'Enter a subject first' : !message.trim() ? 'Type a message or choose a template first' : undefined}
             className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isSending ? (

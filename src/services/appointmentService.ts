@@ -166,14 +166,17 @@ export class AppointmentService {
     try {
       const { data: appointment, error: aptError } = await supabase
         .from('visits')
-        .select('*, patients(*), users!doctor_id(*), practices(*)')
+        // visits has two foreign keys to patients and two to practices; unnamed embeds fail (PGRST201)
+        .select('*, patients!visits_patient_id_fkey(*), users!doctor_id(*), practices!visits_practice_id_fkey(*)')
         .eq('id', appointmentId)
         .single();
 
       if (aptError) throw aptError;
 
       const reminders = [];
-      const appointmentDateTime = new Date(`${appointment.date}T${appointment.time}`);
+      // Bookings live in visits, which stores the slot in scheduled_date/scheduled_time; visits has no
+      // date/time columns, so the old read gave an invalid date and no reminder was ever scheduled
+      const appointmentDateTime = new Date(`${appointment.scheduled_date}T${appointment.scheduled_time}`);
 
       for (const timing of timings) {
         let scheduledFor: Date;
@@ -226,6 +229,7 @@ export class AppointmentService {
    * Send appointment reminder
    */
   static async sendReminder(reminderId: string) {
+    let attempts = 0;
     try {
       // Get reminder details
       const { data: reminder, error: reminderError } = await supabase
@@ -234,7 +238,7 @@ export class AppointmentService {
           *,
           appointments(
             *,
-            patients(*),
+            patients!appointments_patient_id_fkey(*),
             users!doctor_id(*)
           )
         `)
@@ -242,6 +246,7 @@ export class AppointmentService {
         .single();
 
       if (reminderError) throw reminderError;
+      attempts = reminder.attempts ?? 0;
 
       const appointment = reminder.appointments;
       const patient = appointment.patients;
@@ -357,7 +362,6 @@ export class AppointmentService {
 
             return { success: false, error: result.error };
           }
-        }
       }
 
       // TODO: Send email if enabled and patient has email
@@ -372,7 +376,7 @@ export class AppointmentService {
         .update({
           status: 'failed',
           error_message: error instanceof Error ? error.message : 'Unknown error',
-          attempts: reminder.attempts + 1,
+          attempts: attempts + 1,
           last_attempt_at: new Date().toISOString(),
         })
         .eq('id', reminderId);

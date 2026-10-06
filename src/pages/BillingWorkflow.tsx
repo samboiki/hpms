@@ -23,16 +23,22 @@ import {
   Receipt
 } from 'lucide-react';
 
+// null = the count could not be loaded (query failed or the table does not exist), shown as "-"
 interface TableStats {
-  patients: number;
-  visits: number;
-  invoices: number;
-  invoiceItems: number;
-  visitServices: number;
-  practiceTariffs: number;
-  medicalAidCoverage: number;
-  paymentRecords: number;
+  patients: number | null;
+  visits: number | null;
+  invoices: number | null;
+  invoiceItems: number | null;
+  visitServices: number | null;
+  practiceTariffs: number | null;
+  medicalAidCoverage: number | null;
+  paymentRecords: number | null;
 }
+
+const countOf = (res: { count: number | null; error: unknown }): number | null =>
+  res.error ? null : res.count ?? 0;
+
+const formatCount = (value: number | null): string => (value === null ? '-' : value.toLocaleString());
 
 interface WorkflowNode {
   id: string;
@@ -68,6 +74,7 @@ export default function BillingWorkflow() {
   }, []);
 
   const fetchTableStats = async () => {
+    setLoading(true);
     try {
       const [
         patientsCount,
@@ -90,14 +97,14 @@ export default function BillingWorkflow() {
       ]);
 
       setStats({
-        patients: patientsCount.count || 0,
-        visits: visitsCount.count || 0,
-        invoices: invoicesCount.count || 0,
-        invoiceItems: invoiceItemsCount.count || 0,
-        visitServices: visitServicesCount.count || 0,
-        practiceTariffs: practiceTariffsCount.count || 0,
-        medicalAidCoverage: medicalAidCoverageCount.count || 0,
-        paymentRecords: paymentRecordsCount.count || 0
+        patients: countOf(patientsCount),
+        visits: countOf(visitsCount),
+        invoices: countOf(invoicesCount),
+        invoiceItems: countOf(invoiceItemsCount),
+        visitServices: countOf(visitServicesCount),
+        practiceTariffs: countOf(practiceTariffsCount),
+        medicalAidCoverage: countOf(medicalAidCoverageCount),
+        paymentRecords: countOf(paymentRecordsCount)
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -204,7 +211,7 @@ export default function BillingWorkflow() {
           icon: CreditCard,
           color: 'from-green-500 to-teal-500',
           tables: ['payment_records'],
-          components: ['Payment section in Billing page'],
+          components: ['Payment section in Finance page'],
           actions: [
             'Select payment method',
             'Record payment amount',
@@ -277,10 +284,10 @@ export default function BillingWorkflow() {
                               className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium"
                             >
                               {table}
-                              {table === 'patients' && ` (${stats.patients})`}
-                              {table === 'visits' && ` (${stats.visits})`}
-                              {table === 'invoices_enhanced' && ` (${stats.invoices})`}
-                              {table === 'practice_tariffs' && ` (${stats.practiceTariffs})`}
+                              {table === 'patients' && ` (${formatCount(stats.patients)})`}
+                              {table === 'visits' && ` (${formatCount(stats.visits)})`}
+                              {table === 'invoices_enhanced' && ` (${formatCount(stats.invoices)})`}
+                              {table === 'practice_tariffs' && ` (${formatCount(stats.practiceTariffs)})`}
                             </span>
                           ))}
                         </div>
@@ -336,6 +343,8 @@ export default function BillingWorkflow() {
                       toggleNodeExpansion(node.id);
                     }}
                     className="ml-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                    aria-label={isExpanded ? `Hide steps under ${node.title}` : `Show steps under ${node.title}`}
+                    title={isExpanded ? 'Hide steps' : 'Show steps'}
                   >
                     {isExpanded ? (
                       <ChevronDown className="w-5 h-5 text-gray-500" />
@@ -408,7 +417,7 @@ export default function BillingWorkflow() {
                 <div>
                   <p className="text-blue-100">Total Patients</p>
                   <p className="text-3xl font-bold mt-2">
-                    {loading ? '...' : stats.patients.toLocaleString()}
+                    {loading ? '...' : formatCount(stats.patients)}
                   </p>
                 </div>
                 <Users className="w-12 h-12 text-blue-200" />
@@ -422,7 +431,7 @@ export default function BillingWorkflow() {
                 <div>
                   <p className="text-green-100">Total Visits</p>
                   <p className="text-3xl font-bold mt-2">
-                    {loading ? '...' : stats.visits.toLocaleString()}
+                    {loading ? '...' : formatCount(stats.visits)}
                   </p>
                 </div>
                 <Activity className="w-12 h-12 text-green-200" />
@@ -436,7 +445,7 @@ export default function BillingWorkflow() {
                 <div>
                   <p className="text-purple-100">Total Invoices</p>
                   <p className="text-3xl font-bold mt-2">
-                    {loading ? '...' : stats.invoices.toLocaleString()}
+                    {loading ? '...' : formatCount(stats.invoices)}
                   </p>
                 </div>
                 <FileText className="w-12 h-12 text-purple-200" />
@@ -450,7 +459,7 @@ export default function BillingWorkflow() {
                 <div>
                   <p className="text-orange-100">Payment Records</p>
                   <p className="text-3xl font-bold mt-2">
-                    {loading ? '...' : stats.paymentRecords.toLocaleString()}
+                    {loading ? '...' : formatCount(stats.paymentRecords)}
                   </p>
                 </div>
                 <CreditCard className="w-12 h-12 text-orange-200" />
@@ -473,8 +482,8 @@ export default function BillingWorkflow() {
                   <strong> 3. System creates invoice</strong> → <strong>4. Patient pays</strong>
                 </p>
                 <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                  Click on any box below to see detailed information about each step. The numbers in parentheses 
-                  show how many records exist in each database table.
+                  Click on any box below to see detailed information about each step. The numbers in parentheses
+                  show how many records exist in each database table (a dash means the count could not be loaded).
                 </p>
               </div>
             </div>
@@ -544,7 +553,7 @@ export default function BillingWorkflow() {
                   <li>• <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">src/services/invoiceService.ts</code> - Core billing logic</li>
                   <li>• <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">src/components/billing/ServiceSelector.tsx</code> - Service selection UI</li>
                   <li>• <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">src/components/forms/AddVisitForm.tsx</code> - Visit with billing</li>
-                  <li>• <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">src/pages/Billing.tsx</code> - Billing dashboard</li>
+                  <li>• <code className="bg-gray-200 dark:bg-gray-600 px-1 rounded">src/pages/Finance.tsx</code> - Billing dashboard</li>
                 </ul>
               </div>
               <div>

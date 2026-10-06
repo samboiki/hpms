@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getResultStatus } from '../../utils/labResultStatus';
 
 interface LabResult {
   id: string;
@@ -223,6 +224,13 @@ const LabResultsManager: React.FC<LabResultsManagerProps> = ({
     }
   };
 
+  // The status is picked by hand and defaults to Normal, so a value outside its reference range
+  // could be shown as Normal; a hand-set High/Low/Critical always wins, otherwise the range decides
+  const getDisplayStatus = (result: LabResult): string => {
+    if (result.status && result.status !== 'normal') return result.status;
+    return getResultStatus(result.value, result.reference_range);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'normal': return 'bg-green-100 text-green-800';
@@ -328,9 +336,9 @@ const LabResultsManager: React.FC<LabResultsManagerProps> = ({
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      {getStatusIcon(result.status)}
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(result.status)}`}>
-                        {result.status.charAt(0).toUpperCase() + result.status.slice(1)}
+                      {getStatusIcon(getDisplayStatus(result))}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(getDisplayStatus(result))}`}>
+                        {getDisplayStatus(result).charAt(0).toUpperCase() + getDisplayStatus(result).slice(1)}
                       </span>
                     </div>
                   </td>

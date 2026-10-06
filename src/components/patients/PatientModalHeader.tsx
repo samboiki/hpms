@@ -11,7 +11,6 @@ import {
   X,
   UserPlus,
   Shield,
-  Stethoscope,
   ArrowLeft,
   Bot,
   Sparkles,
@@ -23,6 +22,9 @@ import {
   Calendar
 } from 'lucide-react';
 import { Patient } from '../../stores/patientsStoreNew';
+import { format, isValid, parseISO } from 'date-fns';
+import { emailUnavailableReason, smsUnavailableReason } from './patientContact';
+import { ageInYears, countRegisteredInMonth, describeMedicalAidRelationship } from './patientSummary';
 
 interface PatientDetails {
   id: string;
@@ -105,7 +107,8 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
   beneficiariesCount = 0
 }) => {
   const totalPatients = filteredPatients.length;
-  const newThisMonth = Math.floor(totalPatients * 0.15);
+  // Registered this calendar month (was a made-up 15% of all patients)
+  const newThisMonth = countRegisteredInMonth(filteredPatients);
   const withMedicalAid = filteredPatients.filter(p => 
     p.medical_aid_details && p.medical_aid_details.length > 0
   ).length;
@@ -113,14 +116,13 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
     ? Math.round((withMedicalAid / totalPatients) * 100) 
     : 0;
     
-  // Animated age counter
+  // Animated age counter; patientAge is null when the date of birth is missing or unreadable
   const [displayAge, setDisplayAge] = useState(0);
-  const patientAge = selectedPatientDetails?.date_of_birth 
-    ? Math.floor((Date.now() - new Date(selectedPatientDetails.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
-    : 0;
-    
+  const patientAge = ageInYears(selectedPatientDetails?.date_of_birth);
+  const dateOfBirth = selectedPatientDetails?.date_of_birth ? parseISO(selectedPatientDetails.date_of_birth) : null;
+
   useEffect(() => {
-    if (patientAge > 0 && activeTab === 'details') {
+    if (patientAge !== null && patientAge > 0 && activeTab === 'details') {
       const controls = animate(0, patientAge, {
         duration: 1.5,
         ease: "easeOut",
@@ -128,7 +130,13 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
       });
       return () => controls.stop();
     }
+    // Babies and unknown ages are not animated, but must never keep the previous patient's age
+    setDisplayAge(patientAge ?? 0);
   }, [patientAge, activeTab]);
+
+  // Message and Email stay visible but disabled, with the reason, when the contact detail can't be used
+  const smsDisabledReason = smsUnavailableReason(selectedPatientDetails?.cell_number);
+  const emailDisabledReason = emailUnavailableReason(selectedPatientDetails?.email);
   return (
     <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
       {activeTab === 'patients' ? (
@@ -155,12 +163,15 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                 onClick={onToggleFullScreen}
                 className="p-3 sm:p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 touch-manipulation flex items-center justify-center"
                 title={isFullScreen ? 'Exit Full Screen (Esc or F11)' : 'Full Screen (F11)'}
+                aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
               >
                 {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
               </motion.button>
               <button
                 onClick={onClose}
                 className="p-3 sm:p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 touch-manipulation flex items-center justify-center"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -168,7 +179,7 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
           </div>
           
           {/* Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-4">
             {/* Total Patients */}
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
@@ -185,7 +196,7 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   {totalPatients}
                 </p>
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-white/60">active records</p>
+                  <p className="text-xs text-white/60">patient records</p>
                   <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">TOTAL</div>
                 </div>
               </div>
@@ -234,28 +245,6 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                 </div>
               </div>
             </motion.div>
-
-            {/* Active Services */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.3 }}
-              className="bg-gradient-to-br from-white/15 to-white/5 rounded-xl p-4 backdrop-blur-sm border border-white/20 hover:border-white/40 transition-all duration-200 group relative overflow-hidden"
-            >
-              <div className="absolute -right-2 -top-2 opacity-10 group-hover:opacity-20 transition-opacity duration-300">
-                <Stethoscope className="w-20 h-20 text-white transform rotate-12" />
-              </div>
-              <div className="relative z-10">
-                <p className="text-white/80 text-sm font-medium mb-1">Patient Services</p>
-                <p className="text-2xl font-bold text-white group-hover:scale-105 transition-transform duration-300">
-                  8
-                </p>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-white/60">services available</p>
-                  <div className="text-xs text-white/60 bg-white/10 px-2 py-1 rounded-full">CARE</div>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </div>
       ) : (
@@ -271,6 +260,7 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   title="Back to Patients List"
+                  aria-label="Back to patients list"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
@@ -288,27 +278,56 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
             <div className="flex items-center gap-3">
               {/* Action Buttons - Hidden on mobile/tablet, moved to hamburger menu */}
               <div className="hidden lg:flex items-center gap-3">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onSendMessage}
-                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-                  title="Send SMS"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Message</span>
-                </motion.button>
-                
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={onSendEmail}
-                  className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
-                  title="Send Email"
-                >
-                  <Mail className="w-4 h-4" />
-                  <span>Email</span>
-                </motion.button>
+                {smsDisabledReason ? (
+                  // A disabled button shows no tooltip in every browser, so the wrapper carries it
+                  <span title={smsDisabledReason} className="cursor-not-allowed">
+                    <button
+                      type="button"
+                      disabled
+                      aria-label={`Message unavailable: ${smsDisabledReason}`}
+                      className="px-4 py-2 bg-white/20 rounded-lg flex items-center gap-2 opacity-50 pointer-events-none"
+                    >
+                      <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                      <span>Message</span>
+                    </button>
+                  </span>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onSendMessage}
+                    className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                    title="Send SMS"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Message</span>
+                  </motion.button>
+                )}
+
+                {emailDisabledReason ? (
+                  <span title={emailDisabledReason} className="cursor-not-allowed">
+                    <button
+                      type="button"
+                      disabled
+                      aria-label={`Email unavailable: ${emailDisabledReason}`}
+                      className="px-4 py-2 bg-white/20 rounded-lg flex items-center gap-2 opacity-50 pointer-events-none"
+                    >
+                      <Mail className="w-4 h-4" aria-hidden="true" />
+                      <span>Email</span>
+                    </button>
+                  </span>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={onSendEmail}
+                    className="px-4 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors flex items-center gap-2"
+                    title="Send Email"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Email</span>
+                  </motion.button>
+                )}
                 
                 <motion.button
                   whileHover={{ scale: 1.05 }}
@@ -330,6 +349,8 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   onSendMessage={onSendMessage}
                   onSendEmail={onSendEmail}
                   onEditProfile={onEditProfile}
+                  messageDisabledReason={smsDisabledReason}
+                  emailDisabledReason={emailDisabledReason}
                 />
               </div>
               
@@ -341,13 +362,16 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   onClick={onToggleFullScreen}
                   className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
                   title={isFullScreen ? 'Exit Full Screen (Esc or F11)' : 'Full Screen (F11)'}
+                  aria-label={isFullScreen ? 'Exit full screen' : 'Full screen'}
                 >
                   {isFullScreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
                 </motion.button>
-                
+
                 <button
                   onClick={onClose}
                   className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -378,17 +402,21 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                     className="flex items-center gap-2"
                   >
                     <Calendar className="w-4 h-4 text-white/70" />
-                    <p className="text-white text-lg font-bold">
-                      <motion.span
-                        key={displayAge}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        {displayAge}
-                      </motion.span>
-                      <span className="text-sm ml-1">years old</span>
-                    </p>
+                    {patientAge === null ? (
+                      <p className="text-white/80 text-sm font-semibold">Age unknown</p>
+                    ) : (
+                      <p className="text-white text-lg font-bold">
+                        <motion.span
+                          key={displayAge}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {displayAge}
+                        </motion.span>
+                        <span className="text-sm ml-1">years old</span>
+                      </p>
+                    )}
                   </motion.div>
                   
                   {/* Gender and Birth Date */}
@@ -398,9 +426,7 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                       {selectedPatientDetails?.gender || 'Not specified'}
                     </p>
                     <p className="text-white/60 text-xs">
-                      Born {selectedPatientDetails?.date_of_birth 
-                        ? new Date(selectedPatientDetails.date_of_birth).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-                        : 'Unknown'}
+                      Born {dateOfBirth && isValid(dateOfBirth) ? format(dateOfBirth, 'dd MMM yyyy') : 'Unknown'}
                     </p>
                   </div>
                   
@@ -450,9 +476,9 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                 <p className="text-white/80 text-sm font-medium mb-2">Contact & Employment</p>
                 <div className="space-y-1.5">
                   {/* Contact Information */}
-                  {selectedPatientDetails?.cell_number ? (
+                  {selectedPatientDetails?.cell_number || selectedPatientDetails?.email ? (
                     <>
-                      <p className="text-white text-sm font-semibold">{selectedPatientDetails.cell_number}</p>
+                      <p className="text-white text-sm font-semibold">{selectedPatientDetails?.cell_number || 'No cell number'}</p>
                       <p className="text-white/80 text-xs truncate">{selectedPatientDetails?.email || 'No email'}</p>
                     </>
                   ) : (
@@ -508,8 +534,8 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                           <span className="text-white/60 text-xs">• Total: {beneficiariesCount}</span>
                         )}
                       </div>
-                      <p className="text-white/60 text-xs">Option: {medicalAid.plan_type}</p>
-                      <p className="text-white/60 text-xs">{medicalAid.relationship_to_main === 'Main Member' ? 'Main Member' : `Dependent (${medicalAid.relationship_to_main})`}</p>
+                      <p className="text-white/60 text-xs">Option: {medicalAid.plan_type || 'Not recorded'}</p>
+                      <p className="text-white/60 text-xs">{describeMedicalAidRelationship(medicalAid.relationship_to_main)}</p>
                     </>
                   ) : (
                     <>

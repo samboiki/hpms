@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { toast } from 'react-hot-toast';
+import { formatNad } from '../../utils/billing/money';
 
 interface Tariff {
   id: string;
@@ -35,6 +37,7 @@ const TariffManagement: React.FC = () => {
   const { user, selectedPracticeId } = useAuthStore();
   const [tariffs, setTariffs] = useState<Tariff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -71,12 +74,16 @@ const TariffManagement: React.FC = () => {
   useEffect(() => {
     if (practiceId) {
       fetchTariffs();
+    } else {
+      // No practice selected: show the empty table instead of an endless spinner
+      setLoading(false);
     }
   }, [practiceId]);
 
   const fetchTariffs = async () => {
     try {
       setLoading(true);
+      setLoadError(false);
       const { data, error } = await supabase
         .from('practice_tariffs')
         .select('*')
@@ -88,12 +95,19 @@ const TariffManagement: React.FC = () => {
       setTariffs(data || []);
     } catch (error) {
       console.error('Error fetching tariffs:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveTariff = async () => {
+    // The fields are marked * but are not inside a <form>, so `required` alone checks nothing
+    if (!formData.service_name.trim() || !formData.service_code.trim()) {
+      toast.error('Enter a service name and a service code.');
+      return;
+    }
+
     try {
       if (editingTariff) {
         // Update existing tariff
@@ -119,14 +133,16 @@ const TariffManagement: React.FC = () => {
       }
 
       await fetchTariffs();
+      toast.success(editingTariff ? 'Tariff updated' : 'Tariff created');
       handleCloseModal();
     } catch (error) {
       console.error('Error saving tariff:', error);
+      toast.error('The tariff could not be saved. Please try again.');
     }
   };
 
   const handleDeleteTariff = async (tariffId: string) => {
-    if (!confirm('Are you sure you want to delete this tariff?')) return;
+    if (!confirm('Delete this tariff? This cannot be undone.')) return;
 
     try {
       const { error } = await supabase
@@ -136,8 +152,10 @@ const TariffManagement: React.FC = () => {
 
       if (error) throw error;
       await fetchTariffs();
+      toast.success('Tariff deleted');
     } catch (error) {
       console.error('Error deleting tariff:', error);
+      toast.error('The tariff could not be deleted. Please try again.');
     }
   };
 
@@ -170,9 +188,10 @@ const TariffManagement: React.FC = () => {
   };
 
   const filteredTariffs = tariffs.filter(tariff => {
-    const matchesSearch = tariff.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tariff.service_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tariff.description.toLowerCase().includes(searchTerm.toLowerCase());
+    // Guard nulls: description (and possibly name/code) can be empty in the database
+    const matchesSearch = (tariff.service_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (tariff.service_code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (tariff.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'all' || tariff.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -273,7 +292,7 @@ const TariffManagement: React.FC = () => {
                 ) : filteredTariffs.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      No tariffs found
+                      {loadError ? 'Tariffs could not be loaded. Please refresh the page.' : 'No tariffs found'}
                     </td>
                   </tr>
                 ) : (
@@ -294,7 +313,7 @@ const TariffManagement: React.FC = () => {
                         </Badge>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tariff.currency} {tariff.base_price.toFixed(2)}
+                        {tariff.base_price == null ? '-' : formatNad(Number(tariff.base_price) || 0)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <Badge className={tariff.is_active ? 
@@ -309,12 +328,16 @@ const TariffManagement: React.FC = () => {
                           <button
                             onClick={() => handleEditTariff(tariff)}
                             className="text-[#01b9d4] hover:text-[#0196be]"
+                            aria-label={`Edit ${tariff.service_name || 'tariff'}`}
+                            title="Edit tariff"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDeleteTariff(tariff.id)}
                             className="text-red-600 hover:text-red-900"
+                            aria-label={`Delete ${tariff.service_name || 'tariff'}`}
+                            title="Delete tariff"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -337,7 +360,7 @@ const TariffManagement: React.FC = () => {
               <h2 className="text-xl font-bold text-gray-900">
                 {editingTariff ? 'Edit Tariff' : 'Create New Tariff'}
               </h2>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg" aria-label="Close" title="Close">
                 <X className="w-5 h-5" />
               </button>
             </div>

@@ -34,7 +34,7 @@ interface DashboardStats {
     id: string; 
     visit_date: string; 
     status: string; 
-    patient?: { gender?: string; date_of_birth?: string; }; 
+    patient?: { id?: string; gender?: string; date_of_birth?: string; };
     scheduled_time?: string;
     branch_id?: string;
   }>;
@@ -565,7 +565,9 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
   }, [activeSubTabState, practiceId]);
 
   const fetchGeographicData = async () => {
-    const effectivePracticeId = practiceId || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+    // Never fall back to another practice's records
+    if (!practiceId) return;
+    const effectivePracticeId = practiceId;
     
     console.log('🔍 Fetching geographic data for practice:', effectivePracticeId);
     setLoadingGeographic(true);
@@ -1048,14 +1050,11 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
         completed: visitData.completed,
         cancelled: visitData.cancelled
       };
-    }).reverse(); // Show most recent first
+    }); // Chronological (oldest first) so the chart's x-axis reads left-to-right
   }, [selectedDateRange, filteredStats]);
 
   // Generate new patient acquisition data with gender segmentation
   const newPatientAcquisitionData = useMemo(() => {
-    // Always generate sample data if no real data exists
-    const hasRealData = filteredStats.rawVisitData && filteredStats.rawVisitData.length > 0;
-
     // Get date range for chart
     const endDate = new Date();
     let startDate = new Date();
@@ -1144,24 +1143,9 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
     return timePoints.map((date, index) => {
       const timeKey = groupByMonth ? format(date, 'MMM yyyy') : format(date, 'MMM dd');
       
-      let counts = { male: 0, female: 0, unknown: 0 };
-      
-      if (hasRealData) {
-        counts = newPatientCounts[timeKey] || { male: 0, female: 0, unknown: 0 };
-      } else {
-        // Generate sample data with realistic distribution
-        const totalForPeriod = Math.floor(Math.random() * 8) + 1; // 1-8 new patients per period
-        const femaleRatio = 0.58; // 58% female, 42% male based on stats
-        const femaleCount = Math.round(totalForPeriod * femaleRatio);
-        const maleCount = totalForPeriod - femaleCount;
-        
-        counts = {
-          male: maleCount,
-          female: femaleCount,
-          unknown: 0
-        };
-      }
-      
+      // Real counts only: periods without new patients show zero (this used to draw random sample data)
+      const counts = newPatientCounts[timeKey] || { male: 0, female: 0, unknown: 0 };
+
       return {
         period: timeKey,
         malePatients: counts.male,
@@ -1172,6 +1156,19 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
       };
     });
   }, [filteredStats, selectedDateRange]);
+
+  // Summary tiles under the acquisition chart, taken from the same data the chart plots
+  const acquisitionTotals = useMemo(() => newPatientAcquisitionData.reduce(
+    (totals, point) => ({
+      total: totals.total + point.totalPatients,
+      male: totals.male + point.malePatients,
+      female: totals.female + point.femalePatients,
+      peak: Math.max(totals.peak, point.totalPatients)
+    }),
+    { total: 0, male: 0, female: 0, peak: 0 }
+  ), [newPatientAcquisitionData]);
+  const acquisitionShare = (count: number) =>
+    acquisitionTotals.total > 0 ? `${Math.round((count / acquisitionTotals.total) * 100)}%` : '-';
 
   const renderAnalyticsContent = () => {
     if (activeSubTabState === 'insights') {
@@ -1195,7 +1192,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                  selectedDateRange === '3m' ? '3M' : '6M'}
               </span>
             </div>
-            <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 324}</p>
+            <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 0}</p>
             <p className="text-xs text-gray-600 mt-1">Total Visits</p>
           </div>
           
@@ -1450,7 +1447,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
               <div className="text-center p-3 bg-emerald-50 rounded-lg border border-emerald-100">
                 <p className="text-xs text-emerald-600 mb-1">Total New Patients</p>
                 <p className="text-lg font-bold text-emerald-700">
-                  {filteredStats.newPatients || 47}
+                  {acquisitionTotals.total}
                 </p>
                 <p className="text-xs text-emerald-500">
                   {selectedDateRange === '7d' ? 'Last 7 days' : 
@@ -1461,21 +1458,21 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
               <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
                 <p className="text-xs text-blue-600 mb-1">Male Patients</p>
                 <p className="text-lg font-bold text-blue-700">
-                  {Math.round((filteredStats.newPatients || 47) * 0.42) || 20}
+                  {acquisitionTotals.male}
                 </p>
-                <p className="text-xs text-blue-500">42%</p>
+                <p className="text-xs text-blue-500">{acquisitionShare(acquisitionTotals.male)}</p>
               </div>
               <div className="text-center p-3 bg-pink-50 rounded-lg border border-pink-100">
                 <p className="text-xs text-pink-600 mb-1">Female Patients</p>
                 <p className="text-lg font-bold text-pink-700">
-                  {Math.round((filteredStats.newPatients || 47) * 0.58) || 27}
+                  {acquisitionTotals.female}
                 </p>
-                <p className="text-xs text-pink-500">58%</p>
+                <p className="text-xs text-pink-500">{acquisitionShare(acquisitionTotals.female)}</p>
               </div>
               <div className="text-center p-3 bg-violet-50 rounded-lg border border-violet-100">
                 <p className="text-xs text-violet-600 mb-1">Highest Day</p>
                 <p className="text-lg font-bold text-violet-700">
-                  {Math.max(...newPatientAcquisitionData.map(item => item.totalPatients)) || 8}
+                  {acquisitionTotals.peak}
                 </p>
                 <p className="text-xs text-violet-500">Peak Acquisition</p>
               </div>
@@ -1492,9 +1489,9 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                 A declining trend may signal the need to ramp up marketing efforts, while a steady increase validates your current strategies.
               </p>
               <div className="text-xs text-emerald-600">
-                💡 <strong>Tip:</strong> {(filteredStats.newPatients || 47) === 0 
+                💡 <strong>Tip:</strong> {acquisitionTotals.total === 0
                   ? 'Focus on patient referral programs and digital marketing to attract new patients.'
-                  : (filteredStats.newPatients || 47) < 5
+                  : acquisitionTotals.total < 5
                   ? 'Consider expanding marketing efforts - aim for at least 5-10 new patients per month for healthy growth.'
                   : 'Great work! Your patient acquisition is strong. Focus on retention and referral programs to maximize growth.'}
               </div>
@@ -2030,7 +2027,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                  selectedDateRange === '3m' ? '3M' : '6M'}
               </span>
             </div>
-            <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 324}</p>
+            <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 0}</p>
             <p className="text-xs text-gray-600 mt-1">Total Visits</p>
           </div>
           
@@ -2304,7 +2301,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                    selectedDateRange === '3m' ? '3M' : '6M'}
                 </span>
               </div>
-              <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 324}</p>
+              <p className="text-xl font-bold text-gray-900">{filteredStats.totalVisits || 0}</p>
               <p className="text-xs text-gray-600 mt-1">Total Visits</p>
             </div>
             
@@ -2349,7 +2346,7 @@ export const AdvancedEncountersDashboard: React.FC<AdvancedEncountersDashboardPr
                 <span className="text-xs text-emerald-600">Peak</span>
               </div>
               <p className="text-xl font-bold text-gray-900">
-                {Math.max(...(dailyVisitsData?.slice(0, 7).map(d => d.visits) || [12, 8, 15, 11, 9, 6, 14]))}
+                {Math.max(...(dailyVisitsData?.slice(-7).map(d => d.visits) || [12, 8, 15, 11, 9, 6, 14]))}
               </p>
               <p className="text-xs text-gray-600 mt-1">Highest Day</p>
             </div>

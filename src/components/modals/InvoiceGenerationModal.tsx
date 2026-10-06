@@ -49,6 +49,9 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
     return null;
   }
 
+  // A receipt is proof of payment, so it must not be issued for an unpaid invoice
+  const canIssueReceipt = invoice.payment_status === 'paid';
+
   const handleGenerate = async () => {
     if (selectedOption === 'invoice') {
       await onGenerateInvoice();
@@ -82,6 +85,8 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
                 onClick={onClose}
                 className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
                 disabled={isGenerating}
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -161,12 +166,13 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedOption('receipt')}
-                disabled={isGenerating}
+                disabled={isGenerating || !canIssueReceipt}
+                title={canIssueReceipt ? undefined : 'A receipt can only be issued once this invoice is paid'}
                 className={`w-full p-4 rounded-lg border-2 transition-all ${
                   selectedOption === 'receipt'
                     ? 'border-green-500 bg-green-50'
                     : 'border-gray-200 hover:border-gray-300'
-                } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${isGenerating || !canIssueReceipt ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${
@@ -179,7 +185,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
                   <div className="text-left">
                     <div className="font-semibold text-gray-900">Payment Receipt</div>
                     <div className="text-sm text-gray-600">
-                      Proof of payment for completed transactions
+                      {canIssueReceipt ? 'Proof of payment for completed transactions' : 'Available once this invoice is paid'}
                     </div>
                   </div>
                   {selectedOption === 'receipt' && (

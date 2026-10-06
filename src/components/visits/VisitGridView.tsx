@@ -80,7 +80,7 @@ export default function VisitGridView({ filterStatus = 'all', practiceId, onClos
         .from('visits')
         .select(`
           *,
-          patient:patients(id, first_name, last_name, cell_number, email, date_of_birth),
+          patient:patients!fk_visits_patient_id(id, first_name, last_name, cell_number, email, date_of_birth),
           doctor:users!doctor_id(id, full_name, role)
         `)
         .eq('practice_id', practiceId)

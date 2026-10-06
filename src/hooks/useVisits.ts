@@ -15,26 +15,16 @@ export function useVisits(patientId: string) {
             full_name,
             role
           ),
-          vitals (
-            id,
-            blood_pressure_systolic,
-            blood_pressure_diastolic,
-            heart_rate,
-            temperature,
-            respiratory_rate,
-            oxygen_saturation,
-            weight,
-            height,
-            bmi
-          ),
+          vitals!fk_vitals_visit_id (*),
           lab_requests (
             id,
-            test_name,
             status
           ),
-          prescriptions:medical_records (
+          prescriptions:medications (
             id,
-            prescriptions
+            medication_name,
+            dosage,
+            frequency
           )
         `)
         .eq('patient_id', patientId)

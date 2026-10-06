@@ -18,6 +18,10 @@ import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 import { GmailSettingsModal } from '../components/settings/GmailSettingsModal';
 import { GmailOAuthSettings } from '../components/settings/GmailOAuthSettings';
+import { createClient } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
+import { isStaffAdmin } from '../components/settings/UserManagement/staffUtils';
+import { PageTabs } from '../components/ui/PageTabs';
 
 // Iconify is now handled by @iconify/react package
 
@@ -62,37 +66,38 @@ const Settings: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
 
-        {/* Header Section */}
-        <div className="rounded-xl">
-          <div className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
+        {/* Header Section (aligned with the content below; stacks cleanly on phones) */}
+        <div>
+          <div className="py-1 md:py-2">
+            <div className="flex items-center justify-between gap-3">
               {/* Page Title and Icon */}
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                  <Icon icon="solar:settings-bold-duotone" className="w-8 h-8 text-white" />
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex-none p-2.5 md:p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:settings-bold-duotone" className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
+                <div className="min-w-0">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Settings</h1>
                   <p className="text-sm text-gray-500 mt-0.5">Manage your practice and account settings</p>
                 </div>
               </div>
 
               {/* User Avatar with Dropdown */}
               {user && (
-                <div className="relative">
+                <div className="relative flex-none">
                   <button
                     ref={avatarButtonRef}
                     onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                    className="relative group focus:outline-none"
+                    className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                    aria-label="Open profile menu"
                   >
                     {/* Pulsating outer ring */}
                     <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
                     <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
-                    
+
                     {/* Avatar circle */}
-                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                    <div className="relative h-12 w-12 md:h-16 md:w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
                       <img 
                         src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
                         alt={user.name}
@@ -129,6 +134,8 @@ const Settings: React.FC = () => {
                           <button 
                             onClick={() => setIsAvatarDropdownOpen(false)}
                             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            aria-label="Close"
+                            title="Close"
                           >
                             <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                           </button>
@@ -178,30 +185,19 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Premium Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 gap-0 w-full">
-            {(['account', 'users', 'practice', 'documents', 'social', 'system'] as const).map((tab, index) => {
-              const iconName = tabIcons[tab];
-              const isActive = activeTab === tab;
-              const tabLabel = tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
-                    isActive
-                      ? `bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg`
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="truncate text-center sm:text-left">{tabLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* Premium Navigation Tabs (scroll sideways on narrow screens instead of cutting labels off) */}
+        <PageTabs
+          tabs={(['account', 'users', 'practice', 'documents', 'social', 'system'] as const).map((tab) => ({
+            key: tab,
+            // Staff/HR/payroll management is for administrators; everyone else gets their own HR self-service
+            label: tab === 'users' && !isStaffAdmin(user) ? 'My HR' : tab.charAt(0).toUpperCase() + tab.slice(1),
+            icon: tabIcons[tab]
+          }))}
+          active={activeTab}
+          onChange={setActiveTab}
+          label="Settings sections"
+          activeClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
+        />
 
         {/* Main Content Area */}
         <div>
@@ -379,86 +375,6 @@ const Settings: React.FC = () => {
           
           {activeTab === 'system' && (
             <div className="space-y-4">
-              {/* System Information Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Icon icon={SolarIcons.server} className="w-5 h-5 text-purple-600" />
-                    System Information
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
-                      <Icon icon={SolarIcons.checkCircle} className="w-3 h-3" />
-                      All Systems Operational
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">System Version</label>
-                      <div className="flex items-center gap-2">
-                        <p className="text-gray-900 font-medium">HealthCare 2.5.0</p>
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">Latest</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
-                      <p className="text-gray-900">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
-                      <p className="text-gray-900">Production</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Database Status</label>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <p className="text-gray-900">Connected - PostgreSQL 15.3</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Storage Usage</label>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Used: 1.2 GB</span>
-                          <span className="text-gray-600">Total: 10 GB</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full" style={{ width: '12%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">API Status</label>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <p className="text-gray-900">Active - 99.9% Uptime</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-3">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
-                    Check for Updates
-                  </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Icon icon="solar:chart-bold-duotone" className="w-4 h-4" />
-                    System Diagnostics
-                  </Button>
-                </div>
-              </div>
-              
               {/* Company Information Section */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -509,126 +425,30 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Headquarters</label>
                       <p className="text-gray-900">South Africa</p>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">License</label>
-                      <div className="flex items-center gap-2">
-                        <p className="text-gray-900">Enterprise License</p>
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Active</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Support Resources</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:chat-line-bold-duotone" className="w-4 h-4" />
-                      Live Chat
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:book-bold-duotone" className="w-4 h-4" />
-                      Documentation
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:ticket-bold-duotone" className="w-4 h-4" />
-                      Support Ticket
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => { window.location.href = 'tel:081222331'; }}
+                    >
                       <Icon icon="solar:phone-calling-bold-duotone" className="w-4 h-4" />
                       Call Support
                     </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Security & Compliance Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Icon icon={SolarIcons.shield} className="w-5 h-5 text-purple-600" />
-                    Security & Compliance
-                  </h3>
-                  <Button size="sm" className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                    <Icon icon={SolarIcons.save} className="w-4 h-4 mr-1" />
-                    Save Settings
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">HIPAA Audit Logging</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Log all data access and modifications for compliance</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Data Encryption</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">End-to-end encryption for all patient data</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Require 2FA for all user accounts</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Session Timeout</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Auto-logout after inactivity period</p>
-                      </div>
-                      <select className="px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm">
-                        <option value="5">5 minutes</option>
-                        <option value="15" selected>15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">60 minutes</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Password Policy</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Enforce strong password requirements</p>
-                      </div>
-                      <span className="text-sm text-gray-700">Min. 12 characters</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start gap-3">
-                    <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">Compliance Status</p>
-                      <p className="text-sm text-blue-700 mt-1">Your practice meets all HIPAA compliance requirements. Last audit: October 2023</p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => { window.location.href = 'mailto:support@onehealthsystems.com'; }}
+                    >
+                      <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
+                      Email Support
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -869,6 +689,8 @@ const convertBusinessHoursObjectToArray = (hoursObj: BusinessHoursData | Busines
 // Practice Profile Component
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
+  const { practiceId: contextPracticeId } = usePractice();
+  const effectivePracticeId = user?.practice_id || contextPracticeId;
   const { currentTheme } = useTheme();
   const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'inventory'>('profile');
   const [practiceData, setPracticeData] = useState({
@@ -929,18 +751,18 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   // Load practice data from database
   useEffect(() => {
     const loadPracticeData = async () => {
-      if (!user?.practice_id) {
+      if (!effectivePracticeId) {
         setLoading(false);
         return;
       }
 
       try {
-        console.log('📊 Loading practice data for ID:', user.practice_id);
-        
+        console.log('📊 Loading practice data for ID:', effectivePracticeId);
+
         const { data: practice, error } = await supabase
           .from('practices')
           .select('*')
-          .eq('id', user.practice_id)
+          .eq('id', effectivePracticeId)
           .single();
 
         if (error) {
@@ -988,7 +810,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
     };
 
     loadPracticeData();
-  }, [user?.practice_id]);
+  }, [effectivePracticeId]);
 
   // Helper function to convert array format to object format for practices table
   const convertBusinessHoursArrayToObject = (hoursArray: BusinessHours[]) => {
@@ -1022,7 +844,11 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
   // Save practice data to database
   const savePracticeData = async (updates: Partial<typeof practiceData>) => {
-    if (!user?.practice_id || saving) return;
+    if (saving) return;
+    if (!user?.practice_id) {
+      toast.error('Your account is not linked to a practice, so these changes cannot be saved.');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -1044,7 +870,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       if (error) {
         console.error('❌ Error saving practice data:', error);
-        alert('Failed to save changes. Please try again.');
+        toast.error('Failed to save changes. Please try again.');
         return;
       }
 
@@ -1055,19 +881,10 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       setEditMode(false);
       
       console.log('✅ Practice data saved successfully');
-      
-      // Show success message
-      const successDiv = document.createElement('div');
-      successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      successDiv.textContent = 'Changes saved successfully!';
-      document.body.appendChild(successDiv);
-      setTimeout(() => {
-        document.body.removeChild(successDiv);
-      }, 3000);
-      
+      toast.success('Changes saved successfully!');
     } catch (error) {
       console.error('❌ Error saving practice data:', error);
-      alert('Failed to save changes. Please try again.');
+      toast.error('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1113,13 +930,13 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+      toast.error('File size must be less than 10MB');
       return;
     }
 
@@ -1141,7 +958,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       if (uploadError) {
         console.error('❌ Upload error:', uploadError);
-        alert('Failed to upload logo. Please try again.');
+        toast.error('Failed to upload logo. Please try again.');
         return;
       }
 
@@ -1158,7 +975,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
     } catch (error) {
       console.error('❌ Error uploading logo:', error);
-      alert('Failed to upload logo. Please try again.');
+      toast.error('Failed to upload logo. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1231,7 +1048,12 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                   <Button
                     variant="outline"
                     className="w-full justify-start hover:bg-gray-50"
-                    onClick={() => window.open(`https://${practiceData.website_url}`, '_blank')}
+                    onClick={() => {
+                      const site = practiceData.website_url.trim();
+                      window.open(/^https?:\/\//i.test(site) ? site : `https://${site}`, '_blank', 'noopener,noreferrer');
+                    }}
+                    disabled={!practiceData.website_url.trim()}
+                    title={practiceData.website_url.trim() ? undefined : 'Add your website address under Basic Information first'}
                   >
                     <Icon icon={SolarIcons.globe} className="w-4 h-4 mr-2" />
                     Preview Website
@@ -1807,16 +1629,72 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
 // Account Tab Content Component with Security Integration
 const AccountTabContent: React.FC = () => {
-  const { user, updateUser } = useAuthStore();
-  const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
+  const { user, updateUser, logout } = useAuthStore();
+  const [accountTab, setAccountTab] = useState<'profile' | 'security'>('profile');
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Staff change their own password here (administrators cannot set passwords from the browser)
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    if (!user?.email) {
+      setPasswordError('Your account email could not be found. Please sign in again.');
+      return;
+    }
+    if (!passwordForm.current) {
+      setPasswordError('Enter your current password.');
+      return;
+    }
+    if (passwordForm.next.length < 8) {
+      setPasswordError('Your new password must be at least 8 characters.');
+      return;
+    }
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordError('The new passwords do not match.');
+      return;
+    }
+    if (passwordForm.next === passwordForm.current) {
+      setPasswordError('Choose a password that is different from your current one.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // Check the current password on a throwaway client so the signed-in session is untouched
+      const verifier = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'hpms-password-check' }
+      });
+      const { error: verifyError } = await verifier.auth.signInWithPassword({
+        email: user.email,
+        password: passwordForm.current
+      });
+      if (verifyError) {
+        setPasswordError('Your current password is incorrect.');
+        return;
+      }
+      // Revoke only the verification session
+      await verifier.auth.signOut({ scope: 'local' });
+
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
+      if (error) throw error;
+
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      toast.success('Your password has been updated');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      setPasswordError(error instanceof Error ? error.message : 'Your password could not be updated. Please try again.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const accountTabs = [
     { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
-    { id: 'preferences' as const, label: 'Preferences', icon: SolarIcons.settingsMinimalistic },
     { id: 'security' as const, label: 'Security', icon: SolarIcons.lock }
   ];
 
@@ -1826,13 +1704,13 @@ const AccountTabContent: React.FC = () => {
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      toast.error('File size must be less than 5MB');
       return;
     }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
@@ -1876,7 +1754,7 @@ const AccountTabContent: React.FC = () => {
       }
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      alert('Failed to upload avatar. Please try again.');
+      toast.error('Failed to upload avatar. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -1888,51 +1766,13 @@ const AccountTabContent: React.FC = () => {
 
     // Validate file size (max 2MB for signatures)
     if (file.size > 2 * 1024 * 1024) {
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">File Too Large</h3>
-            <p class="text-gray-600 text-center mb-6">Signature file size must be less than 2MB. Please choose a smaller image.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Signature file size must be less than 2MB. Please choose a smaller image.');
       return;
     }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Invalid File Type</h3>
-            <p class="text-gray-600 text-center mb-6">Please select an image file (PNG, JPG, or JPEG) for your signature.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Please select an image file (PNG, JPG, or JPEG) for your signature.');
       return;
     }
 
@@ -1975,55 +1815,10 @@ const AccountTabContent: React.FC = () => {
         signatureInputRef.current.value = '';
       }
 
-      // Show success modal
-      const successModal = document.createElement('div');
-      successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      successModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Uploaded Successfully!</h3>
-            <p class="text-gray-600 text-center mb-6">Your digital signature has been saved and will be automatically included in generated documents.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
-              Done
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(successModal);
-      
-      // Auto-close after 5 seconds
-      setTimeout(() => {
-        if (document.body.contains(successModal)) {
-          successModal.remove();
-        }
-      }, 5000);
+      toast.success('Signature uploaded. It will be included in generated documents.');
     } catch (error) {
       console.error('Error uploading signature:', error);
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Upload Failed</h3>
-            <p class="text-gray-600 text-center mb-6">Failed to upload signature. Please try again.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Failed to upload signature. Please try again.');
     } finally {
       setIsUploadingSignature(false);
     }
@@ -2120,6 +1915,7 @@ const AccountTabContent: React.FC = () => {
                     transition-all duration-200 text-gray-700
                     hover:bg-gray-200"
                   defaultValue={user?.name}
+                  readOnly
                 />
               </div>
               <div>
@@ -2134,6 +1930,7 @@ const AccountTabContent: React.FC = () => {
                     transition-all duration-200 text-gray-700
                     hover:bg-gray-200"
                   defaultValue={user?.email}
+                  readOnly
                 />
               </div>
               <div>
@@ -2154,7 +1951,10 @@ const AccountTabContent: React.FC = () => {
                 </select>
               </div>
             </div>
-            
+            <p className="mt-3 text-xs text-gray-500">
+              To change your name or role, ask a practice administrator (Settings &gt; Users). Your email address is your sign-in and cannot be changed here.
+            </p>
+
             {/* E-Signature Section */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -2198,53 +1998,10 @@ const AccountTabContent: React.FC = () => {
                               
                               if (error) throw error;
                               updateUser({ signature_url: null });
-                              // Show success modal
-                              const successModal = document.createElement('div');
-                              successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-                              successModal.innerHTML = `
-                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-                                  <div class="p-6">
-                                    <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
-                                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                      </svg>
-                                    </div>
-                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Removed</h3>
-                                    <p class="text-gray-600 text-center mb-6">Your digital signature has been removed successfully.</p>
-                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
-                                      Done
-                                    </button>
-                                  </div>
-                                </div>
-                              `;
-                              document.body.appendChild(successModal);
-                              setTimeout(() => {
-                                if (document.body.contains(successModal)) {
-                                  successModal.remove();
-                                }
-                              }, 3000);
+                              toast.success('Your digital signature has been removed.');
                             } catch (error) {
                               console.error('Error removing signature:', error);
-                              // Show error modal
-                              const errorModal = document.createElement('div');
-                              errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-                              errorModal.innerHTML = `
-                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-                                  <div class="p-6">
-                                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-                                      <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                      </svg>
-                                    </div>
-                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Failed to Remove Signature</h3>
-                                    <p class="text-gray-600 text-center mb-6">Could not remove your signature. Please try again.</p>
-                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-                                      OK
-                                    </button>
-                                  </div>
-                                </div>
-                              `;
-                              document.body.appendChild(errorModal);
+                              toast.error('Could not remove your signature. Please try again.');
                             }
                           }
                         }}
@@ -2286,73 +2043,6 @@ const AccountTabContent: React.FC = () => {
                 </div>
               </div>
             </div>
-            
-            <div className="mt-6">
-              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                Save Changes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Preferences Tab */}
-      {accountTab === 'preferences' && (
-        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-3 -ml-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Icon icon={SolarIcons.settingsMinimalistic} className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-semibold text-gray-900">Preferences</CardTitle>
-                <p className="text-sm text-gray-500">Manage your app settings</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
-                  <p className="text-xs text-gray-500">Switch between light and dark mode</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
-                  <p className="text-xs text-gray-500">Allow others to see when you're online</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
-                  <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                Save Preferences
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
@@ -2383,6 +2073,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="current-password"
+                      autoComplete="current-password"
+                      value={passwordForm.current}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, current: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2399,6 +2092,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="new-password"
+                      autoComplete="new-password"
+                      value={passwordForm.next}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, next: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2415,6 +2111,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="confirm-password"
+                      autoComplete="new-password"
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2424,45 +2123,21 @@ const AccountTabContent: React.FC = () => {
                 </div>
               </div>
               
+              {passwordError && (
+                <p className="mt-4 text-sm text-red-600" role="alert">{passwordError}</p>
+              )}
+              <p className="mt-4 text-xs text-gray-500">Use at least 8 characters. You stay signed in after changing it.</p>
+
               <div className="mt-6">
-                <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                  <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />
-                  Update Password
+                <Button
+                  onClick={handleChangePassword}
+                  isLoading={isChangingPassword}
+                  disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+                >
+                  {!isChangingPassword && <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />}
+                  {isChangingPassword ? 'Updating...' : 'Update Password'}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3 -ml-2">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Two-Factor Authentication</CardTitle>
-                  <p className="text-sm text-gray-500">Add an extra layer of security</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-0.5">
-                  <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-gray-900">Two-factor authentication is enabled</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Two-factor authentication adds an extra layer of security to your account.
-                    In addition to your password, you'll need to enter a code that we text to your phone.
-                  </p>
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm">
-                      <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
-                      Manage 2FA Settings
-                    </Button>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -2475,46 +2150,27 @@ const AccountTabContent: React.FC = () => {
                 </div>
                 <div>
                   <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
-                  <p className="text-sm text-gray-500">Manage your active sessions</p>
+                  <p className="text-sm text-gray-500">Sign out on every device where you use HPMS</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">Current Session</p>
-                      <p className="text-xs text-gray-500">This device • 42.122.144.55 • San Francisco, USA</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" disabled>
-                    Active
-                  </Button>
-                </div>
-                
-                <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-gray-100 rounded-full">
-                      <Icon icon={SolarIcons.hardDrive} className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">Mac OS • Chrome</p>
-                      <p className="text-xs text-gray-500">34.232.123.55 • New York, USA • 3 days ago</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    End Session
-                  </Button>
-                </div>
-              </div>
-              
+              <p className="text-sm text-gray-600">
+                If you signed in on a shared or lost computer or phone, sign out everywhere.
+                This also signs you out here, so you will need to sign in again.
+              </p>
+
               <div className="mt-6">
-                <Button variant="outline" className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
-                  Log Out of All Sessions
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                  onClick={async () => {
+                    if (!window.confirm('Sign out of HPMS on all devices, including this one?')) return;
+                    // Supabase signOut() defaults to the global scope, so this ends every session of this user
+                    await logout();
+                  }}
+                >
+                  Sign Out on All Devices
                 </Button>
               </div>
             </CardContent>
@@ -2530,7 +2186,6 @@ const PracticeDocumentsContent: React.FC = () => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const { user } = useAuthStore();
@@ -2588,7 +2243,7 @@ const PracticeDocumentsContent: React.FC = () => {
       for (const file of Array.from(files)) {
         // Validate file
         if (file.size > 50 * 1024 * 1024) {
-          alert(`File ${file.name} is too large. Maximum size is 50MB.`);
+          toast.error(`File ${file.name} is too large. Maximum size is 50MB.`);
           continue;
         }
 
@@ -2620,7 +2275,7 @@ const PracticeDocumentsContent: React.FC = () => {
       await loadDocuments();
     } catch (error) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload some files. Please try again.');
+      toast.error('Failed to upload some files. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -2661,7 +2316,11 @@ const PracticeDocumentsContent: React.FC = () => {
       
       const link = document.createElement('a');
       link.href = data.publicUrl;
-      link.download = doc.file_name;
+      // practice_documents has no file_name column; the stored path ends with the uploaded file name
+      link.download = doc.file_path.split('/').pop() || doc.name;
+      // Storage is another origin, where browsers ignore `download`: a new tab keeps HPMS open
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -2686,14 +2345,6 @@ const PracticeDocumentsContent: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
-              >
-                <Icon icon={viewMode === 'grid' ? SolarIcons.list : SolarIcons.grid} className="w-4 h-4 mr-2" />
-                {viewMode === 'grid' ? 'Table' : 'Grid'}
-              </Button>
               <Button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
@@ -2818,7 +2469,7 @@ const PracticeDocumentsContent: React.FC = () => {
                             {formatFileSize(doc.file_size)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(doc.created_at).toLocaleDateString()}
+                            {new Date(doc.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center gap-2">
@@ -2826,6 +2477,8 @@ const PracticeDocumentsContent: React.FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => downloadDocument(doc)}
+                                aria-label={`Download ${doc.name}`}
+                                title="Download"
                               >
                                 <Icon icon={SolarIcons.download} className="w-4 h-4" />
                               </Button>
@@ -2833,6 +2486,9 @@ const PracticeDocumentsContent: React.FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-600 hover:text-red-700"
+                                disabled
+                                aria-label="Delete document (not available yet)"
+                                title="Not available yet: documents cannot be deleted from HPMS"
                               >
                                 <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                               </Button>
@@ -3113,6 +2769,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
         const storedData = sessionStorage.getItem('gmailOAuthFormData');
         if (!storedData) {
           console.error('No stored form data found');
+          toast.error('Gmail sign-in finished, but the account details were lost. Please add the account again.');
           return;
         }
         
@@ -3132,8 +2789,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
         setShowAddModal(true);
       } else if (state === 'gmail_oauth_connect' || state === 'gmail_oauth_setup') {
         // OAuth connected successfully
-        // Show success notification
-        alert(`Gmail connected successfully! Email: ${data.email}`);
+        toast.success(data?.email ? `Gmail connected: ${data.email}` : 'Gmail connected');
         
         // Reload OAuth apps to show updated status
         await loadSocialAccounts();
@@ -3143,7 +2799,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       window.history.replaceState({}, document.title, '/settings');
     } catch (error) {
       console.error('OAuth callback error:', error);
-      alert('Failed to connect Gmail account. Please try again.');
+      toast.error('Failed to connect Gmail account. Please try again.');
     }
   };
 
@@ -3256,7 +2912,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       });
     } catch (error) {
       console.error('Error adding social account:', error);
-      alert('Failed to add social account. Please try again.');
+      toast.error('Failed to add social account. Please try again.');
     }
   };
 
@@ -3275,7 +2931,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       setEditingAccount(null);
     } catch (error) {
       console.error('Error updating social account:', error);
-      alert('Failed to update social account. Please try again.');
+      toast.error('Failed to update social account. Please try again.');
     }
   };
 
@@ -3292,7 +2948,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       await loadSocialAccounts();
     } catch (error) {
       console.error('Error deleting social account:', error);
-      alert('Failed to delete social account. Please try again.');
+      toast.error('Failed to delete social account. Please try again.');
     }
   };
 
@@ -3571,18 +3227,21 @@ const PracticeSocialAccountsContent: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          {/* The connected-Gmail row is built from OAuth credentials: it has is_connected, not is_active or created_at */}
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            account.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            account.is_active || account.is_connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {account.is_active ? 'Active' : 'Inactive'}
+                            {account.is_active || account.is_connected ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(account.created_at).toLocaleDateString()}
+                          {account.created_at
+                            ? new Date(account.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            {account.platform === 'gmail' && !account.access_token && (
+                            {account.platform === 'gmail' && !account.access_token && !account.is_connected && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -3610,7 +3269,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                                     
                                     window.location.href = authUrl.toString();
                                   } else {
-                                    alert('OAuth credentials not found. Please check the OAuth Apps Management section.');
+                                    toast.error('Gmail is not set up for this practice yet. Click the Gmail card above to set it up first.');
                                   }
                                 }}
                               >
@@ -3621,15 +3280,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setEditingAccount(account)}
-                            >
-                              <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteAccount(account.id)}
+                              onClick={() => (
+                                // The connected-Gmail row has no database row to delete: Gmail is disconnected in its settings
+                                String(account.id).startsWith('gmail-oauth-')
+                                  ? setShowGmailModal(true)
+                                  : handleDeleteAccount(account.id)
+                              )}
+                              aria-label={`Remove ${platform?.label || account.platform} account`}
+                              title="Remove account"
                             >
                               <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                             </Button>
@@ -3700,6 +3359,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     });
                   }}
                   className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <Icon icon={SolarIcons.close} className="w-6 h-6 text-white" />
                 </button>
@@ -3913,34 +3574,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
                               if (error) throw error;
 
+                              // Plain-text toasts: the edge function's message must never be rendered as HTML
                               if (data.success) {
-                                // Show success toast
-                                const successDiv = document.createElement('div');
-                                successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
-                                successDiv.innerHTML = `
-                                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                  </svg>
-                                  ${data.message}
-                                `;
-                                document.body.appendChild(successDiv);
-                                setTimeout(() => document.body.removeChild(successDiv), 5000);
+                                toast.success(typeof data.message === 'string' && data.message ? data.message : 'Connection test passed');
                               } else {
-                                // Show error toast
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                                errorDiv.textContent = data.error || 'Connection test failed';
-                                document.body.appendChild(errorDiv);
-                                setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                                toast.error(typeof data.error === 'string' && data.error ? data.error : 'Connection test failed');
                               }
                             } catch (error) {
                               console.error('Test connection error:', error);
-                              // Show error toast
-                              const errorDiv = document.createElement('div');
-                              errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                              errorDiv.textContent = 'Failed to test connection';
-                              document.body.appendChild(errorDiv);
-                              setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                              toast.error('Failed to test connection');
                             }
                           }}
                           className="flex items-center gap-2"
@@ -4629,55 +4271,11 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">🔧 What's Needed for Concurrent Broadcasting</h4>
-                          <p className="text-sm text-gray-700 mb-3">
-                            With these comprehensive settings, you'll be able to broadcast to multiple platforms simultaneously. 
-                            <strong>Next steps for full implementation:</strong>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">Posting is not available yet</h4>
+                          <p className="text-sm text-gray-700">
+                            Adding this account saves its details for the practice. HPMS cannot post to social media yet,
+                            so these settings are kept for when broadcasting becomes available.
                           </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                            <div>
-                              <p className="font-medium mb-2">✅ Field Alignment for Broadcasting:</p>
-                              <ul className="space-y-1">
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Rate limits ensure no API violations
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Content limits auto-adapt posts per platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Feature flags enable/disable per platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Content templates ensure brand consistency
-                                </li>
-                              </ul>
-                            </div>
-                            <div>
-                              <p className="font-medium mb-2">🚀 Implementation Requirements:</p>
-                              <ul className="space-y-1">
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  OAuth flow for each platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Token refresh automation
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Broadcasting service/API
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Queue management for rate limiting
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
                         </>
                       )}
                     </div>
@@ -4834,8 +4432,10 @@ const PracticeSocialAccountsContent: React.FC = () => {
                       authUrl.searchParams.append('access_type', 'offline');
                       authUrl.searchParams.append('prompt', 'consent');
                       authUrl.searchParams.append('state', 'gmail_oauth_setup');
-                      
+
                       window.location.href = authUrl.toString();
+                    } else {
+                      toast.error('The Gmail settings could not be found. Please open the Gmail card and try again.');
                     }
                   }}
                   className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"

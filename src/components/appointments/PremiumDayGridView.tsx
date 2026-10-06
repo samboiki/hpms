@@ -182,6 +182,15 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
       return;
     }
 
+    // Dropping now really moves the visit, so a started, finished or no-show visit keeps its slot
+    if (['in-progress', 'completed', 'no-show'].includes(draggedAppointment.status)) {
+      toast.error('Only appointments that have not started yet can be moved');
+      setDraggedAppointment(null);
+      setDropTarget(null);
+      setIsDragging(false);
+      return;
+    }
+
     // Show loading toast
     const toastId = toast.loading('Moving appointment...');
 
@@ -415,6 +424,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                   }}
                                   className="p-1 hover:bg-[#01b9d5]/20 rounded transition-all group"
                                   title="View details"
+                                  aria-label="View details"
                                 >
                                   <Eye className="w-3 h-3 text-gray-300 group-hover:text-[#01b9d5]" />
                                 </button>
@@ -424,6 +434,9 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     setExpandedAppointment(isExpanded ? null : appointment.id);
                                   }}
                                   className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title={isExpanded ? 'Show less' : 'Show more'}
+                                  aria-label={isExpanded ? 'Show less' : 'Show more'}
+                                  aria-expanded={isExpanded}
                                 >
                                   <ChevronDown className={cn(
                                     "w-3 h-3 text-gray-600 transition-transform",
@@ -490,7 +503,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
 
                           {/* Loading indicator for pending */}
                           {appointment.status === 'pending' && (
-                            <div className="absolute top-1 right-1">
+                            <div className="absolute top-1 right-1" title="Not confirmed yet">
                               <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
                             </div>
                           )}

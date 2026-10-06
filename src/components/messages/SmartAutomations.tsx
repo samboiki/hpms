@@ -902,7 +902,7 @@ const SmartAutomations: React.FC = () => {
     const automation = customAutomations.find(a => a.id === automationId);
     if (!automation) return;
     
-    if (window.confirm(`Are you sure you want to delete "${automation.name}"?`)) {
+    if (window.confirm(`Delete the automation "${automation.name}"? This cannot be undone.`)) {
       try {
         const { error } = await supabase
           .from('practice_automation_settings')
@@ -1022,7 +1022,6 @@ const SmartAutomations: React.FC = () => {
     });
     
     setShowCreateAutomation(false);
-    toast.success('Custom automation created successfully!');
   };
 
   const saveAutomation = async () => {
@@ -1058,30 +1057,25 @@ const SmartAutomations: React.FC = () => {
       setShowSetupWizard(false);
       setSelectedCard(null);
       loadActiveAutomations();
-      
-      // Trigger automation engine to process any pending executions
-      setTimeout(() => {
-        triggerAutomationEngine().then(result => {
-          if (result.success && result.pendingCount > 0) {
-            console.log(`Processed ${result.pendingCount} pending automations`);
-          }
-        }).catch(console.error);
-      }, 1000);
+      // A call to triggerAutomationEngine() was here, but it was never imported, so it only threw a
+      // ReferenceError a second after every save. It was not wired up because running the engine
+      // from here could send patient messages straight away.
     } catch (error) {
       console.error('Error saving automation:', error);
       toast.error('Failed to save automation settings');
     }
   };
 
+  // Sample values for the live preview only (Namibian date, phone and N$ formats)
   const replaceVariables = (text: string) => {
     const sampleData: Record<string, string> = {
       // camelCase versions
       patientName: 'John Smith',
       patientFirstName: 'John',
-      appointmentDate: format(new Date(Date.now() + 86400000), 'MMMM d, yyyy'),
+      appointmentDate: format(new Date(Date.now() + 86400000), 'd MMMM yyyy'),
       appointmentTime: '2:30 PM',
       doctorName: 'Dr. Sarah Johnson',
-      practicePhone: '(555) 123-4567',
+      practicePhone: '061 123 4567',
       practiceName: 'HealthCare Clinic',
       practiceEmail: 'info@healthcareclinic.com',
       practiceAddress: '123 Main St, City, State 12345',
@@ -1089,11 +1083,11 @@ const SmartAutomations: React.FC = () => {
       branchName: 'Main Branch',
       branchAddress: '123 Main St',
       invoiceNumber: 'INV-2024-001',
-      invoiceDate: 'March 1, 2024',
-      invoiceAmount: '$250.00',
-      amount: '$125.00',
-      dueDate: 'March 31, 2024',
-      billingPhone: '(123) 456-7891',
+      invoiceDate: '1 March 2024',
+      invoiceAmount: 'N$ 250.00',
+      amount: 'N$ 125.00',
+      dueDate: '31 March 2024',
+      billingPhone: '061 123 4568',
       billingEmail: 'billing@practice.com',
       taxNumber: '123-45-6789',
       practiceHours: 'Mon-Fri 9AM-5PM',
@@ -1103,20 +1097,20 @@ const SmartAutomations: React.FC = () => {
       message: 'this is your customized message',
       medicationName: 'Aspirin',
       dosageInstructions: 'Take 1 tablet daily with food',
-      testDate: 'March 10, 2024',
+      testDate: '10 March 2024',
       portalLink: 'portal.healthcareclinic.com',
       transactionId: 'TRX-12345',
-      paymentDate: format(new Date(), 'MMMM d, yyyy'),
+      paymentDate: format(new Date(), 'd MMMM yyyy'),
       conditionType: 'Diabetes',
       programName: 'Wellness Program',
-      programDate: 'April 1, 2024',
+      programDate: '1 April 2024',
       programDescription: 'Join our wellness program for better health',
       // snake_case versions (for backward compatibility)
       patient_name: 'John Smith',
-      appointment_date: format(new Date(Date.now() + 86400000), 'MMMM d, yyyy'),
+      appointment_date: format(new Date(Date.now() + 86400000), 'd MMMM yyyy'),
       appointment_time: '2:30 PM',
       doctor_name: 'Dr. Sarah Johnson',
-      practice_phone: '(555) 123-4567',
+      practice_phone: '061 123 4567',
       practice_name: 'HealthCare Clinic',
       practice_email: 'info@healthcareclinic.com',
       practice_address: '123 Main St, City, State 12345',
@@ -1172,7 +1166,7 @@ const SmartAutomations: React.FC = () => {
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">
                         <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-500" />
-                        <span className="text-gray-700">98% delivery rate</span>
+                        <span className="text-gray-700">Reaches any mobile phone</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-500" />
@@ -1620,7 +1614,20 @@ const SmartAutomations: React.FC = () => {
                 <Icon icon="solar:automation-bold-duotone" className="w-12 h-12 text-gray-400" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No automations found</h3>
-              <p className="text-gray-500">Try adjusting your search or filters</p>
+              <p className="text-gray-500">
+                {activeView === 'active' && !searchQuery && categoryFilter === 'all'
+                  ? 'No automations are switched on yet. Choose one from All Automations to set it up.'
+                  : 'Try adjusting your search or filters'}
+              </p>
+              {activeView !== 'all' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveView('all')}
+                  className="mt-4 px-4 py-2 text-sm font-medium text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
+                >
+                  Show all automations
+                </button>
+              )}
             </motion.div>
           ) : (
             <motion.div
@@ -1755,15 +1762,7 @@ const SmartAutomations: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Quick Stats */}
-                      {card.isActive && card.stats && (
-                        <div className="pt-2 border-t border-gray-100">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">Success Rate</span>
-                            <span className="font-medium text-green-600">{card.stats.success_rate}%</span>
-                          </div>
-                        </div>
-                      )}
+                      {/* No success rate here: the only one shown (98.7%) was a hard-coded sample value */}
                     </div>
 
                     {/* Activation Toggle */}
@@ -1818,6 +1817,8 @@ const SmartAutomations: React.FC = () => {
                       setSelectedCard(null);
                     }}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Close"
+                    aria-label="Close"
                   >
                     <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
                   </button>
@@ -1955,6 +1956,8 @@ const SmartAutomations: React.FC = () => {
                 <button
                   onClick={() => setShowCreateAutomation(false)}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
                 </button>
@@ -2029,6 +2032,9 @@ const SmartAutomations: React.FC = () => {
                       ].map(icon => (
                         <button
                           key={icon}
+                          type="button"
+                          aria-label={`Use the ${icon.replace('solar:', '').replace('-bold-duotone', '').replace(/-/g, ' ')} icon`}
+                          title={icon.replace('solar:', '').replace('-bold-duotone', '').replace(/-/g, ' ')}
                           onClick={() => setNewAutomation({ ...newAutomation, icon })}
                           className={cn(
                             "p-3 rounded-lg border transition-all",

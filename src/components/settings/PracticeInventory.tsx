@@ -6,6 +6,7 @@ import Button from '../ui/Button';
 import { Card, CardContent } from '../ui/Card';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
+import { formatNad } from '../../utils/billing/money';
 
 interface InventoryItem {
   id: string;
@@ -80,6 +81,10 @@ const categories: InventoryCategory[] = [
   }
 ];
 
+// formatNad throws on NaN; show a dash instead of blanking the screen if a value is missing
+const formatMoney = (amount: number | null | undefined): string =>
+  typeof amount === 'number' && Number.isFinite(amount) ? formatNad(amount) : '-';
+
 const PracticeInventory: React.FC = () => {
   const { practiceId } = usePractice();
   const { user } = useAuthStore();
@@ -150,6 +155,7 @@ const PracticeInventory: React.FC = () => {
   };
 
   const fetchUsers = async () => {
+    if (!practiceId) return;
     try {
       // Fetch users directly by practice_id or through user_practice_assignments
       const { data: userData, error: userError } = await supabase
@@ -160,40 +166,54 @@ const PracticeInventory: React.FC = () => {
 
       if (userError) throw userError;
 
-      // Also fetch users assigned through user_practice_assignments
+      // Also include users assigned through user_practice_assignments. Its user_id has no foreign
+      // key to users that the API can embed (the old embed failed and left the Assignee list
+      // empty), so look the ids up first and then load those users.
       const { data: assignmentData, error: assignmentError } = await supabase
         .from('user_practice_assignments')
-        .select(`
-          user_id,
-          users!user_practice_assignments_user_id_fkey (
-            id,
-            full_name,
-            email
-          )
-        `)
+        .select('user_id')
         .eq('practice_id', practiceId)
         .eq('is_active', true);
 
       if (assignmentError) throw assignmentError;
 
-      // Combine and deduplicate users
-      const directUsers = userData || [];
-      const assignedUsers = assignmentData?.map(a => a.users).filter(Boolean) || [];
-      
-      const allUsers = [...directUsers, ...assignedUsers];
-      const uniqueUsers = Array.from(
-        new Map(allUsers.map(user => [user.id, user])).values()
-      );
+      const directUsers: User[] = userData || [];
+      const directIds = new Set(directUsers.map(u => u.id));
+      const assignedIds = Array.from(new Set(
+        (assignmentData || [])
+          .map(a => a.user_id)
+          .filter((id): id is string => !!id && !directIds.has(id))
+      ));
 
-      setUsers(uniqueUsers);
+      let assignedUsers: User[] = [];
+      if (assignedIds.length > 0) {
+        const { data: assignedData, error: assignedError } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', assignedIds);
+
+        if (assignedError) throw assignedError;
+        assignedUsers = assignedData || [];
+      }
+
+      const allUsers = [...directUsers, ...assignedUsers]
+        .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+
+      setUsers(allUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
+      toast.error('Could not load staff for the Assignee list');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!practiceId) {
+      toast.error('No practice ID found. Please refresh and try again.');
+      return;
+    }
+
     try {
       const itemData = {
         practice_id: practiceId,
@@ -250,8 +270,8 @@ const PracticeInventory: React.FC = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return;
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Delete "${name}" from the inventory? This cannot be undone.`)) return;
 
     try {
       const { error } = await supabase
@@ -322,7 +342,7 @@ const PracticeInventory: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-green-600">Total Value</p>
-                <p className="text-2xl font-bold text-green-900">N${totalValue.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-green-900">{formatMoney(totalValue)}</p>
               </div>
               <Icon icon="solar:wallet-bold-duotone" className="w-8 h-8 text-green-500" />
             </div>
@@ -428,13 +448,16 @@ const PracticeInventory: React.FC = () => {
                 ) : filteredInventory.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-4 text-center text-gray-500">
-                      No inventory items found
+                      {inventory.length === 0
+                        ? "No inventory items yet. Use 'Add Item' to add one."
+                        : 'No items match your search or category.'}
                     </td>
                   </tr>
                 ) : (
                   filteredInventory.map((item) => {
                     const category = categories.find(c => c.id === item.category);
-                    const isLowStock = item.reorder_level && item.quantity <= item.reorder_level;
+                    // Boolean, so a reorder level of 0 never renders a stray "0" in the stock cell
+                    const isLowStock = !!item.reorder_level && item.quantity <= item.reorder_level;
                     
                     return (
                       <tr key={item.id} className="hover:bg-gray-50">
@@ -462,7 +485,7 @@ const PracticeInventory: React.FC = () => {
                             <p className={`text-sm font-medium ${isLowStock ? 'text-orange-600' : 'text-gray-900'}`}>
                               {item.quantity} {item.unit}
                             </p>
-                            {item.reorder_level && (
+                            {!!item.reorder_level && (
                               <p className="text-xs text-gray-500">
                                 Reorder: {item.reorder_level} {item.unit}
                               </p>
@@ -478,10 +501,10 @@ const PracticeInventory: React.FC = () => {
                         <td className="px-6 py-4">
                           <div>
                             <p className="text-sm font-medium text-gray-900">
-                              N${item.total_value.toFixed(2)}
+                              {formatMoney(item.total_value)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              N${item.unit_cost.toFixed(2)}/unit
+                              {formatMoney(item.unit_cost)}/unit
                             </p>
                           </div>
                         </td>
@@ -517,12 +540,16 @@ const PracticeInventory: React.FC = () => {
                                 });
                                 setShowAddModal(true);
                               }}
+                              aria-label={`Edit ${item.name}`}
+                              title="Edit item"
                               className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                             >
                               <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(item.id)}
+                              onClick={() => handleDelete(item.id, item.name)}
+                              aria-label={`Delete ${item.name}`}
+                              title="Delete item"
                               className="p-1 text-red-600 hover:bg-red-50 rounded"
                             >
                               <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
@@ -581,7 +608,7 @@ const PracticeInventory: React.FC = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      SKU
+                      Product code (SKU)
                     </label>
                     <input
                       type="text"

@@ -11,6 +11,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import { getResultStatus } from '../../utils/labResultStatus';
 
 interface LabResult {
   id: string;
@@ -38,6 +39,10 @@ const LabResults: React.FC<LabResultsProps> = ({ results }) => {
     acc[result.category].push(result);
     return acc;
   }, {} as Record<string, LabResult[]>);
+
+  // A result passed in as "normal" is still checked against its range, so an abnormal value never reads as normal
+  const effectiveStatus = (result: LabResult): LabResult['status'] =>
+    result.status === 'normal' ? getResultStatus(result.value, result.referenceRange) : result.status;
 
   const getStatusColor = (status: LabResult['status']) => {
     switch (status) {
@@ -146,19 +151,19 @@ const LabResults: React.FC<LabResultsProps> = ({ results }) => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className={`flex items-center ${getStatusColor(result.status)}`}>
+                        <div className={`flex items-center ${getStatusColor(effectiveStatus(result))}`}>
                           <Badge
                             variant={
-                              result.status === 'normal' ? 'success' :
-                              result.status === 'high' ? 'warning' :
-                              result.status === 'low' ? 'azure' :
+                              effectiveStatus(result) === 'normal' ? 'success' :
+                              effectiveStatus(result) === 'high' ? 'warning' :
+                              effectiveStatus(result) === 'low' ? 'azure' :
                               'error'
                             }
                             size="sm"
                           >
                             <span className="flex items-center">
-                              {result.status}
-                              {getStatusIcon(result.status)}
+                              {effectiveStatus(result)}
+                              {getStatusIcon(effectiveStatus(result))}
                             </span>
                           </Badge>
                         </div>

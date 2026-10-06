@@ -155,7 +155,11 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
               carried_over_days: 0
             }));
 
-            await supabase.from('leave_balances').insert(balances);
+            const { error: balanceError } = await supabase.from('leave_balances').insert(balances);
+            if (balanceError) {
+              console.error('Leave balances were not created:', balanceError);
+              toast.error('Leave type created, but staff leave balances could not be set up. Please contact support.', { duration: 8000 });
+            }
           }
         }
 

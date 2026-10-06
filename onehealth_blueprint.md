@@ -1629,6 +1629,16 @@ const practiceId = getSafePracticeId(user); // ✅ SECURE
 
 ## 📝 CHANGE LOG
 
+### Version 4.2 (2026-10-06)
+- Payroll: Labour Act hours (45 h week; 9 or 8 h day; overtime 1.5x, max 3 h a day and 10 h a week; Sunday 2x; public holidays; night work) and NamRA PAYE and Social Security (ceiling N$11,000) in src/utils/hr
+- Billing: invoice locks (paid, claim sent, in an open batch) block reopening a visit and rewriting its lines; marking paid records the payment method
+- Finance: 12 reports (cash-up, aging, fund debtors, revenue by tariff, payer mix, doctor productivity, attendance, payroll vs revenue, PAYE/SSC, expenses, stock); /finance?tab=batch-management opens Batches
+- Encounters: newest-first list with server-side status and branch filters and "Load older visits" (it stopped at 1,000 rows)
+- Demo data: scripts/seed-demo/demoSeed.ts, demo practices only, every id starts with 5eed (removeDemoSeed() deletes it)
+- Invented numbers and mock fallbacks removed from dashboards, services, forms and invoice PDFs
+- centralized-sms-gateway: numbers saved without the leading 0 now go to +264, not +81 (needs a function deploy)
+- Visits: administrators get "Delete Booking" in the visit actions until check-in (needs the DELETE policy in proposals/2026-10-06-data-fixes.sql, section 8); a refused delete now says so instead of hiding the visit
+
 ### Version 4.1 (2025-01-12)
 - **CRITICAL SECURITY FIX**: Fixed cross-practice data access vulnerability
 - Removed all hardcoded practice ID fallbacks

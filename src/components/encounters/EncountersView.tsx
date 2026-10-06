@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-hot-toast';
+import { formatNad } from '../../utils/billing/money';
 
 interface EncounterRecord {
   visit_id: string;
@@ -41,6 +42,17 @@ interface EncounterRecord {
   pending_imaging_requests: number;
 }
 
+const ENCOUNTERS_PAGE_SIZE = 1000;
+
+// encounters_view is not in the generated database types, so the few query methods used here are described directly
+interface EncountersQuery extends PromiseLike<{ data: EncounterRecord[] | null; error: { message: string } | null }> {
+  eq(column: string, value: string): EncountersQuery;
+  is(column: string, value: null): EncountersQuery;
+  lte(column: string, value: string): EncountersQuery;
+  order(column: string, options: { ascending: boolean }): EncountersQuery;
+  range(from: number, to: number): EncountersQuery;
+}
+
 export const EncountersView: React.FC = () => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
@@ -52,9 +64,11 @@ export const EncountersView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
-  const [sortField, setSortField] = useState<keyof EncounterRecord>('sequential_number');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Newest visits first: the sequential number is a practice-wide counter that does not follow visit dates
+  const [sortField, setSortField] = useState<keyof EncounterRecord>('visit_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -65,28 +79,48 @@ export const EncountersView: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceId, statusFilter, branchFilter]);
 
-  const fetchEncounters = async () => {
+  // The server returns at most 1,000 rows per request, so the list loads the newest visits first and older ones on
+  // request. Status and branch are filtered by the server, so every filter reaches past the first 1,000 visits.
+  // All stops at today; upcoming bookings are under Scheduled, soonest first.
+  const fetchEncounters = async (append = false) => {
     try {
       setIsLoading(true);
-      setLoading(true);
-      
+      if (!append) setLoading(true);
+
+      const scheduledOnly = statusFilter === 'scheduled';
+      const from = append ? encounters.length : 0;
       let query = supabase
-        .from('encounters_view')
-        .select('*')
-        .order('sequential_number', { ascending: true });
+        .from('encounters_view' as never)
+        .select('*') as unknown as EncountersQuery;
 
       if (practiceId) {
         query = query.eq('practice_id', practiceId);
       }
+      if (statusFilter !== 'all') {
+        query = query.eq('visit_status', statusFilter);
+      }
+      if (!scheduledOnly) {
+        query = query.lte('visit_date', format(new Date(), 'yyyy-MM-dd'));
+      }
+      if (branchFilter === 'main') {
+        query = query.is('branch_id', null);
+      } else if (branchFilter !== 'all') {
+        query = query.eq('branch_id', branchFilter);
+      }
 
-      const { data, error } = await query;
+      const { data, error } = await query
+        .order('visit_date', { ascending: scheduledOnly })
+        .order('sequential_number', { ascending: scheduledOnly })
+        .range(from, from + ENCOUNTERS_PAGE_SIZE - 1);
 
       if (error) {
         console.error('Error fetching encounters:', error);
         return;
       }
 
-      setEncounters(data || []);
+      const page = data || [];
+      setEncounters(previous => (append ? [...previous, ...page] : page));
+      setHasMore(page.length === ENCOUNTERS_PAGE_SIZE);
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -283,8 +317,10 @@ export const EncountersView: React.FC = () => {
       return;
     }
     
-    // Navigate to patient modal with visit edit action
-    navigate(`/patients?patientId=${patientId}&visitId=${visitId}&action=edit-visit`);
+    // Navigate to patient modal with visit edit action (read by PatientManagementView)
+    if (!patientId || !visitId) return;
+    const params = new URLSearchParams({ patientId, visitId, action: 'edit-visit' });
+    navigate(`/patients?${params.toString()}`);
   };
 
   const exportToCSV = () => {
@@ -447,7 +483,7 @@ export const EncountersView: React.FC = () => {
                 />
               </div>
               <button
-                onClick={fetchEncounters}
+                onClick={() => fetchEncounters()}
                 className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
                 title="Refresh"
               >
@@ -486,6 +522,9 @@ export const EncountersView: React.FC = () => {
                       key={status.value}
                       onClick={() => {
                         setStatusFilter(status.value);
+                        // Match the order the server loads: upcoming bookings soonest first, everything else newest first
+                        setSortField('visit_date');
+                        setSortDirection(status.value === 'scheduled' ? 'asc' : 'desc');
                         setCurrentPage(1);
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
@@ -501,12 +540,15 @@ export const EncountersView: React.FC = () => {
                       {status.label}
                       {statusFilter === status.value && (
                         <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                          {status.value === 'all' ? encounters.length : encounters.filter(e => e.visit_status === status.value).length}
+                          {status.value === 'all' ? encounters.length : encounters.filter(e => e.visit_status === status.value).length}{hasMore ? '+' : ''}
                         </span>
                       )}
                     </button>
                   ))}
                 </div>
+                {statusFilter !== 'scheduled' && (
+                  <p className="mt-1.5 text-[11px] text-gray-400">Shows visits up to today. Upcoming bookings are under Scheduled.</p>
+                )}
               </div>
 
               {/* Branch Filter */}
@@ -527,7 +569,7 @@ export const EncountersView: React.FC = () => {
                     All Branches
                     {branchFilter === 'all' && (
                       <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                        {encounters.length}
+                        {encounters.length}{hasMore ? '+' : ''}
                       </span>
                     )}
                   </button>
@@ -546,7 +588,7 @@ export const EncountersView: React.FC = () => {
                     Main
                     {branchFilter === 'main' && (
                       <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                        {encounters.filter(e => !e.branch_id).length}
+                        {encounters.filter(e => !e.branch_id).length}{hasMore ? '+' : ''}
                       </span>
                     )}
                   </button>
@@ -567,7 +609,7 @@ export const EncountersView: React.FC = () => {
                       {branch.name}
                       {branchFilter === branch.id && (
                         <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                          {encounters.filter(e => e.branch_id === branch.id).length}
+                          {encounters.filter(e => e.branch_id === branch.id).length}{hasMore ? '+' : ''}
                         </span>
                       )}
                     </button>
@@ -578,7 +620,7 @@ export const EncountersView: React.FC = () => {
               {/* Stats */}
               <div className="ml-auto flex items-center gap-4 text-sm">
                 <div className="text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredAndSortedEncounters.length}</span> results
+                  <span className="font-semibold text-gray-900">{filteredAndSortedEncounters.length}{hasMore ? '+' : ''}</span> results
                 </div>
               </div>
             </div>
@@ -779,7 +821,7 @@ export const EncountersView: React.FC = () => {
                     </td>
                     <td className="px-2 py-2">
                       <div className="text-xs">
-                        <div className="font-medium text-gray-900 truncate max-w-[150px]">
+                        <div className="font-medium text-gray-900 truncate max-w-[150px]" title={encounter.patient_name}>
                           {encounter.patient_name}
                         </div>
                         <div className="text-gray-500">Visit #{encounter.system_sequence_visit_number}</div>
@@ -823,7 +865,7 @@ export const EncountersView: React.FC = () => {
                       <div className="text-xs">
                         {encounter.medical_aid_name !== 'No Medical Aid' ? (
                           <>
-                            <div className="font-medium text-gray-700 truncate max-w-[120px]">
+                            <div className="font-medium text-gray-700 truncate max-w-[120px]" title={encounter.medical_aid_name}>
                               {encounter.medical_aid_name}
                             </div>
                             <div className="text-gray-500">{encounter.medical_aid_number}</div>
@@ -836,8 +878,8 @@ export const EncountersView: React.FC = () => {
                     <td className="px-2 py-2 text-right">
                       <div className="text-xs">
                         {encounter.total_bill > 0 ? (
-                          <div className="font-semibold text-gray-900">
-                            R{encounter.total_bill >= 1000 ? 
+                          <div className="font-semibold text-gray-900 tabular-nums" title={formatNad(Number(encounter.total_bill) || 0)}>
+                            N${encounter.total_bill >= 1000 ?
                               `${(encounter.total_bill / 1000).toFixed(1)}k` : 
                               encounter.total_bill.toFixed(0)
                             }
@@ -966,6 +1008,25 @@ export const EncountersView: React.FC = () => {
                 </nav>
               </div>
             </div>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="px-4 py-3 flex flex-wrap items-center justify-center gap-3 border-t border-gray-100 text-sm text-gray-500">
+            <span>
+              {statusFilter === 'scheduled'
+                ? `Showing the first ${encounters.length.toLocaleString()} scheduled visits, soonest first.`
+                : `Showing the ${encounters.length.toLocaleString()} most recent visits. Search and filters cover these.`}
+            </span>
+            <button
+              type="button"
+              onClick={() => fetchEncounters(true)}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon icon="solar:history-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+              {isLoading ? 'Loading...' : statusFilter === 'scheduled' ? 'Load more' : 'Load older visits'}
+            </button>
           </div>
         )}
     </div>

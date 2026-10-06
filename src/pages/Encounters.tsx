@@ -15,6 +15,7 @@ import FollowUpAutomationTab from '../components/encounters/FollowUpAutomationTa
 import { AdvancedEncountersDashboard } from '../components/encounters/AdvancedEncountersDashboard';
 import { EncountersView } from '../components/encounters/EncountersView';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
+import { PageTabs } from '../components/ui/PageTabs';
 
 interface DashboardStats {
   totalVisits: number;
@@ -64,7 +65,7 @@ interface DashboardStats {
 const Encounters: React.FC = () => {
   const { practiceId } = usePractice();
   const { user, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<string>('analytics');
+  const [activeTab, setActiveTab] = useState<string>('encounters');
   const [activeSubTab] = useState<string>('analytics');
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState({
@@ -144,10 +145,17 @@ const Encounters: React.FC = () => {
       // Log the practice ID being used
       console.log('Fetching data for practice ID:', practiceId, typeof practiceId);
       
-      // Use fallback practice ID if none provided (New Charm Dental Practice)
-      const effectivePracticeId = practiceId || 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3';
+      // Never fall back to another practice's records
+      if (!practiceId) {
+        setLoading(false);
+        return;
+      }
+      const effectivePracticeId = practiceId;
+      // visit_date is a calendar date: toISOString() would turn local midnight on the 1st into the previous day (UTC+2)
+      const monthStartKey = format(monthStart, 'yyyy-MM-dd');
+      const monthEndKey = format(monthEnd, 'yyyy-MM-dd');
       console.log('Using effective practice ID:', effectivePracticeId);
-      console.log('Date range being used:', monthStart.toISOString().split('T')[0], 'to', monthEnd.toISOString().split('T')[0]);
+      console.log('Date range being used:', monthStartKey, 'to', monthEndKey);
       const lastMonthStart = startOfMonth(subMonths(monthStart, 1));
       const lastMonthEnd = endOfMonth(subMonths(monthStart, 1));
 
@@ -195,8 +203,8 @@ const Encounters: React.FC = () => {
           }
           
           return query
-            .gte('visit_date', monthStart.toISOString().split('T')[0])
-            .lte('visit_date', monthEnd.toISOString().split('T')[0]);
+            .gte('visit_date', monthStartKey)
+            .lte('visit_date', monthEndKey);
         })(),
         
         // Lab requests
@@ -259,8 +267,8 @@ const Encounters: React.FC = () => {
           }
           
           return query
-            .gte('visit_date', monthStart.toISOString().split('T')[0])
-            .lte('visit_date', monthEnd.toISOString().split('T')[0])
+            .gte('visit_date', monthStartKey)
+            .lte('visit_date', monthEndKey)
             .not('diagnosis', 'is', null)
             .not('diagnosis', 'eq', '');
         })(),
@@ -303,15 +311,15 @@ const Encounters: React.FC = () => {
             id,
             date_of_birth,
             gender,
-            visits!inner(
+            visits!visits_patient_id_fkey!inner(
               id,
               visit_date,
               status
             )
           `)
           .eq('practice_id', effectivePracticeId)
-          .gte('visits.visit_date', monthStart.toISOString().split('T')[0])
-          .lte('visits.visit_date', monthEnd.toISOString().split('T')[0]),
+          .gte('visits.visit_date', monthStartKey)
+          .lte('visits.visit_date', monthEndKey),
           
         // Branch performance data
         supabase
@@ -329,8 +337,8 @@ const Encounters: React.FC = () => {
           `)
           .eq('practice_id', effectivePracticeId)
           .eq('is_active', true)
-          .gte('visits.visit_date', monthStart.toISOString().split('T')[0])
-          .lte('visits.visit_date', monthEnd.toISOString().split('T')[0]),
+          .gte('visits.visit_date', monthStartKey)
+          .lte('visits.visit_date', monthEndKey),
           
         // Unbilled visits (completed without invoices)
         (() => {
@@ -351,8 +359,8 @@ const Encounters: React.FC = () => {
           
           return query
             .eq('status', 'completed')
-            .gte('visit_date', monthStart.toISOString().split('T')[0])
-            .lte('visit_date', monthEnd.toISOString().split('T')[0]);
+            .gte('visit_date', monthStartKey)
+            .lte('visit_date', monthEndKey);
         })(),
           
         // Follow-up compliance
@@ -732,6 +740,8 @@ const Encounters: React.FC = () => {
           scheduled_time: visit.scheduled_time,
           branch_id: visit.branch_id,
           patient: visit.patient ? {
+            // Without the id, analytics counted every visit as a new patient
+            id: visit.patient.id,
             gender: visit.patient.gender,
             date_of_birth: visit.patient.date_of_birth
           } : undefined
@@ -774,35 +784,36 @@ const Encounters: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
-        {/* Header Section - Clean Professional Style */}
-        <div className="rounded-xl">
-          <div className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl shadow-lg">
-                  <Icon icon="solar:clipboard-list-bold-duotone" className="w-8 h-8 text-white" />
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header Section (aligned with the content below; stacks cleanly on phones) */}
+        <div>
+          <div className="py-1 md:py-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex-none p-2.5 md:p-3 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-xl shadow-lg">
+                  <Icon icon="solar:clipboard-list-bold-duotone" className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">Encounters</h1>
+                <div className="min-w-0">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Encounters</h1>
                   <p className="text-sm text-gray-500 mt-0.5">Real-time practice analytics and insights</p>
                 </div>
               </div>
-              
+
               {/* User Avatar with Dropdown - Same as Dashboard */}
               {user && (
-                <div className="relative">
+                <div className="relative flex-none">
                   <button
                     ref={avatarButtonRef}
                     onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                    className="relative group focus:outline-none"
+                    className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                    aria-label="Open profile menu"
                   >
                     {/* Pulsating outer ring */}
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
                     <div className="absolute -inset-1 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full opacity-50"></div>
-                    
+
                     {/* Avatar circle */}
-                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                    <div className="relative h-12 w-12 md:h-16 md:w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
                       <img 
                         src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
                         alt={user.name}
@@ -889,28 +900,17 @@ const Encounters: React.FC = () => {
         </div>
 
         {/* Main Tab Navigation - Professional Style */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-3 gap-0 w-full">
-            {(['analytics', 'encounters', 'automations'] as const).map((tab) => {
-              const iconName = tabIcons[tab];
-              const isActive = activeTab === tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="truncate text-center sm:text-left">{tab}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <PageTabs
+          tabs={(['analytics', 'encounters', 'automations'] as const).map((tab) => ({
+            key: tab,
+            label: tab.charAt(0).toUpperCase() + tab.slice(1),
+            icon: tabIcons[tab]
+          }))}
+          active={activeTab}
+          onChange={setActiveTab}
+          label="Encounters sections"
+          activeClassName="bg-gradient-to-r from-cyan-500 to-blue-500"
+        />
 
         {/* Tab Content */}
         <div className="min-h-[600px]">

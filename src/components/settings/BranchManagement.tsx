@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon, { SolarIcons } from '../ui/Icon';
 import TimePickerModal from '../ui/TimePickerModal';
+import { describeDbError, ensureRowsUpdated, formatRole } from './UserManagement/staffUtils';
+import { parseTime12Hour } from './businessHours';
 
 interface BusinessHours {
   day: string;
@@ -100,10 +102,9 @@ const parseBusinessHours = (hours: BusinessHours[] | undefined | null): Business
       // Try to parse existing hours format
       const parts = h.hours.split('-').map((s: string) => s.trim());
       if (parts.length === 2) {
-        // Convert back to 24hr if needed
-        // For now, just use defaults
-        openTime = '09:00';
-        closeTime = '17:00';
+        // Use the stored times; the form used to show 09:00-17:00 whatever was saved
+        openTime = parseTime12Hour(parts[0]) ?? '09:00';
+        closeTime = parseTime12Hour(parts[1]) ?? '17:00';
       }
     }
     
@@ -126,8 +127,8 @@ const BranchManagement: React.FC = () => {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [editingBranch, setEditingBranch] = useState<Branch | null>(null);
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null);
-  const [branchUsers, setBranchUsers] = useState<BranchUser[]>([]);
   const [allStaff, setAllStaff] = useState<BranchUser[]>([]);
+  const [assigningUserId, setAssigningUserId] = useState<string | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [timePickerConfig, setTimePickerConfig] = useState<{
     dayIndex: number;
@@ -163,20 +164,6 @@ const BranchManagement: React.FC = () => {
       loadPracticeAndBranches();
     }
   }, [user?.practice_id]);
-
-  useEffect(() => {
-    if (selectedBranch) {
-      loadBranchUsers(selectedBranch);
-    }
-  }, [selectedBranch]);
-  
-  // Load all branch users on component mount
-  useEffect(() => {
-    if (branches.length > 0 && allStaff.length > 0) {
-      // Set branchUsers to allStaff to have all data available
-      setBranchUsers(allStaff);
-    }
-  }, [branches, allStaff]);
 
   useEffect(() => {
     if (user?.practice_id) {
@@ -216,24 +203,6 @@ const BranchManagement: React.FC = () => {
     }
   };
 
-  const loadBranchUsers = async (branchId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, full_name, email, role, branch_id, avatar')
-        .eq('practice_id', user?.practice_id)
-        .or(`branch_id.eq.${branchId},allowed_branches.cs.{${branchId}}`)
-        .order('full_name');
-
-      if (error) throw error;
-
-      setBranchUsers(data || []);
-    } catch (error) {
-      console.error('Error loading branch users:', error);
-      toast.error('Failed to load branch users');
-    }
-  };
-
   const loadAllStaff = async () => {
     try {
       const { data, error } = await supabase
@@ -247,6 +216,7 @@ const BranchManagement: React.FC = () => {
       setAllStaff(data || []);
     } catch (error) {
       console.error('Error loading staff:', error);
+      toast.error('Failed to load the staff list');
     }
   };
 
@@ -290,7 +260,7 @@ const BranchManagement: React.FC = () => {
       loadPracticeAndBranches();
     } catch (error) {
       console.error('Error saving branch:', error);
-      toast.error(error.message || 'Failed to save branch');
+      toast.error(describeDbError(error, 'Failed to save branch'));
     }
   };
 
@@ -309,12 +279,10 @@ const BranchManagement: React.FC = () => {
       business_hours: parseBusinessHours(branch.business_hours)
     });
     setShowForm(true);
-    // Load branch users for staff management
-    loadBranchUsers(branch.id);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this branch? This action cannot be undone.')) {
+  const handleDelete = async (id: string, name: string) => {
+    if (!window.confirm(`Delete the branch "${name}"? This cannot be undone.`)) {
       return;
     }
 
@@ -331,11 +299,15 @@ const BranchManagement: React.FC = () => {
       
       if (selectedBranch === id) {
         setSelectedBranch(null);
-        setBranchUsers([]);
       }
     } catch (error) {
       console.error('Error deleting branch:', error);
-      toast.error('Failed to delete branch');
+      // 23503: other records (staff, expenses, ...) still point at this branch; the raw database
+      // message for that names constraints, not what the user can do about it
+      const isStillLinked = typeof error === 'object' && error !== null && (error as { code?: unknown }).code === '23503';
+      toast.error(isStillLinked
+        ? `"${name}" still has staff or records linked to it. Move them to another location first, or deactivate the branch instead.`
+        : describeDbError(error, 'Failed to delete branch'));
     }
   };
 
@@ -357,30 +329,34 @@ const BranchManagement: React.FC = () => {
   };
 
   const handleAssignUser = async (userId: string, branchId: string) => {
+    if (assigningUserId) return;
+    setAssigningUserId(userId);
     try {
       const updateData = branchId ? { branch_id: branchId } : { branch_id: null };
-      
-      const { error } = await supabase
+
+      const { data, error } = await supabase
         .from('users')
         .update(updateData)
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id');
 
       if (error) throw error;
+      // Row-level security can silently skip another user's row; don't report that as success
+      ensureRowsUpdated(data, 'The branch assignment');
 
       if (branchId) {
         toast.success('Staff member assigned to branch successfully');
       } else {
         toast.success('Staff member removed from branch');
       }
-      
-      // Reload both staff lists
+
+      // Reload the staff list (every staff count and list on this screen comes from it)
       loadAllStaff();
-      if (selectedBranch) {
-        loadBranchUsers(selectedBranch);
-      }
     } catch (error) {
       console.error('Error assigning user:', error);
-      toast.error('Failed to update staff assignment');
+      toast.error(describeDbError(error, 'Failed to update staff assignment'));
+    } finally {
+      setAssigningUserId(null);
     }
   };
 
@@ -621,6 +597,7 @@ const BranchManagement: React.FC = () => {
                                 : 'text-gray-400 hover:bg-gray-50'
                             }`}
                             title={branch.is_active ? 'Deactivate branch' : 'Activate branch'}
+                            aria-label={`${branch.is_active ? 'Deactivate' : 'Activate'} branch ${branch.name}`}
                           >
                             <Icon icon={branch.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-5 h-5" />
                           </button>
@@ -631,16 +608,18 @@ const BranchManagement: React.FC = () => {
                             }}
                             className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
                             title="Edit branch"
+                            aria-label={`Edit branch ${branch.name}`}
                           >
                             <Icon icon={SolarIcons.edit} className="w-5 h-5" />
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleDelete(branch.id);
+                              handleDelete(branch.id, branch.name);
                             }}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                             title="Delete branch"
+                            aria-label={`Delete branch ${branch.name}`}
                           >
                             <Icon icon={SolarIcons.trash} className="w-5 h-5" />
                           </button>
@@ -700,7 +679,7 @@ const BranchManagement: React.FC = () => {
                           <div className="flex items-center gap-2">
                             <Icon icon={SolarIcons.users} className="w-4 h-4 text-purple-500" />
                             <span className="text-xs font-medium text-gray-700">
-                              Staff ({branchUsers.filter(u => u.branch_id === branch.id).length})
+                              Staff ({allStaff.filter(u => u.branch_id === branch.id).length})
                             </span>
                           </div>
                           {selectedBranch === branch.id && (
@@ -789,6 +768,8 @@ const BranchManagement: React.FC = () => {
                       setEditingBranch(null);
                       resetForm();
                     }}
+                    aria-label="Close without saving"
+                    title="Close"
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
@@ -813,13 +794,13 @@ const BranchManagement: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Slug (URL-friendly name)
+                      Short name (optional)
                     </label>
                     <input
                       type="text"
                       value={formData.slug}
                       onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                      placeholder="auto-generated from name"
+                      placeholder="Made from the branch name if left blank"
                       className="w-full px-4 py-3 bg-gray-100 border-0 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all duration-200 hover:bg-gray-200"
                     />
                   </div>
@@ -990,7 +971,7 @@ const BranchManagement: React.FC = () => {
                       }}
                       className="text-xs text-purple-600 hover:text-purple-700 font-medium"
                     >
-                      Apply weekday hours to all weekdays
+                      Copy Monday's hours to Tuesday-Friday
                     </button>
                   </div>
                 </div>
@@ -1000,7 +981,7 @@ const BranchManagement: React.FC = () => {
                   <div className="mt-6">
                     <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center gap-2">
                       <Icon icon={SolarIcons.users} className="w-4 h-4 text-purple-600" />
-                      Branch Staff ({branchUsers.filter(u => u.branch_id === editingBranch.id).length})
+                      Branch Staff ({allStaff.filter(u => u.branch_id === editingBranch.id).length})
                     </h4>
                     <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
                       {allStaff.length === 0 ? (
@@ -1025,39 +1006,17 @@ const BranchManagement: React.FC = () => {
                                   )}
                                   <div>
                                     <p className="text-sm font-medium text-gray-900">{staff.full_name}</p>
-                                    <p className="text-xs text-gray-500">{staff.role}</p>
+                                    <p className="text-xs text-gray-500">{formatRole(staff.role)}</p>
                                   </div>
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    try {
-                                      const updateData = isAssigned 
-                                        ? { branch_id: null } 
-                                        : { branch_id: editingBranch.id };
-                                      
-                                      const { error } = await supabase
-                                        .from('users')
-                                        .update(updateData)
-                                        .eq('id', staff.id);
-
-                                      if (error) throw error;
-
-                                      toast.success(isAssigned 
-                                        ? 'Staff member removed from branch' 
-                                        : 'Staff member assigned to branch');
-                                      
-                                      // Reload staff lists
-                                      await Promise.all([
-                                        loadAllStaff(),
-                                        loadBranchUsers(editingBranch.id)
-                                      ]);
-                                    } catch (error) {
-                                      console.error('Error updating staff assignment:', error);
-                                      toast.error('Failed to update staff assignment');
-                                    }
-                                  }}
-                                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+                                  // Shared handler: it checks the row really changed (row-level security can
+                                  // skip it silently) and blocks double clicks
+                                  onClick={() => handleAssignUser(staff.id, isAssigned ? '' : editingBranch.id)}
+                                  disabled={!!assigningUserId}
+                                  title={isAssigned ? 'Remove from this branch' : 'Assign to this branch'}
+                                  className={`px-3 py-1 text-xs font-medium rounded-full transition-colors disabled:opacity-50 disabled:cursor-wait ${
                                     isAssigned
                                       ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
                                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -1143,6 +1102,8 @@ const BranchManagement: React.FC = () => {
                   </div>
                   <button
                     onClick={() => setShowStaffModal(false)}
+                    aria-label="Close branch staff"
+                    title="Close"
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
@@ -1186,15 +1147,18 @@ const BranchManagement: React.FC = () => {
                           )}
                           <div>
                             <p className="font-medium text-gray-900">{staffMember.full_name}</p>
-                            <p className="text-sm text-gray-600 capitalize">{staffMember.role}</p>
+                            <p className="text-sm text-gray-600">{formatRole(staffMember.role)}</p>
                           </div>
                         </div>
-                        
+
                         <Button
-                          variant={isAssigned ? "default" : "outline"}
+                          variant={isAssigned ? 'secondary' : 'outline'}
                           size="sm"
                           onClick={() => handleAssignUser(staffMember.id, isAssigned ? '' : selectedBranch)}
-                          className={isAssigned ? "bg-purple-600 hover:bg-purple-700" : ""}
+                          isLoading={assigningUserId === staffMember.id}
+                          disabled={!!assigningUserId && assigningUserId !== staffMember.id}
+                          title={isAssigned ? 'Remove from this branch' : 'Assign to this branch'}
+                          className={isAssigned ? 'bg-purple-600 hover:bg-purple-700 text-white' : ''}
                         >
                           {isAssigned ? (
                             <>

@@ -46,7 +46,8 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
     quiet_hours_enabled: false,
     quiet_hours_start: null,
     quiet_hours_end: null,
-    quiet_hours_timezone: 'UTC',
+    // Quiet hours are typed in local time, so store the user's own time zone (Namibia is UTC+2), not UTC
+    quiet_hours_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Windhoek',
     type_preferences: {
       appointments: true,
       messages: true,
@@ -118,6 +119,16 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
     setPreferences(prev => ({ ...prev, [key]: value }));
   };
 
+  // The time pickers show 22:00-07:00 when empty; store those so what is saved matches what is shown
+  const toggleQuietHours = (enabled: boolean) => {
+    setPreferences(prev => ({
+      ...prev,
+      quiet_hours_enabled: enabled,
+      quiet_hours_start: prev.quiet_hours_start ?? (enabled ? '22:00' : null),
+      quiet_hours_end: prev.quiet_hours_end ?? (enabled ? '07:00' : null)
+    }));
+  };
+
   const toggleTypePreference = (type: string, value: boolean) => {
     setPreferences(prev => ({
       ...prev,
@@ -166,13 +177,18 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-900">Enable All Notifications</p>
-              <p className="text-sm text-gray-500">Master switch for all notification types</p>
+              <p className="text-sm text-gray-500">
+                {preferences.notifications_enabled
+                  ? 'Master switch for all notification types'
+                  : 'Notifications are off. Turn this on to change the settings below.'}
+              </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
                 checked={preferences.notifications_enabled}
                 onChange={(e) => togglePreference('notifications_enabled', e.target.checked)}
+                aria-label="Enable all notifications"
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-amber-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-amber-500 peer-checked:to-orange-600"></div>
@@ -200,10 +216,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.email_enabled}
                   onChange={(e) => togglePreference('email_enabled', e.target.checked)}
+                  aria-label="Email notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
@@ -220,10 +237,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.sms_enabled}
                   onChange={(e) => togglePreference('sms_enabled', e.target.checked)}
+                  aria-label="SMS notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
@@ -240,10 +258,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.push_enabled}
                   onChange={(e) => togglePreference('push_enabled', e.target.checked)}
+                  aria-label="Push notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
           </div>
@@ -274,10 +293,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                     type="checkbox"
                     checked={preferences.type_preferences[key as keyof typeof preferences.type_preferences] ?? true}
                     onChange={(e) => toggleTypePreference(key, e.target.checked)}
+                    aria-label={`${config.label} notifications`}
                     disabled={!preferences.notifications_enabled}
                     className="sr-only peer"
                   />
-                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-600 disabled:opacity-50"></div>
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-gray-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                 </label>
               </div>
             ))}
@@ -301,10 +321,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.thread_notifications}
                   onChange={(e) => togglePreference('thread_notifications', e.target.checked)}
+                  aria-label="Thread notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
@@ -318,10 +339,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.mention_notifications}
                   onChange={(e) => togglePreference('mention_notifications', e.target.checked)}
+                  aria-label="Mention notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 
@@ -335,10 +357,11 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                   type="checkbox"
                   checked={preferences.reaction_notifications}
                   onChange={(e) => togglePreference('reaction_notifications', e.target.checked)}
+                  aria-label="Reaction notifications"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gray-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
           </div>
@@ -360,11 +383,12 @@ export const NotificationPreferences: React.FC<NotificationPreferencesProps> = (
                 <input
                   type="checkbox"
                   checked={preferences.quiet_hours_enabled}
-                  onChange={(e) => togglePreference('quiet_hours_enabled', e.target.checked)}
+                  onChange={(e) => toggleQuietHours(e.target.checked)}
+                  aria-label="Enable quiet hours"
                   disabled={!preferences.notifications_enabled}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 disabled:opacity-50"></div>
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
               </label>
             </div>
 

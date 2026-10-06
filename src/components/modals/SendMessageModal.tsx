@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { X, Send, MessageSquare, Phone, User, Clock, Sparkles, FileText } from 'lucide-react';
 import Button from '../ui/Button';
 import FullScreenModal from '../ui/FullScreenModal';
-import { communicationService } from '../../services/communicationService';
+import { toast } from 'react-hot-toast';
+import { communicationService, getCommunicationErrorMessage } from '../../services/communicationService';
 import { useTheme } from '../../stores/themeStore';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
@@ -21,7 +22,7 @@ interface SendMessageModalProps {
 
 const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, patient }) => {
   const { currentTheme } = useTheme();
-  const { user } = useAuthStore();
+  const { user, selectedPracticeId } = useAuthStore();
   const [message, setMessage] = useState('');
   const [phoneNumber, setPhoneNumber] = useState(patient?.cell_number || '');
   const [isSending, setIsSending] = useState(false);
@@ -59,17 +60,19 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
     }
   }, [isOpen, patient]);
 
-  // Get practice_id from user metadata or local storage
-  const practiceId = user?.user_metadata?.practice_id || localStorage.getItem('currentPracticeId');
+  // authStore user has no user_metadata; use the selected practice, then the user's own practice
+  const practiceId = selectedPracticeId || user?.practice_id || null;
 
   const handleSend = async () => {
+    if (isSending) return;
+
     if (!message.trim() || !phoneNumber.trim()) {
-      alert('Please enter both phone number and message content');
+      toast.error('Please enter both phone number and message content');
       return;
     }
 
     if (!practiceId) {
-      alert('Practice ID not found. Please ensure you are logged in properly.');
+      toast.error('Practice ID not found. Please ensure you are logged in properly.');
       return;
     }
 
@@ -79,8 +82,8 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
     try {
       // Use centralized communication service
       const response = await communicationService.sendSMS({
-        practiceId: practiceId as string,
-        recipientPhone: phoneNumber,
+        practiceId,
+        recipientPhone: phoneNumber.trim(),
         messageContent: message,
         messageType: 'custom',
         patientId: patient?.id,
@@ -93,6 +96,7 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
       
       if (response.success) {
         setSendStatus('success');
+        toast.success('SMS sent successfully');
         setMessage('');
         setTimeout(() => {
           onClose();
@@ -101,12 +105,12 @@ const SendMessageModal: React.FC<SendMessageModalProps> = ({ isOpen, onClose, pa
       } else {
         setSendStatus('error');
         console.error('SMS sending failed:', response.error);
-        alert(`Failed to send SMS: ${response.error || 'Unknown error'}`);
+        toast.error(getCommunicationErrorMessage('sms', response.error));
       }
     } catch (error) {
       setSendStatus('error');
       console.error('Error sending SMS:', error);
-      alert('Failed to send SMS. Please try again.');
+      toast.error('Failed to send SMS. Please try again.');
     } finally {
       setIsSending(false);
     }

@@ -38,6 +38,8 @@ const PremiumConfirmationModal: React.FC<PremiumConfirmationModalProps> = ({
   );
 
   const invalidCount = recipients.length - validRecipients.length;
+  const patientCount = (count: number) => `${count} ${count === 1 ? 'patient' : 'patients'}`;
+  const contactLabel = type === 'email' ? 'email addresses' : 'phone numbers';
 
   const handleConfirm = () => {
     onConfirm();
@@ -101,6 +103,8 @@ const PremiumConfirmationModal: React.FC<PremiumConfirmationModalProps> = ({
                 <button
                   onClick={onClose}
                   className="p-3 hover:bg-white/10 rounded-xl transition-all duration-200 hover:scale-110"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -123,14 +127,14 @@ const PremiumConfirmationModal: React.FC<PremiumConfirmationModalProps> = ({
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-green-500" />
                         <span className="font-medium text-green-700">
-                          {validRecipients.length} patients with valid {type === 'email' ? 'email addresses' : 'phone numbers'}
+                          {patientCount(validRecipients.length)} with valid {contactLabel}
                         </span>
                       </div>
                       {invalidCount > 0 && (
                         <div className="flex items-center gap-2">
                           <X className="w-4 h-4 text-orange-500" />
                           <span className="text-orange-600">
-                            {invalidCount} patients without valid {type === 'email' ? 'email addresses' : 'phone numbers'} (will be skipped)
+                            {patientCount(invalidCount)} without valid {contactLabel} (will be skipped)
                           </span>
                         </div>
                       )}
@@ -200,8 +204,8 @@ const PremiumConfirmationModal: React.FC<PremiumConfirmationModalProps> = ({
                 <div className="flex items-start gap-3">
                   <Shield className="w-5 h-5 text-amber-600 mt-0.5" />
                   <div className="text-sm text-amber-800">
-                    <p className="font-medium mb-1">Professional Healthcare Communication</p>
-                    <p>This message will be sent from OneHealth Practice with proper medical confidentiality and compliance standards.</p>
+                    <p className="font-medium mb-1">Check before sending</p>
+                    <p>Make sure the recipients and the message are correct: a message cannot be recalled once it has been sent.</p>
                   </div>
                 </div>
               </div>
@@ -220,9 +224,11 @@ const PremiumConfirmationModal: React.FC<PremiumConfirmationModalProps> = ({
                 <Button
                   onClick={handleConfirm}
                   className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium flex items-center gap-3 shadow-lg hover:shadow-xl transition-all duration-200"
+                  disabled={validRecipients.length === 0}
+                  title={validRecipients.length === 0 ? `None of the selected patients have ${contactLabel}` : undefined}
                 >
                   <Send className="w-5 h-5" />
-                  Send to {validRecipients.length} patients
+                  Send to {patientCount(validRecipients.length)}
                 </Button>
               </div>
             </div>

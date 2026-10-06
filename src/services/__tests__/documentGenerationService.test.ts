@@ -4,7 +4,8 @@ describe('DocumentGenerationService - Invoice Generation Edge Cases', () => {
   let service: DocumentGenerationService;
 
   beforeEach(() => {
-    service = DocumentGenerationService.getInstance();
+    // The service is a plain class (no getInstance), so this suite never ran before
+    service = new DocumentGenerationService();
   });
 
   describe('createInvoiceHTMLWithBeautifulStyling', () => {
@@ -177,6 +178,47 @@ describe('DocumentGenerationService - Invoice Generation Edge Cases', () => {
 
       expect(html).toBeDefined();
       expect(html).toContain('N$ 300.00'); // Subtotal should be 100 + 200 = 300
+    });
+
+    // The template builder is private; reach it through a narrow structural type
+    type InvoiceTemplate = { createInvoiceHTMLWithBeautifulStyling: (...args: unknown[]) => Promise<string> };
+    const render = (practice: Record<string, unknown>, invoice: Record<string, unknown>) =>
+      (service as unknown as InvoiceTemplate).createInvoiceHTMLWithBeautifulStyling(mockVisit, practice, invoice, mockPatientInfo, null, '');
+    const billedInvoice = {
+      invoice_number: 'INV-010',
+      total: 1200,
+      created_at: '2026-10-01T09:00:00Z',
+      due_date: '2026-10-31',
+      invoice_services: [{ code: '0190', description: 'Consultation', quantity: 1, unit_price: 1200, total_price: 1200 }]
+    };
+
+    it('never prints invented bank details, so a patient cannot pay into an account that is not the practice\'s', async () => {
+      const html = await render(mockPractice, billedInvoice);
+
+      expect(html).not.toContain('BANKING DETAILS');
+      expect(html).not.toContain('11223344556');
+      expect(html).not.toContain('FNB Namibia');
+    });
+
+    it("prints the practice's own bank details when they are set", async () => {
+      const html = await render(
+        { ...mockPractice, bank_name: 'Bank Windhoek', account_number: '8001234567', branch_code: '483872' },
+        billedInvoice
+      );
+
+      expect(html).toContain('BANKING DETAILS');
+      expect(html).toContain('Bank: Bank Windhoek Account: 8001234567 Branch: 483872');
+    });
+
+    it('shows the due date stored on the invoice, not 30 days from whenever the PDF is generated', async () => {
+      const html = await render(mockPractice, billedInvoice);
+      expect(html).toContain('31 Oct 2026');
+    });
+
+    it("shows the patient's portion from patient_total, so the medical aid share is not billed to the patient", async () => {
+      // invoices_enhanced has no medical_aid_covered column; the old sum showed the full N$ 1,200.00
+      const html = await render(mockPractice, { ...billedInvoice, medical_aid_total: 900, patient_total: 300 });
+      expect(html).toMatch(/Patient Portion:<\/td>\s*<td[^>]*>N\$ 300\.00</);
     });
   });
 });

@@ -18,11 +18,16 @@ import {
 import { supabase } from '../../lib/supabase';
 import ImagingRequestSimple from './ImagingRequestSimple';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 interface ImagingTabContentSimpleProps {
   patientId: string;
   visitId: string;
 }
+
+// The Add Visit screen passes an empty visitId until the visit is saved, and an imaging request
+// needs a saved visit to belong to
+const NEW_VISIT_HINT = 'Save the visit first, then open it again to add imaging requests.';
 
 interface ImagingFile {
   id: string;
@@ -84,6 +89,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
 
       if (requestsError) {
         console.error('Error fetching imaging requests:', requestsError);
+        toast.error('Could not load imaging requests. Please try again.');
         return;
       }
 
@@ -110,6 +116,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
       setImagingRequests(requestsWithFiles as ImagingRequest[]);
     } catch (error) {
       console.error('Error in fetchImagingRequests:', error);
+      toast.error('Could not load imaging requests. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -165,7 +172,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading file:', error);
-      alert('Failed to download file. Please try again.');
+      toast.error('Failed to download the file. Please try again.');
     }
   };
 
@@ -180,6 +187,8 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
       if (url) {
         setSelectedFile({ ...file, url });
         setShowPhotoViewer(true);
+      } else {
+        toast.error('Could not open the image. Please try again, or download it instead.');
       }
     } else {
       // For non-images, open in new tab
@@ -246,12 +255,15 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
         uploadedFileIds.push(imagingData.id);
       }
 
-      // Get existing file IDs and append new ones
-      const { data: currentRequest } = await supabase
+      // Get existing file IDs and append new ones. If they can't be read, stop: saving only the new
+      // IDs would unlink the results uploaded earlier.
+      const { data: currentRequest, error: readError } = await supabase
         .from('imaging_requests')
         .select('result_file_ids')
         .eq('id', requestId)
         .single();
+
+      if (readError) throw readError;
 
       const existingIds = currentRequest?.result_file_ids || [];
       const allFileIds = [...existingIds, ...uploadedFileIds];
@@ -262,38 +274,42 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
         .update({
           result_file_ids: allFileIds,
           status: 'completed',
-          completed_date: new Date().toISOString().split('T')[0]
+          // Local calendar date; toISOString() is UTC and gave yesterday before 02:00 in Namibia
+          completed_date: format(new Date(), 'yyyy-MM-dd')
         })
         .eq('id', requestId);
 
       if (updateError) throw updateError;
 
+      toast.success(`${uploadedFileIds.length} file${uploadedFileIds.length === 1 ? '' : 's'} uploaded`);
       // Refresh the list
       await fetchImagingRequests();
     } catch (error) {
       console.error('Error uploading files:', error);
-      alert('Failed to upload files. Please try again.');
+      toast.error('Failed to upload the files. Please try again.');
     } finally {
       setUploadingRequestId(null);
     }
   };
 
-  const handleDeleteRequest = async (requestId: string) => {
-    if (!confirm('Are you sure you want to delete this imaging request?')) return;
+  const handleDeleteRequest = async (request: ImagingRequest) => {
+    const requestDate = request.request_date ? ` from ${format(new Date(request.request_date), 'dd MMM yyyy')}` : '';
+    if (!window.confirm(`Delete the ${getImagingTypeLabel(request.imaging_type)} request${requestDate}? This cannot be undone.`)) return;
 
     try {
       const { error } = await supabase
         .from('imaging_requests')
         .delete()
-        .eq('id', requestId);
+        .eq('id', request.id);
 
       if (error) throw error;
 
+      toast.success('Imaging request deleted');
       // Refresh the list
       await fetchImagingRequests();
     } catch (error) {
       console.error('Error deleting request:', error);
-      alert('Failed to delete request. Please try again.');
+      toast.error('Failed to delete the imaging request. Please try again.');
     }
   };
 
@@ -311,17 +327,21 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
           <h3 className="text-lg font-semibold text-gray-900">Imaging Requests</h3>
           <p className="text-sm text-gray-600">Manage imaging requests and upload results</p>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setShowRequestForm(true);
-            setEditingRequest(null);
-          }}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-        >
-          <Plus className="w-4 h-4" />
-          New Request
-        </button>
+        {/* A disabled button shows no tooltip, so the wrapper carries the reason */}
+        <span title={visitId.trim() === '' ? NEW_VISIT_HINT : undefined} className={visitId.trim() === '' ? 'cursor-not-allowed' : undefined}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowRequestForm(true);
+              setEditingRequest(null);
+            }}
+            disabled={visitId.trim() === ''}
+            className={`px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2 disabled:opacity-50 ${visitId.trim() === '' ? 'pointer-events-none' : ''}`}
+          >
+            <Plus className="w-4 h-4" />
+            New Request
+          </button>
+        </span>
       </div>
 
       {/* Requests Table */}
@@ -363,7 +383,9 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                   <td colSpan={7} className="px-6 py-12 text-center">
                     <Camera className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <h4 className="text-lg font-medium text-gray-900 mb-2">No imaging requests yet</h4>
-                    <p className="text-gray-500">Create imaging requests to track studies ordered for this patient</p>
+                    <p className="text-gray-500">
+                      {visitId.trim() === '' ? NEW_VISIT_HINT : "Use 'New Request' to order an imaging study for this visit."}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -485,6 +507,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                                 onClick={() => viewFile(file)}
                                 className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                                 title={`View ${file.original_name}`}
+                                aria-label={`View ${file.original_name}`}
                               >
                                 <Eye className="w-3 h-3" />
                               </button>
@@ -493,6 +516,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                                 onClick={() => downloadFile(file)}
                                 className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
                                 title={`Download ${file.original_name}`}
+                                aria-label={`Download ${file.original_name}`}
                               >
                                 <Download className="w-3 h-3" />
                               </button>
@@ -510,6 +534,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                         }}
                         className="p-1.5 text-gray-400 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors"
                         title="Edit request"
+                        aria-label={`Edit ${getImagingTypeLabel(request.imaging_type)} request`}
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
@@ -517,9 +542,10 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                       {/* Delete Button */}
                       <button
                         type="button"
-                        onClick={() => handleDeleteRequest(request.id)}
+                        onClick={() => handleDeleteRequest(request)}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         title="Delete request"
+                        aria-label={`Delete ${getImagingTypeLabel(request.imaging_type)} request`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -581,6 +607,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                     }}
                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded text-white"
                     title="Download"
+                    aria-label={`Download ${selectedFile.original_name}`}
                   >
                     <Download className="w-5 h-5" />
                   </button>
@@ -593,6 +620,7 @@ const ImagingTabContentSimple: React.FC<ImagingTabContentSimpleProps> = ({
                     }}
                     className="p-2 hover:bg-white hover:bg-opacity-20 rounded text-white"
                     title="Close"
+                    aria-label="Close the image viewer"
                   >
                     <X className="w-5 h-5" />
                   </button>

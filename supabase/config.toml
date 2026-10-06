@@ -295,6 +295,11 @@ deno_version = 1
 # [edge_runtime.secrets]
 # secret_key = "env(SECRET_VALUE)"
 
+# SMSPortal's reply webhook cannot send a Supabase JWT. The function checks its own shared secret
+# (SMS_REPLY_WEBHOOK_KEY, as ?key= or an x-webhook-key header) and refuses every other call.
+[functions.sms-reply-webhook]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

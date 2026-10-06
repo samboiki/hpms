@@ -23,7 +23,7 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
 
-  const quickActions = [
+  const quickActions: { id: string; label: string; icon: string; onClick?: () => void; disabledReason?: string }[] = [
     {
       id: 'add-patient',
       label: 'Add Patient',
@@ -34,19 +34,24 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
       id: 'send-sms',
       label: 'Send SMS',
       icon: 'lets-icons:message-duotone',
-      onClick: () => toast.success('SMS feature coming soon!')
+      // SMS goes to chosen patients from the Patients page (Send Message); the old toast said "coming soon"
+      onClick: () => {
+        navigate('/patients');
+        toast('Select the patients, then click Send Message to send them an SMS.');
+      }
     },
     {
       id: 'submit-batch',
       label: 'Submit Batch',
       icon: 'material-icon-theme:folder-batch-open',
-      onClick: () => navigate('/billing?action=batch')
+      // Claim batches are on the Finance page; /billing does not exist and showed "page not found"
+      onClick: () => navigate('/finance?tab=batch-management')
     },
     {
       id: 'to-dos',
       label: 'To Dos',
       icon: 'fluent:calendar-reply-20-filled',
-      onClick: () => navigate('/todos')
+      disabledReason: 'Not available yet: the app has no to-do list'
     }
   ];
 
@@ -82,7 +87,9 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={action.onClick}
-                className="relative bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-200 group/btn"
+                disabled={Boolean(action.disabledReason)}
+                title={action.disabledReason}
+                className="relative bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-200 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex flex-col items-center gap-2">
                   {/* Icon with light grey background */}

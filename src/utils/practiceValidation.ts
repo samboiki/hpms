@@ -4,7 +4,8 @@
  */
 
 import { practiceDataService } from '../lib/practiceDataService';
-import { toast } from 'sonner';
+// 'sonner' is not installed, so importing it failed this whole module (the app uses react-hot-toast)
+import { toast } from 'react-hot-toast';
 
 export interface PracticeContext {
   practiceId: string;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Settings, Users, TrendingUp, Activity, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Settings, Users, TrendingUp, Activity, MoreVertical } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/ui/Card';
@@ -29,6 +29,7 @@ const PracticesManagement: React.FC = () => {
   const { user, isSuperAdmin } = useAuthStore();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -53,6 +54,7 @@ const PracticesManagement: React.FC = () => {
       setPractices(data || []);
     } catch (error) {
       console.error('Error fetching practices:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -78,19 +80,20 @@ const PracticesManagement: React.FC = () => {
     return colors[tier as keyof typeof colors] || colors.standard;
   };
 
+  // admin_practice_overview columns are nullable: guard text for search and numbers for the totals
   const filteredPractices = practices.filter(practice => {
-    const matchesSearch = practice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         practice.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         practice.contact_email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (practice.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (practice.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (practice.contact_email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || practice.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
 
   const totalStats = practices.reduce((acc, practice) => ({
     totalPractices: acc.totalPractices + 1,
-    totalUsers: acc.totalUsers + practice.total_users,
-    totalPatients: acc.totalPatients + practice.total_patients,
-    totalAppointments: acc.totalAppointments + practice.appointments_this_month
+    totalUsers: acc.totalUsers + (practice.total_users || 0),
+    totalPatients: acc.totalPatients + (practice.total_patients || 0),
+    totalAppointments: acc.totalAppointments + (practice.appointments_this_month || 0)
   }), { totalPractices: 0, totalUsers: 0, totalPatients: 0, totalAppointments: 0 });
 
   if (!isSuperAdmin()) {
@@ -114,9 +117,12 @@ const PracticesManagement: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900">Practice Management</h1>
               <p className="text-gray-600 mt-1">Manage all practices in the HPMS system</p>
             </div>
-            <Button 
+            {/* No create-practice form exists yet (showCreateModal is never rendered) */}
+            <Button
               onClick={() => setShowCreateModal(true)}
               className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+              disabled
+              title="Not available yet: new practices cannot be added from this screen"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Practice
@@ -221,10 +227,10 @@ const PracticesManagement: React.FC = () => {
                     <p className="text-sm text-gray-600">{practice.city}</p>
                   </div>
                   <div className="flex space-x-2">
-                    <Badge className={getStatusColor(practice.status)}>
+                    <Badge className={`${getStatusColor(practice.status)} capitalize`}>
                       {practice.status}
                     </Badge>
-                    <Badge className={getTierColor(practice.subscription_tier)}>
+                    <Badge className={`${getTierColor(practice.subscription_tier)} capitalize`}>
                       {practice.subscription_tier}
                     </Badge>
                   </div>
@@ -245,23 +251,11 @@ const PracticesManagement: React.FC = () => {
                   </div>
                 </div>
 
+                {/* View/edit/delete icons had no handlers and no such features exist; use the practice switcher to open a practice */}
                 <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                      <p>Admin: {practice.admin_name || 'Not assigned'}</p>
-                      <p>{practice.admin_email}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="p-2 text-gray-600 hover:text-[#01b9d4] hover:bg-gray-100 rounded-lg">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-600 hover:text-[#01b9d4] hover:bg-gray-100 rounded-lg">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="text-sm text-gray-600">
+                    <p>Admin: {practice.admin_name || 'Not assigned'}</p>
+                    <p>{practice.admin_email}</p>
                   </div>
                 </div>
               </Card>
@@ -274,8 +268,12 @@ const PracticesManagement: React.FC = () => {
             <div className="text-gray-400 mb-4">
               <Settings className="w-16 h-16 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No practices found</h3>
-            <p className="text-gray-600">Try adjusting your search criteria or add a new practice.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {loadError ? 'Practices could not be loaded' : 'No practices found'}
+            </h3>
+            <p className="text-gray-600">
+              {loadError ? 'Please refresh the page to try again.' : 'Try adjusting your search or status filter.'}
+            </p>
           </Card>
         )}
       </div>

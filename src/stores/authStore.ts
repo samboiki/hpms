@@ -32,6 +32,19 @@ interface AuthState {
   canManagePractices: () => boolean;
 }
 
+// Used only when the staff profile (users row) can't be loaded. user_metadata is editable by the
+// user, so it may never grant admin, super-admin or practice-management rights.
+const roleFromMetadata = (role: unknown): User['role'] =>
+  role === 'doctor' || role === 'nurse' || role === 'receptionist' ? role : 'doctor';
+
+/** Thrown when a staff member whose account was deactivated tries to sign in. */
+export class AccountDeactivatedError extends Error {
+  constructor() {
+    super('This account has been deactivated. Please contact your practice administrator.');
+    this.name = 'AccountDeactivatedError';
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   user: null,
@@ -58,17 +71,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { data, error } = await supabase
             .from('users')
             .select(`
-              id, 
-              email, 
-              full_name, 
-              role, 
-              avatar, 
+              id,
+              email,
+              full_name,
+              role,
+              avatar,
               signature_url,
-              practice_id, 
-              is_super_admin, 
-              can_manage_practices, 
-              permissions, 
+              practice_id,
+              is_super_admin,
+              can_manage_practices,
+              permissions,
               last_active_at,
+              is_active,
               practices:practice_id (
                 id,
                 name
@@ -86,6 +100,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         } catch (e) {
           console.log('No user found in database, using auth metadata');
+        }
+
+        // A deactivated staff member must not keep using an existing session
+        if (dbUser?.is_active === false) {
+          console.warn('⛔ Session belongs to a deactivated account; signing out');
+          await supabase.auth.signOut();
+          set({ isAuthenticated: false, user: null, selectedPracticeId: null });
+          return false;
         }
 
         // Use database user data if available, otherwise fallback to auth metadata
@@ -107,11 +129,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'doctor',
+          role: roleFromMetadata(authUser.user_metadata?.role),
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
-          is_super_admin: authUser.user_metadata?.is_super_admin || false,
-          can_manage_practices: authUser.user_metadata?.can_manage_practices || false
+          is_super_admin: false,
+          can_manage_practices: false
         };
 
         set({ isAuthenticated: true, user });
@@ -162,8 +184,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             practice_id, 
             is_super_admin, 
             can_manage_practices, 
-            permissions, 
+            permissions,
             last_active_at,
+            is_active,
             practices:practice_id (
               id,
               name
@@ -171,15 +194,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           `)
           .eq('id', authUser.id)
           .single();
-          
+
         userData = result.data;
         userError = result.error;
+
+        // Deactivated staff can't sign in (accounts are deactivated rather than deleted)
+        if (userData?.is_active === false) {
+          await supabase.auth.signOut();
+          throw new AccountDeactivatedError();
+        }
         
         if (userData) {
           console.log('✅ User data from DB:', userData);
           console.log('📍 Practice ID from DB:', userData.practice_id);
         }
       } catch (e) {
+        if (e instanceof AccountDeactivatedError) throw e;
         console.log('⚠️ Users table query failed, using auth metadata');
         userError = e;
       }
@@ -193,12 +223,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'doctor',
+          role: roleFromMetadata(authUser.user_metadata?.role),
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
-          is_super_admin: authUser.user_metadata?.is_super_admin || false,
-          can_manage_practices: authUser.user_metadata?.can_manage_practices || false,
-          permissions: authUser.user_metadata?.permissions || {},
+          is_super_admin: false,
+          can_manage_practices: false,
+          permissions: {},
           last_active_at: authUser.last_sign_in_at
         };
       } else {
@@ -230,6 +260,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.log('✅ Login complete!');
       return true;
     } catch (error) {
+      if (error instanceof AccountDeactivatedError) throw error;
       console.error('💥 Unexpected login error:', error);
       return false;
     }

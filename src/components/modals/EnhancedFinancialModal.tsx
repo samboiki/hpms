@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { 
@@ -9,7 +9,6 @@ import {
   BarChart3,
   DollarSign,
   Filter,
-  Download,
   Users,
   Package,
   Send,
@@ -23,7 +22,7 @@ import {
   Receipt,
   Wallet
 } from 'lucide-react';
-import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format } from 'date-fns';
 import { 
   LineChart, 
   Line, 
@@ -45,6 +44,9 @@ import {
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
+import { financialKpiService, type FinancialKPIs } from '../../services/financialKpiService';
+import { toast } from 'react-hot-toast';
+import { formatNad, nadParts } from '../../utils/billing/money';
 
 interface BatchData {
   batch_id: string;
@@ -69,19 +71,6 @@ interface BatchData {
   total_detail_transactions: number;
   total_amount_detail_transactions: number;
   dat_filename: string;
-}
-
-interface FinancialKPIs {
-  totalBilledMTD: number;
-  totalCollectedMTD: number;
-  totalOutstanding: number;
-  claimsInProgress: number;
-  monthlyRevenueTrend: { month: string; revenue: number; medical_aid: number; patient: number }[];
-  invoiceVolumeTrend: { month: string; count: number }[];
-  revenueByStatus: { name: string; value: number; color: string }[];
-  topServices: { name: string; revenue: number; count: number; avg: number }[];
-  medicalAidBreakdown: { provider: string; value: number; percentage: number }[];
-  practitionerPerformance: { name: string; revenue: number; patients: number }[];
 }
 
 interface FinancialData {
@@ -142,6 +131,9 @@ const COLORS = {
 };
 
 const PIE_COLORS = ['#8B5CF6', '#06B6D4', '#10B981', '#F59E0B', '#EF4444', '#EC4899'];
+
+// formatNad throws on NaN, so a missing amount shows as N$ 0.00 instead of crashing the modal
+const nad = (value: number | string | null | undefined) => formatNad(Number(value) || 0);
 
 // Heartbeat animation styles
 const heartbeatStyles = `
@@ -234,7 +226,10 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     setIsMaximized(prev => !prev);
   }, []);
   const [batches, setBatches] = useState<BatchData[]>([]);
-  const [loading, setLoading] = useState(false);
+  // Start in loading state so the first open never flashes the "no data" state
+  const [loading, setLoading] = useState(true);
+  const [kpiError, setKpiError] = useState<string | null>(null);
+  const kpiRequestIdRef = useRef(0);
   const [batchLoading, setBatchLoading] = useState(false);
   const [batchFilters, setBatchFilters] = useState<{paid: boolean, unpaid: boolean, active: boolean}>({
     paid: false,
@@ -246,230 +241,30 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   
   const { user, selectedPracticeId } = useAuthStore();
 
-  // Optimized data fetching with minimal queries
+  // KPI data comes from the shared finance service (practice-scoped, always settles)
+  const kpiPracticeId = selectedPracticeId || user?.practice_id || null;
   const fetchFinancialKPIs = useCallback(async () => {
+    const requestId = ++kpiRequestIdRef.current;
     setLoading(true);
+    setKpiError(null);
     try {
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      
-      // Calculate date ranges based on selection
-      const monthsBack = dateRange === '30d' ? 1 : 
-                        dateRange === '3m' ? 3 : 
-                        dateRange === '6m' ? 6 : 12;
-      
-      const periodStart = subMonths(now, monthsBack);
-
-      // Single optimized query for invoices data
-      const { data: invoicesData, error: invoicesError } = await supabase
-        .from('invoices_enhanced')
-        .select(`
-          id,
-          total,
-          medical_aid_total,
-          patient_total,
-          payment_status,
-          issue_date,
-          due_date,
-          practitioner_id,
-          patient_id
-        `)
-        .gte('issue_date', periodStart.toISOString().split('T')[0])
-        .order('issue_date', { ascending: false });
-
-      // Single query for services data
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('invoice_services')
-        .select(`
-          description,
-          total_price,
-          quantity,
-          invoice_id
-        `);
-
-      // Single query for batch data (claims in progress)
-      const { data: batchData, error: batchError } = await supabase
-        .from('batch_headers')
-        .select('total_amount, status')
-        .eq('status', 'sent');
-
-      if (invoicesError) throw invoicesError;
-      if (servicesError) throw servicesError;
-      if (batchError) throw batchError;
-
-      const invoices = invoicesData || [];
-      const services = servicesData || [];
-      const batches = batchData || [];
-
-      // Calculate KPIs efficiently
-      const totalBilledMTD = invoices
-        .filter(inv => new Date(inv.issue_date) >= monthStart)
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-
-      const totalCollectedMTD = invoices
-        .filter(inv => inv.payment_status === 'paid' && new Date(inv.issue_date) >= monthStart)
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-
-      const totalOutstanding = invoices
-        .filter(inv => inv.payment_status === 'pending' || inv.payment_status === 'overdue')
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-
-      const claimsInProgress = batches
-        .reduce((sum, batch) => sum + parseFloat(batch.total_amount || '0'), 0);
-
-      // Monthly revenue trend (last 6 months)
-      const monthlyRevenueTrend = [];
-      for (let i = 5; i >= 0; i--) {
-        const month = subMonths(now, i);
-        const monthStart = startOfMonth(month);
-        const monthEnd = endOfMonth(month);
-        
-        const monthInvoices = invoices.filter(inv => {
-          const issueDate = new Date(inv.issue_date);
-          return issueDate >= monthStart && issueDate <= monthEnd;
-        });
-
-        monthlyRevenueTrend.push({
-          month: format(month, 'MMM yyyy'),
-          revenue: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0),
-          medical_aid: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.medical_aid_total || '0'), 0),
-          patient: monthInvoices.reduce((sum, inv) => sum + parseFloat(inv.patient_total || '0'), 0)
-        });
+      const result = await financialKpiService.getFinancialKPIs(kpiPracticeId, dateRange);
+      if (requestId === kpiRequestIdRef.current) {
+        setKpis(result);
       }
-
-      // Invoice volume trend
-      const invoiceVolumeTrend = monthlyRevenueTrend.map(trend => ({
-        month: trend.month,
-        count: invoices.filter(inv => {
-          const issueDate = new Date(inv.issue_date);
-          const monthStart = startOfMonth(new Date(trend.month + ' 1'));
-          const monthEnd = endOfMonth(monthStart);
-          return issueDate >= monthStart && issueDate <= monthEnd;
-        }).length
-      }));
-
-      // Revenue by payment status
-      const paid = invoices.filter(inv => inv.payment_status === 'paid')
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-      const pending = invoices.filter(inv => inv.payment_status === 'pending')
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-      const overdue = invoices.filter(inv => inv.payment_status === 'overdue')
-        .reduce((sum, inv) => sum + parseFloat(inv.total || '0'), 0);
-
-      const revenueByStatus = [
-        { name: 'Paid', value: paid, color: COLORS.success },
-        { name: 'Pending', value: pending, color: COLORS.warning },
-        { name: 'Overdue', value: overdue, color: COLORS.danger }
-      ].filter(item => item.value > 0);
-
-      // Top 5 services by revenue (filter by invoice IDs in date range)
-      const invoiceIds = new Set(invoices.map(inv => inv.id));
-      const filteredServices = services.filter(service => 
-        service.invoice_id && invoiceIds.has(service.invoice_id)
-      );
-      
-      const serviceGroups = filteredServices.reduce((acc, service) => {
-        const key = service.description || 'Unknown Service';
-        if (!acc[key]) {
-          acc[key] = { name: key, revenue: 0, count: 0 };
-        }
-        acc[key].revenue += parseFloat(service.total_price || '0');
-        acc[key].count += service.quantity || 1;
-        return acc;
-      }, {} as Record<string, { name: string; revenue: number; count: number }>);
-
-      const topServices = Object.values(serviceGroups)
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5)
-        .map(service => ({
-          ...service,
-          avg: service.count > 0 ? service.revenue / service.count : 0
-        }));
-
-      // Get medical aid data separately for breakdown
-      const patientIds = [...new Set(invoices.map(inv => inv.patient_id).filter(Boolean))];
-      let medicalAidBreakdown: { provider: string; value: number; percentage: number }[] = [];
-      
-      if (patientIds.length > 0) {
-        const { data: medicalAidData } = await supabase
-          .from('medical_aid_details')
-          .select('patient_id, provider')
-          .in('patient_id', patientIds);
-
-        if (medicalAidData) {
-          // Create lookup map for patient medical aid providers
-          const patientProviderMap = medicalAidData.reduce((acc, item) => {
-            acc[item.patient_id] = item.provider;
-            return acc;
-          }, {} as Record<string, string>);
-
-          // Calculate medical aid breakdown
-          const medicalAidGroups = invoices
-            .filter(inv => inv.patient_id && patientProviderMap[inv.patient_id])
-            .reduce((acc, inv) => {
-              const provider = patientProviderMap[inv.patient_id!];
-              if (!acc[provider]) {
-                acc[provider] = 0;
-              }
-              acc[provider] += parseFloat(inv.medical_aid_total || '0');
-              return acc;
-            }, {} as Record<string, number>);
-
-          const totalMedicalAid = Object.values(medicalAidGroups).reduce((sum, value) => sum + value, 0);
-          medicalAidBreakdown = Object.entries(medicalAidGroups)
-            .map(([provider, value]) => ({
-              provider,
-              value,
-              percentage: totalMedicalAid > 0 ? (value / totalMedicalAid) * 100 : 0
-            }))
-            .sort((a, b) => b.value - a.value)
-            .slice(0, 5);
-        }
-      }
-
-      // Practitioner performance (simplified)
-      const practitionerGroups = invoices
-        .filter(inv => inv.practitioner_id)
-        .reduce((acc, inv) => {
-          const practitionerId = inv.practitioner_id;
-          if (!acc[practitionerId]) {
-            acc[practitionerId] = { revenue: 0, patients: new Set() };
-          }
-          acc[practitionerId].revenue += parseFloat(inv.total || '0');
-          if (inv.patient_id) {
-            acc[practitionerId].patients.add(inv.patient_id);
-          }
-          return acc;
-        }, {} as Record<string, { revenue: number; patients: Set<string> }>);
-
-      const practitionerPerformance = Object.entries(practitionerGroups)
-        .map(([id, data]) => ({
-          name: `Practitioner ${id.slice(0, 8)}`, // Simplified name
-          revenue: data.revenue,
-          patients: data.patients.size
-        }))
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      setKpis({
-        totalBilledMTD,
-        totalCollectedMTD,
-        totalOutstanding,
-        claimsInProgress,
-        monthlyRevenueTrend,
-        invoiceVolumeTrend,
-        revenueByStatus,
-        topServices,
-        medicalAidBreakdown,
-        practitionerPerformance
-      });
-
     } catch (error) {
       console.error('Error fetching financial KPIs:', error);
+      if (requestId === kpiRequestIdRef.current) {
+        setKpis(null);
+        setKpiError(error instanceof Error ? error.message : 'Failed to load financial data');
+      }
     } finally {
-      setLoading(false);
+      // Ignore superseded requests so a slow older response cannot clear a newer load
+      if (requestId === kpiRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, [dateRange]);
+  }, [kpiPracticeId, dateRange]);
 
   // Fetch batch management data
   const fetchBatchData = useCallback(async () => {
@@ -483,32 +278,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     
     if (!practiceId) {
       console.warn('❌ No practice ID found (neither selectedPracticeId nor user.practice_id)');
-      console.log('🔧 Available user fields:', user ? Object.keys(user) : 'No user');
-      
-      // For super admins or users without practice ID, try to get the first available practice
-      if (user?.is_super_admin) {
-        console.log('🔧 User is super admin, trying to get first practice...');
-        try {
-          const { data: practices, error } = await supabase
-            .from('practices')
-            .select('id, name')
-            .limit(1);
-          
-          if (!error && practices && practices.length > 0) {
-            const firstPracticeId = practices[0].id;
-            console.log('✅ Using first practice:', firstPracticeId, practices[0].name);
-            // Continue with this practice ID
-            await fetchBatchDataForPractice(firstPracticeId);
-            return;
-          } else {
-            console.log('❌ No practices found in database');
-          }
-        } catch (error) {
-          console.error('❌ Error fetching practices:', error);
-        }
-      }
-      
-      // Set empty batches and return
+      // Never fall back to some other practice's batches (e.g. the first practice in the system)
       setBatches([]);
       return;
     }
@@ -701,13 +471,13 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     }
   };
 
-  // --- Function to handle individual batch submission ---
-  const handleIndividualSubmit = async (batchId: string) => {
+  // --- Function to handle individual batch submission (resolves true when the batch was sent) ---
+  const handleIndividualSubmit = async (batchId: string): Promise<boolean> => {
     // Show a loading spinner for this specific button
     setSubmittingBatches(prev => new Set(prev).add(batchId));
     try {
       console.log(`🚀 Invoking Edge Function 'send-batch-email' for batch: ${batchId}`);
-      
+
       const { data, error } = await supabase.functions.invoke('send-batch-email', {
         body: { batch_id: batchId },
       });
@@ -715,12 +485,13 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       if (error) {
         throw new Error((error as any).message);
       }
-      
-      console.log('✅ Success:', data.message);
-      alert(`Success: ${data.message}`);
+
+      console.log('✅ Success:', data?.message);
+      toast.success(data?.message || 'Batch sent to the medical aid');
 
       // Refresh the batch list to show the new 'sent' status
       fetchBatchData();
+      return true;
 
     } catch (error) {
       console.error(`❌ Failed to send batch ${batchId}:`, error);
@@ -743,7 +514,8 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         batchId
       });
       
-      alert(`Error submitting batch: ${errorMessage}\n\nCheck the browser console for detailed error information.`);
+      toast.error(`Could not submit the batch: ${errorMessage}`);
+      return false;
     } finally {
       // Remove the loading spinner for this button
       setSubmittingBatches(prev => {
@@ -759,38 +531,40 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     const activeBatchesToSubmit = batches.filter(batch => batch.status === 'active');
 
     if (activeBatchesToSubmit.length === 0) {
-      alert("No active batches to submit.");
+      toast('No active batches to submit.');
       return;
     }
 
+    const total = activeBatchesToSubmit.length;
+    // Each batch is emailed to its medical aid and cannot be recalled, so confirm the bulk send
+    if (!window.confirm(`Send all ${total} active batch${total === 1 ? '' : 'es'} to the medical aids now?`)) return;
+
     setIsSubmittingAll(true);
-    
+
     // Attempt all submissions, even if some fail
-    await Promise.allSettled(
+    const results = await Promise.allSettled(
       activeBatchesToSubmit.map(batch => handleIndividualSubmit(batch.batch_id))
     );
 
     setIsSubmittingAll(false);
 
-    alert(`"Submit All" process complete. Please check the status of individual batches.`);
-    
+    const failed = results.filter(result => result.status !== 'fulfilled' || !result.value).length;
+    if (failed === 0) {
+      toast.success(`All ${total} batch${total === 1 ? '' : 'es'} submitted`);
+    } else {
+      toast.error(`${failed} of ${total} batch${total === 1 ? '' : 'es'} could not be submitted`);
+    }
+
     // Refresh data after all submissions are attempted
     fetchBatchData();
   };
 
+  // KPIs depend on open state, practice and date range only; batch data is handled by the effects below
   useEffect(() => {
     if (isOpen) {
-      console.log('🚀 Modal opened - activeTab:', activeTab);
-      console.log('🏥 selectedPracticeId:', selectedPracticeId);
-      console.log('👤 user:', user);
-      
       fetchFinancialKPIs();
-      if (activeTab === 'batch-management') {
-        console.log('📊 Batch management tab active - triggering fetch');
-        fetchBatchData();
-      }
     }
-  }, [isOpen, activeTab, fetchFinancialKPIs, fetchBatchData]);
+  }, [isOpen, fetchFinancialKPIs]);
 
   // Add debug logging when tab changes
   useEffect(() => {
@@ -845,7 +619,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                     fontSize: '12px'
                   }}
                   formatter={(value: number, name: string) => [
-                    `N$${value.toLocaleString()}`,
+                    nad(value),
                     name === 'medical_aid' ? 'Medical Aid' : name === 'patient' ? 'Patient' : 'Total Revenue'
                   ]}
                 />
@@ -886,7 +660,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       color: 'white',
                       fontSize: '12px'
                     }}
-                    formatter={(value: number) => [`N$${value.toLocaleString()}`, 'Amount']}
+                    formatter={(value: number) => [nad(value), 'Amount']}
                   />
                   <Pie
                     data={kpis.revenueByStatus}
@@ -960,7 +734,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                           {service.name.length > 20 ? service.name.substring(0, 20) + '...' : service.name}
                         </td>
                         <td className="py-2 px-3 text-sm font-semibold text-gray-900 font-rubik">
-                          N${service.revenue.toLocaleString()}
+                          {nad(service.revenue)}
                         </td>
                       </tr>
                     ))}
@@ -993,10 +767,10 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-600">{service.count}</td>
                     <td className="py-2 px-3 text-sm font-semibold text-gray-900 font-rubik">
-                      N${service.revenue.toLocaleString()}
+                      {nad(service.revenue)}
                     </td>
                     <td className="py-2 px-3 text-sm text-gray-600 font-rubik">
-                      N${service.avg.toFixed(0)}
+                      {nad(service.avg)}
                     </td>
                   </tr>
                 ))}
@@ -1105,10 +879,11 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               </div>
               
               {/* Submit All Button */}
-              <button 
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+              <button
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleSubmitAll}
                 disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
+                title={batches.some(b => b.status === 'active') ? 'Email every active batch to its medical aid' : 'No active batches to submit'}
               >
                 {isSubmittingAll ? (
                   <>
@@ -1206,10 +981,11 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             </div>
             
             {/* Submit All Button */}
-            <button 
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleSubmitAll}
               disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
+              title={batches.some(b => b.status === 'active') ? 'Email every active batch to its medical aid' : 'No active batches to submit'}
             >
               {isSubmittingAll ? (
                 <>
@@ -1303,7 +1079,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                             className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-sm mx-auto"
                             style={{ backgroundColor: themeColor }}
                           >
-                            {batch.medical_aid_short_name.substring(0, 2)}
+                            {(batch.medical_aid_short_name || batch.medical_aid_reference || '').substring(0, 2)}
                           </div>
                         )}
                       </td>
@@ -1311,7 +1087,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       {/* Created Date */}
                       <td className="py-4 px-6">
                         <div className="text-sm text-gray-700 font-medium">
-                          {format(new Date(batch.batch_date), 'MMM dd, yyyy')}
+                          {format(new Date(batch.batch_date), 'd MMM yyyy')}
                         </div>
                       </td>
 
@@ -1349,16 +1125,11 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                         <div className="flex flex-col items-end">
                           <div className="text-2xl font-bold text-gray-600 font-rubik">
                             {(() => {
-                              const amount = parseFloat(batch.total_amount);
-                              const formatted = amount.toLocaleString('en-US', { 
-                                minimumFractionDigits: 2, 
-                                maximumFractionDigits: 2 
-                              });
-                              const [wholePart, centsPart] = formatted.split('.');
+                              const { whole, cents } = nadParts(Number(batch.total_amount) || 0);
                               return (
                                 <>
-                                  N${wholePart}
-                                  {centsPart && <span className="text-gray-400">.{centsPart}</span>}
+                                  N$ {whole}
+                                  <span className="text-gray-400">.{cents}</span>
                                 </>
                               );
                             })()}
@@ -1373,9 +1144,10 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                       <td className="py-4 px-6">
                         <div className="flex justify-end">
                           <button
-                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium"
+                            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                             onClick={() => handleIndividualSubmit(batch.batch_id)}
                             disabled={isSubmitting || isSubmittingAll || batch.status !== 'active'}
+                            title={batch.status === 'active' ? 'Email this batch to the medical aid' : 'Only active batches can be submitted'}
                           >
                             {isSubmitting ? (
                               <Loader2 className="w-4 h-4 animate-spin" />
@@ -1455,19 +1227,19 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                   <option value="12m" className="text-gray-900">12 Months</option>
                 </select>
               </div>
-              <button className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                <Download className="w-5 h-5" />
-              </button>
               <button
                 onClick={toggleMaximize}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
                 title={isMaximized ? 'Minimize' : 'Maximize'}
+                aria-label={isMaximized ? 'Minimize' : 'Maximize'}
               >
                 {isMaximized ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
               </button>
               <button
                 onClick={onClose}
                 className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1488,7 +1260,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 </div>
                 <div className="relative z-10">
                   <p className="text-white/80 text-sm font-medium">Total Billed MTD</p>
-                  <p className="text-white text-2xl font-bold">N${kpis.totalBilledMTD.toLocaleString()}</p>
+                  <p className="text-white text-2xl font-bold">{nad(kpis.totalBilledMTD)}</p>
                   <p className="text-white/60 text-xs">This month</p>
                 </div>
               </motion.div>
@@ -1504,7 +1276,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 </div>
                 <div className="relative z-10">
                   <p className="text-white/80 text-sm font-medium">Outstanding</p>
-                  <p className="text-white text-2xl font-bold">N${kpis.totalOutstanding.toLocaleString()}</p>
+                  <p className="text-white text-2xl font-bold">{nad(kpis.totalOutstanding)}</p>
                   <p className="text-white/60 text-xs">Pending collection</p>
                 </div>
               </motion.div>
@@ -1520,7 +1292,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 </div>
                 <div className="relative z-10">
                   <p className="text-white/80 text-sm font-medium">Collected MTD</p>
-                  <p className="text-white text-2xl font-bold">N${kpis.totalCollectedMTD.toLocaleString()}</p>
+                  <p className="text-white text-2xl font-bold">{nad(kpis.totalCollectedMTD)}</p>
                   <p className="text-white/60 text-xs">This month</p>
                 </div>
               </motion.div>
@@ -1536,7 +1308,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 </div>
                 <div className="relative z-10">
                   <p className="text-white/80 text-sm font-medium">Claims in Progress</p>
-                  <p className="text-white text-2xl font-bold">N${kpis.claimsInProgress.toLocaleString()}</p>
+                  <p className="text-white text-2xl font-bold">{nad(kpis.claimsInProgress)}</p>
                   <p className="text-white/60 text-xs">Processing</p>
                 </div>
               </motion.div>
@@ -1612,7 +1384,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
         {/* Content */}
         <div className="p-6">
           {loading && (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-12" role="status">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
                 <p className="text-gray-500">Loading financial analytics...</p>
@@ -1621,8 +1393,9 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
           )}
 
           {!loading && !kpis && (
-            <div className="text-center py-12">
-              <p className="text-gray-500 mb-4">No financial data available</p>
+            <div className="text-center py-12" role="alert">
+              <p className="text-gray-500 mb-1">No financial data available</p>
+              <p className="text-sm text-gray-400 mb-4">{kpiError || 'Financial data could not be loaded.'}</p>
               <button
                 onClick={fetchFinancialKPIs}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
@@ -1637,7 +1410,15 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               {activeTab === 'overview' && (
                 <div className="space-y-6">
                   {/* KPI Cards now shown in header */}
-                  {renderCharts()}
+                  {kpis.invoiceCount === 0 ? (
+                    <div className="text-center py-12 border border-dashed border-gray-200 rounded-xl">
+                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" aria-hidden="true" />
+                      <p className="font-medium text-gray-700">No invoices in this period</p>
+                      <p className="text-sm text-gray-500 mt-1">Invoices are created when a visit is updated with billing services.</p>
+                    </div>
+                  ) : (
+                    renderCharts()
+                  )}
                 </div>
               )}
 
@@ -1662,7 +1443,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                                 />
                               </div>
                               <span className="font-semibold text-gray-900 w-20 text-right font-rubik">
-                                N${provider.value.toLocaleString()}
+                                {nad(provider.value)}
                               </span>
                             </div>
                           </div>

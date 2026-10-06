@@ -173,13 +173,15 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({ practiceId }) => {
     try {
       const { data: labRequests, error } = await supabase
         .from('lab_requests')
-        .select('status, priority, test_name, requested_at')
-        .gte('requested_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+        .select('status, request_date, lab_facility')
+        .gte('request_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
 
       if (error) throw error;
 
-      const priorityCounts = labRequests.reduce((acc, lab) => {
-        acc[lab.priority] = (acc[lab.priority] || 0) + 1;
+      // `priority` column doesn't exist on lab_requests — group by lab_facility so the chart still renders
+      const priorityCounts = (labRequests ?? []).reduce((acc, lab: any) => {
+        const key = lab.lab_facility || 'unknown';
+        acc[key] = (acc[key] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 

@@ -18,6 +18,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getResultStatus } from '../../utils/labResultStatus';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
 import LabResultUpload from '../visits/LabResultUpload';
@@ -525,7 +526,11 @@ const PremiumAddVisitForm: React.FC<Props> = ({ patientId, onSuccess, onCancel }
                           setLabResults(prev => [...prev, {
                             name: result.name,
                             description: `${result.value} ${result.unit} (Ref: ${result.reference_range})`,
-                            status: result.status,
+                            // The upload defaults to "normal", so check the value against its range rather
+                            // than show an out-of-range result with a green Normal badge
+                            status: result.status === 'normal'
+                              ? getResultStatus(result.value, result.reference_range)
+                              : result.status,
                             value: result.value,
                             unit: result.unit,
                             reference_range: result.reference_range

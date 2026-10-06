@@ -14,6 +14,8 @@ import {
   Building2,
   Check
 } from 'lucide-react';
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -53,8 +55,9 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
-  const [requestDate, setRequestDate] = useState(new Date());
-  const [expectedDate, setExpectedDate] = useState(new Date());
+  // Start from the saved dates when editing, so saving doesn't silently move them to today
+  const [requestDate, setRequestDate] = useState(editRequest?.request_date ? new Date(editRequest.request_date) : new Date());
+  const [expectedDate, setExpectedDate] = useState(editRequest?.preferred_date ? new Date(editRequest.preferred_date) : new Date());
 
   // Lab facility selection
   const [showLabModal, setShowLabModal] = useState(false);
@@ -108,10 +111,10 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
     if (datePickerType === 'request') {
       setRequestDate(newDate);
       // Update form data with formatted date
-      handleInputChange('request_date', newDate.toISOString().split('T')[0]);
+      handleInputChange('request_date', format(newDate, 'yyyy-MM-dd'));
     } else {
       setExpectedDate(newDate);
-      handleInputChange('preferred_date', newDate.toISOString().split('T')[0]);
+      handleInputChange('preferred_date', format(newDate, 'yyyy-MM-dd'));
     }
     
     setShowDatePicker(false);
@@ -151,7 +154,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
     try {
       if (!user) {
         console.error('❌ Lab Request Form - No user logged in');
-        alert('You must be logged in to create requests');
+        toast.error('You must be logged in to create requests');
         return;
       }
 
@@ -160,7 +163,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
           test_name: formData.test_name,
           clinical_indication: formData.clinical_indication
         });
-        alert('Please fill in all required fields');
+        toast.error('Please fill in all required fields');
         return;
       }
 
@@ -177,7 +180,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
         patient_id: patientId,
         visit_id: visitId,
         requested_by: user.id,
-        request_date: new Date().toISOString().split('T')[0],
+        // The date shown in the picker, as a local calendar date (toISOString gave the previous day before 02:00)
+        request_date: format(requestDate, 'yyyy-MM-dd'),
         // Convert empty dates to null to avoid validation errors
         preferred_date: formData.preferred_date || null,
         notes: formData.notes || null
@@ -215,7 +219,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
           errorMessage = result.error.message;
         }
         
-        alert(errorMessage);
+        toast.error(errorMessage);
         setLoading(false);
         return; // Don't close modal on error
       }
@@ -226,7 +230,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
     } catch (error) {
       console.error('💥 Error saving lab request:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to save lab request: ${errorMessage}`);
+      toast.error(`Failed to save lab request: ${errorMessage}`);
       setLoading(false);
       // Don't close modal on error - let user try again
     }
@@ -258,6 +262,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
             onCancel();
           }}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          aria-label="Close lab request form"
+          title="Close"
         >
           <X className="w-5 h-5 text-gray-500" />
         </button>
@@ -354,7 +360,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
               }}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer flex items-center justify-between hover:bg-gray-50"
             >
-              <span>{requestDate.toLocaleDateString()}</span>
+              <span>{format(requestDate, 'dd MMM yyyy')}</span>
               <Calendar className="w-5 h-5 text-gray-400" />
             </div>
           </div>
@@ -370,7 +376,9 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
               }}
               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 cursor-pointer flex items-center justify-between hover:bg-gray-50"
             >
-              <span>{expectedDate.toLocaleDateString()}</span>
+              <span className={formData.preferred_date ? 'text-gray-900' : 'text-gray-400'}>
+                {formData.preferred_date ? format(expectedDate, 'dd MMM yyyy') : 'Not set'}
+              </span>
               <Calendar className="w-5 h-5 text-gray-400" />
             </div>
           </div>
@@ -467,11 +475,11 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
               
               // Manual validation since we removed the form element
               if (!formData.test_name.trim()) {
-                alert('Please enter a test name');
+                toast.error('Please enter a test name');
                 return;
               }
               if (!formData.clinical_indication.trim()) {
-                alert('Please enter clinical indication');
+                toast.error('Please enter the clinical indication (reason for the test)');
                 return;
               }
               
@@ -512,6 +520,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
                 <button 
                   onClick={() => setShowDatePicker(false)}
                   className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close date picker"
+                  title="Close"
                 >
                   <X className="w-4 h-4 text-gray-500" />
                 </button>
@@ -522,6 +532,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
                 <button
                   onClick={() => handleMonthChange(-1)}
                   className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Previous month"
+                  title="Previous month"
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-700" />
                 </button>
@@ -552,6 +564,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
                 <button
                   onClick={() => handleMonthChange(1)}
                   className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Next month"
+                  title="Next month"
                 >
                   <ChevronRight className="w-5 h-5 text-gray-700" />
                 </button>
@@ -647,6 +661,8 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
                     setCustomLabName('');
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close lab facility list"
+                  title="Close"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>

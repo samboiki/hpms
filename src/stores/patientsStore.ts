@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { supabase } from '../lib/supabase';
+import { practiceDataService } from '../lib/practiceDataService';
 
 export interface Patient {
   id: string;
@@ -98,108 +100,80 @@ interface PatientsState {
   updatePatient: (id: string, patient: Partial<Patient>) => Promise<void>;
 }
 
-// Mock data
-const mockPatients: Patient[] = [
-  {
-    id: '1',
-    firstName: 'Johannes',
-    lastName: 'van der Merwe',
-    dateOfBirth: '1980-05-15',
-    idNumber: '8005155012087',
-    gender: 'male',
-    email: 'johannes.vdm@example.com',
-    phone: '081 123 4567',
-    address: '123 Mandume Ndemufayo Street, Windhoek, Namibia',
-    emergencyContact: {
-      name: 'Maria van der Merwe',
-      relationship: 'Spouse',
-      phone: '081 765 4321'
-    },
-    medicalAidDetails: {
-      provider: 'Namibia Medical Care',
-      scheme: 'Diamond',
-      membershipNumber: 'NMC123456',
-      planType: 'Comprehensive',
-      mainMember: {
-        name: 'Johannes van der Merwe',
-        idNumber: '8005155012087',
-        relationship: 'Self'
-      }
-    },
-    medicalHistory: [
-      {
-        id: 'm1',
-        date: '2023-02-10',
-        type: 'consultation',
-        title: 'Annual Check-up',
-        description: 'Patient is in good health. BP: 120/80, HR: 72, Temp: 36.6°C',
-        doctor: 'Dr. Sarah Nkosi',
-        icd10Code: 'Z00.00',
-        vitals: {
-          bloodPressure: '120/80',
-          temperature: 36.6,
-          pulseRate: 72,
-          weight: 82,
-          height: 178,
-          bmi: 25.9
-        }
-      }
-    ],
-    upcomingAppointments: [],
-    chronicConditions: ['Hypertension'],
-    allergies: ['Penicillin'],
-    bloodType: 'O+',
-    occupation: 'Teacher',
-    employer: 'Ministry of Education',
-    preferredLanguage: 'Afrikaans',
-    avatar: 'https://images.pexels.com/photos/614810/pexels-photo-614810.jpeg?auto=compress&cs=tinysrgb&w=200'
-  },
-  {
-    id: '2',
-    firstName: 'Precious',
-    lastName: 'Namupala',
-    dateOfBirth: '1992-08-21',
-    idNumber: '9208210123456',
-    gender: 'female',
-    email: 'precious.n@example.com',
-    phone: '081 234 5678',
-    address: '456 Independence Avenue, Windhoek, Namibia',
-    emergencyContact: {
-      name: 'Thomas Namupala',
-      relationship: 'Father',
-      phone: '081 876 5432'
-    },
-    medicalAidDetails: {
-      provider: 'Discovery Health',
-      scheme: 'Coastal Core',
-      membershipNumber: 'DH789012',
-      planType: 'Standard',
-      mainMember: {
-        name: 'Precious Namupala',
-        idNumber: '9208210123456',
-        relationship: 'Self'
-      }
-    },
+/** The patients columns this store reads (all present in src/types/database.types.ts). */
+export const PATIENT_STORE_COLUMNS =
+  'id, first_name, last_name, date_of_birth, id_number, gender, email, cell_number, home_address, occupation, employer, home_language';
+
+export interface PatientStoreRow {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  date_of_birth: string | null;
+  id_number: string | null;
+  gender: string | null;
+  email: string | null;
+  cell_number: string | null;
+  home_address: string | null;
+  occupation: string | null;
+  employer: string | null;
+  home_language: string | null;
+}
+
+const LANGUAGES: Patient['preferredLanguage'][] = ['English', 'Afrikaans', 'Oshiwambo'];
+
+/**
+ * Maps a patients row to this store's Patient shape. Fields the table doesn't hold (history,
+ * appointments, conditions, emergency contact) start empty rather than being made up.
+ */
+export function toStorePatient(row: PatientStoreRow): Patient {
+  const gender = (row.gender || '').trim().toLowerCase();
+  const language = LANGUAGES.find(
+    (name) => name.toLowerCase() === (row.home_language || '').trim().toLowerCase()
+  );
+  return {
+    id: row.id,
+    firstName: row.first_name || '',
+    lastName: row.last_name || '',
+    dateOfBirth: row.date_of_birth || '',
+    idNumber: row.id_number || '',
+    gender: gender.startsWith('f') ? 'female' : gender.startsWith('m') ? 'male' : 'other',
+    email: row.email || '',
+    phone: row.cell_number || '',
+    address: row.home_address || '',
+    emergencyContact: { name: '', relationship: '', phone: '' },
     medicalHistory: [],
     upcomingAppointments: [],
     chronicConditions: [],
     allergies: [],
-    occupation: 'Software Developer',
-    employer: 'Tech Solutions Namibia',
-    preferredLanguage: 'English',
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=200'
-  }
-];
+    occupation: row.occupation || undefined,
+    employer: row.employer || undefined,
+    preferredLanguage: language || 'Other'
+  };
+}
 
+// This store used to hold two invented patients with made-up phone numbers, which the message
+// composer offered as recipients. It now starts empty and loads the practice's real patients.
 export const usePatientsStore = create<PatientsState>((set, get) => ({
-  patients: mockPatients,
+  patients: [],
   isLoading: false,
   error: null,
   fetchPatients: async () => {
     set({ isLoading: true, error: null });
     try {
-      set({ patients: mockPatients, isLoading: false });
+      const authContext = await practiceDataService.getAuthContext();
+      if (!authContext?.practiceId) {
+        set({ patients: [], isLoading: false, error: 'No practice selected, so no patients can be listed.' });
+        return;
+      }
+      const { data, error } = await supabase
+        .from('patients')
+        .select(PATIENT_STORE_COLUMNS)
+        .eq('practice_id', authContext.practiceId)
+        .order('last_name', { ascending: true });
+      if (error) throw error;
+      set({ patients: ((data || []) as PatientStoreRow[]).map(toStorePatient), isLoading: false });
     } catch (error) {
+      console.error('Error fetching patients:', error);
       set({ error: 'Failed to fetch patients', isLoading: false });
     }
   },

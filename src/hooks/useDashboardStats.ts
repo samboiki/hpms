@@ -5,6 +5,12 @@ import { InvoiceStats } from '../services/invoiceStatsService';
 import { EncounterStats } from '../services/encounterStatsService';
 import { usePractice } from '../contexts/PracticeContext';
 import { supabase } from '../lib/supabase';
+import { fetchAllRows, getQuarterDateRange, isOutstandingStatus } from '../services/financialKpiService';
+
+interface InvoiceTotalRow {
+  total: number | null;
+  payment_status: string | null;
+}
 
 interface DashboardStats {
   patient: PatientStats;
@@ -265,38 +271,43 @@ async function fetchCommunicationStats(practiceId: string): Promise<Communicatio
   };
 }
 
-async function fetchInvoiceStats(practiceId: string): Promise<InvoiceStats> {
-  const currentDate = new Date();
-  const currentQuarter = Math.floor(currentDate.getMonth() / 3) + 1;
-  const currentYear = currentDate.getFullYear();
-  
-  const quarterStart = new Date(currentYear, (currentQuarter - 1) * 3, 1);
-  const quarterEnd = new Date(currentYear, currentQuarter * 3, 0, 23, 59, 59);
+export async function fetchInvoiceStats(practiceId: string, now: Date = new Date()): Promise<InvoiceStats> {
+  // Local calendar bounds: toISOString() shifted the quarter start back a day in UTC+2
+  const { quarter: currentQuarter, startKey, endKey } = getQuarterDateRange(now);
 
-  // Fetch all invoices and quarterly invoices in parallel
-  const [allInvoicesResult, quarterlyInvoicesResult] = await Promise.all([
-    supabase
-      .from('invoices_enhanced')
-      .select('total, payment_status')
-      .eq('practice_id', practiceId),
-    supabase
-      .from('invoices_enhanced')
-      .select('total, payment_status')
-      .eq('practice_id', practiceId)
-      .gte('issue_date', quarterStart.toISOString().split('T')[0])
-      .lte('issue_date', quarterEnd.toISOString().split('T')[0])
+  // Page through results (one request is capped at 1000 rows) and fail loudly on query
+  // errors instead of reporting zero invoices
+  const [allInvoices, quarterlyInvoices] = await Promise.all([
+    fetchAllRows<InvoiceTotalRow>(
+      (from, to) => supabase
+        .from('invoices_enhanced')
+        .select('total, payment_status')
+        .eq('practice_id', practiceId)
+        .order('id')
+        .range(from, to),
+      'invoices'
+    ),
+    fetchAllRows<InvoiceTotalRow>(
+      (from, to) => supabase
+        .from('invoices_enhanced')
+        .select('total, payment_status')
+        .eq('practice_id', practiceId)
+        .gte('issue_date', startKey)
+        .lte('issue_date', endKey)
+        .order('id')
+        .range(from, to),
+      'quarterly invoices'
+    )
   ]);
-
-  const allInvoices = allInvoicesResult.data || [];
-  const quarterlyInvoices = quarterlyInvoicesResult.data || [];
 
   const totalInvoices = allInvoices.length;
   const totalRevenue = allInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
   const quarterlyInvoiceCount = quarterlyInvoices.length;
   const quarterlyRevenue = quarterlyInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0);
-  
+
   const quarterlyPaidInvoices = quarterlyInvoices.filter(inv => inv.payment_status === 'paid').length;
-  const quarterlyOutstandingInvoices = quarterlyInvoices.filter(inv => inv.payment_status !== 'paid').length;
+  // Cancelled invoices are not owed, so they are not outstanding
+  const quarterlyOutstandingInvoices = quarterlyInvoices.filter(inv => isOutstandingStatus(inv.payment_status)).length;
   
   const quarterlyPercentagePaid = quarterlyInvoiceCount > 0 
     ? Math.round((quarterlyPaidInvoices / quarterlyInvoiceCount) * 100) 

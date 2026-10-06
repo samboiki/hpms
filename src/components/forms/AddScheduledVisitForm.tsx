@@ -4,7 +4,10 @@ import { Calendar, Clock, User, Phone, MapPin, FileText, CheckCircle, AlertCircl
 import { supabase } from '../../lib/supabase';
 import { useVisitsStore } from '../../stores/visitsStore';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import ModernDateTimePicker from '../ui/ModernDateTimePicker';
+import { formatDoctorName } from '../../utils/formatDoctorName';
+import { errorMessage } from './formErrors';
 
 interface AddScheduledVisitFormData {
   patient_id: string;
@@ -73,8 +76,8 @@ export default function AddScheduledVisitForm({
   const watchedAutoConfirm = watch('auto_confirm');
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchData(practiceId);
+  }, [practiceId]);
 
   useEffect(() => {
     if (preselectedPatientId) {
@@ -92,16 +95,21 @@ export default function AddScheduledVisitForm({
     }
   }, [watchedPatientId, patients]);
 
-  const fetchData = async () => {
+  const fetchData = async (forPracticeId: string) => {
+    if (!forPracticeId) {
+      setLoadingData(false);
+      return;
+    }
     try {
       setLoadingData(true);
-      
-      // Fetch patients
+
+      // Only this practice's patients and doctors. The old limit of 100 silently left out every patient
+      // after the first 100 by first name, so they could not be scheduled at all.
       const { data: patientsData, error: patientsError } = await supabase
         .from('patients')
         .select('id, first_name, last_name, cell_number, email')
-        .order('first_name')
-        .limit(100);
+        .eq('practice_id', forPracticeId)
+        .order('first_name');
 
       if (patientsError) throw patientsError;
 
@@ -109,6 +117,7 @@ export default function AddScheduledVisitForm({
       const { data: doctorsData, error: doctorsError } = await supabase
         .from('users')
         .select('id, full_name, role')
+        .eq('practice_id', forPracticeId)
         .in('role', ['doctor', 'admin'])
         .order('full_name');
 
@@ -118,12 +127,17 @@ export default function AddScheduledVisitForm({
       setDoctors(doctorsData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
+      toast.error(`Couldn't load patients and doctors: ${errorMessage(error)}`);
     } finally {
       setLoadingData(false);
     }
   };
 
   const onSubmit = async (data: AddScheduledVisitFormData) => {
+    if (!practiceId) {
+      toast.error("Can't schedule the visit: your practice couldn't be identified. Reload the page and try again.");
+      return;
+    }
     try {
       setLoading(true);
 
@@ -156,7 +170,7 @@ export default function AddScheduledVisitForm({
       onSuccess();
     } catch (error) {
       console.error('Error creating scheduled visit:', error);
-      alert('Failed to schedule visit. Please try again.');
+      toast.error(`Couldn't schedule the visit: ${errorMessage(error)}`);
     } finally {
       setLoading(false);
     }
@@ -166,6 +180,23 @@ export default function AddScheduledVisitForm({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500"></div>
+      </div>
+    );
+  }
+
+  if (!practiceId) {
+    return (
+      <div className="max-w-2xl mx-auto bg-white rounded-xl p-6 text-center">
+        <AlertCircle className="w-8 h-8 text-orange-500 mx-auto mb-3" aria-hidden="true" />
+        <p className="text-gray-700">Your practice couldn't be identified, so visits can't be scheduled here.</p>
+        <p className="text-sm text-gray-500 mt-1">Reload the page and try again.</p>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="mt-4 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          Close
+        </button>
       </div>
     );
   }
@@ -238,7 +269,7 @@ export default function AddScheduledVisitForm({
             <option value="">Assign later</option>
             {doctors.map((doctor) => (
               <option key={doctor.id} value={doctor.id}>
-                Dr. {doctor.full_name}
+                {formatDoctorName(doctor.full_name)}
               </option>
             ))}
           </select>

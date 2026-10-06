@@ -8,6 +8,7 @@ import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
 import { supabase } from '../../lib/supabase';
 import { motion } from 'framer-motion';
+import { DOCK_SLOT_IDS } from './dockSlots';
 
 interface SidebarProps {
   collapsed: boolean;
@@ -31,7 +32,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const { isSuperAdmin, canManagePractices, user, selectedPracticeId } = useAuthStore();
   const { currentTheme } = useTheme();
   const location = useLocation();
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [practiceData, setPracticeData] = useState<any>(null);
 
@@ -129,6 +129,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             "flex items-center gap-3 transition-opacity",
             isActive ? "" : "hover:opacity-90"
           )}
+          title={collapsed && !isMobile ? 'Dashboard' : undefined}
+          aria-label={collapsed && !isMobile ? 'Dashboard' : undefined}
         >
           {({ isActive }) => (
             <motion.div 
@@ -167,6 +169,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onMobileClose}
             className="p-2 rounded-md text-white/80 hover:text-white md:hidden"
+            title="Close menu"
+            aria-label="Close menu"
           >
             <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
           </button>
@@ -189,6 +193,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     collapsed && !isMobile && "justify-center"
                   )}
                   onClick={isMobile ? onMobileClose : undefined}
+                  title={collapsed && !isMobile ? item.label : undefined}
+                  aria-label={collapsed && !isMobile ? item.label : undefined}
                 >
                   {({ isActive }) => (
                     <>
@@ -256,6 +262,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     collapsed && !isMobile && "justify-center"
                   )}
                   onClick={isMobile ? onMobileClose : undefined}
+                  title={collapsed && !isMobile ? item.label : undefined}
+                  aria-label={collapsed && !isMobile ? item.label : undefined}
                 >
                   <Icon icon={item.icon} className="w-6 h-6" />
                   {(!collapsed || isMobile) && (
@@ -280,6 +288,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   collapsed && !isMobile && "justify-center"
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
+                title={collapsed && !isMobile ? 'System Blueprint' : undefined}
+                aria-label={collapsed && !isMobile ? 'System Blueprint' : undefined}
               >
                 {({ isActive }) => (
                   <>
@@ -309,6 +319,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Bottom Controls Section */}
         <div className="mt-auto pt-4 border-t border-white/10">
+          {/* Pages dock widgets here (e.g. the visit tracker) instead of floating them over content */}
+          {!isMobile && (
+            <div id={DOCK_SLOT_IDS.sidebar} data-collapsed={collapsed ? 'true' : 'false'} className="group mb-2 empty:hidden" />
+          )}
+
           {/* Settings */}
           <NavLink
             to="/settings"
@@ -319,6 +334,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               collapsed && !isMobile && "justify-center"
             )}
             onClick={isMobile ? onMobileClose : undefined}
+            title={collapsed && !isMobile ? 'Settings' : undefined}
+            aria-label={collapsed && !isMobile ? 'Settings' : undefined}
           >
             <Icon icon="solar:settings-bold-duotone" className="w-6 h-6" />
             {(!collapsed || isMobile) && (
@@ -335,6 +352,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 collapsed && !isMobile && "justify-center"
               )}
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
                 <Icon icon="solar:quit-full-screen-bold-duotone" className="w-6 h-6" />
@@ -349,45 +367,27 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {/* Collapse Toggle */}
-          <button
-            onClick={onToggle}
-            className={cn(
-              "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
-              collapsed && !isMobile && "justify-center"
-            )}
-            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {collapsed ? (
-              <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
-            ) : (
-              <>
+          {/* Collapse Toggle (desktop only: the mobile menu cannot collapse, so the button did nothing there) */}
+          {!isMobile && (
+            <button
+              onClick={onToggle}
+              className={cn(
+                "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
+                collapsed && "justify-center"
+              )}
+              title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
                 <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
-                {(!collapsed || isMobile) && <span className="ml-3 text-sm font-medium">Collapse Sidebar</span>}
-              </>
-            )}
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={cn(
-              "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
-              collapsed && !isMobile && "justify-center"
-            )}
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDarkMode ? (
-              <Icon icon="solar:sun-2-bold-duotone" className="w-6 h-6" />
-            ) : (
-              <Icon icon="solar:moon-stars-bold-duotone" className="w-6 h-6" />
-            )}
-            {(!collapsed || isMobile) && (
-              <span className="ml-3 text-sm font-medium">
-                {isDarkMode ? "Switch to Light" : "Switch to Dark"}
-              </span>
-            )}
-          </button>
+              ) : (
+                <>
+                  <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
+                  <span className="ml-3 text-sm font-medium">Collapse Sidebar</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </nav>
 

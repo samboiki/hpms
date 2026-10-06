@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import { motion } from 'framer-motion';
+import {
   Search,
   Plus,
   Minus,
@@ -11,19 +11,16 @@ import {
 } from 'lucide-react';
 import { ServiceSelection } from '../../types/billing';
 import { usePracticeTariffs } from '../../contexts/PracticeTariffsContext';
+import { MATERIAL_FACTOR_PERCENT, computeLine, isValidFdiTooth, materialFactorUnitPrice, normalizeMultiplyRule, parseTariffPrice, parseToothList } from '../../utils/billing/pricing';
+import { formatNad, fromCents, nadParts, toCents } from '../../utils/billing/money';
 
 interface EnhancedDentalServiceSelectorProps {
   selectedServices: ServiceSelection[];
   onServiceChange: (services: ServiceSelection[]) => void;
 }
 
-// Tooth-specific pricing lookup for code 8346
-const TOOTH_PRICING_8346: Record<string, number> = {
-  '11': 50.84, '12': 50.84, '13': 50.84, '14': 48.20, '15': 48.20, '16': 45.33, '17': 45.33, '18': 45.33,
-  '21': 50.84, '22': 50.84, '23': 50.84, '24': 48.20, '25': 48.20, '26': 45.33, '27': 45.33, '28': 45.33,
-  '31': 48.90, '32': 48.90, '33': 48.90, '34': 47.20, '35': 47.20, '36': 45.33, '37': 45.33, '38': 45.33,
-  '41': 48.90, '42': 48.90, '43': 48.90, '44': 47.20, '45': 47.20, '46': 46.71, '47': 46.71, '48': 45.33
-};
+// Tariff prices come from the tariff list as numbers or numeric strings
+const tariffPrice = (value: unknown): number => parseTariffPrice(value) ?? 0;
 
 // Codes that require automatic 8346 restorative material factor (10%)
 const RESTORATIVE_MATERIAL_CODES = [
@@ -43,7 +40,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
   const [filteredCodes, setFilteredCodes] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   
-  const { allTariffs, frequentTariffs, isLoading } = usePracticeTariffs();
+  const [toothDrafts, setToothDrafts] = useState<Record<string, string>>({});
+  const { allTariffs, frequentTariffs, isLoading, error: tariffError, excludedCount } = usePracticeTariffs();
 
   // Auto-add 8109 infection control on component mount
   useEffect(() => {
@@ -58,9 +56,9 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
           description: infectionControlCode.description,
           category: 'Dental Service',
           subcategory: 'Infection Control',
-          unitPrice: parseFloat(infectionControlCode.price) || 0,
+          unitPrice: tariffPrice(infectionControlCode.price),
           quantity: 1,
-          totalPrice: parseFloat(infectionControlCode.price) || 0,
+          totalPrice: tariffPrice(infectionControlCode.price),
           requiresPreAuth: false,
           medicalAidCovered: true, // Will be determined by patient's medical aid status
           coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
@@ -91,40 +89,17 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
     }
   }, [searchTerm, allTariffs]);
 
-  // Business rule implementations
-  const calculateServicePrice = (code: any, quantity: number, teethNumbers?: string[]): number => {
-    const basePrice = parseFloat(code.price) || 0;
-    const businessRule = code.business_rule_formula?.toLowerCase() || 'fixed price';
-
-    // Handle tooth-specific pricing for code 8346
-    if (code.code === '8346' && teethNumbers && teethNumbers.length > 0) {
-      return teethNumbers.reduce((total, tooth) => {
-        const toothPrice = TOOTH_PRICING_8346[tooth.trim()] || basePrice;
-        return total + toothPrice;
-      }, 0);
-    }
-
-    // Handle progressive pricing
-    if (businessRule.includes('progressive') || businessRule.includes('additional')) {
-      if (quantity === 1) return basePrice;
-      // For progressive pricing, first item full price, additional at different rates
-      // This would need specific implementation per code
-      return basePrice + ((quantity - 1) * basePrice * 0.8); // Example: 80% for additional
-    }
-
-    // Handle multiplication rules
-    if (code.can_be_multiplied === 'YES' || businessRule.includes('multiply') || businessRule.includes('×')) {
-      return basePrice * quantity;
-    }
-
-    // Handle per-visit charges (should only appear once)
-    if (businessRule.includes('per visit') || businessRule.includes('once per visit')) {
-      return basePrice; // Ignore quantity for per-visit charges
-    }
-
-    // Default: fixed price regardless of quantity
-    return basePrice;
-  };
+  // Prices a line with the shared calculation: unit price x quantity, to the cent; codes that cannot
+  // be multiplied stay at quantity 1. The old version applied an invented 80% rate to extra units of
+  // "progressive" codes and a per-tooth table to 8346, so the same line could get different prices.
+  const priceLine = (service: ServiceSelection, quantity: number) =>
+    computeLine({
+      code: service.code,
+      unitPrice: service.unitPrice,
+      quantity,
+      multiplyRule: service.canBeMultiplied ? 'YES' : 'NO',
+      hasMedicalAid: false
+    });
 
   const addService = (code: any, event?: React.MouseEvent) => {
     if (event) {
@@ -154,16 +129,17 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
       description: code.description,
       category: 'Dental Service',
       subcategory: 'General',
-      unitPrice: parseFloat(code.price) || 0,
+      unitPrice: tariffPrice(code.price),
       quantity: 1,
-      totalPrice: parseFloat(code.price) || 0,
+      totalPrice: tariffPrice(code.price),
       requiresPreAuth: false,
       medicalAidCovered: true, // Will be determined by patient's medical aid status
       coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
       businessRule: code.business_rule_formula,
       exampleCalculation: code.example_calculation,
       requiresTeethNumbers: code.requires_tooth_number === 'YES',
-      canBeMultiplied: code.can_be_multiplied === 'YES',
+      // SOMETIMES / PROGRESSIVE codes may have quantity > 1 too: computeLine prices them unit x quantity
+      canBeMultiplied: normalizeMultiplyRule(code.can_be_multiplied) !== 'NO',
       teethNumbers: code.requires_tooth_number === 'YES' ? [''] : undefined
     };
     
@@ -189,16 +165,18 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
         description: `RESTORATIVE MATERIAL FACTOR (${code.code})`,
         category: 'Dental Service',
         subcategory: 'Material Factor',
-        unitPrice: parseFloat(code.price) * 0.10, // 10% of reference code
+        unitPrice: materialFactorUnitPrice(tariffPrice(code.price)), // 10% of the procedure, to the cent
         quantity: 1,
-        totalPrice: parseFloat(code.price) * 0.10,
+        totalPrice: materialFactorUnitPrice(tariffPrice(code.price)),
         requiresPreAuth: false,
         medicalAidCovered: true, // Will be determined by patient's medical aid status
         coveragePercentage: 100, // Simplified: 100% coverage for medical aid patients
-        businessRule: `10% material factor for ${code.code}`,
-        exampleCalculation: `${code.price} × 0.10 = ${(parseFloat(code.price) * 0.10).toFixed(2)}`,
+        businessRule: `${MATERIAL_FACTOR_PERCENT}% material factor for ${code.code}`,
+        exampleCalculation: `${formatNad(tariffPrice(code.price))} x ${MATERIAL_FACTOR_PERCENT}% = ${formatNad(materialFactorUnitPrice(tariffPrice(code.price)))}`,
         requiresTeethNumbers: code.requires_tooth_number === 'YES',
-        canBeMultiplied: false, // Material factor doesn't multiply
+        // Its quantity follows the procedure, so it may be multiplied exactly when the procedure may
+        // (invoiceService refuses quantity > 1 on a line marked as not multipliable)
+        canBeMultiplied: newService.canBeMultiplied,
         teethNumbers: code.requires_tooth_number === 'YES' ? [''] : undefined,
         isAutoGenerated: true, // Mark as auto-generated
         parentServiceId: newService.id, // Link to parent service
@@ -212,47 +190,45 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
   };
 
   const updateService = (id: string, updates: Partial<ServiceSelection>) => {
+    const parentService = selectedServices.find(s => s.id === id);
+    if (!parentService) return;
+    const updatedService = { ...parentService, ...updates };
+    // The line keeps the unit price it was added with; its total is unit x quantity, to the cent
+    const line = priceLine(updatedService, updatedService.quantity);
+    if (!line.ok) {
+      alert(line.errors.join(' '));
+      return;
+    }
+    updatedService.totalPrice = line.total;
+
     const updatedServices = selectedServices.map(service => {
-      if (service.id === id) {
-        const updatedService = { ...service, ...updates };
-        
-        // Find the original tariff code for business rule calculation
-        const originalCode = allTariffs.find(t => t.id === service.tariffId);
-        if (originalCode) {
-          const newPrice = calculateServicePrice(
-            originalCode, 
-            updatedService.quantity, 
-            updatedService.teethNumbers
-          );
-          updatedService.totalPrice = newPrice;
-        }
-        
-        return updatedService;
+      if (service.id === id) return updatedService;
+      // The 8346 material factor follows its procedure: 10% of its unit price, same quantity and teeth
+      if (
+        service.code === '8346' &&
+        service.parentServiceId === id &&
+        RESTORATIVE_MATERIAL_CODES.includes(parentService.code)
+      ) {
+        const unitPrice = materialFactorUnitPrice(updatedService.unitPrice);
+        const materialLine = computeLine({
+          code: '8346',
+          unitPrice,
+          quantity: updatedService.quantity,
+          multiplyRule: 'YES',
+          hasMedicalAid: false
+        });
+        return {
+          ...service,
+          teethNumbers: updatedService.teethNumbers,
+          unitPrice,
+          quantity: updatedService.quantity,
+          canBeMultiplied: updatedService.canBeMultiplied,
+          totalPrice: materialLine.ok ? materialLine.total : service.totalPrice
+        };
       }
       return service;
     });
-    
-    // Update associated 8346 material factor services when parent service changes
-    const parentService = selectedServices.find(s => s.id === id);
-    if (parentService && RESTORATIVE_MATERIAL_CODES.includes(parentService.code) && updates.teethNumbers) {
-      const materialFactorServices = updatedServices.filter(s => 
-        s.code === '8346' && s.parentServiceId === id
-      );
-      
-      materialFactorServices.forEach(materialService => {
-        const index = updatedServices.findIndex(s => s.id === materialService.id);
-        if (index !== -1) {
-          updatedServices[index] = {
-            ...materialService,
-            teethNumbers: updates.teethNumbers,
-            // Recalculate price based on parent service's new price
-            unitPrice: parentService.unitPrice * 0.10,
-            totalPrice: parentService.unitPrice * 0.10
-          };
-        }
-      });
-    }
-    
+
     onServiceChange(updatedServices);
   };
 
@@ -296,30 +272,39 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
     updateService(id, { teethNumbers });
   };
 
-  const totalCost = selectedServices.reduce((sum, service) => sum + service.totalPrice, 0);
+  // Added up in whole cents so the total is exactly the sum of the lines shown
+  const totalCost = fromCents(
+    selectedServices.reduce((sum, service) => sum + (Number.isFinite(service.totalPrice) ? toCents(service.totalPrice) : 0), 0)
+  );
+
+  // An auto-added 8346 line follows its procedure's quantity, so it has no quantity buttons of its own
+  const quantityLocked = (service: ServiceSelection): boolean =>
+    service.canBeMultiplied === false || service.isAutoGenerated === true;
 
   const getServiceIcon = (service: ServiceSelection) => {
-    if (service.requiresTeethNumbers && (!service.teethNumbers || service.teethNumbers.some(t => !t.trim()))) {
+    const teeth = (service.teethNumbers || []).filter(tooth => tooth.trim());
+    const missingTooth = service.requiresTeethNumbers && teeth.length === 0;
+    if (missingTooth || teeth.some(tooth => !isValidFdiTooth(tooth))) {
       return <AlertCircle className="w-4 h-4 text-amber-500" />;
     }
     return <CheckCircle className="w-4 h-4 text-green-500" />;
   };
 
   const getBusinessRuleInfo = (service: ServiceSelection) => {
+    if (service.code === '8346') {
+      return `Material factor: ${MATERIAL_FACTOR_PERCENT}% of the procedure price, for the same quantity`;
+    }
     if (!service.businessRule) return null;
-    
+
     const rule = service.businessRule.toLowerCase();
     if (rule.includes('progressive')) {
-      return 'Progressive pricing: First item full price, additional items reduced';
+      return 'Special quantity rule: check the tariff; each unit is billed at the tariff price';
     }
     if (rule.includes('per visit')) {
       return 'Per visit charge: Fixed price regardless of quantity';
     }
     if (rule.includes('multiply') || service.canBeMultiplied) {
       return 'Quantity-based pricing: Price multiplied by quantity';
-    }
-    if (service.code === '8346') {
-      return 'Tooth-specific pricing: Price varies by tooth location';
     }
     return 'Fixed price: Standard rate applies';
   };
@@ -334,8 +319,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
               Total Cost
             </h4>
             <p className="text-2xl font-bold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-              <span>N$ {Math.floor(totalCost)}</span>
-              <span className="opacity-60">.{String(totalCost.toFixed(2)).split('.')[1]}</span>
+              <span>N$ {nadParts(totalCost).whole}</span>
+              <span className="opacity-60">.{nadParts(totalCost).cents}</span>
             </p>
           </div>
           <div className="text-right">
@@ -367,6 +352,22 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
           </div>
         </div>
       </div>
+
+      {tariffError && (
+        <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" role="alert">
+          <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span>{tariffError}</span>
+        </div>
+      )}
+      {!tariffError && excludedCount > 0 && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+          <Info className="w-4 h-4 flex-shrink-0" />
+          <span>
+            {excludedCount} tariff row(s) are hidden because they are inactive, expired, not yet in effect or
+            duplicated with different prices. Ask an administrator to check the tariff list.
+          </span>
+        </div>
+      )}
 
       {/* Enhanced Search */}
       <div className="relative">
@@ -410,8 +411,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                     )}
                   </div>
                   <div className="text-sm font-semibold text-[#01b9d4] ml-4" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                    <span>N$ {Math.floor(parseFloat(code.price))}</span>
-                    <span className="opacity-60">.{String(parseFloat(code.price).toFixed(2)).split('.')[1]}</span>
+                    <span>N$ {nadParts(tariffPrice(code.price)).whole}</span>
+                    <span className="opacity-60">.{nadParts(tariffPrice(code.price)).cents}</span>
                   </div>
                 </button>
               ))}
@@ -462,8 +463,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                   {code.description}
                 </div>
                 <div className="text-sm font-semibold text-[#01b9d4] mt-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                  <span>N$ {Math.floor(parseFloat(code.price))}</span>
-                  <span className="opacity-60">.{String(parseFloat(code.price).toFixed(2)).split('.')[1]}</span>
+                  <span>N$ {nadParts(tariffPrice(code.price)).whole}</span>
+                  <span className="opacity-60">.{nadParts(tariffPrice(code.price)).cents}</span>
                 </div>
                 {code.requires_tooth_number === 'YES' && (
                   <div className="text-xs text-amber-600 mt-1">🦷</div>
@@ -518,12 +519,12 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         <div className={`flex items-center gap-1 ${
-                          service.canBeMultiplied === false ? 'opacity-30' : ''
+                          quantityLocked(service) ? 'opacity-30' : ''
                         }`}>
                           <button
                             type="button"
                             onClick={() => updateQuantity(service.id, -1)}
-                            disabled={service.quantity <= 1 || service.canBeMultiplied === false}
+                            disabled={service.quantity <= 1 || quantityLocked(service)}
                             className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-100"
                           >
                             <Minus className="w-3 h-3" />
@@ -532,7 +533,7 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                           <button
                             type="button"
                             onClick={() => updateQuantity(service.id, 1)}
-                            disabled={service.canBeMultiplied === false}
+                            disabled={quantityLocked(service)}
                             className="w-6 h-6 flex items-center justify-center border border-gray-200 rounded hover:bg-gray-100"
                           >
                             <Plus className="w-3 h-3" />
@@ -541,16 +542,16 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         <span className={service.isPriceProtected ? 'opacity-60' : ''} style={{ fontFamily: 'Rubik, sans-serif' }}>
-                          <span>N$ {Math.floor(service.unitPrice)}</span>
-                          <span className="opacity-60">.{String(service.unitPrice.toFixed(2)).split('.')[1]}</span>
+                          <span>N$ {nadParts(service.unitPrice).whole}</span>
+                          <span className="opacity-60">.{nadParts(service.unitPrice).cents}</span>
                         </span>
                         {service.isPriceProtected && (
                           <span className="ml-1 text-xs text-gray-500">🔒</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-sm font-semibold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        <span>N$ {Math.floor(service.totalPrice)}</span>
-                        <span className="opacity-60">.{String(service.totalPrice.toFixed(2)).split('.')[1]}</span>
+                        <span>N$ {nadParts(service.totalPrice).whole}</span>
+                        <span className="opacity-60">.{nadParts(service.totalPrice).cents}</span>
                       </td>
                       <td className="px-4 py-3 text-sm">
                         <button
@@ -643,20 +644,21 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                     <input
                       type="text"
                       placeholder="e.g., 11 12 21 22"
-                      value={(service.teethNumbers || []).join(' ')}
+                      value={toothDrafts[service.id] ?? (service.teethNumbers || []).join(' ')}
                       onChange={(e) => {
-                        const teeth = e.target.value.split(' ').filter(t => t.trim());
-                        updateTeethNumbers(service.id, teeth);
+                        // Keep the typed text (so a space can be typed) and store the parsed teeth
+                        const text = e.target.value;
+                        setToothDrafts(drafts => ({ ...drafts, [service.id]: text }));
+                        updateTeethNumbers(service.id, parseToothList(text));
                       }}
                       className="w-full p-2 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
                     />
-                    {service.code === '8346' && service.teethNumbers && service.teethNumbers.length > 0 && (
-                      <div className="mt-1 text-xs text-gray-600" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        {service.teethNumbers.map(tooth => {
-                          const price = TOOTH_PRICING_8346[tooth.trim()];
-                          return tooth.trim() ? `${tooth}: N$${price ? Math.floor(price) + '.' + String(price.toFixed(2)).split('.')[1] : 'Unknown'}` : '';
-                        }).filter(Boolean).join(', ')}
-                      </div>
+                    {(service.teethNumbers || []).some(tooth => tooth.trim() && !isValidFdiTooth(tooth)) && (
+                      <p className="mt-1 text-xs text-red-600">
+                        Not a valid tooth number:{' '}
+                        {(service.teethNumbers || []).filter(tooth => tooth.trim() && !isValidFdiTooth(tooth)).join(', ')} (FDI 11-48,
+                        milk teeth 51-85)
+                      </p>
                     )}
                   </div>
                 )}
@@ -666,7 +668,7 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                   <div className="flex items-center gap-3">
                     {/* Quantity Controls */}
                     <div className={`flex items-center gap-2 transition-opacity ${
-                      service.canBeMultiplied === false ? 'opacity-30 pointer-events-none' : 'opacity-100'
+                      quantityLocked(service) ? 'opacity-30 pointer-events-none' : 'opacity-100'
                     }`}>
                       <span className="text-sm font-medium text-gray-700">Quantity:</span>
                       <div className="flex items-center border border-gray-200 rounded">
@@ -674,7 +676,7 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                           type="button"
                           onClick={() => updateQuantity(service.id, -1)}
                           className="p-1 hover:bg-gray-100 transition-colors"
-                          disabled={service.quantity <= 1 || service.canBeMultiplied === false}
+                          disabled={service.quantity <= 1 || quantityLocked(service)}
                         >
                           <Minus className="w-4 h-4 text-gray-600" />
                         </button>
@@ -685,7 +687,7 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                           type="button"
                           onClick={() => updateQuantity(service.id, 1)}
                           className="p-1 hover:bg-gray-100 transition-colors"
-                          disabled={service.canBeMultiplied === false}
+                          disabled={quantityLocked(service)}
                         >
                           <Plus className="w-4 h-4 text-gray-600" />
                         </button>
@@ -700,8 +702,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                   <div className="text-right">
                     <div className="text-sm text-gray-500 flex items-center justify-end gap-1">
                       <span className={service.isPriceProtected ? 'opacity-60' : ''} style={{ fontFamily: 'Rubik, sans-serif' }}>
-                        <span>N$ {Math.floor(service.unitPrice)}</span>
-                        <span className="opacity-60">.{String(service.unitPrice.toFixed(2)).split('.')[1]}</span>
+                        <span>N$ {nadParts(service.unitPrice).whole}</span>
+                        <span className="opacity-60">.{nadParts(service.unitPrice).cents}</span>
                         <span> × {service.quantity}</span>
                       </span>
                       {service.isPriceProtected && (
@@ -709,8 +711,8 @@ const EnhancedDentalServiceSelector: React.FC<EnhancedDentalServiceSelectorProps
                       )}
                     </div>
                     <div className="text-lg font-semibold text-[#01b9d4]" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                      <span>N$ {Math.floor(service.totalPrice)}</span>
-                      <span className="opacity-60">.{String(service.totalPrice.toFixed(2)).split('.')[1]}</span>
+                      <span>N$ {nadParts(service.totalPrice).whole}</span>
+                      <span className="opacity-60">.{nadParts(service.totalPrice).cents}</span>
                     </div>
                   </div>
                 </div>

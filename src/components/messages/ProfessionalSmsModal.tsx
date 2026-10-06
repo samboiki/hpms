@@ -5,6 +5,8 @@ import FormModal from '../modals/FormModal';
 import { Patient } from '../../stores/patientsStoreNew';
 import { usePractice } from '../../contexts/PracticeContext';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
+import { fillPlaceholders, findPlaceholders, formatMessageDate, getSmsLength } from './messageText';
 
 interface ProfessionalSmsModalProps {
   isOpen: boolean;
@@ -25,11 +27,22 @@ interface SmsTemplate {
   color: string;
 }
 
+interface PracticeContactInfo {
+  name: string;
+  contact_phone: string | null;
+  contact_email: string | null;
+}
+
+// Filled per recipient: here for a single patient, by the sender (onSend) for a bulk send
+const PATIENT_VARIABLES = ['patientName', 'patientFirstName', 'patientLastName'];
+
 const smsTemplates: SmsTemplate[] = [
   {
     id: 'appointment-reminder',
     name: 'Appointment Reminder',
-    content: 'Hi {{patientName}}, this is a reminder about your appointment on {{currentDate}} at {{currentTime}} with {{practiceName}}. Please arrive 15 minutes early. Reply CONFIRM to confirm or CANCEL to cancel.',
+    // The appointment date and time must be typed in (they used to be filled with today's date and the
+    // current time). No "Reply CONFIRM/CANCEL": replies to practice SMS are not read by the app.
+    content: 'Hi {{patientName}}, this is a reminder about your appointment on {{appointmentDate}} at {{appointmentTime}} with {{practiceName}}. Please arrive 15 minutes early. If you need to reschedule, please call us on {{practicePhone}}.',
     icon: 'solar:calendar-bold-duotone',
     color: 'blue'
   },
@@ -50,7 +63,7 @@ const smsTemplates: SmsTemplate[] = [
   {
     id: 'birthday',
     name: 'Birthday Wishes',
-    content: 'Happy Birthday {{patientName}}! 🎉 From all of us at {{practiceName}}, we wish you good health and happiness. Enjoy {{birthdayOffer}} on your next visit!',
+    content: 'Happy Birthday {{patientName}}! 🎉 From all of us at {{practiceName}}, we wish you good health and happiness.',
     icon: 'solar:gift-bold-duotone',
     color: 'yellow'
   },
@@ -72,7 +85,6 @@ const availableVariables = [
   { key: '{{practiceEmail}}', description: 'Practice email' },
   { key: '{{currentDate}}', description: 'Today\'s date' },
   { key: '{{currentTime}}', description: 'Current time' },
-  { key: '{{birthdayOffer}}', description: 'Birthday discount' },
 ];
 
 export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
@@ -90,7 +102,31 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
   const [selectedTemplate, setSelectedTemplate] = useState<SmsTemplate | null>(null);
   const [showTemplateDropdown, setShowTemplateDropdown] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { practiceData } = usePractice();
+  const { practiceId } = usePractice();
+  const [practiceInfo, setPracticeInfo] = useState<PracticeContactInfo | null>(null);
+
+  // PracticeContext has no practice details (this used to read a missing `practiceData`, so every
+  // SMS fell back to "HealthCare Clinic" and "(555) 123-4567"); load the real ones instead
+  useEffect(() => {
+    if (!isOpen || !practiceId) return;
+    let cancelled = false;
+    supabase
+      .from('practices')
+      .select('name, contact_phone, contact_email')
+      .eq('id', practiceId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('Could not load practice details for SMS variables:', error.message);
+          return;
+        }
+        setPracticeInfo(data);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, practiceId]);
 
   // Initialize phone number
   useEffect(() => {
@@ -116,29 +152,24 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
     return 'Unknown';
   };
 
-  const replaceVariables = (text: string): string => {
-    const firstName = patient?.first_name || recipients[0]?.first_name || 'John';
-    const lastName = patient?.last_name || recipients[0]?.last_name || 'Smith';
-    const fullName = `${firstName} ${lastName}`;
-    
-    const variables: Record<string, string> = {
-      '{{patientName}}': fullName,
-      '{{patientFirstName}}': firstName,
-      '{{patientLastName}}': lastName,
-      '{{practiceName}}': practiceData?.name || 'HealthCare Clinic',
-      '{{practicePhone}}': practiceData?.contact_phone || '(555) 123-4567',
-      '{{practiceEmail}}': practiceData?.email || 'info@healthcare.com',
-      '{{currentDate}}': new Date().toLocaleDateString(),
-      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      '{{birthdayOffer}}': '15% off',
-    };
+  // Only real values are filled in; anything unknown stays as {{variable}} and blocks sending
+  const practiceValues = (): Record<string, string> => ({
+    practiceName: practiceInfo?.name || '',
+    practicePhone: practiceInfo?.contact_phone || '',
+    practiceEmail: practiceInfo?.contact_email || '',
+    currentDate: formatMessageDate(new Date()),
+    currentTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  });
 
-    let processedText = text;
-    Object.entries(variables).forEach(([key, value]) => {
-      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+  const replaceVariables = (text: string): string => {
+    const firstName = (patient?.first_name || recipients[0]?.first_name || '').trim();
+    const lastName = (patient?.last_name || recipients[0]?.last_name || '').trim();
+    return fillPlaceholders(text, {
+      ...practiceValues(),
+      patientName: `${firstName} ${lastName}`.trim(),
+      patientFirstName: firstName,
+      patientLastName: lastName,
     });
-    
-    return processedText;
   };
 
   const insertVariable = (variable: string) => {
@@ -185,7 +216,12 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
       } else if (patient && phone) {
         // Single patient - process template for this specific patient
         const processedMessage = replaceVariables(message);
-        
+        const unfilled = findPlaceholders(processedMessage);
+        if (unfilled.length > 0) {
+          toast.error(`Please replace ${unfilled.join(', ')} before sending`);
+          return;
+        }
+
         recipientsList = [{ 
           id: patient.id, 
           first_name: patient.first_name, 
@@ -206,8 +242,17 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
         return;
       }
       
+      // Practice details and today's date are the same for every recipient, so fill them here;
+      // the sender fills in each patient's name
+      const bulkMessage = fillPlaceholders(message, practiceValues());
+      const unfilled = findPlaceholders(bulkMessage, PATIENT_VARIABLES);
+      if (unfilled.length > 0) {
+        toast.error(`Please replace ${unfilled.join(', ')} before sending`);
+        return;
+      }
+
       // Call the bulk handler with all recipients at once (templates will be processed individually)
-      const result = await onSend!(recipientsList, message);
+      const result = await onSend!(recipientsList, bulkMessage);
       
       // Modal is closed by the parent component based on success
       if (result.success) {
@@ -220,8 +265,8 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
     
   };
 
-  const characterCount = message.length;
-  const smsCount = Math.ceil(characterCount / 160) || 1;
+  // Counted on the text that is actually sent (variables filled in), as the SMS provider charges it
+  const smsLength = getSmsLength(message ? replaceVariables(message) : '');
 
   return (
     <FormModal
@@ -322,7 +367,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
             
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500">
-                {characterCount} characters • {smsCount} SMS
+                {smsLength.used} characters • {smsLength.parts} SMS{recipients.length > 1 ? ' per patient' : ''}
               </span>
               <span className="text-purple-600 font-medium">
                 {recipients.length > 1 ? `Sending to ${recipients.length} recipients` : ''}
@@ -368,7 +413,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
                     {message ? replaceVariables(message) : 'Your message will appear here...'}
                   </p>
                   <p className="text-xs text-gray-500 mt-2">
-                    From: {practiceData?.name || 'HealthCare Clinic'} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    From: {practiceInfo?.name || 'Your practice'} • {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
               </div>
@@ -390,6 +435,7 @@ export const ProfessionalSmsModal: React.FC<ProfessionalSmsModalProps> = ({
             whileTap={{ scale: 0.98 }}
             onClick={handleSend}
             disabled={!message.trim() || isSending}
+            title={!message.trim() ? 'Type a message or choose a template first' : undefined}
             className="flex-1 px-4 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isSending ? (

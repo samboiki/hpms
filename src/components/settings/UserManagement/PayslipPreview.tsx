@@ -2,6 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
+import { formatNad } from '../../../utils/billing/money';
 
 interface PayslipData {
   employeeName: string;
@@ -56,6 +57,8 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
   const taxPaid = payslipData.deductions.find(d => d.name.toLowerCase().includes('tax'))?.amount || 0;
 
   const formatCurrency = (amount: number) => {
+    // Intl's en-NA format shows the Namibian dollar as a bare "$"; payslips say N$
+    if (!payslipData.currency || payslipData.currency === 'NAD') return formatNad(amount);
     return new Intl.NumberFormat('en-NA', {
       style: 'currency',
       currency: payslipData.currency,

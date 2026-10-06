@@ -107,19 +107,15 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
         {/* Compact Header */}
         <div style={{ marginBottom: '20px', borderBottom: '2px solid #000', paddingBottom: '12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <h1 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 4px 0', color: '#000' }}>
-                HPMS
-              </h1>
-              <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>Healthcare Practice Management</p>
-              <p style={{ margin: '0', fontSize: '11px', color: '#666' }}>Windhoek, Namibia</p>
-            </div>
+            {/* No practice details are loaded here, so none are printed (this printed "HPMS, Windhoek"
+                as if it were the practice's name and address) */}
+            <div />
             
             <div style={{ textAlign: 'right' }}>
               <h2 style={{ fontSize: '24px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>INVOICE</h2>
               <div style={{ fontSize: '12px', color: '#333' }}>
                 <p style={{ margin: '0 0 2px 0' }}><strong>Invoice #:</strong> {invoice.invoice_number}</p>
-                <p style={{ margin: '0 0 2px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+                <p style={{ margin: '0 0 2px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'd MMMM yyyy') : 'N/A'}</p>
                 <p style={{ margin: '0' }}><strong>Status:</strong> {invoice.payment_status.charAt(0).toUpperCase() + invoice.payment_status.slice(1)}</p>
               </div>
             </div>
@@ -147,7 +143,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
               Visit Information
             </h3>
             <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
-              <p style={{ margin: '0 0 4px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</p>
+              <p style={{ margin: '0 0 4px 0' }}><strong>Date:</strong> {invoice.visit_date ? format(parseISO(invoice.visit_date), 'd MMMM yyyy') : 'N/A'}</p>
               <p style={{ margin: '0 0 4px 0' }}><strong>Time:</strong> {invoice.visit_time || 'N/A'}</p>
               {invoice.chief_complaint && (
                 <p style={{ margin: '0 0 4px 0' }}><strong>Chief Complaint:</strong> {invoice.chief_complaint}</p>
@@ -219,15 +215,13 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             </div>
           </div>
           
-          {/* Banking Details */}
+          {/* Payment reference. The practice's bank account isn't stored in HPMS, so no bank details are
+              printed (this used to print a made-up account number that patients could have paid into). */}
           <div style={{ marginTop: '20px', padding: '12px', backgroundColor: '#f8f9fa', border: '1px solid #ddd' }}>
-            <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>Banking Details</h4>
+            <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 8px 0', color: '#000' }}>Payment</h4>
             <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
-              <p style={{ margin: '0 0 3px 0' }}><strong>Bank:</strong> First National Bank</p>
-              <p style={{ margin: '0 0 3px 0' }}><strong>Account Name:</strong> HPMS Healthcare Services</p>
-              <p style={{ margin: '0 0 3px 0' }}><strong>Account Number:</strong> 123456789</p>
-              <p style={{ margin: '0 0 3px 0' }}><strong>Branch Code:</strong> 280172</p>
-              <p style={{ margin: '0' }}><strong>Reference:</strong> Invoice #{invoice.invoice_number}</p>
+              <p style={{ margin: '0 0 3px 0' }}><strong>Reference:</strong> Invoice #{invoice.invoice_number}</p>
+              <p style={{ margin: '0' }}>Please contact the practice for payment details.</p>
             </div>
           </div>
           
@@ -246,14 +240,14 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
               <h4 style={{ fontSize: '12px', fontWeight: 'bold', margin: '0 0 20px 0', color: '#000' }}>Doctor Signature</h4>
               <div style={{ borderBottom: '1px solid #000', height: '40px', marginBottom: '8px' }}></div>
               <div style={{ fontSize: '10px', textAlign: 'center' }}>
-                <p style={{ margin: '0' }}>Dr. [Doctor Name]</p>
+                <p style={{ margin: '0' }}>Name: _____________</p>
                 <p style={{ margin: '4px 0 0 0' }}>Date: _____________</p>
               </div>
             </div>
           </div>
           
           <div style={{ marginTop: '20px', fontSize: '11px', color: '#666', textAlign: 'center' }}>
-            <p style={{ margin: '0' }}>Thank you for choosing HPMS Healthcare Services</p>
+            <p style={{ margin: '0' }}>Thank you for your visit.</p>
             <p style={{ margin: '4px 0 0 0' }}>For questions about this invoice, please contact us at your convenience.</p>
           </div>
         </div>
@@ -277,7 +271,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
           <div>
             <h2 className="text-lg font-medium text-gray-900">Invoice #{invoice.invoice_number}</h2>
             <p className="text-sm text-gray-500 mt-1">
-              {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'No date available'}
+              {invoice.visit_date ? format(parseISO(invoice.visit_date), 'd MMMM yyyy') : 'No date available'}
             </p>
           </div>
           
@@ -286,6 +280,8 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              title="Close"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -325,7 +321,7 @@ const InvoiceDetailsModal: React.FC<InvoiceDetailsModalProps> = ({
                     <div className="space-y-3">
                       <div className="flex items-center gap-3">
                         <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-900">{invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : 'N/A'}</span>
+                        <span className="text-gray-900">{invoice.visit_date ? format(parseISO(invoice.visit_date), 'd MMMM yyyy') : 'N/A'}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <Clock className="w-4 h-4 text-gray-400" />

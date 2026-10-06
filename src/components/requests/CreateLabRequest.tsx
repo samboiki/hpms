@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { Calendar, Building2, Loader2, ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 interface CreateLabRequestProps {
   patientId: string;
@@ -103,11 +104,22 @@ export default function CreateLabRequest({
     setIsSubmitting(true);
 
     try {
+      // Lab requests are listed per practice (monthly encounter stats, the doctor's history panel),
+      // so record the patient's practice; without it the request never shows up there
+      const { data: patient, error: patientError } = await supabase
+        .from('patients')
+        .select('practice_id')
+        .eq('id', patientId)
+        .single();
+
+      if (patientError) throw patientError;
+
       const { error } = await supabase
         .from('lab_requests')
         .insert({
           patient_id: patientId,
           visit_id: visitId,
+          practice_id: patient.practice_id,
           request_date: requestDate,
           preferred_date: preferredDate || null,
           lab_facility: labFacility || null,
@@ -121,7 +133,7 @@ export default function CreateLabRequest({
       onClose();
     } catch (error) {
       console.error('Error creating lab request:', error);
-      alert('Failed to create lab request. Please try again.');
+      toast.error('Failed to create lab request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -155,7 +167,7 @@ export default function CreateLabRequest({
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent cursor-pointer flex items-center justify-between hover:bg-gray-50"
             >
-              <span>{requestDateObj.toLocaleDateString()}</span>
+              <span>{format(requestDateObj, 'dd MMM yyyy')}</span>
               <Calendar className="w-4 h-4 text-gray-400" />
             </div>
           </div>
@@ -172,7 +184,9 @@ export default function CreateLabRequest({
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent cursor-pointer flex items-center justify-between hover:bg-gray-50"
             >
-              <span>{expectedDateObj.toLocaleDateString()}</span>
+              <span className={preferredDate ? 'text-gray-900' : 'text-gray-400'}>
+                {preferredDate ? format(expectedDateObj, 'dd MMM yyyy') : 'Not set'}
+              </span>
               <Calendar className="w-4 h-4 text-gray-400" />
             </div>
           </div>
@@ -216,21 +230,24 @@ export default function CreateLabRequest({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Creating...</span>
-                </>
-              ) : (
-                <span>Create Request</span>
-              )}
-            </button>
+            {/* A disabled button shows no tooltip, so the wrapper carries the reason */}
+            <span title={labFacility ? undefined : 'Choose the laboratory first'} className={labFacility ? undefined : 'cursor-not-allowed'}>
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting || !labFacility}
+                className={`px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 ${labFacility ? '' : 'pointer-events-none'}`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <span>Create Request</span>
+                )}
+              </button>
+            </span>
           </div>
         </div>
       </div>
@@ -253,6 +270,8 @@ export default function CreateLabRequest({
                 <button 
                   onClick={() => setShowDatePicker(false)}
                   className="p-1.5 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close date picker"
+                  title="Close"
                 >
                   <X className="w-4 h-4 text-gray-500" />
                 </button>
@@ -263,6 +282,8 @@ export default function CreateLabRequest({
                 <button
                   onClick={() => handleMonthChange(-1)}
                   className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Previous month"
+                  title="Previous month"
                 >
                   <ChevronLeft className="w-5 h-5 text-gray-700" />
                 </button>
@@ -293,6 +314,8 @@ export default function CreateLabRequest({
                 <button
                   onClick={() => handleMonthChange(1)}
                   className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Next month"
+                  title="Next month"
                 >
                   <ChevronRight className="w-5 h-5 text-gray-700" />
                 </button>
@@ -380,7 +403,7 @@ export default function CreateLabRequest({
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900">Select Lab Facility</h3>
+                <h3 className="text-xl font-bold text-gray-900">Select Laboratory</h3>
                 <button 
                   onClick={() => {
                     setShowLabModal(false);
@@ -388,6 +411,8 @@ export default function CreateLabRequest({
                     setCustomLabName('');
                   }}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close laboratory list"
+                  title="Close"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -414,12 +439,12 @@ export default function CreateLabRequest({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-sm text-gray-600">Please specify the lab facility name:</p>
+                  <p className="text-sm text-gray-600">Type the laboratory name:</p>
                   <input
                     type="text"
                     value={customLabName}
                     onChange={(e) => setCustomLabName(e.target.value)}
-                    placeholder="Enter lab facility name..."
+                    placeholder="Laboratory name"
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500"
                     autoFocus
                   />

@@ -101,12 +101,14 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                 <div>
                   <h2 className="text-2xl font-bold">Appointment Details</h2>
                   <p className="text-white/90 mt-1">
-                    {format(parseISO(appointment.date), 'EEEE, MMMM d, yyyy')} at {appointment.time}
+                    {format(parseISO(appointment.date), 'EEEE, d MMMM yyyy')} at {appointment.time}
                   </p>
                 </div>
                 <button
                   onClick={onClose}
                   className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -130,7 +132,9 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                   </div>
                   <div>
                     <span className="text-gray-600">Age:</span>
-                    <span className="ml-2 font-medium">{getAge(appointment.patient.date_of_birth)} years</span>
+                    <span className="ml-2 font-medium">
+                      {appointment.patient.date_of_birth ? `${getAge(appointment.patient.date_of_birth)} years` : 'N/A'}
+                    </span>
                   </div>
                   <div>
                     <span className="text-gray-600">Gender:</span>
@@ -198,7 +202,9 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                     )}
                     {onCancel && (
                       <button
-                        onClick={() => onCancel(appointment.id)}
+                        onClick={() => {
+                          if (window.confirm('Cancel this appointment?')) onCancel(appointment.id);
+                        }}
                         className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                       >
                         <XCircle className="w-4 h-4" />
@@ -227,7 +233,9 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                   <div className="flex gap-3">
                     {onCancel && (
                       <button
-                        onClick={() => onCancel(appointment.id)}
+                        onClick={() => {
+                          if (window.confirm('Cancel this visit? It is already in progress.')) onCancel(appointment.id);
+                        }}
                         className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                       >
                         <XCircle className="w-4 h-4" />
@@ -265,7 +273,9 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({
                     )}
                     {onCancel && (
                       <button
-                        onClick={() => onCancel(appointment.id)}
+                        onClick={() => {
+                          if (window.confirm('Reject this booking request?')) onCancel(appointment.id);
+                        }}
                         className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
                       >
                         <XCircle className="w-4 h-4" />

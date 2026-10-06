@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { useAuthStore } from '../../stores/authStore';
 import { format } from 'date-fns';
+import { formatAmount, formatNad } from '../../utils/billing/money';
 
 interface PayslipData {
   id: string;
@@ -105,8 +106,12 @@ export const UserSelfService: React.FC = () => {
     enabled: !!user?.id
   });
 
-  const formatCurrency = (amount: number, currency: string = 'NAD') => {
-    return new Intl.NumberFormat('en-NA', { style: 'currency', currency }).format(amount);
+  // Intl's en-NA locale renders NAD as a bare "$"; formatNad gives "N$ 1,234.50". It throws on
+  // NaN, so a missing amount shows a dash instead
+  const formatCurrency = (amount: number | null | undefined, currency?: string | null) => {
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) return '-';
+    const code = (currency || 'NAD').toUpperCase();
+    return code === 'NAD' ? formatNad(amount) : `${code} ${formatAmount(amount)}`;
   };
 
   return (

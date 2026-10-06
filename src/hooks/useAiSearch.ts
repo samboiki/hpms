@@ -141,23 +141,17 @@ export const useAiSearch = (
         setCurrentPage(1);
         
         if (queryResults.length === 0) {
-          toast.error('No patients found matching your criteria.');
+          // An empty result is an answer, not a failure
+          toast('No patients match that search. Try different words or use the normal search.');
         } else {
           toast.success(`Found ${queryResults.length} patients matching your criteria.`);
         }
       }
       
     } catch (error: any) {
+      // Technical details stay in the console; staff get a plain message and a way forward
       console.error('❌ AI search error:', error);
-      let errorMessage = 'AI search failed. ';
-      if (error?.message?.includes('CORS')) {
-        errorMessage += 'CORS error - check Edge Function deployment.';
-      } else if (error?.message?.includes('OpenAI')) {
-        errorMessage += 'OpenAI API error - check API key configuration.';
-      } else {
-        errorMessage += 'Please check console for details.';
-      }
-      toast.error(errorMessage);
+      toast.error('Smart search is not available right now. Use the normal search box instead.');
     } finally {
       setIsAiSearching(false);
     }

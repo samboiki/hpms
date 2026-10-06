@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Trash2, Loader2, Save } from 'lucide-react';
+import toast from 'react-hot-toast';
+import { findIncompleteResultRow } from './labResultRows';
 
 interface EnterLabResultsProps {
   requestId: string;
@@ -49,10 +51,21 @@ export default function EnterLabResults({
   };
 
   const handleSave = async () => {
+    const incomplete = findIncompleteResultRow(results.map(r => ({
+      name: r.testName,
+      value: r.testValue,
+      unit: r.testUnit,
+      range: r.referenceRange
+    })));
+    if (incomplete !== -1) {
+      toast.error(`Test ${incomplete + 1} needs both a test name and a value.`);
+      return;
+    }
+
     // Validate at least one complete result
-    const validResults = results.filter(r => r.testName && r.testValue);
+    const validResults = results.filter(r => r.testName.trim() && r.testValue.trim());
     if (validResults.length === 0) {
-      alert('Please enter at least one test name and value');
+      toast.error('Please enter at least one test name and value');
       return;
     }
 
@@ -85,7 +98,7 @@ export default function EnterLabResults({
       onClose();
     } catch (error) {
       console.error('Error saving results:', error);
-      alert('Failed to save results. Please try again.');
+      toast.error('Failed to save results. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -121,6 +134,8 @@ export default function EnterLabResults({
                       type="button"
                       onClick={() => removeResult(result.id)}
                       className="text-red-600 hover:text-red-700"
+                      aria-label={`Remove test ${index + 1}`}
+                      title="Remove this test"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -155,7 +170,7 @@ export default function EnterLabResults({
                       type="text"
                       value={result.testValue}
                       onChange={(e) => updateResult(result.id, 'testValue', e.target.value)}
-                      placeholder="e.g., 95"
+                      placeholder="e.g., 5.4"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>
@@ -168,7 +183,7 @@ export default function EnterLabResults({
                       type="text"
                       value={result.testUnit}
                       onChange={(e) => updateResult(result.id, 'testUnit', e.target.value)}
-                      placeholder="e.g., mg/dL"
+                      placeholder="e.g., mmol/L"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>
@@ -181,7 +196,7 @@ export default function EnterLabResults({
                       type="text"
                       value={result.referenceRange}
                       onChange={(e) => updateResult(result.id, 'referenceRange', e.target.value)}
-                      placeholder="e.g., 70-100"
+                      placeholder="e.g., 3.9-5.6"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-sm"
                     />
                   </div>

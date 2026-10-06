@@ -193,7 +193,8 @@ export function useAiSearchN8nAdvanced(
         
         // Show performance warning if needed
         if (data.performanceScore && data.performanceScore < 0.5) {
-          toast.warning('This search might be slow with larger datasets', { duration: 4000 });
+          // react-hot-toast has no toast.warning; calling it threw and turned a found result into an error
+          toast('This search might be slow with larger datasets', { duration: 4000 });
         }
         
       } else {

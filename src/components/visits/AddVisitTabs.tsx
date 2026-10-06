@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { 
@@ -42,6 +43,18 @@ import {
 import { supabase } from '../../lib/supabase';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
+import { computeLine, normalizeMultiplyRule, parseTariffPrice } from '../../utils/billing/pricing';
+import { formatNad, nadParts } from '../../utils/billing/money';
+import { toDateKey, todayKey } from '../../utils/billing/dates';
+import {
+  billableVisitTariffs,
+  buildInfectionControlLine,
+  buildMaterialFactorLine,
+  buildTariffLine,
+  changeLineQuantity,
+  tariffLineInput
+} from './visitBillingLines';
+import { loadPatientHasMedicalAid } from './patientMedicalAid';
 import FileUploadComponent from '../uploads/FileUploadComponent';
 import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
@@ -51,6 +64,9 @@ import LeaveFormTab from './LeaveFormTab';
 import HandoffCard from './HandoffCard';
 import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import { useAuthStore } from '../../stores/authStore';
+import { usePractice } from '../../contexts/PracticeContext';
+import { toast } from 'react-hot-toast';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -148,6 +164,8 @@ const AddVisitTabs: React.FC<Props> = ({
   selectedServices: externalSelectedServices,
   onSelectedServicesChange
 }) => {
+  const user = useAuthStore((s) => s.user);
+  const { practiceId: contextPracticeId } = usePractice();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [internalSelectedServices, setInternalSelectedServices] = useState<ServiceSelection[]>([]);
@@ -184,10 +202,13 @@ const AddVisitTabs: React.FC<Props> = ({
   const [selectedTariff, setSelectedTariff] = useState<any>(null);
   const [serviceQuantity, setServiceQuantity] = useState(1);
   const [selectedTooth, setSelectedTooth] = useState('');
+  // Every tariff row of the practice type; billableTariffs (below) is what may be billed
   const [availableTariffs, setAvailableTariffs] = useState<any[]>([]);
   const [serviceUsageStats, setServiceUsageStats] = useState<{[key: string]: number}>({});
   const [practiceId, setPracticeId] = useState<string>('');
   const [newVisitId, setNewVisitId] = useState<string>('');
+  // From the patient's medical aid record (null until read or when it can't be read)
+  const [patientHasMedicalAid, setPatientHasMedicalAid] = useState<boolean | null>(null);
 
   // Date picker modal states
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -244,6 +265,14 @@ const AddVisitTabs: React.FC<Props> = ({
       generateInvoice: false
     }
   });
+
+  // What can be billed: tariffs active and in effect on the visit date, one version per code. The 8109
+  // and 8346 lookups use this list too, so they find the current tariff rather than the first row.
+  const visitDate = watch('visit_date');
+  const billableTariffs = useMemo(
+    () => billableVisitTariffs(availableTariffs, toDateKey(visitDate) ?? todayKey()),
+    [availableTariffs, visitDate]
+  );
 
   // Calculate BMI when height or weight changes
   const weight = watch('vitals.weight');
@@ -342,6 +371,8 @@ const AddVisitTabs: React.FC<Props> = ({
           .from('users')
           .select('id, full_name, role')
           .eq('role', 'doctor')
+          // New visits can only be assigned to active doctors
+          .or('is_active.is.null,is_active.eq.true')
           .order('full_name');
 
         if (error) throw error;
@@ -355,6 +386,17 @@ const AddVisitTabs: React.FC<Props> = ({
 
     fetchDoctors();
   }, []);
+
+  // Medical aid or private follows the patient's medical aid record, as in invoiceService
+  useEffect(() => {
+    let cancelled = false;
+    loadPatientHasMedicalAid(patientId).then(hasMedicalAid => {
+      if (!cancelled) setPatientHasMedicalAid(hasMedicalAid);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
 
   // Fetch appointment doctor if appointmentId is provided
   useEffect(() => {
@@ -392,6 +434,14 @@ const AddVisitTabs: React.FC<Props> = ({
       // Get current user for fallback doctor_id
       const { data: { user } } = await supabase.auth.getUser();
 
+      // SSOT: prefer PracticeContext, fall back to legacy local state
+      const finalPracticeId = contextPracticeId || practiceId;
+      if (!finalPracticeId) {
+        toast.error('No practice context — cannot create visit. Please reload.');
+        setIsSubmitting(false);
+        return;
+      }
+
       // Determine the doctor ID - prioritize appointment doctor over selected doctor over current user
       const finalDoctorId = appointmentDoctor || data.doctor_id || user?.id;
 
@@ -399,9 +449,9 @@ const AddVisitTabs: React.FC<Props> = ({
       const visitData = {
         patient_id: patientId,
         doctor_id: finalDoctorId,
-        practice_id: practiceId,
+        practice_id: finalPracticeId,
         visit_type: data.visit_type,
-        visit_date: data.visit_date ? data.visit_date.toISOString().split('T')[0] : undefined,
+        visit_date: data.visit_date ? format(data.visit_date, 'yyyy-MM-dd') : undefined,
         visit_time: data.visit_time || undefined,
         chief_complaint: data.chief_complaint || '',
         diagnosis: data.diagnosis || '',
@@ -691,32 +741,14 @@ const AddVisitTabs: React.FC<Props> = ({
       if (!hasInfectionControl) {
         console.log('🦠 Auto-adding 8109 Infection Control on billing tab load');
         
-        const infectionControlTariff = availableTariffs.find(t => t.code === '8109');
-        const infectionControlPrice = infectionControlTariff ? parseFloat(infectionControlTariff.price) : 45.0;
-        
-        const infectionControlService: ServiceSelection = {
-          id: crypto.randomUUID(),
-          tariffId: infectionControlTariff?.id || 'manual-8109',
-          code: '8109',
-          description: 'Infection control per visit (Auto-added)',
-          category: 'Dental Service',
-          subcategory: 'Infection Control',
-          unitPrice: infectionControlPrice,
-          quantity: 1,
-          totalPrice: infectionControlPrice,
-          requiresPreAuth: false,
-          medicalAidCovered: true,
-          coveragePercentage: 100,
-          businessRule: 'Automatically added per visit',
-          exampleCalculation: `Fixed rate: ${infectionControlPrice}`,
-          requiresTeethNumbers: false,
-          canBeMultiplied: false,
-          teethNumbers: undefined,
-          isAutoGenerated: true,
-          isRequired: true
-        };
-        
-        const updatedServices = [infectionControlService, ...selectedServices];
+        // Priced from the 8109 tariff only; without a usable 8109 tariff no line is added
+        const infectionControl = buildInfectionControlLine(billableTariffs, patientHasMedicalAid === true);
+        if (!infectionControl.ok) {
+          toast.error(infectionControl.message, { id: 'tariff-8109' });
+          return;
+        }
+
+        const updatedServices = [infectionControl.service, ...selectedServices];
         setSelectedServices(updatedServices);
         
         if (onSelectedServicesChange) {
@@ -733,17 +765,12 @@ const AddVisitTabs: React.FC<Props> = ({
   // Business Rules Engine for Dental Services - 10 iterations of refinement
   const getDentalServiceBusinessRules = (tariff: any) => {
     const code = tariff.code;
-    const formula = tariff.business_rule_formula?.toLowerCase() || '';
     const canMultiply = tariff.can_be_multiplied;
     const requiresTooth = tariff.requires_tooth_number;
-    
-    // Iteration 1: Basic categorization
-    let ruleType = 'FIXED';
-    if (formula.includes('progressive')) ruleType = 'PROGRESSIVE';
-    else if (formula.includes('multiply') || formula.includes('×')) ruleType = 'MULTIPLY';
-    else if (formula.includes('per visit') || formula.includes('once per visit')) ruleType = 'PER_VISIT';
-    else if (canMultiply === 'YES') ruleType = 'MULTIPLY';
-    
+
+    // Iteration 1: The tariff's own quantity rule; computeLine prices every line from it
+    const multiplyRule = normalizeMultiplyRule(canMultiply);
+
     // Iteration 2: Special codes handling
     const specialCodes: {[key: string]: any} = {
       '8109': { type: 'INFECTION_CONTROL', maxQuantity: 1, autoAdd: true },
@@ -752,31 +779,25 @@ const AddVisitTabs: React.FC<Props> = ({
       '8107': { type: 'XRAY', maxQuantity: 7 }, // Max 7 films
       '8163': { type: 'SEALANT', requiresTooth: true, maxTeeth: 32 },
       '8185': { type: 'QUADRANT', maxQuantity: 4 }, // Max 4 quadrants
-      '8346': { type: 'MATERIAL_FACTOR', autoGenerated: true, percentage: 0.10 }
+      '8346': { type: 'MATERIAL_FACTOR', autoGenerated: true }
     };
-    
-    // Iteration 3: Progressive pricing rules
-    const progressiveCodes = ['8340', '8202', '8328', '8337', '8348'];
-    if (progressiveCodes.includes(code)) {
-      ruleType = 'PROGRESSIVE';
-    }
-    
+
     // Iteration 4: Tooth-specific logic refinement
     const toothLogic = {
       requiresTooth: requiresTooth === 'YES',
       multipleTeeth: canMultiply === 'YES' && requiresTooth === 'YES',
-      singleTooth: requiresTooth === 'YES' && canMultiply !== 'YES',
-      toothSpecificPricing: code === '8346' // Special pricing per tooth
+      singleTooth: requiresTooth === 'YES' && canMultiply !== 'YES'
     };
-    
+
     // Iteration 5: Quantity rules
     const quantityRules = {
-      allowQuantity: canMultiply === 'YES' || specialCodes[code]?.maxQuantity > 1,
+      // From the tariff only: a maxQuantity entry offered a quantity for once-per-line codes, which were then billed as one unit
+      allowQuantity: multiplyRule !== 'NO',
       minQuantity: 1,
-      maxQuantity: specialCodes[code]?.maxQuantity || (ruleType === 'QUADRANT' ? 4 : 99),
+      maxQuantity: specialCodes[code]?.maxQuantity || 99,
       defaultQuantity: 1
     };
-    
+
     // Iteration 6: Auto-generation rules
     const autoGenerateRules: {[key: string]: string[]} = {
       '8341': ['8346'], // Amalgam procedures auto-generate material factor
@@ -792,7 +813,7 @@ const AddVisitTabs: React.FC<Props> = ({
       '8369': ['8346'],
       '8370': ['8346']
     };
-    
+
     // Iteration 7: Validation rules
     const validationRules = {
       requiresToothValidation: toothLogic.requiresTooth,
@@ -803,27 +824,7 @@ const AddVisitTabs: React.FC<Props> = ({
       requiresQuantityValidation: quantityRules.allowQuantity,
       conflictsWithCodes: [] // Some codes can't be used together
     };
-    
-    // Iteration 8: Pricing calculation rules
-    const pricingRules = {
-      basePrice: parseFloat(tariff.price) || 0,
-      calculation: (quantity: number, toothNumbers?: string[]) => {
-        let total = parseFloat(tariff.price) || 0;
-        
-        if (ruleType === 'PROGRESSIVE') {
-          // First item full price, additional at 50% (example)
-          total = total + ((quantity - 1) * total * 0.5);
-        } else if (ruleType === 'MULTIPLY') {
-          total = total * quantity;
-        } else if (code === '8346' && toothNumbers) {
-          // Special tooth-specific pricing
-          total = toothNumbers.length * total;
-        }
-        
-        return total;
-      }
-    };
-    
+
     // Iteration 9: UI workflow rules
     const workflowRules = {
       showQuantityModal: quantityRules.allowQuantity && !toothLogic.requiresTooth,
@@ -831,17 +832,16 @@ const AddVisitTabs: React.FC<Props> = ({
       showBothModals: quantityRules.allowQuantity && toothLogic.requiresTooth,
       skipAllModals: !quantityRules.allowQuantity && !toothLogic.requiresTooth
     };
-    
+
     // Iteration 10: Final comprehensive rule object
     return {
       code,
-      ruleType,
+      multiplyRule,
       specialCode: specialCodes[code],
       toothLogic,
       quantityRules,
       autoGenerateRules: autoGenerateRules[code] || [],
       validationRules,
-      pricingRules,
       workflowRules,
       description: tariff.description,
       isRequired: code === '8109', // Infection control always required
@@ -926,105 +926,53 @@ const AddVisitTabs: React.FC<Props> = ({
     });
 
     const rules = getDentalServiceBusinessRules(tariff);
-    const basePrice = parseFloat(tariff.price) || 0;
-    const totalPrice = rules.pricingRules.calculation(quantity, toothNumber ? [toothNumber] : undefined);
-
-    const newService: ServiceSelection = {
-      id: crypto.randomUUID(),
-      tariffId: tariff.id,
-      code: tariff.code,
-      description: `${tariff.description}${toothNumber ? ` (Tooth ${toothNumber})` : ''}`,
-      category: 'Dental Service',
-      subcategory: 'General',
-      unitPrice: basePrice,
-      quantity: quantity,
-      totalPrice: totalPrice,
-      requiresPreAuth: false,
-      medicalAidCovered: true,
-      coveragePercentage: 100,
-      businessRule: tariff.business_rule_formula,
-      exampleCalculation: tariff.example_calculation,
-      requiresTeethNumbers: tariff.requires_tooth_number === 'YES',
-      canBeMultiplied: tariff.can_be_multiplied === 'YES',
-      teethNumbers: toothNumber ? [toothNumber] : undefined
-    };
+    const hasMedicalAid = patientHasMedicalAid === true;
+    // Priced by computeLine from the tariff; a line it refuses (no price, quantity, tooth) is not added
+    const added = buildTariffLine(tariff, quantity, toothNumber, hasMedicalAid);
+    if (!added.ok) {
+      toast.error(added.message, { duration: 8000 });
+      handleModalCancel();
+      return;
+    }
+    if (added.warnings.length > 0) toast(added.warnings.join(' '), { duration: 8000 });
+    const newService = added.service;
 
     const updatedServices = [...selectedServices, newService];
-    
+
     // Auto-add 8109 Infection Control for EVERY service (if not already present)
     const hasInfectionControl = selectedServices.some(s => s.code === '8109');
     if (!hasInfectionControl && tariff.code !== '8109') {
       console.log('🦠 Auto-adding 8109 Infection Control');
-      
-      // Create 8109 service (use tariff data if available, otherwise create manually)
-      const infectionControlTariff = availableTariffs.find(t => t.code === '8109');
-      const infectionControlPrice = infectionControlTariff ? parseFloat(infectionControlTariff.price) : 45.0; // Default price
-      
-      const infectionControlService: ServiceSelection = {
-        id: crypto.randomUUID(),
-        tariffId: infectionControlTariff?.id || 'manual-8109',
-        code: '8109',
-        description: 'Infection control per visit (Auto-added)',
-        category: 'Dental Service',
-        subcategory: 'Infection Control',
-        unitPrice: infectionControlPrice,
-        quantity: 1,
-        totalPrice: infectionControlPrice,
-        requiresPreAuth: false,
-        medicalAidCovered: true,
-        coveragePercentage: 100,
-        businessRule: 'Automatically added per visit',
-        exampleCalculation: `Fixed rate: ${infectionControlPrice}`,
-        requiresTeethNumbers: false,
-        canBeMultiplied: false,
-        teethNumbers: undefined,
-        isAutoGenerated: true,
-        isRequired: true,
-        parentServiceId: newService.id
-      };
-      
-      updatedServices.unshift(infectionControlService); // Add at beginning
-      console.log('✅ Auto-added 8109 Infection Control:', infectionControlPrice);
+
+      // Priced from the 8109 tariff only; without a usable 8109 tariff no line is added
+      const infectionControl = buildInfectionControlLine(billableTariffs, hasMedicalAid, newService.id);
+      if (infectionControl.ok) {
+        updatedServices.unshift(infectionControl.service); // Add at beginning
+        console.log('✅ Auto-added 8109 Infection Control:', infectionControl.service.unitPrice);
+      } else {
+        toast.error(infectionControl.message, { id: 'tariff-8109' });
+      }
     }
-    
+
     // Check for 8346 material factor auto-generation
     if (rules.autoGenerateRules.length > 0) {
       console.log('🔄 Auto-generating material factor for codes:', rules.autoGenerateRules);
-      
+
       for (const autoCode of rules.autoGenerateRules) {
         if (autoCode === '8346') {
-          // Create 8346 Material Factor service
-          const materialTariff = availableTariffs.find(t => t.code === '8346');
-          const materialPrice = basePrice * 0.10; // 10% of the service price
-          
-          const autoService: ServiceSelection = {
-            id: crypto.randomUUID(),
-            tariffId: materialTariff?.id || 'manual-8346',
-            code: '8346',
-            description: `Material factor (10% of ${tariff.code})${toothNumber ? ` - Tooth ${toothNumber}` : ''}`,
-            category: 'Dental Service',
-            subcategory: 'Material Factor',
-            unitPrice: materialPrice,
-            quantity: quantity,
-            totalPrice: materialPrice * quantity,
-            requiresPreAuth: false,
-            medicalAidCovered: true,
-            coveragePercentage: 100,
-            businessRule: '10% material factor of primary service',
-            exampleCalculation: `${basePrice} × 0.10 = ${materialPrice.toFixed(2)}`,
-            requiresTeethNumbers: toothNumber ? true : false,
-            canBeMultiplied: false,
-            teethNumbers: toothNumber ? [toothNumber] : undefined,
-            isAutoGenerated: true,
-            parentServiceId: newService.id
-          };
-          
-          updatedServices.push(autoService);
+          // 10% of the procedure's unit price, rounded to the cent, for the same quantity
+          const material = buildMaterialFactorLine(billableTariffs, newService, hasMedicalAid);
+          if (!material.ok) {
+            toast.error(material.message, { id: 'tariff-8346' });
+            continue;
+          }
+
+          updatedServices.push(material.service);
           console.log('✅ Auto-generated 8346 Material Factor:', {
             baseService: tariff.code,
-            basePrice,
-            materialPrice,
-            calculation: `${basePrice} × 0.10 = ${materialPrice.toFixed(2)}`
+            basePrice: newService.unitPrice,
+            materialPrice: material.service.unitPrice,
+            calculation: material.service.exampleCalculation
           });
         }
       }
@@ -1054,6 +1002,19 @@ const AddVisitTabs: React.FC<Props> = ({
     setSelectedTooth('');
   };
 
+  // Quantity changes in the services table are priced by computeLine; an auto-added 8346 line follows
+  const changeServiceQuantity = (serviceId: string, quantity: number) => {
+    const { services, line } = changeLineQuantity(selectedServices, serviceId, quantity, billableTariffs, patientHasMedicalAid === true);
+    if (!line) return;
+    if (!line.ok) {
+      toast.error(line.errors.join(' '), { duration: 8000 });
+      return;
+    }
+    if (line.warnings.length > 0) toast(line.warnings.join(' '), { id: `quantity-${serviceId}`, duration: 8000 });
+    setSelectedServices(services);
+    if (onSelectedServicesChange) onSelectedServicesChange(services);
+  };
+
   // Dental tooth numbering system (FDI notation) - removed unused array
 
   if (isLoading) {
@@ -1066,6 +1027,10 @@ const AddVisitTabs: React.FC<Props> = ({
       </div>
     );
   }
+
+  // The quantity dialog shows the total computeLine will bill (a tooth, if needed, is chosen next)
+  const quantityPreviewInput = selectedTariff ? tariffLineInput(selectedTariff, serviceQuantity, patientHasMedicalAid === true) : null;
+  const quantityPreview = quantityPreviewInput ? computeLine(quantityPreviewInput) : null;
 
   return (
     <div className="flex flex-col">
@@ -2398,14 +2363,14 @@ const AddVisitTabs: React.FC<Props> = ({
           >
             <LabResultsTable
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
             />
           </motion.div>
         )}
 
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
-          <ImagingTabContentSimple patientId={patientId} visitId="" />
+          <ImagingTabContentSimple patientId={patientId} visitId={newVisitId} />
         )}
 
         {/* Leave Form Tab */}
@@ -2468,7 +2433,7 @@ const AddVisitTabs: React.FC<Props> = ({
             
             <MediaUploadWrapper
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
               onUploadSuccess={(file) => {
                 console.log('✅ Media file uploaded:', file);
                 console.log('🔄 Triggering media files refresh');
@@ -2477,14 +2442,14 @@ const AddVisitTabs: React.FC<Props> = ({
               }}
               onUploadError={(error) => {
                 console.error('❌ Media upload error:', error);
-                alert(`Upload failed: ${error}`);
+                toast.error(`Upload failed: ${error}`);
               }}
             />
-            
+
             <FileDisplayComponent
               key={`media-display-${mediaRefreshTrigger}`}
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
               uploadType="media"
               onFileDelete={(fileId) => {
                 console.log('🗑️ Media file deleted:', fileId);
@@ -2584,20 +2549,14 @@ const AddVisitTabs: React.FC<Props> = ({
                             <div className="inline-flex items-center bg-gray-100 rounded-lg overflow-hidden">
                               <button
                                 type="button"
-                                disabled={!service.canBeMultiplied || service.quantity <= 1 || service.isRequired}
+                                disabled={!service.canBeMultiplied || service.quantity <= 1 || service.isRequired || service.isAutoGenerated}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  const updatedServices = selectedServices.map(s => 
-                                    s.id === service.id 
-                                      ? { ...s, quantity: Math.max(1, s.quantity - 1), totalPrice: s.unitPrice * Math.max(1, s.quantity - 1) }
-                                      : s
-                                  );
-                                  setSelectedServices(updatedServices);
-                                  if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
+                                  changeServiceQuantity(service.id, Math.max(1, service.quantity - 1));
                                 }}
                                 className={`p-1 text-xs ${
-                                  !service.canBeMultiplied || service.quantity <= 1 || service.isRequired
+                                  !service.canBeMultiplied || service.quantity <= 1 || service.isRequired || service.isAutoGenerated
                                     ? 'text-gray-300 cursor-not-allowed'
                                     : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                                 }`}
@@ -2609,20 +2568,14 @@ const AddVisitTabs: React.FC<Props> = ({
                               </span>
                               <button
                                 type="button"
-                                disabled={!service.canBeMultiplied || service.isRequired}
+                                disabled={!service.canBeMultiplied || service.isRequired || service.isAutoGenerated}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  const updatedServices = selectedServices.map(s => 
-                                    s.id === service.id 
-                                      ? { ...s, quantity: s.quantity + 1, totalPrice: s.unitPrice * (s.quantity + 1) }
-                                      : s
-                                  );
-                                  setSelectedServices(updatedServices);
-                                  if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
+                                  changeServiceQuantity(service.id, service.quantity + 1);
                                 }}
                                 className={`p-1 text-xs ${
-                                  !service.canBeMultiplied || service.isRequired
+                                  !service.canBeMultiplied || service.isRequired || service.isAutoGenerated
                                     ? 'text-gray-300 cursor-not-allowed'
                                     : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
                                 }`}
@@ -2635,14 +2588,14 @@ const AddVisitTabs: React.FC<Props> = ({
                           {/* Unit Price */}
                           <td className="px-4 py-2 text-right">
                             <span className="text-sm font-semibold text-gray-900">
-                              N${service.unitPrice.toFixed(2)}
+                              {formatNad(service.unitPrice)}
                             </span>
                           </td>
                           
                           {/* Total */}
                           <td className="px-4 py-2 text-right">
                             <span className="text-sm font-bold" style={{ color: '#30b4be' }}>
-                              N${service.totalPrice.toFixed(2)}
+                              {formatNad(service.totalPrice)}
                             </span>
                           </td>
                           
@@ -2790,7 +2743,7 @@ const AddVisitTabs: React.FC<Props> = ({
                   <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
                     Select Service
                   </h3>
-                  <p className="text-sm text-gray-600">Choose from {availableTariffs.length} available services</p>
+                  <p className="text-sm text-gray-600">Choose from {billableTariffs.length} available services</p>
                 </div>
                 <button
                   onClick={handleModalCancel}
@@ -2815,8 +2768,8 @@ const AddVisitTabs: React.FC<Props> = ({
 
                 {/* Services Grid - 8 per row */}
                 <div className="grid grid-cols-8 gap-3">
-                  {availableTariffs
-                    .filter(tariff => 
+                  {billableTariffs
+                    .filter(tariff =>
                       serviceSearchTerm === '' || 
                       tariff.code.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
                       tariff.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
@@ -2831,6 +2784,7 @@ const AddVisitTabs: React.FC<Props> = ({
                     })
                     .map((tariff) => {
                       const usageCount = serviceUsageStats[tariff.code] || 0;
+                      const unitPrice = parseTariffPrice(tariff.price);
                       const maxUsage = Math.max(...Object.values(serviceUsageStats));
                       const heatLevel = maxUsage > 0 ? (usageCount / maxUsage) : 0;
                       
@@ -2882,7 +2836,9 @@ const AddVisitTabs: React.FC<Props> = ({
                             {tariff.description}
                           </div>
                           <div className="text-xs font-semibold" style={{ color: '#30b4be' }}>
-                            N${Math.floor(parseFloat(tariff.price))}<span style={{ color: '#30b4be60' }}>.{String(parseFloat(tariff.price).toFixed(2)).split('.')[1]}</span>
+                            {unitPrice === null ? 'No valid price' : (
+                              <>N${nadParts(unitPrice).whole}<span style={{ color: '#30b4be60' }}>.{nadParts(unitPrice).cents}</span></>
+                            )}
                           </div>
                           {usageCount > 0 && (
                             <div className="text-xs mt-1 opacity-60">
@@ -2964,7 +2920,9 @@ const AddVisitTabs: React.FC<Props> = ({
                   <div className="bg-gray-50 rounded-lg p-4 mb-6">
                     <div className="text-sm text-gray-600">Total Cost</div>
                     <div className="text-xl font-bold" style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}>
-                      N${Math.floor(parseFloat(selectedTariff.price) * serviceQuantity)}<span style={{ color: '#30b4be60' }}>.{String((parseFloat(selectedTariff.price) * serviceQuantity).toFixed(2)).split('.')[1]}</span>
+                      {quantityPreview?.ok ? (
+                        <>N${nadParts(quantityPreview.total).whole}<span style={{ color: '#30b4be60' }}>.{nadParts(quantityPreview.total).cents}</span></>
+                      ) : quantityPreview ? '—' : 'No valid price'}
                     </div>
                   </div>
 

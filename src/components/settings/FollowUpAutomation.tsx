@@ -16,6 +16,21 @@ interface TemplateStep {
   services_to_schedule: string[];
 }
 
+/** One line of the generate-follow-up-templates stream. */
+interface GenerationStreamEvent {
+  type: 'progress' | 'result' | 'error';
+  stage?: string;
+  message?: string;
+  templatesGenerated?: number;
+  templates?: unknown[];
+  error?: string;
+}
+
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  DIAGNOSIS: 'Diagnosis',
+  TARIFF_CODE: 'Tariff Code'
+};
+
 export default function FollowUpAutomation() {
   const { user } = useAuthStore();
   const [templates, setTemplates] = useState<FollowUpTemplate[]>([]);
@@ -139,8 +154,8 @@ export default function FollowUpAutomation() {
     }
   }, [isAutomationEnabled, practiceId]);
 
-  const deleteTemplate = useCallback(async (templateId: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+  const deleteTemplate = useCallback(async (templateId: string, templateName: string) => {
+    if (!window.confirm(`Delete the follow-up template "${templateName}"? This cannot be undone.`)) return;
 
     try {
       const { error } = await supabase
@@ -255,26 +270,30 @@ export default function FollowUpAutomation() {
           
           for (const line of lines) {
             if (line.trim()) {
+              let data: GenerationStreamEvent;
               try {
-                const data = JSON.parse(line);
-                
-                if (data.type === 'progress') {
-                  let icon = '🔍';
-                  if (data.stage === 'prioritization') icon = '📊';
-                  else if (data.stage === 'ai_generation') icon = '🤖';
-                  else if (data.stage === 'completion') icon = '✨';
-                  
-                  toast.loading(
-                    `${icon} ${data.message}${data.templatesGenerated ? ` (${data.templatesGenerated} templates so far)` : ''}`, 
-                    { id: progressToast }
-                  );
-                } else if (data.type === 'result') {
-                  finalTemplates = data.templates;
-                } else if (data.type === 'error') {
-                  throw new Error(data.error);
-                }
+                data = JSON.parse(line);
               } catch (e) {
                 console.error('Error parsing stream data:', e);
+                continue;
+              }
+
+              if (data.type === 'progress') {
+                let icon = '🔍';
+                if (data.stage === 'prioritization') icon = '📊';
+                else if (data.stage === 'ai_generation') icon = '🤖';
+                else if (data.stage === 'completion') icon = '✨';
+
+                toast.loading(
+                  `${icon} ${data.message}${data.templatesGenerated ? ` (${data.templatesGenerated} templates so far)` : ''}`,
+                  { id: progressToast }
+                );
+              } else if (data.type === 'result') {
+                finalTemplates = data.templates ?? [];
+              } else if (data.type === 'error') {
+                // Thrown outside the JSON.parse guard so it reaches the outer catch; it used to be
+                // swallowed here and the user was told "0 templates created" instead
+                throw new Error(data.error || 'The template generator reported an error');
               }
             }
           }
@@ -292,6 +311,7 @@ export default function FollowUpAutomation() {
 
         let successCount = 0;
         let skipCount = 0;
+        let failCount = 0;
 
         toast.loading(`💾 Saving ${finalTemplates.length} templates to database...`, { id: progressToast });
 
@@ -326,22 +346,33 @@ export default function FollowUpAutomation() {
           if (!insertError) {
             successCount++;
             existingTriggers.add(triggerKey); // Prevent duplicates within this batch
+          } else {
+            failCount++;
+            console.error('Error saving generated template:', insertError);
           }
         }
 
-        const message = skipCount > 0 
-          ? `✨ AI Generation Complete! ${successCount} templates created, ${skipCount} duplicates skipped`
-          : `✨ AI Generation Complete! ${successCount} templates created`;
-        
-        toast.success(message, { id: progressToast, duration: 5000 });
-        
+        if (failCount > 0) {
+          toast.error(
+            `${successCount} templates created, but ${failCount} could not be saved. Please try again.`,
+            { id: progressToast, duration: 8000 }
+          );
+        } else {
+          const message = skipCount > 0
+            ? `✨ AI Generation Complete! ${successCount} templates created, ${skipCount} duplicates skipped`
+            : `✨ AI Generation Complete! ${successCount} templates created`;
+
+          toast.success(message, { id: progressToast, duration: 5000 });
+        }
+
         fetchTemplates();
       } else {
         toast.error('No templates generated', { id: progressToast });
       }
     } catch (error) {
       console.error('Error generating AI templates:', error);
-      toast.error('Failed to generate AI templates', { id: progressToast });
+      const reason = error instanceof Error && error.message ? `: ${error.message}` : '';
+      toast.error(`Failed to generate AI templates${reason}`, { id: progressToast });
     } finally {
       setAiGenerating(false);
     }
@@ -409,7 +440,7 @@ export default function FollowUpAutomation() {
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Backend Automation Engine</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Automatic Follow-up Visits</h3>
             <p className="text-sm text-gray-600 mt-1">
               When enabled, the system will automatically create follow-up visits based on completed visit data
             </p>
@@ -420,6 +451,7 @@ export default function FollowUpAutomation() {
               className="sr-only peer"
               checked={isAutomationEnabled}
               onChange={toggleAutomation}
+              aria-label="Create follow-up visits automatically"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
           </label>
@@ -511,7 +543,7 @@ export default function FollowUpAutomation() {
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-orange-100 text-orange-800'
                           }`}>
-                            {template.trigger_type}
+                            {TRIGGER_TYPE_LABELS[template.trigger_type] ?? template.trigger_type}
                           </span>
                           <span className="text-gray-700">{template.trigger_value}</span>
                         </div>
@@ -522,6 +554,7 @@ export default function FollowUpAutomation() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => toggleTemplateActive(template.id, template.is_active)}
+                          title={template.is_active ? 'Click to stop using this template' : 'Click to start using this template'}
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                             template.is_active 
                               ? 'bg-green-100 text-green-800 hover:bg-green-200' 
@@ -542,7 +575,7 @@ export default function FollowUpAutomation() {
                           Edit
                         </button>
                         <button
-                          onClick={() => deleteTemplate(template.id)}
+                          onClick={() => deleteTemplate(template.id, template.template_name)}
                           className="text-red-600 hover:text-red-900"
                         >
                           Delete
@@ -771,6 +804,8 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
                         <button
                           type="button"
                           onClick={() => removeStep(index)}
+                          aria-label={`Remove step ${step.step_number}`}
+                          title="Remove step"
                           className="text-red-600 hover:text-red-700"
                         >
                           <Icon icon="solar:trash-bin-minimalistic-bold-duotone" className="w-4 h-4" />

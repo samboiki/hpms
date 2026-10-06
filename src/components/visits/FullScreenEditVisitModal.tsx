@@ -1,24 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { Pill, Activity, ImageIcon, Wallet, Microscope, Film } from 'lucide-react';
 import FullScreenModal from '../ui/FullScreenModal';
 import EditVisitTabs from './EditVisitTabs';
+import PatientHistoryPanel from './PatientHistoryPanel';
 import FormModal from '../modals/FormModal';
 import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import PremiumAddAppointmentForm from '../forms/PremiumAddAppointmentForm';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { ServiceSelection } from '../../types/billing';
+import { nadParts } from '../../utils/billing/money';
+import { sumServiceTotals } from './visitBillingLines';
 import { useLocation } from 'react-router-dom';
+import { differenceInMonths, differenceInYears, format, isValid, parseISO } from 'date-fns';
+
+export type EditVisitTabId =
+  | 'general'
+  | 'history'
+  | 'vitals'
+  | 'medications'
+  | 'leave'
+  | 'billing'
+  | 'media'
+  | 'laboratory'
+  | 'imaging';
 
 interface FullScreenEditVisitModalProps {
   isOpen: boolean;
   onClose: () => void;
   visitId: string;
   patientId: string;
-  onSuccess: () => void;
+  /** Called after a save; `completed` is true when the visit was also marked completed. */
+  onSuccess: (result?: { completed: boolean }) => void;
+  /** Tab shown each time the modal opens. Defaults to 'general'. */
+  initialTab?: EditVisitTabId;
 }
 
 interface Visit {
@@ -32,8 +50,33 @@ interface Visit {
   patients?: {
     first_name: string;
     last_name: string;
+    date_of_birth?: string | null;
+    gender?: string | null;
   } | null;
 }
+
+// "34 yrs, Male" style summary for the header; infants show months.
+const formatPatientDemographics = (dateOfBirth?: string | null, gender?: string | null): string => {
+  const parts: string[] = [];
+  const dob = dateOfBirth ? parseISO(dateOfBirth) : null;
+  if (dob && isValid(dob)) {
+    const years = differenceInYears(new Date(), dob);
+    if (years >= 1) parts.push(`${years} yrs`);
+    else if (years === 0) parts.push(`${differenceInMonths(new Date(), dob)} mo`);
+  }
+  const trimmedGender = gender?.trim();
+  if (trimmedGender) parts.push(trimmedGender.charAt(0).toUpperCase() + trimmedGender.slice(1));
+  return parts.join(', ');
+};
+
+const formatVisitDateLabel = (value?: string | null): string | null => {
+  if (!value) return null;
+  const date = parseISO(value);
+  return isValid(date) ? format(date, 'd MMM yyyy') : null;
+};
+
+const UNSAVED_CHANGES_PROMPT =
+  'You have changes on this visit that are not saved. Leave it anyway? Unsaved changes will be lost.';
 
 interface Tab {
   id: string;
@@ -48,6 +91,12 @@ const tabs: Tab[] = [
     label: 'General',
     icon: 'solar:document-bold-duotone',
     tooltip: 'Visit details and clinical notes'
+  },
+  {
+    id: 'history',
+    label: 'History',
+    icon: 'solar:history-bold-duotone',
+    tooltip: 'Previous visits, vitals, medications and labs'
   },
   {
     id: 'vitals',
@@ -98,56 +147,151 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
   onClose,
   visitId,
   patientId,
-  onSuccess
+  onSuccess,
+  initialTab = 'general'
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('general');
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [visit, setVisit] = useState<Visit | null>(null);
   const [loading, setLoading] = useState(true);
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const [followUpRequired, setFollowUpRequired] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedServices, setSelectedServices] = useState<ServiceSelection[]>([]);
+  // Added up in whole cents, so the header total equals the sum of the billing lines
+  const servicesTotal = sumServiceTotals(selectedServices);
   const { user } = useAuthStore();
   const location = useLocation();
-  
+
+  // A previous visit opened from the History tab is shown in place of the visit this modal was
+  // opened for (the "current" visit). Keyed by that visit, so a new visitId prop always starts on it.
+  const [otherVisit, setOtherVisit] = useState<{ fromVisitId: string; visitId: string; returnTab: string } | null>(null);
+  const displayedVisitId = otherVisit && otherVisit.fromVisitId === visitId ? otherVisit.visitId : visitId;
+  const isViewingOtherVisit = displayedVisitId !== visitId;
+  // While another visit loads, `visit` still holds the previous one; never label the new view with it
+  const shownVisit = visit && visit.id === displayedVisitId ? visit : null;
+  const shownVisitDate = formatVisitDateLabel(shownVisit?.visit_date);
+  const [notice, setNotice] = useState<string | null>(null);
+  // Set once the clinician types in the visit form: switching visits reloads the form and would drop the edits
+  const formTouchedRef = useRef(false);
+  // A previous visit was saved while this modal stayed open; the caller is told when the modal closes
+  const otherVisitSavedRef = useRef(false);
+  // Ignores a slow header response for a visit that is no longer shown
+  const latestVisitRequestRef = useRef<string | null>(null);
+
   // Ref to trigger service modal from EditVisitTabs
   const triggerServiceModal = () => {
     window.dispatchEvent(new CustomEvent('triggerServiceModal'));
   };
 
 
+  // Open on the requested tab each time the modal is shown
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
+
+  // Each opening starts on the visit the modal was opened for
+  useEffect(() => {
+    if (!isOpen) {
+      setOtherVisit(null);
+      setNotice(null);
+      formTouchedRef.current = false;
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   // Fetch visit details for header
   useEffect(() => {
-    if (visitId && isOpen) {
-      fetchVisitDetails();
+    if (displayedVisitId && isOpen) {
+      fetchVisitDetails(displayedVisitId);
     }
-  }, [visitId, isOpen]);
+  }, [displayedVisitId, isOpen]);
 
-  const fetchVisitDetails = async () => {
+  const fetchVisitDetails = async (targetVisitId: string) => {
+    latestVisitRequestRef.current = targetVisitId;
     try {
       setLoading(true);
       const { data, error } = await supabase
         .from('visits')
         .select(`
           *,
-          patients!visits_patient_id_fkey(first_name, last_name)
+          patients!visits_patient_id_fkey(first_name, last_name, date_of_birth, gender)
         `)
-        .eq('id', visitId)
+        .eq('id', targetVisitId)
         .single();
 
       if (error) throw error;
-      setVisit(data);
+      if (latestVisitRequestRef.current === targetVisitId) setVisit(data);
     } catch (error) {
       console.error('Error fetching visit details:', error);
     } finally {
-      setLoading(false);
+      if (latestVisitRequestRef.current === targetVisitId) setLoading(false);
     }
   };
 
-  const handleSuccess = () => {
-    onSuccess();
+  const confirmLeavingEdits = () => !formTouchedRef.current || window.confirm(UNSAVED_CHANGES_PROMPT);
+
+  // Show another of this patient's visits inside this modal (from the History tab)
+  const handleOpenOtherVisit = (targetVisitId: string) => {
+    if (targetVisitId === displayedVisitId) return;
+    if (targetVisitId === visitId) {
+      returnToCurrentVisit();
+      return;
+    }
+    if (!confirmLeavingEdits()) return;
+    formTouchedRef.current = false;
+    setSelectedServices([]);
+    setNotice(null);
+    setOtherVisit({
+      fromVisitId: visitId,
+      visitId: targetVisitId,
+      // Keep the tab the clinician left the current visit on, even when hopping between old visits
+      returnTab: otherVisit && otherVisit.fromVisitId === visitId ? otherVisit.returnTab : activeTab
+    });
+    setActiveTab('general');
+  };
+
+  const returnToCurrentVisit = (options?: { skipConfirm?: boolean; notice?: string }) => {
+    if (!isViewingOtherVisit || !otherVisit) return;
+    if (!options?.skipConfirm && !confirmLeavingEdits()) return;
+    formTouchedRef.current = false;
+    setSelectedServices([]);
+    setActiveTab(otherVisit.returnTab);
+    setOtherVisit(null);
+    setNotice(options?.notice ?? null);
+  };
+
+  const handleClose = () => {
+    if (otherVisitSavedRef.current) {
+      otherVisitSavedRef.current = false;
+      // Another visit changed: let the caller refresh. The visit this modal was opened for was not completed.
+      onSuccess({ completed: false });
+    }
     onClose();
   };
+
+  const handleSuccess = (result?: { completed: boolean }) => {
+    if (isViewingOtherVisit) {
+      // The save was for a previous visit: stay in this consultation and go back to the current visit
+      otherVisitSavedRef.current = true;
+      returnToCurrentVisit({
+        skipConfirm: true,
+        notice: `Saved the previous visit${shownVisitDate ? ` of ${shownVisitDate}` : ''}. You are back on the current visit.`
+      });
+      return;
+    }
+    otherVisitSavedRef.current = false;
+    onSuccess(result);
+    onClose();
+  };
+
+  const patientDemographics = formatPatientDemographics(visit?.patients?.date_of_birth, visit?.patients?.gender);
 
   const renderHeader = () => (
     <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
@@ -158,10 +302,10 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
             <Icon icon="solar:stethoscope-bold-duotone" className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Edit Visit</h2>
-            {visit && (
+            <h2 className="text-2xl font-bold">{isViewingOtherVisit ? 'Previous Visit' : 'Edit Visit'}</h2>
+            {shownVisit && (
               <p className="text-blue-100 text-sm">
-                {visit.patients?.first_name} {visit.patients?.last_name} • {visit.visit_date ? new Date(visit.visit_date).toLocaleDateString() : 'No date'} • {visit.visit_type || 'Consultation'}
+                {shownVisit.patients?.first_name} {shownVisit.patients?.last_name}{patientDemographics ? ` (${patientDemographics})` : ''} • {shownVisit.visit_date ? new Date(shownVisit.visit_date).toLocaleDateString() : 'No date'} • {shownVisit.visit_type || 'Consultation'}
               </p>
             )}
           </div>
@@ -171,14 +315,56 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            onClose();
+            handleClose();
           }}
           className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+          aria-label="Close visit"
         >
           <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
         </button>
       </div>
     </div>
+  );
+
+  // Visible whenever a previous visit is shown, so the clinician can always get back
+  const renderVisitSwitchBar = () => (
+    <>
+      {isViewingOtherVisit && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 bg-amber-50 border-b border-amber-200">
+          <p className="flex items-center gap-2 text-sm text-amber-900">
+            <Icon icon="solar:history-bold-duotone" className="w-5 h-5 flex-shrink-0 text-amber-600" aria-hidden="true" />
+            <span>
+              You are viewing a previous visit{shownVisitDate ? ` of ${shownVisitDate}` : ''}. Anything you save here is
+              saved to that visit.
+            </span>
+          </p>
+          <button
+            type="button"
+            onClick={() => returnToCurrentVisit()}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
+          >
+            <Icon icon="solar:arrow-left-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+            Back to current visit
+          </button>
+        </div>
+      )}
+      {notice && (
+        <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-2 bg-emerald-50 border-b border-emerald-200" role="status">
+          <p className="flex items-center gap-2 text-sm text-emerald-800">
+            <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
+            {notice}
+          </p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            className="p-1 rounded text-emerald-700 hover:bg-emerald-100"
+            aria-label="Dismiss"
+          >
+            <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </>
   );
 
   const renderTabs = () => (
@@ -187,7 +373,6 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
       <div className="px-4 sm:px-6">
         <div className="flex overflow-x-auto scrollbar-none md:overflow-x-visible" role="tablist">
           {tabs.map((tab, index) => {
-            const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             const isHovered = hoveredTab === tab.id;
             
@@ -249,7 +434,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                   </motion.div>
                 )}
                 
-                <Icon className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 flex-shrink-0 ${
+                <Icon icon={tab.icon} className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 flex-shrink-0 ${
                   isActive ? 'text-purple-600' : ''
                 }`} />
                 
@@ -338,6 +523,20 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
               )}
 
               {/* Other Tab Headers - Left Aligned */}
+              {activeTab === 'history' && (
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-purple-100 rounded-lg">
+                    <Icon icon="solar:history-bold-duotone" className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                      Patient History
+                    </h3>
+                    <p className="text-sm text-gray-600">Previous visits, vitals, medications and lab requests (read-only)</p>
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'vitals' && (
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-red-100 rounded-lg">
@@ -465,7 +664,7 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       <div className="text-center">
                         <div className="text-xs font-semibold uppercase tracking-wide mb-1" style={{ color: '#30b4be' }}>Total</div>
                         <motion.div 
-                          key={selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0)}
+                          key={servicesTotal}
                           initial={{ scale: 1.1 }}
                           animate={{ scale: 1 }}
                           transition={{ duration: 0.2 }}
@@ -473,10 +672,10 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                           style={{ fontFamily: 'Rubik, sans-serif' }}
                         >
                           <span style={{ color: '#30b4be' }}>
-                            N${Math.floor(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0))}
+                            N${nadParts(servicesTotal).whole}
                           </span>
                           <span style={{ color: '#30b4be60' }}>
-                            .{String(selectedServices.reduce((total, service) => total + (service.totalPrice || 0), 0).toFixed(2)).split('.')[1]}
+                            .{nadParts(servicesTotal).cents}
                           </span>
                         </motion.div>
                       </div>
@@ -512,6 +711,20 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                       <Icon icon="solar:calendar-check-bold-duotone" className="w-4 h-4" />
                       Schedule Follow-up
                     </button>
+                  </div>
+                )}
+
+                {activeTab === 'history' && (
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Icon icon="solar:history-bold-duotone" className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg sm:text-xl font-semibold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
+                        Patient History
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600">Previous visits, vitals, medications and lab requests (read-only)</p>
+                    </div>
                   </div>
                 )}
 
@@ -617,14 +830,33 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
                 )}
               </div>
               
-              {/* Main content */}
-              <div className="p-4 sm:p-6">
+              {/* Main content. Typing anywhere in the form marks it as edited (see formTouchedRef). */}
+              <div
+                className="p-4 sm:p-6"
+                onInput={() => {
+                  formTouchedRef.current = true;
+                }}
+                onChange={() => {
+                  formTouchedRef.current = true;
+                }}
+              >
+                {/* History is read-only; EditVisitTabs stays mounted below so form state and the save actions persist */}
+                {activeTab === 'history' && (
+                  <PatientHistoryPanel
+                    patientId={patientId}
+                    currentVisitId={displayedVisitId}
+                    onOpenVisit={handleOpenOtherVisit}
+                  />
+                )}
                 <EditVisitTabs
-                  visitId={visitId}
+                  // A different visit gets a fresh form: no services, medications or notes carried over
+                  key={displayedVisitId}
+                  visitId={displayedVisitId}
                   patientId={patientId}
                   activeTab={activeTab}
+                  onTabChange={setActiveTab}
                   onSuccess={handleSuccess}
-                  onCancel={onClose}
+                  onCancel={isViewingOtherVisit ? () => returnToCurrentVisit({ skipConfirm: true }) : handleClose}
                   selectedServices={selectedServices}
                   onSelectedServicesChange={setSelectedServices}
                 />
@@ -638,9 +870,10 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
 
   return (
     <>
-      <FullScreenModal isOpen={isOpen} onClose={onClose}>
+      <FullScreenModal isOpen={isOpen} onClose={handleClose}>
         <div className="flex flex-col h-full bg-gray-50">
           {renderHeader()}
+          {renderVisitSwitchBar()}
           {renderTabs()}
           {renderContent()}
         </div>

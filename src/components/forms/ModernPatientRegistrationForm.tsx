@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -21,6 +21,7 @@ import { DayPicker } from 'react-day-picker';
 import { format } from 'date-fns';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 import 'react-day-picker/dist/style.css';
 
 interface PatientRegistrationFormData {
@@ -75,7 +76,7 @@ interface MedicalAidScheme {
 
 
 interface Props {
-  onSuccess?: () => void;
+  onSuccess?: (patient?: { id: string; first_name: string; last_name: string }) => void;
 }
 
 const steps = [
@@ -114,7 +115,9 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
   const [loadingSchemes, setLoadingSchemes] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [allowSubmit, setAllowSubmit] = useState(false);
+  // A ref, not state: the button sets it in the same click that submits the form, and a state value
+  // captured at render time would still be false, so the first "Complete Registration" click did nothing.
+  const allowSubmitRef = useRef(false);
   
   const { 
     register, 
@@ -140,6 +143,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         setProviders(data || []);
       } catch (error) {
         console.error('Error fetching providers:', error);
+        toast.error("Couldn't load the medical aid list. You can still register the patient and add medical aid later.");
       } finally {
         setLoadingProviders(false);
       }
@@ -164,6 +168,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           setSchemes(data || []);
         } catch (error) {
           console.error('Error fetching schemes:', error);
+          toast.error("Couldn't load the schemes for this medical aid. Choose the provider again to retry.");
         } finally {
           setLoadingSchemes(false);
         }
@@ -213,18 +218,35 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
 
   const onSubmit = async (data: PatientRegistrationFormData) => {
     // Only allow submission if explicitly allowed (via submit button click)
-    if (!allowSubmit || currentStep !== steps.length) {
+    if (!allowSubmitRef.current || currentStep !== steps.length) {
       return;
     }
-    
-    setAllowSubmit(false); // Reset to prevent accidental re-submission
+
+    allowSubmitRef.current = false; // Reset to prevent accidental re-submission
     setIsSubmitting(true);
+    // Set once the patient row exists: if the medical aid or next of kin insert fails after that, the
+    // patient IS registered, and "please try again" would only lead to a duplicate-ID error.
+    let registeredPatient: { id: string; first_name: string; last_name: string } | null = null;
     try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('Please sign in before registering a patient.');
+
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('practice_id')
+        .eq('id', user.id)
+        .single();
+      if (userError) throw userError;
+      const practiceId = userData?.practice_id;
+      if (!practiceId) throw new Error('No practice is assigned to your account.');
+
       // Check for duplicate ID number first
       const { data: existingPatient, error: checkError } = await supabase
         .from('patients')
         .select('id, first_name, last_name')
         .eq('id_number', data.idNumber)
+        .eq('practice_id', practiceId)
         .maybeSingle();
 
       if (checkError && checkError.code !== 'PGRST116') {
@@ -232,25 +254,8 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
       }
 
       if (existingPatient) {
-        alert(`Patient with ID number ${data.idNumber} already exists: ${existingPatient.first_name} ${existingPatient.last_name}`);
+        toast.error(`A patient with ID number ${data.idNumber} is already registered: ${existingPatient.first_name} ${existingPatient.last_name}`);
         return;
-      }
-
-      // Add practice_id to patient data
-      const { data: { user } } = await supabase.auth.getUser();
-      let practiceId = 'b64632c2-3a56-44cf-a2c9-0e42be03a2d3'; // Default to Dr. Polina's practice
-
-      // Try to get user's practice from users table
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('practice_id')
-          .eq('id', user.id)
-          .single();
-        
-        if (userData?.practice_id) {
-          practiceId = userData.practice_id;
-        }
       }
 
       // Insert patient data
@@ -276,6 +281,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         .single();
 
       if (patientError) throw patientError;
+      registeredPatient = patientData;
 
       // Insert medical aid details if provided
       if (data.medicalAid.provider) {
@@ -314,13 +320,17 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
         if (nextOfKinError) throw nextOfKinError;
       }
 
-      onSuccess?.();
     } catch (error) {
       console.error('Error registering patient:', error);
-      alert('Error registering patient. Please try again.');
+      if (registeredPatient) {
+        toast.error(`${registeredPatient.first_name} ${registeredPatient.last_name} was registered, but the medical aid or next of kin details were not saved. Add them from the patient's profile.`);
+      } else {
+        toast.error(`Couldn't register the patient. ${error instanceof Error ? error.message : 'Please try again.'}`);
+      }
     } finally {
       setIsSubmitting(false);
     }
+    if (registeredPatient) onSuccess?.(registeredPatient);
   };
 
   return (
@@ -731,8 +741,9 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation Buttons */}
-        <div className="flex justify-between pt-4 border-t border-gray-200">
+        {/* Navigation Buttons: stay in view at the bottom of a scrolling modal, so Previous/Next and
+            Complete Registration are always reachable on a phone */}
+        <div className="sticky bottom-0 z-10 flex justify-between gap-3 py-3 bg-white border-t border-gray-200">
           <Button
             type="button"
             variant="outline"
@@ -757,7 +768,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess }) => {
             <button
               type="submit"
               disabled={isSubmitting}
-              onClick={() => setAllowSubmit(true)}
+              onClick={() => { allowSubmitRef.current = true; }}
               className={`justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 px-4 py-2 flex items-center gap-2 ${
                 isSubmitting 
                   ? 'opacity-50 cursor-not-allowed bg-gradient-to-r from-blue-600 to-purple-600' 

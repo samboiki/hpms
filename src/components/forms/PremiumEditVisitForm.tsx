@@ -15,7 +15,13 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
+import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { getResultStatus } from '../../utils/labResultStatus';
+import { checkBloodPressure, checkTemperature } from '../../utils/vitalSigns';
+import { errorMessage } from './formErrors';
+import VitalFlagNote from './VitalFlagNote';
 import { ServiceSelection } from '../../types/billing';
 import { invoiceService } from '../../services/invoiceService';
 import LabResultUpload from '../visits/LabResultUpload';
@@ -220,6 +226,8 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
 
       } catch (error) {
         console.error('Error fetching visit data:', error);
+        // Otherwise the form opens with blank fields that look like the saved visit
+        toast.error(`Couldn't load this visit: ${errorMessage(error)}`);
       } finally {
         setIsLoading(false);
       }
@@ -242,6 +250,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
   ];
 
   const onSubmit = async (data: PremiumEditVisitFormData) => {
+    let invoiceSaved = true;
     try {
       setIsSubmitting(true);
 
@@ -249,8 +258,10 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
       const visitData = {
         visit_type: data.visit_type,
         encounter_date: data.encounter_date.toISOString(),
-        visit_date: data.encounter_date.toISOString().split('T')[0],
-        visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
+        // Local calendar date and 24h time: the UTC date is the previous day before 02:00 in Namibia,
+        // and toLocaleTimeString('en-US', { hour12: false }) can give "24:15:00" just after midnight
+        visit_date: format(data.encounter_date, 'yyyy-MM-dd'),
+        visit_time: format(data.encounter_date, 'HH:mm:ss'),
         chief_complaint: data.chief_complaint,
         diagnosis: data.diagnosis,
         treatment_plan: data.treatment_plan,
@@ -268,6 +279,11 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
 
       if (visitError) throw visitError;
 
+      // A cleared input comes back as '' and the numeric vitals columns reject '', which failed the whole save
+      const vitalsPayload = Object.fromEntries(
+        Object.entries(data.vitals).map(([key, value]) => [key, value === '' ? null : value])
+      );
+
       // Update vitals if provided
       if (Object.keys(data.vitals).some(key => data.vitals[key as keyof typeof data.vitals])) {
         // First try to update existing vitals
@@ -282,7 +298,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
           const { error: vitalsError } = await supabase
             .from('vitals')
             .update({
-              ...data.vitals
+              ...vitalsPayload
             })
             .eq('id', existingVitals[0].id);
 
@@ -293,7 +309,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
             .from('vitals')
             .insert([{
               visit_id: visitId,
-              ...data.vitals,
+              ...vitalsPayload,
               created_at: new Date().toISOString()
             }]);
 
@@ -427,7 +443,8 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
           });
           
           // Show user-friendly error
-          alert(`Invoice update failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}. The visit was updated but invoice changes were not saved.`);
+          invoiceSaved = false;
+          toast.error(`The visit was updated, but the invoice changes were not saved: ${errorMessage(invoiceError)}`);
         }
       } else {
         console.log('⏭️ Skipping invoice update:');
@@ -435,9 +452,11 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
         console.log('   - Generate invoice:', data.generateInvoice);
       }
 
+      if (invoiceSaved) toast.success('Visit updated');
       onSuccess();
     } catch (error) {
       console.error('Error updating visit:', error);
+      toast.error(`Couldn't update the visit: ${errorMessage(error)}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -610,6 +629,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                         placeholder="120/80"
                         className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
                       />
+                      <VitalFlagNote check={checkBloodPressure(watch('vitals.blood_pressure'))} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>Temperature (°C)</label>
@@ -620,6 +640,7 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                         placeholder="36.5"
                         className="w-full p-2 border border-gray-200 rounded-lg text-sm focus:ring-1 focus:ring-[#01b9d4]/20 focus:border-[#01b9d4]"
                       />
+                      <VitalFlagNote check={checkTemperature(watch('vitals.temperature'))} />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1" style={{ fontFamily: 'Montserrat, sans-serif' }}>Pulse (bpm)</label>
@@ -698,7 +719,12 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                 <h3 className="text-xl font-semibold text-gray-900 mb-4" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Lab & Imaging Results
                 </h3>
-                
+                {/* "Update Visit" saves nothing from this tab, so don't let staff think the results are on file */}
+                <p className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                  Results and images added on this tab are not saved with the visit yet.
+                </p>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Lab Results Section */}
                   <div className="space-y-4">
@@ -717,7 +743,11 @@ const PremiumEditVisitForm: React.FC<Props> = ({ visitId, patientId, onSuccess, 
                           setLabResults(prev => [...prev, {
                             name: result.name,
                             description: `${result.value} ${result.unit} (Ref: ${result.reference_range})`,
-                            status: result.status,
+                            // The upload defaults to "normal", so check the value against its range rather
+                            // than show an out-of-range result with a green Normal badge
+                            status: result.status === 'normal'
+                              ? getResultStatus(result.value, result.reference_range)
+                              : result.status,
                             value: result.value,
                             unit: result.unit,
                             reference_range: result.reference_range

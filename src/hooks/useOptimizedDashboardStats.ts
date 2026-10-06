@@ -45,8 +45,9 @@ export interface DashboardStats {
 }
 
 export function useOptimizedDashboardStats() {
-  const { user } = useAuthStore();
-  const practiceId = user?.practice_id;
+  const { user, selectedPracticeId } = useAuthStore();
+  // Same rule as the sidebar and Finance page: the practice a super admin switched to, else the user's own
+  const practiceId = selectedPracticeId || user?.practice_id;
 
   return useQuery({
     queryKey: ['optimized-dashboard-stats', practiceId],
@@ -102,14 +103,13 @@ export function useOptimizedDashboardStats() {
         return stats;
       } catch (error) {
         console.error('❌ Error fetching optimized dashboard stats:', error);
-        
-        // Fall back to empty stats on error
-        return {
-          patient: { total: 0, male: 0, female: 0, newThisMonth: 0, newThisWeek: 0, averageAge: 0, activePatients: 0 },
-          encounter: { total: 0, completed: 0, pending: 0, inProgress: 0, percentageCompleted: 0, percentagePending: 0, newThisMonth: 0 },
-          invoice: { totalInvoices: 0, totalRevenue: 0, quarterlyRevenue: 0, quarterlyInvoices: 0, quarterlyPaidInvoices: 0, quarterlyOutstandingInvoices: 0, quarterlyPercentagePaid: 0, quarterlyPercentageOutstanding: 0, currentQuarter: Math.floor(new Date().getMonth() / 3) + 1 },
-          communication: { smsUsed: 0, smsLimit: 0, smsPercentage: 0, emailUsed: 0, emailLimit: 0, emailPercentage: 0 }
-        } as DashboardStats;
+        // Re-throw instead of returning zeros (which showed N$0 on the Finance tile with no sign
+        // of failure): react-query then exposes isError/error and keeps the last good data.
+        // Supabase errors are plain objects, so wrap them to give callers a real Error message.
+        const message = error instanceof Error
+          ? error.message
+          : (error as { message?: string } | null)?.message || 'Unknown error';
+        throw new Error(`Dashboard stats could not be loaded: ${message}`);
       }
     },
     enabled: !!practiceId,
@@ -123,6 +123,8 @@ export function useOptimizedDashboardStats() {
 
 // Hook to manually refresh the materialized view
 export function useRefreshDashboardStats() {
+  // Without this, onSuccess threw "queryClient is not defined" after every successful refresh
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       const startTime = performance.now();
@@ -146,8 +148,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 // Hook for communication stats specifically for PremiumStatCard
 export function useCommunicationStats() {
-  const { user } = useAuthStore();
-  const practiceId = user?.practice_id;
+  const { user, selectedPracticeId } = useAuthStore();
+  const practiceId = selectedPracticeId || user?.practice_id;
 
   return useQuery({
     queryKey: ['communication-stats', practiceId],

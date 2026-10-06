@@ -17,6 +17,7 @@ import {
   FileText
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import { buildWeekTimeSlots, slotForTime } from './weekGridSlots';
 
 interface Appointment {
   id: string;
@@ -101,12 +102,8 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
     }
   };
 
-  // Time slots for the grid
-  const timeSlots = [];
-  for (let hour = 8; hour < 18; hour++) {
-    timeSlots.push(`${hour.toString().padStart(2, '0')}:00`);
-    timeSlots.push(`${hour.toString().padStart(2, '0')}:30`);
-  }
+  // Time slots for the grid (08:00-17:30, widened for early or late appointments so none are hidden)
+  const timeSlots = buildWeekTimeSlots(appointments.map(apt => apt.time));
 
   return (
     <div className="h-full flex flex-col bg-white/40 backdrop-blur-lg rounded-xl shadow-sm overflow-hidden border border-white/20">
@@ -162,10 +159,8 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
               <div key={dayIndex} className="flex-1 border-r border-dotted border-gray-400/30 last:border-r-0 bg-white/20 backdrop-blur-sm">
                 {timeSlots.map((time, timeIndex) => {
                   const slotKey = `${dateStr}-${time}`;
-                  const slotAppointments = dayAppointments.filter(apt => {
-                    const aptTime = apt.time?.substring(0, 5);
-                    return aptTime === time;
-                  });
+                  // An appointment at e.g. 09:15 shows in the 09:00 row instead of disappearing
+                  const slotAppointments = dayAppointments.filter(apt => (apt.time ? slotForTime(apt.time) === time : false));
 
                   return (
                     <div
@@ -224,6 +219,8 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                                         onAppointmentClick?.(appointment);
                                       }}
                                       className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                      title="View details"
+                                      aria-label="View details"
                                     >
                                       <Eye className="w-3 h-3 text-gray-400 hover:text-[#01b9d5]" />
                                     </button>
@@ -247,7 +244,7 @@ export const PremiumWeekGridView: React.FC<PremiumWeekGridViewProps> = ({
                                 {/* Hover actions */}
                                 <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                   {appointment.status === 'pending' && (
-                                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" />
+                                    <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse" title="Not confirmed yet" />
                                   )}
                                   {appointment.status === 'scheduled' && onMarkReady && (
                                     <button

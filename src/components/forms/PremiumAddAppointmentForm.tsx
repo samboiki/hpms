@@ -12,6 +12,9 @@ import { AppointmentTypeModal } from '../ui/AppointmentTypeModal';
 import { useAuthStore } from '../../stores/authStore';
 import { debounce } from 'lodash';
 import { toast } from 'react-hot-toast';
+import FormModal from '../modals/FormModal';
+import AddPatientForm, { type CreatedPatient } from './AddPatientForm';
+import { errorMessage } from './formErrors';
 
 interface AddAppointmentFormData {
   patient_id: string;
@@ -77,7 +80,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   
-  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = useForm<AddAppointmentFormData>({
+  const { register, handleSubmit, formState: { errors }, watch, setValue, reset, clearErrors } = useForm<AddAppointmentFormData>({
     defaultValues: {
       date: initialDate ? format(initialDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       time: initialTime || '09:00', // Will be updated when business hours load
@@ -108,6 +111,10 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
   const [businessHours, setBusinessHours] = useState<{ start: string; end: string }>({ start: '08:00', end: '18:00' });
   const [allBusinessHours, setAllBusinessHours] = useState<any>(null);
   const [showTypeModal, setShowTypeModal] = useState(false);
+  const [isAddPatientOpen, setIsAddPatientOpen] = useState(false);
+  // Weekday name when the chosen date falls on a day the practice is closed
+  const [closedDay, setClosedDay] = useState<string | null>(null);
+  const walkInSelectedRef = useRef(false);
   
   const selectedPatientId = watch('patient_id');
   const selectedDate = watch('date');
@@ -159,6 +166,8 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     } catch (err) {
       console.error('Error fetching booked times:', err);
       setBookedTimes([]);
+      // With no booked times every slot looks free, so say that the list is incomplete
+      toast.error(`Couldn't load the doctor's booked times, so taken slots aren't marked: ${errorMessage(err)}`);
     }
   };
 
@@ -208,6 +217,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         const practiceId = userData?.practice_id;
         if (!practiceId) {
           console.error('No practice_id found for user');
+          toast.error("Your account isn't linked to a practice, so patients and doctors can't be loaded.");
           setIsLoadingPatients(false);
           setIsLoadingDoctors(false);
           return;
@@ -232,6 +242,8 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             .select('id, full_name, role')
             .eq('role', 'doctor')
             .eq('practice_id', practiceId)
+            // Deactivated doctors can't take new bookings
+            .or('is_active.is.null,is_active.eq.true')
             .order('full_name', { ascending: true }),
           
           // Fetch practice for business hours
@@ -248,6 +260,8 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
           console.log('Loaded patients:', patientsResult.data?.length);
         } else {
           console.error('Error loading patients:', patientsResult.error);
+          // Otherwise the search says "No patients found" and invites registering a duplicate
+          toast.error(`Couldn't load the patient list: ${errorMessage(patientsResult.error)}`);
         }
         setIsLoadingPatients(false);
 
@@ -257,6 +271,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
           console.log('Loaded doctors:', doctorsResult.data?.length);
         } else {
           console.error('Error loading doctors:', doctorsResult.error);
+          toast.error(`Couldn't load the list of doctors: ${errorMessage(doctorsResult.error)}`);
         }
         setIsLoadingDoctors(false);
 
@@ -287,6 +302,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         setDataFetched(true);
       } catch (error) {
         console.error('Error fetching initial data:', error);
+        toast.error(`Couldn't load the appointment form: ${errorMessage(error)}`);
         setIsLoadingPatients(false);
         setIsLoadingDoctors(false);
       }
@@ -313,6 +329,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       const dayHours = allBusinessHours[dayName];
       
       if (dayHours && !dayHours.closed && dayHours.open && dayHours.close) {
+        setClosedDay(null);
         setBusinessHours({
           start: dayHours.open,
           end: dayHours.close
@@ -320,6 +337,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       } else {
         // If selected day is closed, show a message or use default hours
         console.log(`Practice is closed on ${dayName}`);
+        setClosedDay(dayName);
         // You might want to show an error or warning to the user
         // For now, let's use the default working hours
         const defaultDay = allBusinessHours.monday || allBusinessHours.tuesday || 
@@ -416,6 +434,13 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
       
       const durationMinutes = Math.round((endDate.getTime() - startDate.getTime()) / 60000);
 
+      // New appointments booked for today cannot start earlier than now
+      const now = new Date();
+      if (!editingAppointmentId && data.date === format(now, 'yyyy-MM-dd') && data.time < format(now, 'HH:mm')) {
+        setError('The selected start time has already passed. Please choose a later time.');
+        return;
+      }
+
       // Check for conflicting appointments (exclude current appointment if editing)
       const appointmentTime = setMinutes(setHours(new Date(data.date), startHours), startMinutes);
       const hasConflict = await checkAppointmentConflict(
@@ -453,7 +478,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             scheduled_time: data.time,
             visit_type: data.type,
             chief_complaint: data.notes || '',
-            notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time} - ${data.end_time}`,
+            notes: `Appointment scheduled for ${format(new Date(data.date), 'dd MMM yyyy')} at ${data.time} - ${data.end_time}`,
             updated_at: new Date().toISOString()
           })
           .eq('id', editingAppointmentId)
@@ -467,8 +492,14 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         if (updateError) throw updateError;
 
         console.log('✅ Updated visit:', updatedVisit);
+        toast.success(`Appointment moved to ${format(new Date(data.date), 'dd MMM yyyy')} at ${data.time}`);
         onSuccess(updatedVisit);
       } else {
+        // A booking without a practice is invisible on the practice's calendar
+        if (!practiceId) {
+          setError("Your account isn't linked to a practice, so the appointment can't be booked. Ask an administrator to link your account.");
+          return;
+        }
         // Create a new scheduled visit
         const { data: newVisit, error: visitError } = await supabase
           .from('visits')
@@ -481,7 +512,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             scheduled_time: data.time,
             visit_type: data.type,
             chief_complaint: data.notes || '',
-            notes: `Appointment scheduled for ${format(new Date(data.date), 'PPP')} at ${data.time} - ${data.end_time}`,
+            notes: `Appointment scheduled for ${format(new Date(data.date), 'dd MMM yyyy')} at ${data.time} - ${data.end_time}`,
             practice_id: practiceId,
             is_scheduled: true,
             is_confirmed: true,
@@ -501,11 +532,12 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         if (visitError) throw visitError;
 
         console.log('✅ Created scheduled visit:', newVisit);
+        toast.success(`Appointment booked for ${format(new Date(data.date), 'dd MMM yyyy')} at ${data.time}`);
         onSuccess(newVisit);
       }
     } catch (err) {
       console.error('Error saving appointment:', err);
-      setError(editingAppointmentId ? 'Failed to update appointment' : 'Failed to create appointment');
+      setError(`${editingAppointmentId ? 'Failed to update appointment' : 'Failed to create appointment'}: ${errorMessage(err)}`);
     } finally {
       setIsLoading(false);
     }
@@ -523,9 +555,56 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
     setShowPatientDropdown(false);
   }, [setValue]);
 
+  // Walk-in: the registration form handed back the new patient, so select them straight away
+  const handleWalkInCreated = useCallback((patient: CreatedPatient) => {
+    walkInSelectedRef.current = true;
+    setPatients(prev => (prev.some(p => p.id === patient.id) ? prev : [...prev, patient]));
+    handlePatientSelect(patient);
+  }, [handlePatientSelect]);
+
+  const reloadPatients = async () => {
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('practice_id')
+      .eq('id', user?.id)
+      .single();
+    if (userError || !userData?.practice_id) {
+      console.error('Error loading practice for patient reload:', userError);
+      toast.error("Couldn't refresh the patient list. Close and reopen the form to find the new patient.");
+      return;
+    }
+
+    const { data, error: patientsError } = await supabase
+      .from('patients')
+      .select('id, first_name, last_name')
+      .eq('practice_id', userData.practice_id)
+      .order('last_name', { ascending: true });
+    if (patientsError) {
+      console.error('Error reloading patients:', patientsError);
+      toast.error(`Couldn't refresh the patient list: ${errorMessage(patientsError)}`);
+      return;
+    }
+    setPatients(data || []);
+  };
+
+  const handleWalkInRegistered = async () => {
+    setIsAddPatientOpen(false);
+    if (walkInSelectedRef.current) {
+      walkInSelectedRef.current = false;
+      toast.success('Patient registered and selected');
+      return;
+    }
+    // The registration form did not hand back the new patient: reload the list so they can be picked
+    await reloadPatients();
+    setShowPatientDropdown(true);
+    toast.success('Patient registered. Select them from the list.');
+  };
+
   const handleCancelAppointment = async () => {
     if (!editingAppointmentId) return;
-    
+    const patientName = patientSearchTerm.trim() || 'this patient';
+    if (!window.confirm(`Cancel the appointment for ${patientName}? It will be marked as cancelled.`)) return;
+
     try {
       setIsLoading(true);
       
@@ -651,6 +730,8 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   onClick={clearPatient}
+                  aria-label="Clear the selected patient"
+                  title="Clear the selected patient"
                   className="absolute right-3 inset-y-0 m-auto h-8 w-8 hover:bg-gray-200 rounded-full transition-all duration-200 z-10 flex items-center justify-center"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400 hover:text-gray-600" />
@@ -682,6 +763,20 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                     <div className="px-4 py-8 text-center">
                       <Icon icon="solar:users-group-two-rounded-bold-duotone" className="w-6 h-6 text-gray-400 mx-auto mb-2" />
                       <p className="text-sm text-gray-500">No patients found</p>
+                      <motion.button
+                        type="button"
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => {
+                          setShowPatientDropdown(false);
+                          setIsAddPatientOpen(true);
+                        }}
+                        className="mt-3 inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg
+                          hover:from-purple-600 hover:to-indigo-700 text-sm font-medium shadow-md"
+                      >
+                        <Icon icon="solar:user-plus-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+                        Add new patient
+                      </motion.button>
                     </div>
                   ) : (
                     filteredPatients.map((patient, index) => (
@@ -756,11 +851,16 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               </label>
               <div className="relative">
                 <select
-                  {...register('doctor_id', { required: 'Doctor is required' })}
-                  onChange={(e) => {
-                    const doctor = doctors.find(d => d.id === e.target.value);
-                    if (doctor) setSelectedDoctor(doctor);
-                  }}
+                  // The onChange goes through register: a separate onChange prop replaced react-hook-form's
+                  // own handler, so the form never saw the chosen doctor and every booking failed with
+                  // "Doctor is required" in practices with more than one doctor.
+                  {...register('doctor_id', {
+                    required: 'Doctor is required',
+                    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => {
+                      const doctor = doctors.find(d => d.id === e.target.value);
+                      if (doctor) setSelectedDoctor(doctor);
+                    }
+                  })}
                   className="w-full px-4 pr-10 py-3 bg-gray-100 border-0 rounded-lg 
                     focus:outline-none focus:ring-2 focus:ring-purple-500 
                     transition-all duration-200 text-gray-700 appearance-none
@@ -789,17 +889,25 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               </motion.p>
             )}
           </div>
+          ) : selectedDoctor ? (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
+                Doctor
+              </label>
+              <div className="px-4 py-3 bg-gray-200 border-0 rounded-lg flex items-center gap-3">
+                <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-gray-600" />
+                <span className="text-gray-700">{selectedDoctor.full_name}</span>
+              </div>
+            </div>
           ) : (
-            selectedDoctor && (
+            // Without a doctor the booking fails with a database error, so say what is missing
+            dataFetched && !isLoadingDoctors && doctors.length === 0 && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                  <Icon icon="solar:stethoscope-bold-duotone" className="w-4 h-4 text-purple-500" />
-                  Doctor
-                </label>
-                <div className="px-4 py-3 bg-gray-200 border-0 rounded-lg flex items-center gap-3">
-                  <Icon icon="solar:stethoscope-bold-duotone" className="w-5 h-5 text-gray-600" />
-                  <span className="text-gray-700">{selectedDoctor.full_name}</span>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Doctor</label>
+                <p className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  No doctors could be found for your practice, so appointments can't be booked. An administrator can add a doctor under Settings &gt; Users.
+                </p>
               </div>
             )
           )}
@@ -866,6 +974,12 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               error={errors.date?.message}
               min={new Date()}
             />
+            {closedDay && (
+              <p className="mt-2 text-sm text-amber-700 flex items-center gap-1">
+                <Icon icon="solar:danger-triangle-bold-duotone" className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                The practice is closed on {closedDay.charAt(0).toUpperCase() + closedDay.slice(1)}s. Choose another date unless the doctor is working that day.
+              </p>
+            )}
           </div>
         </div>
 
@@ -918,6 +1032,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             }}
             error={errors.time?.message || errors.end_time?.message}
             bookedTimes={bookedTimes}
+            date={selectedDate}
           />
         </div>
       </motion.div>
@@ -958,9 +1073,9 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         </div>
       </motion.div>
 
-      {/* Action Buttons */}
-      <motion.div 
-        className="flex justify-between items-center pt-4"
+      {/* Action Buttons: stay in view at the bottom of the scrolling modal and wrap on a phone */}
+      <motion.div
+        className="sticky bottom-0 z-10 flex flex-wrap justify-between items-center gap-3 py-3 bg-white border-t border-gray-100"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4, duration: 0.3 }}
@@ -975,7 +1090,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
               type="button"
               onClick={handleCancelAppointment}
               disabled={isLoading}
-              className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg 
+              className="px-4 sm:px-6 py-2.5bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg 
                 hover:from-red-600 hover:to-red-700 transition-all duration-200 font-medium 
                 flex items-center gap-2 disabled:opacity-50 
                 disabled:cursor-not-allowed shadow-lg"
@@ -987,7 +1102,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         </div>
 
         {/* Right side buttons */}
-        <div className="flex gap-3 ml-auto">
+        <div className="flex flex-wrap justify-end gap-3 ml-auto">
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
@@ -1000,7 +1115,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
                 onSuccess();
               }
             }}
-            className="px-6 py-2.5 text-gray-700 bg-white border border-gray-300 rounded-lg 
+            className="px-4 sm:px-6 py-2.5text-gray-700 bg-white border border-gray-300 rounded-lg 
               hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
           >
             Close
@@ -1012,7 +1127,7 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
             transition={{ type: "spring", stiffness: 400, damping: 17 }}
             type="submit"
             disabled={isLoading}
-            className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
+            className="px-4 sm:px-6 py-2.5bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg 
               hover:from-purple-600 hover:to-indigo-700 transition-all duration-200 font-medium 
               flex items-center gap-2 disabled:opacity-50 
               disabled:cursor-not-allowed shadow-lg"
@@ -1045,6 +1160,19 @@ const PremiumAddAppointmentForm: React.FC<Props> = ({
         }}
         selectedType={watch('type')}
       />
+
+      {/* Walk-in registration - outside the form so its submit doesn't bubble into this one */}
+      <FormModal
+        isOpen={isAddPatientOpen}
+        onClose={() => setIsAddPatientOpen(false)}
+        title="Register New Patient"
+        icon="solar:user-plus-bold-duotone"
+      >
+        <AddPatientForm
+          onCreated={handleWalkInCreated}
+          onSuccess={handleWalkInRegistered}
+        />
+      </FormModal>
     </>
   );
 };

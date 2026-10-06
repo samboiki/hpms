@@ -1342,15 +1342,23 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     )}
                   </div>
                   
-                  <button
-                    onClick={() => {
-                      setShowAddUsersModal(true);
-                      loadAvailableUsers();
-                    }}
-                    className="text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    {channelMembers.length} members
-                  </button>
+                  {/* Only the group owner can change members; for everyone else this is just a count */}
+                  {channels.find(c => c.id === selectedChannelId)?.channel_type === 'group' && currentChannelCreator === user?.id ? (
+                    <button
+                      onClick={() => setShowManageGroupModal(true)}
+                      className="text-sm text-gray-600 hover:text-gray-900"
+                      title="Manage group members"
+                    >
+                      {channelMembers.length} members
+                    </button>
+                  ) : (
+                    <span
+                      className="text-sm text-gray-600"
+                      title={channelMembers.map(id => userNames[id] || 'Unknown').join(', ')}
+                    >
+                      {channelMembers.length} members
+                    </span>
+                  )}
                 </div>
                 
                 {/* Enhanced buttons */}
@@ -1406,7 +1414,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                           <div className="flex items-center gap-4 my-4">
                             <div className="flex-1 h-px bg-gray-200" />
                             <span className="text-xs text-gray-500 px-2">
-                              {format(new Date(msg.created_at), 'EEEE, MMMM d')}
+                              {format(new Date(msg.created_at), 'EEEE, d MMMM')}
                             </span>
                             <div className="flex-1 h-px bg-gray-200" />
                           </div>
@@ -1470,6 +1478,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                     />
                                     <button
                                       onClick={saveEditMessage}
+                                      aria-label="Save changes"
+                                      title="Save changes"
                                       className="p-2 text-green-600 hover:bg-green-50 rounded"
                                     >
                                       <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />
@@ -1479,6 +1489,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                         setEditingMessageId(null);
                                         setEditingContent('');
                                       }}
+                                      aria-label="Cancel editing"
+                                      title="Cancel editing"
                                       className="p-2 text-red-600 hover:bg-red-50 rounded"
                                     >
                                       <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
@@ -1512,6 +1524,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                   <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => setMessageMenuId(msg.id)}
+                                      aria-label="Message options"
+                                      title="Edit or delete this message"
                                       className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
                                       <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4 text-gray-500" />
@@ -1576,10 +1590,6 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
             {/* ========== ENHANCEMENT 10: Better input area ==========*/}
             <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex items-center gap-3">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Icon icon="solar:paperclip-bold-duotone" className="w-5 h-5 text-gray-500" />
-                </button>
-                
                 <input
                   type="text"
                   value={messageInput}
@@ -1592,6 +1602,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                 <button
                   onClick={sendMessage}
                   disabled={!messageInput.trim()}
+                  aria-label="Send message"
+                  title={messageInput.trim() ? 'Send message' : 'Type a message first'}
                   className={cn(
                     "p-2 rounded-lg transition-all",
                     messageInput.trim()
@@ -1632,6 +1644,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     setNewChannelMembers([]);
                     setNewChannelType('group');
                   }}
+                  aria-label="Close"
+                  title="Close"
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
@@ -1741,7 +1755,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                 >
-                  Create {newChannelType === 'direct' ? 'Direct Message' : 'Channel'}
+                  Create {newChannelType === 'direct' ? 'Direct Message' : 'Group'}
                 </button>
               </div>
             </div>
@@ -1761,7 +1775,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     <Icon icon="solar:users-group-rounded-bold-duotone" className="w-6 h-6 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Manage</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Manage Group</h3>
                     <p className="text-sm text-gray-600 mt-0.5">
                       {channels.find(c => c.id === selectedChannelId)?.name}
                     </p>
@@ -1774,6 +1788,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     setShowAddMembersSection(false);
                     setSelectedUsers([]);
                   }}
+                  aria-label="Close"
+                  title="Close"
                   className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
@@ -1870,22 +1886,6 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                 ) : (
                   /* Add Members Section */
                   <div>
-                    <div className="mb-4">
-                      <div className="relative">
-                        <Icon icon="solar:magnifer-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search team members..."
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                          onChange={(e) => {
-                            // Filter available users based on search
-                            const searchTerm = e.target.value.toLowerCase();
-                            // Implementation for search would go here
-                          }}
-                        />
-                      </div>
-                    </div>
-                    
                     {availableUsers.length === 0 ? (
                       <div className="text-center py-12">
                         <Icon icon="solar:users-group-rounded-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-3" />
@@ -2058,6 +2058,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               
               <button
                 onClick={() => {
+                  if (!window.confirm('Delete this message? Everyone in the conversation will see "[Message deleted]" instead.')) return;
                   deleteMessage(messageMenuId);
                   setMessageMenuId(null);
                 }}
@@ -2081,6 +2082,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               <h3 className="text-xl font-semibold text-gray-900">Notification Preferences</h3>
               <button
                 onClick={() => setShowNotificationPrefs(false)}
+                aria-label="Close"
+                title="Close"
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
