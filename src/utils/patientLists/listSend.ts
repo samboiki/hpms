@@ -7,29 +7,22 @@
  * time - the scheduled sender while someone presses Send now, or a double click - cannot claim
  * the same patient. A failed send gives the claim back so a later run can try again.
  *
- * No third-party imports and explicit .ts extensions (Deno).
+ * Explicit .ts imports so the scheduled sender (Deno) runs this same code; messageText.ts needs
+ * date-fns, which the edge function maps in its deno.json.
  */
 import { getSmsLength } from '../../components/messages/messageText.ts';
 import { normalizePhoneNumber } from '../../components/patients/patientContact.ts';
 import { periodKeyFor, type ListAutomationSettings } from './listAutomation.ts';
 import { birthdayInYear } from './listDates.ts';
 import { buildMessageValues, describeMissingVariable, renderListMessage, type PracticeDetails } from './listMessages.ts';
-import type { ListMember, SmartRule } from './listRules.ts';
+import type { ListMember } from './listRules.ts';
 
-/** practice_sms_logs.message_type for a list's messages (birthdays and win-backs are not care). */
-export function messageTypeForRule(rule: SmartRule | null): 'marketing' | 'follow_up' | 'custom' {
-  switch (rule?.type) {
-    case 'birthday':
-    case 'lapsed':
-      return 'marketing';
-    case 'recall_due':
-    case 'missed_appointment':
-    case 'regular_follow_up':
-      return 'follow_up';
-    default:
-      return 'custom';
-  }
-}
+/**
+ * practice_sms_logs.message_type of every list message. List messages are never essential (see
+ * supabase/functions/_shared/smsMessagePolicy.ts), so the gateway never sends them to a patient
+ * who replied STOP - not even when the list is about money owed or a missed appointment.
+ */
+export const LIST_SMS_MESSAGE_TYPE = 'automation_list';
 
 /**
  * Gateway errors after which every other send would fail too (bundle used up, no subscription,
@@ -39,6 +32,14 @@ export function isStopAllSmsError(error: string | null | undefined): boolean {
   return /SMS_LIMIT_REACHED|limit reached|subscription|credentials not configured|authentication token|invalid jwt|session has expired/i.test(
     error ?? ''
   );
+}
+
+/**
+ * The gateway refused one patient because they (or someone sharing their number) replied STOP.
+ * Not a failure to retry and no reason to stop the run.
+ */
+export function isOptedOutSmsError(error: string | null | undefined): boolean {
+  return /PATIENT_OPTED_OUT|replied STOP|opted out/i.test(error ?? '');
 }
 
 export type SkipReason = 'opted_out' | 'no_cell' | 'invalid_cell' | 'already_sent' | 'no_message' | 'missing_details';
@@ -163,8 +164,11 @@ export function countSkips(skipped: readonly SkippedMember[]): Array<{ reason: S
 
 export type SendAttempt =
   | { ok: true; logId: string | null }
-  /** stopAll: no point trying anyone else (SMS bundle used up, no subscription, signed out) */
-  | { ok: false; error: string; stopAll: boolean };
+  /**
+   * stopAll: no point trying anyone else (SMS bundle used up, no subscription, signed out).
+   * optedOut: the gateway refused this patient because the number replied STOP (not a failure).
+   */
+  | { ok: false; error: string; stopAll: boolean; optedOut?: boolean };
 
 export interface SendDeps {
   /** Claims patients for the plan's period; returns the ids that were not already claimed */
@@ -181,11 +185,15 @@ export interface SendResult {
   sent: number;
   sentPatientIds: string[];
   failed: Array<{ patientId: string; name: string; error: string }>;
+  /** Refused by the gateway: the number replied STOP (e.g. a family phone shared with them) */
+  optedOut: Array<{ patientId: string; name: string }>;
   /** Already messaged in this period by another run that claimed them first */
   alreadyClaimed: number;
   /** Not tried because the run stopped */
   notAttempted: number;
-  stopped: 'limit' | 'cancelled' | 'error' | null;
+  /** gateway: the gateway refused everyone (bundle used up, no subscription, unreachable);
+   *  error: who is being messaged could not be recorded; cancelled: staff pressed Stop */
+  stopped: 'gateway' | 'cancelled' | 'error' | null;
   stopReason: string | null;
   /** Failed sends whose claim could not be given back: they wait until the next period */
   unreleased: number;
@@ -198,7 +206,8 @@ export interface ListRunSummary {
   at: string;
   sent: number;
   failed: number;
-  /** Skipped by the plan (opted out, no cell number, already messaged...) or claimed by another run */
+  /** Skipped by the plan (opted out, no cell number, already messaged...), refused as opted out by
+   *  the gateway, or claimed by another run */
   skipped: number;
   notDueToday: number;
   stopped: SendResult['stopped'];
@@ -211,7 +220,7 @@ export function summarizeRun(plan: SendPlan, result: SendResult, mode: ListRunSu
     at: at.toISOString(),
     sent: result.sent,
     failed: result.failed.length,
-    skipped: plan.skipped.length + result.alreadyClaimed,
+    skipped: plan.skipped.length + result.optedOut.length + result.alreadyClaimed,
     notDueToday: plan.notDueToday,
     stopped: result.stopped,
     stopReason: result.stopReason
@@ -225,6 +234,7 @@ export async function runListSend(plan: SendPlan, deps: SendDeps, batchSize = 5)
     sent: 0,
     sentPatientIds: [],
     failed: [],
+    optedOut: [],
     alreadyClaimed: 0,
     notAttempted: 0,
     stopped: null,
@@ -282,11 +292,15 @@ export async function runListSend(plan: SendPlan, deps: SendDeps, batchSize = 5)
         if (attempt.ok) {
           result.sent += 1;
           result.sentPatientIds.push(recipient.patientId);
+        } else if (attempt.optedOut) {
+          // Nothing was sent, so the send record is given back; the gateway will refuse them again
+          result.optedOut.push({ patientId: recipient.patientId, name: recipient.name });
+          await release(recipient.patientId);
         } else {
           result.failed.push({ patientId: recipient.patientId, name: recipient.name, error: attempt.error });
           await release(recipient.patientId);
           if (attempt.stopAll) {
-            result.stopped = 'limit';
+            result.stopped = 'gateway';
             result.stopReason = attempt.error;
           }
         }

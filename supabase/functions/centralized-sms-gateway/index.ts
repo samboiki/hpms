@@ -3,6 +3,8 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import { TemplateProcessor } from './template-processor.ts';
 import { maySendToOptedOutPatient } from '../_shared/smsMessagePolicy.ts';
 import { normalizePhoneNumber, storedPhoneSearchPattern } from '../_shared/smsPhone.ts';
+import { constantTimeEqual } from '../_shared/smsReplyPayload.ts';
+import { bearerToken, decideGatewayAccess, type GatewayCaller } from '../_shared/smsGatewayAccess.ts';
 
 // CORS headers with additional allowed headers
 const corsHeaders = {
@@ -99,7 +101,35 @@ serve(async (req) => {
       templateVariables = {}
     } = await req.json();
 
-    console.log('SMS Request:', { 
+    // Who may send: the platform's own functions (service role key) or signed-in, active staff of the practice
+    // whose SMS bundle pays for the message. The public anon key alone is no longer enough (see smsGatewayAccess.ts).
+    const token = bearerToken(req.headers.get('Authorization'));
+    const isServiceKey = !!token && !!supabaseServiceKey && constantTimeEqual(token, supabaseServiceKey);
+    let caller: GatewayCaller = { isServiceKey, user: null, staff: null, assignedPracticeIds: [] };
+    if (!isServiceKey && token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        const [{ data: staff }, { data: assignments }] = await Promise.all([
+          supabase.from('users').select('practice_id, is_active, is_super_admin').eq('id', user.id).maybeSingle(),
+          supabase.from('user_practice_assignments').select('practice_id').eq('user_id', user.id)
+        ]);
+        caller = {
+          isServiceKey,
+          user: { id: user.id },
+          staff: staff ?? null,
+          assignedPracticeIds: (assignments ?? []).map((row: { practice_id: string }) => row.practice_id)
+        };
+      }
+    }
+    const access = decideGatewayAccess(caller, String(practiceId ?? ''));
+    if (!access.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: access.error }),
+        { status: access.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('SMS Request:', {
       practiceId, 
       recipientPhone, 
       messageType, 
@@ -137,7 +167,7 @@ serve(async (req) => {
           success: false,
           error: 'Missing required fields: practiceId, recipientPhone, and either messageContent or valid templateId'
         }),
-        {
+        { 
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
@@ -279,29 +309,13 @@ serve(async (req) => {
 
     // Send SMS via SMS Portal v3 API - Using the working format
     try {
-      // Format phone number: the same rules as normalizePhoneNumber in src/components/patients/patientContact.ts.
-      // A number saved without its leading 0 ("81 123 4567") is Namibian, not +81 (Japan).
-      const typedPlus = recipientPhone.trim().startsWith('+');
-      let cleanPhone = recipientPhone.replace(/\D/g, '');
-
-      if (!typedPlus) {
-        if (cleanPhone.startsWith('00')) {
-          cleanPhone = cleanPhone.substring(2);
-        } else if (cleanPhone.startsWith('264') && cleanPhone.length > 10) {
-          // Country code typed without "+"
-        } else if (cleanPhone.startsWith('0')) {
-          cleanPhone = '264' + cleanPhone.substring(1);
-        } else if (cleanPhone.length === 8 || cleanPhone.length === 9) {
-          cleanPhone = '264' + cleanPhone;
-        }
+      // The app's own rules (normalizePhoneNumber; shared copy in _shared/smsPhone.ts): a number saved without its
+      // leading 0 ("81 123 4567") is Namibian, never +81 Japan, and a number that cannot be dialled is refused
+      // (the log row records why) instead of being sent to a foreign number
+      const cleanPhone = normalizePhoneNumber(recipientPhone);
+      if (!cleanPhone) {
+        throw new Error('Not a dialable phone number: check the patient\'s cell number');
       }
-
-      // "+264 (0)81 ..." keeps the trunk 0 after the country code; it must not be dialled
-      if (cleanPhone.startsWith('2640')) {
-        cleanPhone = '264' + cleanPhone.substring(4);
-      }
-
-      cleanPhone = '+' + cleanPhone;
       
       // Create Basic Auth credentials
       const credentials = `${smsPortalClientId}:${smsPortalApiSecret}`;

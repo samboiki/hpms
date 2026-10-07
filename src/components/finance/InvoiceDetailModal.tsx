@@ -84,7 +84,8 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice,
 
   return (
     <Dialog open={!!invoice} onOpenChange={open => { if (!open) onClose(); }}>
-      <DialogContent className="max-w-3xl mx-4 max-h-[90vh] overflow-y-auto">
+      {/* Bottom sheet on phones (up to the full height), centred dialog from sm; the actions stay in view */}
+      <DialogContent className="max-w-3xl self-end sm:self-auto sm:mx-4 max-h-[100dvh] sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl">
         <DialogHeader className="pr-8">
           <DialogTitle className="flex flex-wrap items-center gap-3 text-xl text-gray-900">
             <Icon icon="solar:document-text-bold-duotone" className="w-6 h-6 text-cyan-600" aria-hidden="true" />
@@ -177,7 +178,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice,
           )}
         </div>
 
-        <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap items-center justify-end gap-2">
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-6 px-6 py-4 bg-white border-t border-gray-100 flex flex-wrap items-center justify-end gap-2">
           <ActionButton icon="solar:download-minimalistic-bold-duotone" label="Lines CSV" onClick={exportLines} disabled={!lines || lines.length === 0} />
           {invoice.patientId && (
             <ActionButton

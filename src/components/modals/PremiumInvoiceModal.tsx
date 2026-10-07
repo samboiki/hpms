@@ -676,27 +676,31 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        // Bottom sheet on phones (up to the full height), centred dialog from sm: the header stays put and
+        // the invoice and its actions scroll
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden"
           >
             {/* Premium Header */}
-            <div className="bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Receipt className="w-8 h-8 text-white" />
+            <div className="flex-none bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                  <div className="flex-none p-2.5 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Receipt className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Invoice Details</h2>
-                    <p className="text-white/80">#{invoice.invoice_number}</p>
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold">Invoice Details</h2>
+                    <p className="text-white/80 break-words">#{invoice.invoice_number}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3">
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${statusColors[invoice.payment_status || 'pending']}`}>
                     {statusIcons[invoice.payment_status || 'pending']}
                     <span className="font-semibold">{(invoice.payment_status || 'pending').toUpperCase()}</span>
@@ -716,7 +720,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
             </div>
 
             {/* Invoice Content */}
-            <div className="p-6 max-h-[60vh] overflow-y-auto">
+            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto">
               {/* Invoice Preview */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 mb-6">
                 <div className="flex justify-between items-start mb-6">

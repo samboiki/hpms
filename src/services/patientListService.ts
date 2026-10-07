@@ -22,8 +22,9 @@ import {
   type SmartRule
 } from '../utils/patientLists/listRules';
 import {
+  LIST_SMS_MESSAGE_TYPE,
+  isOptedOutSmsError,
   isStopAllSmsError,
-  messageTypeForRule,
   runListSend,
   summarizeRun,
   type ListRunSummary,
@@ -56,9 +57,12 @@ export function isListsNotEnabledError(error: unknown): boolean {
   if (error instanceof ListsNotEnabledError) return true;
   if (!error || typeof error !== 'object') return false;
   const { code, message } = error as DbError;
+  // Only our own tables and functions (all named patient_list...): any other missing object or
+  // a wrong operator (also code 42883) is a real error and must be shown as one
+  if (!/patient_list/i.test(message ?? '')) return false;
   // undefined_table, undefined_function, and PostgREST's "not in the schema cache"
   if (code === '42P01' || code === '42883' || code === 'PGRST202' || code === 'PGRST205') return true;
-  return /could not find the (table|function)|relation "?[\w.]*patient_list[\w]*"? does not exist/i.test(message ?? '');
+  return /could not find the (table|function)|does not exist/i.test(message ?? '');
 }
 
 const fail = (error: DbError, fallback: string): never => {
@@ -128,11 +132,10 @@ export function toListRecord(row: PatientListRow): PatientListRecord {
 /** Maps the gateway's answer for one SMS to the send loop's result. */
 export function toSendAttempt(response: Pick<SendSMSResponse, 'success' | 'logId' | 'error' | 'status'>): SendAttempt {
   if (response.success) return { ok: true, logId: response.logId || null };
-  return {
-    ok: false,
-    error: getCommunicationErrorMessage('sms', response.error),
-    stopAll: response.status === 'blocked' || isStopAllSmsError(response.error)
-  };
+  const error = getCommunicationErrorMessage('sms', response.error);
+  // The gateway refuses one patient whose number replied STOP; that must not stop the whole run
+  if (isOptedOutSmsError(response.error)) return { ok: false, error, stopAll: false, optedOut: true };
+  return { ok: false, error, stopAll: response.status === 'blocked' || isStopAllSmsError(response.error) };
 }
 
 const chunk = <T>(items: readonly T[], size: number): T[][] => {
@@ -339,7 +342,6 @@ export const patientListService = {
     shouldStop?: () => boolean;
   }): Promise<SendResult> {
     const { list, plan } = input;
-    const messageType = messageTypeForRule(list.rule);
     const result = await runListSend(plan, {
       claim: (ids) => patientListService.claimSends(list.id, ids, plan.periodKey),
       release: (patientId) => patientListService.releaseSend(list.id, patientId, plan.periodKey),
@@ -349,9 +351,18 @@ export const patientListService = {
             practiceId: list.practiceId,
             recipientPhone: recipient.phone,
             messageContent: recipient.text,
-            messageType,
+            messageType: LIST_SMS_MESSAGE_TYPE,
             patientId: recipient.patientId,
-            metadata: { source: 'patient_list', trigger: 'send_now', patient_list_id: list.id, patient_list_name: list.name, period: plan.periodKey },
+            // bulkSend: a list message is a campaign for the opt-out policy, whatever its type
+            metadata: {
+              source: 'patient_list',
+              trigger: 'send_now',
+              bulkSend: true,
+              patient_list_id: list.id,
+              patient_list_name: list.name,
+              list_rule: list.rule?.type ?? 'manual',
+              period: plan.periodKey
+            },
             tags: ['patient-list']
           })
         ),

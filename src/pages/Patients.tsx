@@ -74,9 +74,9 @@ const Patients: React.FC = () => {
       backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
       backgroundSize: '20px 20px'
     }}>
-      <div className="px-0 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header - Same style as Dashboard */}
-        <div className="mx-0 sm:mx-0 backdrop-blur-md rounded-none sm:rounded-xl shadow-sm border border-gray-100/50 border-x-0 sm:border-x">
+        <div className="backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex items-center justify-between w-full">
               {/* Left Side - Mobile: User Avatar, Desktop: Page title */}
@@ -115,7 +115,7 @@ const Patients: React.FC = () => {
                 
                 {/* Title - Always visible */}
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
                     Patients
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5 hidden lg:block">Manage your patient database</p>
@@ -233,7 +233,6 @@ const Patients: React.FC = () => {
           onChange={setActiveTab}
           label="Patients sections"
           activeClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
-          className="rounded-none sm:rounded-2xl border-x-0 sm:border-x"
         />
 
         {/* Tab Content */}

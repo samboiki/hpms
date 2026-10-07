@@ -253,6 +253,15 @@ export const SendNowSheet: React.FC<SendNowSheetProps> = ({ open, onClose, list,
                   </p>
                 </div>
               )}
+              {result.optedOut.length > 0 && (
+                <p className="flex items-start gap-2 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
+                  <Icon icon="solar:bell-off-bold-duotone" className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-hidden="true" />
+                  <span>
+                    {plural(result.optedOut.length, 'patient')} not sent: their number replied STOP to reminders and
+                    greetings ({result.optedOut.map((patient) => patient.name).join(', ')}).
+                  </span>
+                </p>
+              )}
               {result.failed.length > 0 && (
                 <div>
                   <p className="mb-1.5 text-sm font-medium text-gray-900">

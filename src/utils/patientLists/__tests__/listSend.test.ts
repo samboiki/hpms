@@ -1,7 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
+import { maySendToOptedOutPatient } from '../../../../supabase/functions/_shared/smsMessagePolicy.ts';
 import { DEFAULT_AUTOMATION, type ListAutomationSettings } from '../listAutomation';
 import type { ListMember, PatientFacts } from '../listRules';
-import { countSkips, planListSend, runListSend, type SendAttempt, type SendPlan } from '../listSend';
+import {
+  LIST_SMS_MESSAGE_TYPE,
+  countSkips,
+  isOptedOutSmsError,
+  isStopAllSmsError,
+  planListSend,
+  runListSend,
+  summarizeRun,
+  type SendAttempt,
+  type SendPlan
+} from '../listSend';
 
 const TODAY = '2026-10-07';
 const practice = { name: 'Eros Family Clinic', phone: '061 123 456' };
@@ -107,6 +118,23 @@ describe('planListSend (the preview staff confirm)', () => {
   });
 });
 
+describe('list messages and the opt-out policy', () => {
+  it('sends every list message as a non-essential type, so the gateway never sends it to a patient who replied STOP', () => {
+    expect(maySendToOptedOutPatient(LIST_SMS_MESSAGE_TYPE, { bulkSend: true })).toBe(false);
+    expect(maySendToOptedOutPatient(LIST_SMS_MESSAGE_TYPE)).toBe(false);
+  });
+
+  it('tells a gateway opt-out refusal apart from errors that should stop the whole run', () => {
+    const refusal =
+      'Not sent: this patient replied STOP to opt out of non-essential SMS. Appointment, results and other essential messages can still be sent.';
+    expect(isOptedOutSmsError(refusal)).toBe(true);
+    expect(isStopAllSmsError(refusal)).toBe(false);
+    expect(isStopAllSmsError('SMS_LIMIT_REACHED')).toBe(true);
+    expect(isStopAllSmsError('No active SMS subscription found for this practice')).toBe(true);
+    expect(isStopAllSmsError('Network request failed')).toBe(false);
+  });
+});
+
 describe('runListSend (gateway mocked)', () => {
   const sendPlan = (count: number): SendPlan => ({
     periodKey: '2026',
@@ -163,7 +191,7 @@ describe('runListSend (gateway mocked)', () => {
     // p2 failed; p3-p5 were claimed in the same batch and are given back; p6-p7 never claimed
     expect(d.released).toEqual(['p2', 'p3', 'p4', 'p5']);
     expect(d.claim).toHaveBeenCalledTimes(1);
-    expect(result).toMatchObject({ sent: 1, stopped: 'limit', stopReason: 'SMS limit reached', notAttempted: 5 });
+    expect(result).toMatchObject({ sent: 1, stopped: 'gateway', stopReason: 'SMS limit reached', notAttempted: 5 });
   });
 
   it('sends nothing when it cannot record who is being messaged', async () => {
@@ -172,6 +200,23 @@ describe('runListSend (gateway mocked)', () => {
     const result = await runListSend(sendPlan(2), d);
     expect(d.sentTo).toEqual([]);
     expect(result).toMatchObject({ sent: 0, stopped: 'error', notAttempted: 2 });
+  });
+
+  it('treats a patient the gateway refused (their family number replied STOP) as opted out, not as a failure', async () => {
+    const d = deps((id) =>
+      id === 'p1'
+        ? { ok: false, error: 'Not sent: this patient replied STOP', stopAll: false, optedOut: true }
+        : { ok: true, logId: null }
+    );
+    const result = await runListSend(sendPlan(2), d);
+    expect(result).toMatchObject({ sent: 1, failed: [], optedOut: [{ patientId: 'p1', name: 'Patient 1' }], stopped: null });
+    // No SMS went out, so the send record is given back rather than showing "messaged today"
+    expect(d.released).toEqual(['p1']);
+    expect(summarizeRun(sendPlan(2), result, 'manual', new Date('2026-10-07T07:00:00Z'))).toMatchObject({
+      sent: 1,
+      failed: 0,
+      skipped: 1
+    });
   });
 
   it('stops before the next patient when staff press Stop', async () => {

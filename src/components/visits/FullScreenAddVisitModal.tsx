@@ -173,15 +173,15 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
   };
 
   const renderHeader = () => (
-    <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+    <div className="relative flex-none bg-gradient-to-r from-purple-500 to-indigo-600 p-4 sm:p-6 text-white">
       <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-600/20 backdrop-blur-sm"></div>
-      <div className="relative flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+      <div className="relative flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          <div className="flex-none p-2.5 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
             <Stethoscope className="w-6 h-6" />
           </div>
-          <div>
-            <h2 className="text-2xl font-bold">Add Visit</h2>
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold">Add Visit</h2>
             <p className="text-blue-100 text-sm">
               {patient ? `${patient.first_name} ${patient.last_name}` : 'Loading patient...'} • Creating new visit • {new Date().toLocaleDateString()}
             </p>
@@ -194,7 +194,9 @@ const FullScreenAddVisitModal: React.FC<FullScreenAddVisitModalProps> = ({
             e.stopPropagation();
             onClose();
           }}
-          className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+          className="flex-none p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+          aria-label="Close"
+          title="Close"
         >
           <X className="w-5 h-5" />
         </button>

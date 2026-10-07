@@ -93,8 +93,27 @@ export function usePatientListsData(practiceId: string | null | undefined, patie
 
   const reloadRows = useCallback(async () => {
     if (!practiceId) return;
-    const rows = await patientListService.loadMemberRows(practiceId, patientId ?? undefined);
-    setState((previous) => ({ ...previous, rows }));
+    try {
+      const rows = await patientListService.loadMemberRows(practiceId, patientId ?? undefined);
+      setState((previous) => ({ ...previous, rows }));
+    } catch (error) {
+      // The change itself was saved; the screen catches up on the next load
+      console.error('Could not reload the list members:', error);
+    }
+  }, [practiceId, patientId]);
+
+  /** After a send: who was messaged (rows) and the lists' last-send summaries; facts are unchanged. */
+  const reloadAfterSend = useCallback(async () => {
+    if (!practiceId) return;
+    try {
+      const [lists, rows] = await Promise.all([
+        patientListService.loadLists(practiceId),
+        patientListService.loadMemberRows(practiceId, patientId ?? undefined)
+      ]);
+      setState((previous) => ({ ...previous, lists, rows }));
+    } catch (error) {
+      console.error('Could not reload the lists after sending:', error);
+    }
   }, [practiceId, patientId]);
 
   const putList = useCallback((list: PatientListRecord) => {
@@ -134,5 +153,5 @@ export function usePatientListsData(practiceId: string | null | undefined, patie
     return map;
   }, [state.lists, state.rows, state.facts, state.factsLoaded, state.todayKey]);
 
-  return { ...state, resolved, reload: load, reloadRows, putList, dropList };
+  return { ...state, resolved, reload: load, reloadRows, reloadAfterSend, putList, dropList };
 }

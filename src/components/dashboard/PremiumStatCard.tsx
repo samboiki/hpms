@@ -264,7 +264,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       }}
     >
       {/* Grows with its content (min height instead of a fixed one) so narrow tiles never clip figures */}
-      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-4 sm:p-5 h-full min-h-[9rem] flex flex-col" style={{ backdropFilter: 'blur(20px)' }}>
+      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-4 sm:p-5 h-full min-h-[9rem] flex flex-col [container-type:inline-size]" style={{ backdropFilter: 'blur(20px)' }}>
         {/* Glassmorphic Background with Rich Patterns */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Primary glass gradient */}
@@ -308,10 +308,11 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         </div>
         
         <div className="relative z-10">
-          {/* Header with Main Value on Right; when the tile is too narrow for both, the value wraps
-              onto its own line instead of being squeezed or clipped */}
-          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
-            <div className="flex min-w-0 items-center gap-3">
+          {/* Header with Main Value on Right when the tile is wide enough (container query on the tile, not
+              the screen); on a narrower tile the value gets its own line under the title, so a figure such
+              as N$ 125,479.58 is never squeezed, split or clipped */}
+          <div className="flex flex-col gap-2 [@container(min-width:19rem)]:flex-row [@container(min-width:19rem)]:items-start [@container(min-width:19rem)]:justify-between [@container(min-width:19rem)]:gap-3">
+            <div className="flex min-w-0 items-center gap-3 [@container(min-width:19rem)]:flex-1">
               <div className={`flex-none p-2.5 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
                 {IconComponent ? (
                   <IconComponent className="w-5 h-5 text-white" />
@@ -330,8 +331,8 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             </div>
 
             {/* Main Value in Top Right */}
-            <div className="ml-auto text-right">
-              <div className="whitespace-nowrap text-xl sm:text-2xl leading-tight font-bold tabular-nums text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <div className="[@container(min-width:19rem)]:flex-none [@container(min-width:19rem)]:text-right">
+              <div className="whitespace-nowrap text-2xl leading-tight font-bold tabular-nums text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {stackedData.mainValue}
               </div>
               <div className="text-xs font-light mt-0.5" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
@@ -340,7 +341,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
 
               {/* Clean Trend Badge below main value */}
               {trend && (
-                <div className="flex items-center justify-end gap-1.5 mt-1">
+                <div className="flex items-center gap-1.5 mt-1 [@container(min-width:19rem)]:justify-end">
                   <div className={`w-1.5 h-1.5 flex-none rounded-full ${trend.isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
                   <div className="text-xs font-medium whitespace-nowrap tabular-nums">
                     <span className={`${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>

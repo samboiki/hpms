@@ -106,6 +106,7 @@ import { usePatientPrefetch } from '../../hooks/usePatientPrefetch';
 import { useQuery } from '@tanstack/react-query';
 import { Icon } from '@iconify/react';
 import PatientContactActions from './PatientContactActions';
+import { PatientListsControl } from '../patientLists/PatientListsControl';
 import PatientOverviewLinks, { type OverviewVisitLink } from './PatientOverviewLinks';
 import PatientBillingPanel from './PatientBillingPanel';
 import { usePatientInvoices } from './usePatientInvoices';
@@ -2669,12 +2670,16 @@ OneHealth Medical Team`;
                     )}
                   </div>
                   {activeTab === 'details' && selectedPatientDetails && (
-                    <PatientContactActions
-                      patient={selectedPatientDetails}
-                      practiceId={practiceId}
-                      practiceName={practiceData?.name ?? user?.practices?.name}
-                      clinicianName={clinicianName}
-                    />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <PatientContactActions
+                        patient={selectedPatientDetails}
+                        practiceId={practiceId}
+                        practiceName={practiceData?.name ?? user?.practices?.name}
+                        clinicianName={clinicianName}
+                      />
+                      {/* Automation lists this patient is on (birthdays, recalls...): add or remove */}
+                      <PatientListsControl practiceId={practiceId} patient={selectedPatientDetails} variant="onDark" />
+                    </div>
                   )}
                 </div>
               )}

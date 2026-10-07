@@ -72,6 +72,7 @@ import { usePatientSettings } from '../../hooks/usePatientSettings';
 import { ProfessionalSmsModal } from '../messages/ProfessionalSmsModal';
 import { ProfessionalEmailModal } from '../messages/ProfessionalEmailModal';
 import { communicationService } from '../../services/communicationService';
+import { AddToListButton } from '../patientLists/AddToListButton';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Deep-link contract for this page:
@@ -506,7 +507,10 @@ export const PatientManagementView: React.FC = () => {
             recipientPhone: normalizePhoneNumber(recipient.cell_number) ?? recipient.cell_number!,
             messageContent: personalizedMessage,
             messageType: 'custom',
-            patientId: recipient.id
+            patientId: recipient.id,
+            // A message to many patients is a campaign: the gateway skips patients who replied STOP
+            // ('custom' alone counts as a message typed to one patient, which they still receive)
+            metadata: { bulkSend: true }
           });
           
           // Also check if the result contains success indicators even if success is false
@@ -1263,7 +1267,7 @@ export const PatientManagementView: React.FC = () => {
   return (
     <div>
       {/* Single Container for Search, Actions and Table */}
-      <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         {/* Header with Search and Actions */}
         <div className="p-4 sm:p-6">
           {/* Top Row - Actions Only */}
@@ -1317,6 +1321,17 @@ export const PatientManagementView: React.FC = () => {
               >
                 <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
               </button>
+
+              {/* Add to list: the ticked patients, or everyone shown when nobody is ticked (as Message) */}
+              <AddToListButton
+                practiceId={practiceId}
+                patientIds={(selectedPatients.length > 0
+                  ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+                  : filteredPatients
+                ).map(p => p.id)}
+                scope={selectedPatients.length > 0 ? 'selected' : 'shown'}
+                onAdded={() => setSelectedPatients([])}
+              />
 
               {/* Export Buttons */}
               <button
@@ -1788,7 +1803,7 @@ export const PatientManagementView: React.FC = () => {
         {/* Content with divider. At least one screen tall, so a filter that shortens the list can't
             shrink the page under the user's scroll position and make the header jump. */}
         <div className="border-t border-gray-200">
-          <div className="p-6 min-h-screen">
+          <div className="p-4 sm:p-6 min-h-screen">
           {loading ? (
               <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading patients">
                 {Array.from({ length: 6 }).map((_, i) => (

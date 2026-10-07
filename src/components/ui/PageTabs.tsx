@@ -49,7 +49,7 @@ export function PageTabs<K extends string>({ tabs, active, onChange, label, acti
               aria-selected={isActive}
               onClick={() => onChange(tab.key)}
               className={cn(
-                'flex flex-1 shrink-0 flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 whitespace-nowrap px-3 sm:px-4 py-2.5 sm:py-3 min-h-[56px]',
+                'flex flex-1 shrink-0 flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 whitespace-nowrap px-3 lg:px-4 py-2.5 sm:py-3 min-h-[56px]',
                 'text-xs sm:text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-500',
                 isActive ? cn('text-white shadow-lg', activeClassName) : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
               )}

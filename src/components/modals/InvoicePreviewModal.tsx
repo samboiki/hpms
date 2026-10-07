@@ -145,23 +145,27 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   const statusColors = getStatusColor(invoice.payment_status);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
+    // Bottom sheet on phones (up to the full height), centred dialog from sm: the header stays put and
+    // only the invoice body scrolls
+    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+        role="dialog"
+        aria-modal="true"
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-700 p-6 text-white relative overflow-hidden">
+        <div className="flex-none bg-gradient-to-r from-blue-600 to-purple-700 p-4 sm:p-6 text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-white opacity-10 transform -skew-y-3"></div>
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                <Receipt className="w-8 h-8" />
+          <div className="relative flex flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex-none p-2.5 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                <Receipt className="w-6 h-6 sm:w-8 sm:h-8" />
               </div>
-              <div>
-                <h2 className="text-3xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>
+              <div className="min-w-0">
+                <h2 className="text-xl sm:text-2xl font-bold break-words" style={{ fontFamily: 'Poppins, sans-serif' }}>
                   Invoice #{invoice.invoice_number}
                 </h2>
                 <p className="text-blue-100 text-sm">
@@ -169,8 +173,8 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 </p>
               </div>
             </div>
-            
-            <div className="flex items-center gap-3">
+
+            <div className="ml-auto flex items-center gap-3">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 ${statusColors.bg} ${statusColors.text} ${statusColors.border} bg-white`}
@@ -192,7 +196,7 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto">
           {/* Invoice Details Grid */}
           <div className="grid md:grid-cols-2 gap-6 mb-8">
             {/* Patient Information */}
@@ -357,12 +361,12 @@ const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
 
         {/* Actions Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+        <div className="flex-none bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-200 flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm text-gray-600">
             Invoice generated on {format(parseISO(invoice.created_at), 'd MMMM yyyy')}
           </div>
-          
-          <div className="flex items-center gap-3">
+
+          <div className="ml-auto flex items-center gap-3">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

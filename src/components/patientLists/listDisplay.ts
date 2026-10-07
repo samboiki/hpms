@@ -158,6 +158,9 @@ export function csvCell(value: string): string {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
+/** Byte order mark: makes Excel read the file as UTF-8 */
+const UTF8_BOM = String.fromCharCode(0xfeff);
+
 export function buildMembersCsv(members: readonly ListMember[], rule: SmartRule | null, todayKey: string): string {
   const header = ['First name', 'Surname', 'Cell number', 'Date of birth', 'Why on this list', 'How added', 'Last messaged'];
   const lines = members.map((member) =>
@@ -173,8 +176,8 @@ export function buildMembersCsv(members: readonly ListMember[], rule: SmartRule 
       .map(csvCell)
       .join(',')
   );
-  // The byte order mark makes Excel read names such as "Ndapewa Nangolo-Kandjii" as UTF-8
-  return `﻿${[header.map(csvCell).join(','), ...lines].join('\r\n')}`;
+  // With the byte order mark Excel shows names such as "Ndapewa Nangolo-Kandjii" correctly
+  return `${UTF8_BOM}${[header.map(csvCell).join(','), ...lines].join('\r\n')}`;
 }
 
 /** File name for the export, e.g. "recall-due-2026-10-07.csv". */

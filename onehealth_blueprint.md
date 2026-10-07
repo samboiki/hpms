@@ -1639,6 +1639,15 @@ const practiceId = getSafePracticeId(user); // ✅ SECURE
 - centralized-sms-gateway: numbers saved without the leading 0 now go to +264, not +81 (needs a function deploy)
 - Visits: administrators get "Delete Booking" in the visit actions until check-in (needs the DELETE policy in proposals/2026-10-06-data-fixes.sql, section 8); a refused delete now says so instead of hiding the visit
 
+### Version 4.3 (2026-10-07)
+- Two-way SMS: sms-reply-webhook edge function (SMSPortal reply webhook, shared-secret URL), reply intents in English, Afrikaans and Oshiwambo (confirm, cancel, reschedule, book, stop, start, help, ratings), SMS Replies inbox tab in Communications; SQL in proposals/2026-10-07-two-way-sms.sql
+- Automation lists: hand-picked and smart lists (birthdays, recall due, lapsed, outstanding balance, missed appointment, follow-up due), "Add to list" from Patients and the patient file, Lists tab in Communications, scheduled sender proposal; SQL in proposals/2026-10-07-patient-lists.sql
+- centralized-sms-gateway: callers must be the platform's own functions or signed-in staff of the practice being charged (the public anon key was enough before); opted-out patients get essential messages only; phone numbers use the app's normalizePhoneNumber
+- AI assist: Gemini calls moved to the ai-assist edge function (key GEMINI_API_KEY stays on the server); turn the buttons on with VITE_AI_ASSIST_ENABLED=true
+- Installable app (PWA): manifest, OneHealth icons, offline start, "new version ready" prompt, install banner
+- Responsive pass: visit tracker docked in the sidebar / app bar, app bar with menu on every page below 1024 px, PageTabs, stacked page headers, phone bottom-sheet modals, no clipped tables or tiles at 375/768/1366 px
+- Deploys: .gitignore ignored src/lib (every Vercel build since 2025-08-04 failed); now /lib/ only, and .env is no longer tracked
+
 ### Version 4.1 (2025-01-12)
 - **CRITICAL SECURITY FIX**: Fixed cross-practice data access vulnerability
 - Removed all hardcoded practice ID fallbacks

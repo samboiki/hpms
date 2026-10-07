@@ -8,12 +8,13 @@ import { edgeFunctionService } from './edgeFunctionService';
 const todayDateKey = (): string => format(new Date(), 'yyyy-MM-dd');
 
 // SMS Types
-export type SMSMessageType = 
-  | 'appointment_reminder' 
-  | 'follow_up' 
-  | 'marketing' 
-  | 'system' 
-  | 'custom';
+export type SMSMessageType =
+  | 'appointment_reminder'
+  | 'follow_up'
+  | 'marketing'
+  | 'system'
+  | 'custom'
+  | 'automation_list'; // patient automation lists: never essential (see _shared/smsMessagePolicy.ts)
 
 export interface SendSMSRequest {
   practiceId: string;

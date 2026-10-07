@@ -12,6 +12,9 @@ import { useNavigate } from 'react-router-dom';
 // Import existing components
 import SmartAutomations from '../components/messages/SmartAutomations';
 import { CommunicationsDashboard } from '../components/communications/CommunicationsDashboard';
+import { SmsRepliesInbox } from '../components/communications/SmsRepliesInbox';
+import { PatientListsPage } from '../components/patientLists/PatientListsPage';
+import { countSmsRepliesNeedingReply } from '../components/communications/smsRepliesService';
 import { EnhancedMessagingV2 } from '../components/messages/InternalMessaging/EnhancedMessagingV2';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import { NotificationBadge } from '../components/ui/NotificationBadge';
@@ -24,7 +27,7 @@ import { unreadMessagesService } from '../services/unreadMessagesService';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'telemedicine';
+type TabType = 'dashboard' | 'messaging' | 'replies' | 'lists' | 'automations' | 'telemedicine';
 
 
 
@@ -35,6 +38,8 @@ const Communications: React.FC = () => {
   const { settings: practiceSettings, loading: settingsLoading } = usePracticeSettings();
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
+  // Patient SMS replies waiting for reception (stays 0 until two-way SMS is switched on)
+  const [repliesWaiting, setRepliesWaiting] = useState(0);
   const [showDeliveryStats, setShowDeliveryStats] = useState(false);
   
   const [currentPracticeData, setCurrentPracticeData] = useState<{
@@ -89,6 +94,16 @@ const Communications: React.FC = () => {
       return () => unsubscribe();
     }
   }, [user?.id, practiceId]);
+
+  // How many patient SMS replies wait for reception, for the tab badge (the inbox keeps it current once opened)
+  useEffect(() => {
+    if (!practiceId) return;
+    let cancelled = false;
+    countSmsRepliesNeedingReply(practiceId).then(count => {
+      if (!cancelled) setRepliesWaiting(count ?? 0);
+    });
+    return () => { cancelled = true; };
+  }, [practiceId]);
 
   // Load current practice data
   useEffect(() => {
@@ -246,6 +261,8 @@ const Communications: React.FC = () => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
     { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount > 0 ? unreadCount : undefined },
+    { id: 'replies', label: 'SMS Replies', icon: 'solar:inbox-bold-duotone', description: 'Patient replies', badge: repliesWaiting > 0 ? repliesWaiting : undefined },
+    { id: 'lists', label: 'Lists', icon: 'solar:checklist-minimalistic-bold-duotone', description: 'Birthdays, recalls and more' },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
     { id: 'telemedicine', label: 'Telemedicine', icon: 'solar:videocamera-bold-duotone', description: 'Virtual Care' }
   ];
@@ -253,6 +270,8 @@ const Communications: React.FC = () => {
   const tabIcons: { [key in TabType]: string } = {
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
+    replies: 'solar:inbox-bold-duotone',
+    lists: 'solar:checklist-minimalistic-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
     telemedicine: 'solar:videocamera-bold-duotone'
   };
@@ -457,6 +476,20 @@ const Communications: React.FC = () => {
                 />
               )}
 
+
+              {/* SMS Replies Tab - patients' replies to practice SMS (two-way SMS) */}
+              {activeTab === 'replies' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <SmsRepliesInbox practiceId={practiceId} onNeedsReplyCountChange={setRepliesWaiting} />
+                </div>
+              )}
+
+              {/* Lists Tab - automation lists (birthdays, recalls, hand-picked patients) */}
+              {activeTab === 'lists' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <PatientListsPage practiceId={practiceId ?? undefined} />
+                </div>
+              )}
 
               {/* Automations Tab */}
               {activeTab === 'automations' && (
