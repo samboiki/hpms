@@ -17,11 +17,15 @@ export const PORTIONS: readonly Portion[] = ['medical_aid', 'patient'];
 
 export type PayerType = 'patient' | 'medical_aid' | 'other';
 
-/** cash, card, EFT, medical aid and debit order are captured; other and not_recorded only come from old payments */
+/**
+ * Cash, card (the practice's own machine), EFT and medical aid are captured: patients pay on their own and reception
+ * confirms it (owner, 13 Oct 2026: no debit orders, payment links or QR payments). Debit order, other and not_recorded
+ * only come from older payments, and still show and count.
+ */
 export type ReceiptMethod = 'cash' | 'card' | 'eft' | 'medical_aid' | 'debit_order' | 'other' | 'not_recorded';
-export const CAPTURE_METHODS: readonly ReceiptMethod[] = ['cash', 'card', 'eft', 'debit_order', 'medical_aid'];
+export const CAPTURE_METHODS: readonly ReceiptMethod[] = ['cash', 'card', 'eft', 'medical_aid'];
 export type RefundMethod = 'cash' | 'card' | 'eft' | 'debit_order';
-export const REFUND_METHODS: readonly RefundMethod[] = ['cash', 'eft', 'card', 'debit_order'];
+export const REFUND_METHODS: readonly RefundMethod[] = ['cash', 'eft', 'card'];
 
 export type ReceiptSource = 'manual' | 'batch' | 'remittance_import' | 'status_bridge' | 'legacy_backfill';
 

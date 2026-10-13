@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -65,7 +66,7 @@ export const ListLettersSheet: React.FC<ListLettersSheetProps> = ({ open, onClos
         setSource(loaded);
       })
       .catch((loadError: unknown) => {
-        if (active) setError(loadError instanceof Error ? loadError.message : 'Could not prepare the letters.');
+        if (active) setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not prepare the letters.');
       });
     return () => {
       active = false;
@@ -142,7 +143,7 @@ export const ListLettersSheet: React.FC<ListLettersSheetProps> = ({ open, onClos
         setKept(0);
         toast('The letters were made, but are not kept on the patient files yet: OneHealth support switches this on.', { duration: 8000 });
       } else {
-        toast.error(keepError instanceof Error ? keepError.message : 'The letters were made but could not be kept on the patient files.');
+        toast.error(keepError instanceof Error ? plainWords(keepError.message) : 'The letters were made but could not be kept on the patient files.');
       }
     }
   };
@@ -155,7 +156,7 @@ export const ListLettersSheet: React.FC<ListLettersSheetProps> = ({ open, onClos
       openPdf(renderLettersPdf(made.map(item => item.document)), `${list.name.replace(/[^A-Za-z0-9]+/g, '-')}-letters-${todayKey}.pdf`);
       await keepOnFiles(made);
     } catch (printError) {
-      toast.error(printError instanceof Error ? printError.message : 'Could not make the letters.');
+      toast.error(printError instanceof Error ? plainWords(printError.message) : 'Could not make the letters.');
     } finally {
       setBusy(null);
     }
@@ -174,7 +175,7 @@ export const ListLettersSheet: React.FC<ListLettersSheetProps> = ({ open, onClos
       toast.success(`${plural(made.length, 'PDF')} saved.`);
       await keepOnFiles(made);
     } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : 'Could not save the letters.');
+      toast.error(saveError instanceof Error ? plainWords(saveError.message) : 'Could not save the letters.');
     } finally {
       setBusy(null);
     }

@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ArReceipt } from '../../../services/ledgerService';
@@ -56,7 +57,7 @@ export function useReportOpener({ practiceId, practiceName, patientNames, onChan
             if (entries.receipt) setOpened({ kind: 'receipt', receipt: entries.receipt });
             else toast.error('That payment could not be found.');
           })
-          .catch(error => toast.error(error instanceof Error ? error.message : 'Could not open the payment.'));
+          .catch(error => toast.error(error instanceof Error ? plainWords(error.message) : 'Could not open the payment.'));
         return;
       case 'batch':
         navigate(claimBatchLink(target.id));

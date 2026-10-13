@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import {
   PORTION_LABELS,
@@ -126,7 +127,7 @@ export const AdjustmentDialog: React.FC<AdjustmentDialogProps> = ({
       });
       onSaved(saved.number);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'It could not be saved');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'It could not be saved');
       setStep('edit');
       setConfirmed(false);
     } finally {

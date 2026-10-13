@@ -32,6 +32,8 @@ import { formatDay, printDocument } from '../receipts/receiptDocuments';
 import { useAuthStore } from '../../../stores/authStore';
 import { isStaffAdmin } from '../../settings/UserManagement/staffUtils';
 import { loadDocumentSettings } from '../../../services/documentSettingsService';
+import { loadVatSettings } from '../../../services/vatSettingsService';
+import { vatStatementNote } from '../../../utils/billing/vat';
 import { DEFAULT_DOCUMENT_SETTINGS, practiceMessageFor, type DocumentSettings } from '../../../utils/billing/documentSettings';
 import { DocumentSettingsSheet } from './DocumentSettingsSheet';
 import {
@@ -52,6 +54,9 @@ import {
 } from './debtorsService';
 import { accountStatement, statementEmail, statementSection, statementsHtml, type StatementAccount } from './statementDocument';
 import { sendStatementRun, type StatementMessage } from './statementSender';
+import { statementPdfModel } from './statementPdf';
+import { pdfBase64, renderFinanceDocumentPdf } from '../receipts/documentPdf';
+import { loadLetterhead } from '../../quotes/quoteService';
 
 const nad = (cents: number) => formatNad(fromCents(cents));
 const CHANNELS: StatementChannel[] = ['email', 'sms', 'print'];
@@ -153,11 +158,12 @@ export const StatementRunsPanel: React.FC<StatementRunsPanelProps> = ({ practice
       [...new Set([...owing, ...Object.keys(holders).filter(patientId => holders[patientId] === holderId)])];
     const patientIds = [...new Set(planned.flatMap(statement => [statement.patientId, ...familyOf(statement.patientId, statement.memberIds)]))];
     const missing = patientIds.filter(id => !context.patientNames[id]);
-    const [entries, extraNames] = await Promise.all([loadStatementData(practiceId, patientIds), loadPatientNames(practiceId, missing)]);
+    const [entries, extraNames, vat] = await Promise.all([loadStatementData(practiceId, patientIds), loadPatientNames(practiceId, missing), loadVatSettings(practiceId)]);
     const patientNames = { ...context.patientNames, ...extraNames };
     const meta = {
       practiceName: practice.name, contactPhone: practice.contactPhone, contactEmail: practice.contactEmail, payment: practice.payment, asAtKey: todayKey, message: criteria.message,
-      practiceMessage: practiceMessageFor(documentSettings, 'statement')
+      practiceMessage: practiceMessageFor(documentSettings, 'statement'),
+      vatNote: vatStatementNote(vat)
     };
     const fromKey = statementFromKey(todayKey, criteria.historyMonths);
     return planned.map(statement => {
@@ -207,10 +213,17 @@ export const StatementRunsPanel: React.FC<StatementRunsPanelProps> = ({ practice
       // The SMS says what the run asks for: on a patient run, what the patient owes after their credit
       const smsBalance = (closing: { patient: number; credit: number; total: number }) =>
         (criteria.portion === 'patient' ? Math.max(0, closing.patient - closing.credit) : closing.total);
+      // Each emailed statement also goes as a plain PDF, without a password (owner, 13 Oct 2026)
+      const letterhead = items.some(item => item.statement.channel === 'email') ? await loadLetterhead(practiceId) : null;
+      const statementPdf = (item: (typeof items)[number]) => {
+        if (!letterhead) return undefined;
+        const model = statementPdfModel(item.account, item.built, item.meta, letterhead);
+        return { fileName: model.fileName, base64: pdfBase64(renderFinanceDocumentPdf(model)) };
+      };
       const messages: StatementMessage[] = [
         ...items.map(item => ({
           planned: item.statement,
-          email: item.statement.channel === 'email' ? statementEmail(item.account, item.built, item.meta) : undefined,
+          email: item.statement.channel === 'email' ? { ...statementEmail(item.account, item.built, item.meta), attachment: statementPdf(item) } : undefined,
           sms: item.statement.channel === 'sms'
             ? statementSmsText({ practiceName: practice.name, balanceCents: smsBalance(item.built.statement.closing), asAtKey: todayKey, reference: item.account.reference, payment: practice.payment, message: criteria.message, contactPhone: practice.contactPhone, language: item.statement.language })
             : undefined

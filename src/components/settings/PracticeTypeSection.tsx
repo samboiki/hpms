@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
+import { refreshAfterSave } from '../../lib/queryClient';
+import { plainErrorMessage } from '../../utils/plainErrors';
 import {
+  needsPracticeTypeChoice,
   practiceTypeChanged,
   practiceTypeOptions,
   practiceTypeState,
@@ -59,6 +62,12 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
     };
   }, [practiceId]);
 
+  // The price-list screens link here (#practice-type): bring the section into view once it has loaded
+  useEffect(() => {
+    if (load.state !== 'ready' || window.location.hash !== '#practice-type') return;
+    document.getElementById('practice-type')?.scrollIntoView?.({ block: 'start' });
+  }, [load.state]);
+
   if (!practiceId) return null;
 
   const ready = load.state === 'ready' ? load : null;
@@ -76,7 +85,7 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
     if (saveError) {
       // The protected-columns trigger says in plain words who may change it
       console.error('Error saving the practice type:', saveError);
-      setError(saveError.hint === 'practice_protected_columns' || saveError.code === '42501' ? saveError.message : 'Not saved. Please try again.');
+      setError(plainErrorMessage(saveError, 'Not saved. Please try again.'));
       return;
     }
     // Row-level security skips a practice the user may not change without an error: never say "Saved" then
@@ -86,10 +95,12 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
     }
     setLoad({ ...ready, practice: { ...ready.practice, ...update } });
     setSavedLabel(choice.label);
+    // The menu (Optometry), the tariff list and the diary read the practice from the shared cache
+    void refreshAfterSave('practice');
   };
 
   return (
-    <section className="rounded-lg bg-gray-50 p-6" aria-labelledby="practice-type-heading">
+    <section id="practice-type" className="rounded-lg bg-gray-50 p-6" aria-labelledby="practice-type-heading">
       <h3 id="practice-type-heading" className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900">
         <Icon icon="solar:stethoscope-bold-duotone" className="h-5 w-5 text-purple-600" aria-hidden="true" />
         Practice type
@@ -103,6 +114,16 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
 
       {ready && state && (
         <div className="space-y-3">
+          {needsPracticeTypeChoice(ready.practice.practice_type) && (
+            // Owner, 13 Oct 2026: 'general' (the default) matches no price list, so the practice is asked to choose
+            <p id="practice-type-needed" className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900" role="status">
+              <Icon icon="solar:danger-triangle-bold-duotone" className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>
+                Choose your practice type. Until it is chosen, no price list matches the practice, so codes have no prices.
+                {canChange ? '' : ' Ask a practice administrator to choose it.'}
+              </span>
+            </p>
+          )}
           <p className="text-sm text-gray-900">
             <span className="font-medium">Now: </span>
             {state.current ? state.current.label : 'Not chosen yet'}

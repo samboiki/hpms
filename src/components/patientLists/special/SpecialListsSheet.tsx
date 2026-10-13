@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { ListSheet } from '../ListSheet';
 import { CHIP, INPUT, LABEL, SECONDARY_BUTTON } from '../listStyles';
@@ -45,7 +46,7 @@ const STATE_CHOICES: Array<{ value: CaseStateFilter; label: string }> = [
 const failed = (error: unknown, what: string): { status: 'not_set_up'; what: string } | { status: 'error'; message: string } =>
   error instanceof ListNotSetUpError || isPayersNotSetUp(error)
     ? { status: 'not_set_up', what }
-    : { status: 'error', message: error instanceof Error ? error.message : 'The list could not be loaded.' };
+    : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'The list could not be loaded.' };
 
 /**
  * Messages > Lists > Special lists (parity R29): injury on duty and accident cases, accounts handed over to a debt

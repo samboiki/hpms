@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { addDaysToKey, todayKey } from '../../utils/billing/dates';
@@ -53,7 +54,7 @@ export interface InvoiceContextState {
 const NOTHING_SET_UP: InvoicingSetup = { lineDetails: false, createdBy: false, audit: false, lineCodes: false };
 const NO_DEFAULTS: TariffIcd10Defaults = new Map();
 
-const message = (error: unknown, fallback: string): string => (error instanceof Error ? error.message : fallback);
+const message = (error: unknown, fallback: string): string => (error instanceof Error ? plainWords(error.message) : fallback);
 
 /**
  * What a visit's Billing tab needs besides the lines: which parts of the invoicing update exist, the practitioners

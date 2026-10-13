@@ -10,6 +10,16 @@ import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
 import MonthInput from '../ui/MonthInput';
 import { expenseCurrencyLabel, formatExpenseAmount, formatExpenseDate, nonNadCurrencies, toDateValue } from './expenseFormat';
+import { canEditPracticeSettings } from './practiceSettingsAccess';
+import {
+  OVERHEAD_PERIOD_CHOICES,
+  currentMonthKey,
+  isInOverheadRange,
+  overheadRange,
+  overheadRangeLabel,
+  type OverheadPeriodKind
+} from './overheadPeriod';
+import { loadOverheadDefaultPeriod, saveOverheadDefaultPeriod } from '../../services/overheadPeriodService';
 
 interface Expense {
   id: string;
@@ -117,6 +127,13 @@ const PracticeExpenses: React.FC = () => {
   const [filterType, setFilterType] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  // Administrators record and change expenses; everyone else sees them read-only (owner, 13 Oct 2026)
+  const canEdit = canEditPracticeSettings(user);
+  // The tiles add up one period: this month unless the practice chose another default (owner, 13 Oct 2026)
+  const [periodKind, setPeriodKind] = useState<OverheadPeriodKind>('month');
+  const [defaultPeriod, setDefaultPeriod] = useState<OverheadPeriodKind>('month');
+  const [monthKey, setMonthKey] = useState<string>(() => currentMonthKey());
+  const [savingDefault, setSavingDefault] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -144,6 +161,33 @@ const PracticeExpenses: React.FC = () => {
       loadData();
     }
   }, [user?.practice_id]);
+
+  useEffect(() => {
+    if (!user?.practice_id) return;
+    let cancelled = false;
+    void loadOverheadDefaultPeriod(user.practice_id).then(period => {
+      if (cancelled) return;
+      setDefaultPeriod(period);
+      setPeriodKind(period);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.practice_id]);
+
+  const saveDefaultPeriod = async () => {
+    if (!user?.practice_id) return;
+    setSavingDefault(true);
+    try {
+      await saveOverheadDefaultPeriod(user.practice_id, periodKind);
+      setDefaultPeriod(periodKind);
+      toast.success('The overhead totals now open on this period.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'The default period was not saved.');
+    } finally {
+      setSavingDefault(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -371,6 +415,10 @@ const PracticeExpenses: React.FC = () => {
     return matchesBranch && matchesType && matchesStatus;
   });
 
+  // The tiles add up the expenses dated in the chosen period; the list below still shows every expense
+  const periodRange = overheadRange(periodKind, monthKey);
+  const periodExpenses = filteredExpenses.filter(expense => isInOverheadRange(expense.expense_date, periodRange));
+
   // Calculate totals by category
   const calculateTotals = () => {
     const totals = {
@@ -382,7 +430,7 @@ const PracticeExpenses: React.FC = () => {
       total: 0
     };
 
-    filteredExpenses.forEach(expense => {
+    periodExpenses.forEach(expense => {
       if (expense.status !== 'cancelled') {
         totals[expense.expense_category as keyof typeof totals] += expense.amount;
         totals.total += expense.amount;
@@ -394,7 +442,7 @@ const PracticeExpenses: React.FC = () => {
 
   const totals = calculateTotals();
   // The totals add every amount as N$; name any other currency they include
-  const totalsOtherCurrencies = nonNadCurrencies(filteredExpenses.filter(expense => expense.status !== 'cancelled'));
+  const totalsOtherCurrencies = nonNadCurrencies(periodExpenses.filter(expense => expense.status !== 'cancelled'));
 
   // Get expense type info
   const getExpenseTypeInfo = (type: string) => {
@@ -421,6 +469,7 @@ const PracticeExpenses: React.FC = () => {
             <h2 className="text-2xl font-semibold text-gray-900">Practice Expenses</h2>
             <p className="text-gray-600 mt-1">Track and manage all your practice expenses</p>
           </div>
+          {canEdit && (
           <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
@@ -443,6 +492,7 @@ const PracticeExpenses: React.FC = () => {
               Add Expense
             </Button>
           </div>
+          )}
         </div>
 
         {/* View Toggle */}
@@ -548,6 +598,41 @@ const PracticeExpenses: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* The period the tiles add up: a month (this month first) to look back, the financial year or all time */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          <select
+            value={periodKind}
+            onChange={(e) => setPeriodKind(e.target.value as OverheadPeriodKind)}
+            aria-label="Period the totals cover"
+            className="px-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:ring-2 focus:ring-purple-500"
+          >
+            {OVERHEAD_PERIOD_CHOICES.map(choice => (
+              <option key={choice.value} value={choice.value}>
+                {choice.value === 'month' ? 'One month' : choice.label}
+              </option>
+            ))}
+          </select>
+          {periodKind === 'month' && (
+            <MonthInput
+              value={monthKey}
+              onChange={(value) => setMonthKey(value || currentMonthKey())}
+              maxDate={currentMonthKey()}
+              className="w-52"
+            />
+          )}
+          <p className="text-sm text-gray-600">Totals for {overheadRangeLabel(periodKind, periodRange)}</p>
+          {canEdit && periodKind !== defaultPeriod && (
+            <button
+              type="button"
+              onClick={() => void saveDefaultPeriod()}
+              disabled={savingDefault}
+              className="text-sm font-medium text-purple-600 hover:text-purple-700 disabled:opacity-50"
+            >
+              {savingDefault ? 'Saving...' : 'Open on this period by default'}
+            </button>
+          )}
+        </div>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
@@ -657,6 +742,7 @@ const PracticeExpenses: React.FC = () => {
                     )}
                   </div>
 
+                  {canEdit && (
                   <div className="flex gap-2 mt-4 pt-4 border-t border-gray-100">
                     {expense.status === 'pending' && (
                       <button
@@ -704,6 +790,7 @@ const PracticeExpenses: React.FC = () => {
                       <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                     </button>
                   </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -784,6 +871,7 @@ const PracticeExpenses: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
+                        {canEdit && (
                         <div className="flex items-center justify-end gap-2">
                           {expense.status === 'pending' && (
                             <button
@@ -834,6 +922,7 @@ const PracticeExpenses: React.FC = () => {
                             <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5" />
                           </button>
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -850,7 +939,7 @@ const PracticeExpenses: React.FC = () => {
             <p className="text-sm text-gray-500 mt-1">
               {activeView === 'branches' && !selectedBranchId 
                 ? 'Select a branch to view expenses' 
-                : 'Add your first expense to get started'}
+                : canEdit ? 'Add your first expense to get started' : 'No expenses are recorded yet'}
             </p>
           </div>
         )}

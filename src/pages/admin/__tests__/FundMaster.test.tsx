@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
-import { getFundRule } from '../../../utils/billing/fundRules';
+import { fundRuleFromRow, getFundRule, type FundRule } from '../../../utils/billing/fundRules';
 import type { FundMasterData } from '../../../services/fundMasterService';
 
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
@@ -34,6 +34,13 @@ vi.mock('../../../services/fundMasterService', () => service);
 
 import FundMaster from '../FundMaster';
 
+// NAMMED as the fund master table held it before proposals/2026-10-13-claims-standards.sql (120 days, not confirmed):
+// the page must show and edit whatever support stored, not the app's built-in standard
+const storedNammed = fundRuleFromRow({
+  medical_aid_reference: 'NAMM', claim_deadline_days: 120, claim_deadline_months: null, deadline_confirmed: false, claims_portal_url: null,
+  membership_digits: [11], membership_hint: null, dependant_code_required: true, payment_terms_days: 30
+}) as FundRule;
+
 const data = (overrides: Partial<FundMasterData> = {}): FundMasterData => ({
   setUp: true,
   practiceWaits: null,
@@ -41,7 +48,7 @@ const data = (overrides: Partial<FundMasterData> = {}): FundMasterData => ({
   funds: [
     {
       providerId: 'p-namm', name: 'Nammed Medical Aid Fund', shortName: 'Nammed', code: 'NAMM', claimsEmail: 'claims@example.invalid',
-      logoUrl: null, rule: getFundRule('NAMM'), changedAt: null, note: null
+      logoUrl: null, rule: storedNammed, changedAt: null, note: null
     },
     {
       providerId: 'p-nmc', name: 'Namibia Medical Care', shortName: 'NMC', code: 'NMC1', claimsEmail: 'claims@example.invalid',

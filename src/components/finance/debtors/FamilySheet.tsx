@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { RELATIONSHIP_LABELS, type AccountRelationship } from '../../../services/ledgerService';
@@ -74,7 +75,7 @@ export const FamilySheet: React.FC<FamilySheetProps> = ({ practiceId, patientId,
       reset('view');
       onChanged();
     } catch (linkError) {
-      setError(linkError instanceof Error ? linkError.message : 'Not linked');
+      setError(linkError instanceof Error ? plainWords(linkError.message) : 'Not linked');
     } finally {
       setBusy(false);
     }
@@ -98,7 +99,7 @@ export const FamilySheet: React.FC<FamilySheetProps> = ({ practiceId, patientId,
       reset('view');
       onChanged();
     } catch (moveError) {
-      setError(moveError instanceof Error ? moveError.message : 'Not moved');
+      setError(moveError instanceof Error ? plainWords(moveError.message) : 'Not moved');
     } finally {
       setBusy(false);
     }
@@ -115,7 +116,7 @@ export const FamilySheet: React.FC<FamilySheetProps> = ({ practiceId, patientId,
       reset('view');
       onChanged();
     } catch (unlinkError) {
-      setError(unlinkError instanceof Error ? unlinkError.message : 'Not removed');
+      setError(unlinkError instanceof Error ? plainWords(unlinkError.message) : 'Not removed');
     } finally {
       setBusy(false);
     }

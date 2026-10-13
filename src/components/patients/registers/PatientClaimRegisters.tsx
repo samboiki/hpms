@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { MedicalAidLogo } from '../../ui/MedicalAidLogo';
 import { LetterComposer } from '../../letters/LetterComposer';
@@ -107,7 +108,7 @@ const PatientClaimRegisters: React.FC<PatientClaimRegistersProps> = ({ practiceI
       setNotice(done);
       registers.reload();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'That did not work. Try again.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'That did not work. Try again.');
     } finally {
       setBusyId(null);
     }
@@ -177,7 +178,7 @@ const PatientClaimRegisters: React.FC<PatientClaimRegistersProps> = ({ practiceI
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                       {referral.letterPath && (
-                        <button type="button" className={LINK} onClick={() => void openRecord(referral.letterPath as string).catch(failure => setError(failure instanceof Error ? failure.message : 'The letter could not be opened.'))}>
+                        <button type="button" className={LINK} onClick={() => void openRecord(referral.letterPath as string).catch(failure => setError(failure instanceof Error ? plainWords(failure.message) : 'The letter could not be opened.'))}>
                           Open the letter
                         </button>
                       )}

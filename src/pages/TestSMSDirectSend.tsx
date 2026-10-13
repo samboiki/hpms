@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { useAuthStore } from '../stores/authStore';
@@ -95,7 +96,7 @@ export default function TestSMSDirectSend() {
       console.error('Error:', error);
       setResult({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
       });
     } finally {
       setLoading(false);

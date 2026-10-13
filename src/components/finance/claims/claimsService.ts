@@ -8,6 +8,7 @@
  * automatically.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../../utils/plainErrors';
 import { supabase } from '../../../lib/supabase';
 import { communicationService } from '../../../services/communicationService';
 import { formatNad, toCents } from '../../../utils/billing/money';
@@ -190,7 +191,7 @@ export async function loadBatchLineSources(batch: BatchHeaderRow, practice: Prac
         .order('updated_at', { ascending: false }) as unknown as PromiseLike<{ data: MedicalAidRow[] | null; error: { message: string } | null }>
     );
   } catch (error) {
-    warnings.push(`${error instanceof Error ? error.message : 'The medical aid records could not be read'}; member names come from the batch lines.`);
+    warnings.push(`${error instanceof Error ? plainWords(error.message) : 'The medical aid records could not be read'}; member names come from the batch lines.`);
   }
   const medicalAid = new Map<string, MedicalAidRow[]>();
   medicalAidRows.forEach(row => {
@@ -201,7 +202,7 @@ export async function loadBatchLineSources(batch: BatchHeaderRow, practice: Prac
   try {
     doNotClaim = await loadDoNotClaim(practice.id, unique(details.map(d => d.patient_id)));
   } catch (error) {
-    warnings.push(`${error instanceof Error ? error.message : 'The "Do not claim" flags could not be read'}; check that none of these patients is marked "Do not claim".`);
+    warnings.push(`${error instanceof Error ? plainWords(error.message) : 'The "Do not claim" flags could not be read'}; check that none of these patients is marked "Do not claim".`);
   }
 
   const visits = await inChunks<VisitRow>(unique(details.map(d => d.visit_id)), 'the visits', chunk =>
@@ -250,7 +251,7 @@ export async function loadBatchLineSources(batch: BatchHeaderRow, practice: Prac
     const [shared, own] = await Promise.all([
       supabase.from('practice_tariffs_with_types').select(TOOTH_RULE_COLUMNS).eq('practice_type_name', practice.practice_type),
       loadOwnTariffs(practice.id).catch((error: unknown) => {
-        warnings.push(`${error instanceof Error ? error.message : "The practice's own codes could not be read"}; tooth numbers were checked against the shared tariff list.`);
+        warnings.push(`${error instanceof Error ? plainWords(error.message) : "The practice's own codes could not be read"}; tooth numbers were checked against the shared tariff list.`);
         return { rows: [], enabled: false };
       })
     ]);
@@ -378,7 +379,7 @@ export async function loadOwedByBatch(practiceId: string, batchIds: string[]): P
       owed: null,
       warning: isArNotSetUp(error)
         ? 'Receipts are not set up yet, so the amounts the funds still owe are not shown.'
-        : `${error instanceof Error ? error.message : 'What the funds still owe could not be read'}; the amounts are not shown.`
+        : `${error instanceof Error ? plainWords(error.message) : 'What the funds still owe could not be read'}; the amounts are not shown.`
     };
   }
 }

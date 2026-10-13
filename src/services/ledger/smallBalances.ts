@@ -1,4 +1,5 @@
 import { formatNad, fromCents, toCents } from '../../utils/billing/money';
+import { plainWords } from '../../utils/plainErrors';
 import type { AccountFlagKind } from './accountFlags';
 import type { ArAdjustment } from './arModel';
 import type { AgingItem } from './receivables';
@@ -176,10 +177,11 @@ export async function runSmallBalanceWriteOffs(
       const saved = await writeOff(line);
       results.push({ line, ok: true, number: saved.number, error: null });
     } catch (error) {
-      const message = error instanceof Error && error.message ? error.message : 'The write-off was not saved';
-      results.push(isAlreadyWrittenOff(message)
+      // The database's wording decides 'already written off'; staff read it in plain words (owner, 13 Oct 2026)
+      const raw = error instanceof Error && error.message ? error.message : 'The write-off was not saved';
+      results.push(isAlreadyWrittenOff(raw)
         ? { line, ok: true, number: null, error: null }
-        : { line, ok: false, number: null, error: message });
+        : { line, ok: false, number: null, error: plainWords(raw) });
     }
     onProgress?.(results.length, lines.length);
   }

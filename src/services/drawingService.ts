@@ -5,6 +5,7 @@
  * the patient file's Media tab lists it with the visit. The rules are in src/utils/clinical/drawings.ts.
  */
 import { supabase } from '../lib/supabase';
+import { plainWords } from '../utils/plainErrors';
 import { RECORDS_BUCKET, recordPath } from './recordPaths';
 import { DRAWING_SUBCATEGORY, drawingFileName, drawingTitle, type DrawingTemplateId } from '../utils/clinical/drawings';
 import { windhoekClock } from '../utils/patientLists/listDates';
@@ -62,7 +63,7 @@ export async function saveVisitDrawing(request: {
   try {
     path = recordPath(request.practiceId, 'patient-media', request.patientId, 'drawings', drawingFileName(windhoekClock(new Date()).dateKey, randomPart()));
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : 'The drawing could not be saved.' };
+    return { ok: false, message: error instanceof Error ? plainWords(error.message) : 'The drawing could not be saved.' };
   }
   const upload = await supabase.storage.from(RECORDS_BUCKET).upload(path, request.png, { contentType: 'image/png', upsert: false });
   if (upload.error) {

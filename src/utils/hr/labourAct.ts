@@ -84,8 +84,16 @@ export function nightHoursForShift(timeIn?: string, timeOut?: string): number {
  * - anything above those caps on a normal day is overtime (paid at least 1.5x);
  * - all hours on a Sunday or a public holiday are counted separately, because they are paid at their own rates.
  * Weeks run Monday to Sunday. Warnings flag overtime beyond 3 hours a day or 10 hours a week.
+ * When the practice has set a standard day (options.standardHoursPerDay), hours above it are overtime too: the daily
+ * cap is the shorter of the standard day and the Act's ordinary day (owner, 13 Oct 2026: overtime = hours above
+ * the standard hours).
  */
-export function classifyWorkedHours(days: WorkedDay[], isPublicHoliday: (dateKey: string) => boolean): HoursSummary {
+export function classifyWorkedHours(
+  days: WorkedDay[],
+  isPublicHoliday: (dateKey: string) => boolean,
+  options: { standardHoursPerDay?: number | null } = {}
+): HoursSummary {
+  const standardDay = options.standardHoursPerDay && options.standardHoursPerDay > 0 ? options.standardHoursPerDay : null;
   const worked = days.filter(day => day.hours > 0).sort((a, b) => a.date.localeCompare(b.date));
   const weeks = new Map<string, WorkedDay[]>();
   for (const day of worked) {
@@ -97,7 +105,8 @@ export function classifyWorkedHours(days: WorkedDay[], isPublicHoliday: (dateKey
   const warnings: LabourActWarning[] = [];
 
   for (const [weekStart, weekDays] of weeks) {
-    const dailyCap = weekDays.length > 5 ? LABOUR_ACT.maxOrdinaryHoursPerDayOver5Days : LABOUR_ACT.maxOrdinaryHoursPerDayUpTo5Days;
+    const actCap = weekDays.length > 5 ? LABOUR_ACT.maxOrdinaryHoursPerDayOver5Days : LABOUR_ACT.maxOrdinaryHoursPerDayUpTo5Days;
+    const dailyCap = standardDay === null ? actCap : Math.min(actCap, standardDay);
     const weekClassified = weekDays.map((day): ClassifiedDay => {
       const isSunday = parseISO(day.date).getDay() === 0;
       const holiday = isPublicHoliday(day.date);
@@ -160,7 +169,8 @@ export function classifyWorkedHours(days: WorkedDay[], isPublicHoliday: (dateKey
     sundayHours: total('sundayHours'),
     publicHolidayHours: total('publicHolidayHours'),
     nightHours: total('nightHours'),
-    warnings
+    // The Act's limits are on the Act's overtime (above its ordinary day), not on hours above a shorter standard day
+    warnings: standardDay === null ? warnings : classifyWorkedHours(days, isPublicHoliday).warnings
   };
 }
 

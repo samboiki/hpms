@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { isDentalPractice, isOptometryPractice } from '../billing/tariffRules';
-import { practiceTypeChanged, practiceTypeLabel, practiceTypeOptions, practiceTypeState, practiceTypeUpdate } from '../practiceType';
+import { needsPracticeTypeChoice, practiceTypeChanged, practiceTypeLabel, practiceTypeOptions, practiceTypeState, practiceTypeUpdate } from '../practiceType';
 
 // Invented ids; the names are the practice_types rows of the live database
 const ROWS = [
@@ -41,5 +41,21 @@ describe('choosing the practice type', () => {
 
   it('offers only active types, in plain words, the most common disciplines first', () => {
     expect(OPTIONS.map(item => item.label)).toEqual(['Medical practice (GP)', 'Dental', 'Optometry', 'Physiotherapy']);
+  });
+});
+
+// Owner decision 13 Oct 2026: 'general' matches no price list, so Settings > Practice asks the practice to choose a type
+describe("a practice still on 'general'", () => {
+  it('is asked to choose its type, as is a practice with none', () => {
+    expect(needsPracticeTypeChoice('general')).toBe(true);
+    expect(needsPracticeTypeChoice(' General ')).toBe(true);
+    expect(needsPracticeTypeChoice(null)).toBe(true);
+    expect(needsPracticeTypeChoice('')).toBe(true);
+    expect(needsPracticeTypeChoice('dental')).toBe(false);
+  });
+
+  it("is never offered 'general' again, even if the practice_types table has such a row", () => {
+    const options = practiceTypeOptions([...ROWS, { id: 'type-general', name: 'general', is_active: true }]);
+    expect(options.map(item => item.name)).not.toContain('general');
   });
 });

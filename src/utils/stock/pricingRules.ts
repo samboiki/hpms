@@ -57,6 +57,9 @@ export const NO_PRICING_RULES: PricingRules = { tiers: {}, material: null };
  * NAMAF rule 013 as the 2025 dental benchmark schedule words it (the Eminance analysis, history-and-documents.md 4.2):
  * 35 % handling fee on the cost up to N$ 4,240.20, 10 % above, the fee at most N$ 8,016.80. Offered as a starting
  * point the practice confirms against its current schedule; never applied by itself.
+ * Checked 13 Oct 2026: NOT verifiable publicly. NAMAF publishes its benchmark schedules only to registered practices
+ * (https://www.namaf.org.na/benchmark.html: log in with the practice number), and no public copy of the 2026 dental
+ * rules was found, so the figures stay a suggestion the practice confirms (it keeps its own in Stock pricing rules).
  */
 export const NAMAF_RULE_013_2025: MaterialRule = { lowerPercent: 35, thresholdCents: 424_020, upperPercent: 10, maxFeeCents: 801_680 };
 

@@ -5,6 +5,7 @@
  * before) and saving says price rates are not set up yet.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { patientRateFromRow, type PatientRate } from '../utils/billing/patientRates';
 
@@ -47,7 +48,7 @@ export async function loadPatientRate(patientId: string | null | undefined): Pro
     const row = data as { kind?: unknown; percent?: unknown; set_at?: string | null } | null;
     return { status: 'ready', rate: patientRateFromRow(row), setAt: row?.set_at ?? null };
   } catch (error) {
-    return { status: 'error', rate: null, setAt: null, message: error instanceof Error ? error.message : "The patient's price rate could not be read." };
+    return { status: 'error', rate: null, setAt: null, message: error instanceof Error ? plainWords(error.message) : "The patient's price rate could not be read." };
   }
 }
 

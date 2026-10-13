@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { saveDocumentSettings } from '../../../services/documentSettingsService';
 import { DOCUMENT_KIND_LABELS, DOCUMENT_MESSAGE_MAX, checkDocumentSettings, type DocumentKind, type DocumentSettings } from '../../../utils/billing/documentSettings';
@@ -35,7 +36,7 @@ export const DocumentSettingsSheet: React.FC<DocumentSettingsSheetProps> = ({ pr
       toast.success('Saved for the whole practice');
       onSaved(saved);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not saved');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not saved');
     } finally {
       setBusy(false);
     }

@@ -8,10 +8,8 @@ import { sidebarShowsPath } from '../../utils/auth/screenAccess';
 import { useTheme } from '../../stores/themeStore';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
-import { supabase } from '../../lib/supabase';
 import { motion } from 'framer-motion';
-import { APP_COLOR, SECTION_COLORS } from '../../config/sectionColors';
-import { isOptometryPractice } from '../../utils/billing/tariffRules';
+import { SECTION_COLORS } from '../../config/sectionColors';
 import { prefetchPage } from '../../pageLoaders';
 
 /** A page's code starts downloading when the pointer rests on, a finger touches, or the keyboard reaches its link */
@@ -39,13 +37,12 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleFullscreen,
   onOpenPatients
 }) => {
-  const { isSuperAdmin, user, selectedPracticeId } = useAuthStore();
+  const { isSuperAdmin, user } = useAuthStore();
   // Who the practice lets open Finance and Stock (Settings > Users > Screen access)
   const screenAccess = useScreenAccess();
   const { currentTheme } = useTheme();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
-  const [practiceData, setPracticeData] = useState<any>(null);
 
   // Subscribe to unread messages
   useEffect(() => {
@@ -58,29 +55,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       };
     }
   }, [user?.id, user?.practice_id]);
-
-  // Fetch practice data
-  useEffect(() => {
-    const fetchPracticeData = async () => {
-      const practiceId = selectedPracticeId || user?.practice_id;
-      if (!practiceId) return;
-
-      try {
-        const { data, error } = await supabase
-          .from('practices')
-          .select('*')
-          .eq('id', practiceId)
-          .single();
-
-        if (error) throw error;
-        setPracticeData(data);
-      } catch (error) {
-        console.error('Error fetching practice data:', error);
-      }
-    };
-
-    fetchPracticeData();
-  }, [selectedPracticeId, user?.practice_id]);
 
   const navItems = [
     { 
@@ -127,15 +101,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       bgGradient: SECTION_COLORS.stock.iconBox,
       iconColor: 'text-white'
     },
-    // Optometry practices only: lab orders, frames, the optometry reports and benefit notes (not a section: app purple)
-    ...(isOptometryPractice(practiceData?.practice_type) ? [{
-      icon: 'solar:glasses-bold-duotone',
-      label: 'Optometry',
-      path: '/optometry',
-      isRoute: true,
-      bgGradient: APP_COLOR.iconBox,
-      iconColor: 'text-white'
-    }] : []),
+    // Optometry (lens orders, frames and their reports) is part of Stock since 13 Oct 2026: no menu entry of its own
   ];
 
   // Every practice administrator manages the practice's own tariff list, co-payments and levies (Admin > Tariffs);

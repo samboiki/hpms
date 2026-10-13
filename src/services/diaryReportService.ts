@@ -3,6 +3,7 @@
  * their lengths, blocked time, working hours and opening hours. Read only.
  */
 import { loadDiaryBlocks, loadVisitsInRange } from './diaryService';
+import { plainWords } from '../utils/plainErrors';
 import { loadDiaryStatuses } from './diaryListsService';
 import { loadDiarySettings, loadPracticeBusinessHours, loadWorkingHours } from './diarySettingsService';
 import { resolveBookingLength } from '../utils/diary/bookingLength';
@@ -77,6 +78,6 @@ export async function loadDiaryReport(
       }
     };
   } catch (error) {
-    return { state: 'error', message: error instanceof Error ? error.message : String(error) };
+    return { state: 'error', message: error instanceof Error ? plainWords(error.message) : String(error) };
   }
 }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { daysBetweenKeys, todayKey } from '../../../utils/billing/dates';
 import { toCents } from '../../../utils/billing/money';
@@ -42,7 +43,7 @@ export const RejectionsSection: React.FC<RejectionsSectionProps> = ({ practiceId
     try {
       setItems(await loadRejections(practiceId, scope));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load the rejection queue.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load the rejection queue.');
     }
   }, [practiceId, scope, setup]);
 

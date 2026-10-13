@@ -7,6 +7,7 @@
  * book is then empty, so every patient is billed the practice tariff exactly as before, with no error shown.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import {
   EMPTY_PRICE_BOOK,
@@ -125,7 +126,7 @@ export async function loadPatientFundKey(source: { patientId?: string | null; me
       error: null
     };
   } catch (error) {
-    return { hasMedicalAid: null, fund: null, error: error instanceof Error ? error.message : 'unknown error' };
+    return { hasMedicalAid: null, fund: null, error: error instanceof Error ? plainWords(error.message) : 'unknown error' };
   }
 }
 

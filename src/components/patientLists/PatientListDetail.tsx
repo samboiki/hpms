@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { patientListService, type PatientListRecord } from '../../services/patientListService';
@@ -82,7 +83,7 @@ export const PatientListDetail: React.FC<PatientListDetailProps> = ({
       setRenaming(false);
       toast.success('List renamed.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not rename the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not rename the list.');
     } finally {
       setBusy(false);
     }
@@ -102,7 +103,7 @@ export const PatientListDetail: React.FC<PatientListDetailProps> = ({
       toast.success(`"${list.name}" deleted.`);
       onDeleted(list.id);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not delete the list.');
       setBusy(false);
     }
   };

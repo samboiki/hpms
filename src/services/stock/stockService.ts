@@ -13,6 +13,7 @@ import { CANCELLED_ALIASES } from '../ledger/invoices';
 import { normalizeStockItem, type StockItem, type StockItemRow } from '../../utils/stock/items';
 import { priceRuleToJson, type PriceRule } from '../../utils/stock/pricing';
 import { loadPricingRules } from './pricingRulesService';
+import { loadVatSettings } from '../vatSettingsService';
 import { isConsignmentColumnMissing } from './supplierLedgerService';
 import type { DispensingRecord } from '../../utils/stock/repeats';
 import {
@@ -106,14 +107,16 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 // ---------------------------------------------------------------------------------------------
 
 export async function loadStockSettings(practiceId: string): Promise<StockSettings> {
-  const [{ data, error }, pricing] = await Promise.all([
+  const [{ data, error }, pricing, vat] = await Promise.all([
     db
       .from('stock_settings')
       .select('dispensing_enabled, default_vat_rate, price_rule, script_valid_months, label_note')
       .eq('practice_id', practiceId)
       .maybeSingle(),
     // The medicine tiers, the material rule and the reference prices (pricingRulesService; never throws)
-    loadPricingRules(practiceId)
+    loadPricingRules(practiceId),
+    // Whether the practice is VAT registered (Settings > Practice; never throws: not registered when unreadable)
+    loadVatSettings(practiceId)
   ]);
   if (error) fail(error, 'Could not read the stock settings');
   return {
@@ -121,7 +124,8 @@ export async function loadStockSettings(practiceId: string): Promise<StockSettin
     pricing: pricing.rules,
     pricingReadable: pricing.readable,
     pricingSetUp: pricing.setUp,
-    referencePrices: pricing.referencePrices
+    referencePrices: pricing.referencePrices,
+    vatRegistered: vat.registered
   };
 }
 

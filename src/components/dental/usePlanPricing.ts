@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { loadPlanPricing, type PlanPricing } from '../../services/dental/dentalChartService';
 
 export type PricingState =
@@ -23,7 +24,7 @@ export function usePlanPricing(practiceId: string | null | undefined, patientId:
         if (!cancelled) setState({ status: 'ready', pricing });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the tariff list.' });
+        if (!cancelled) setState({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the tariff list.' });
       });
     return () => {
       cancelled = true;

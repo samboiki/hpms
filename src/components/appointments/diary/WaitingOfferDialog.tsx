@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import FormModal from '../../modals/FormModal';
@@ -68,7 +69,7 @@ export const WaitingOfferDialog: React.FC<WaitingOfferDialogProps> = ({ practice
     const result = await sendWaitingListOffer({ practiceId, entry: offer.entry, slot: offer.slot, message });
     setSending(false);
     if (!result.ok) {
-      setError(result.message);
+      setError(plainWords(result.message));
       return;
     }
     if (result.recorded) toast.success(`Offer sent to ${waitingPatientName(offer.entry)}`);

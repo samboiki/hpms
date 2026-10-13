@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { patientLabOrderLink, supplierLink } from '../billing/invoiceLinks';
@@ -39,7 +40,7 @@ const LabWorkTracking: React.FC<LabWorkTrackingProps> = ({ practiceId, today, he
         if (!cancelled) setLoad(result.status === 'not_set_up' ? { status: 'not_set_up' } : { status: 'ready', orders: result.orders });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not read the lab work.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the lab work.' });
       });
     return () => {
       cancelled = true;

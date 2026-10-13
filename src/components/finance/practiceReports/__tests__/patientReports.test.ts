@@ -108,7 +108,7 @@ describe('demographics and new patients', () => {
   it('lists the patients (a marketing list) with each row opening the patient file', () => {
     const list = patientListTable(facts, { title: 'Patients on file', basis: 'Every patient', notes: [] });
     expect(list.targets[0]).toEqual({ kind: 'patient', id: 'p4' });
-    expect(list.table.rows[0]).toEqual(['2026-08-01', 'Pat Testing', 'Afrikaans', 'Ongwediva', 'Oshana', 'Not recorded']);
+    expect(list.table.rows[0]).toEqual(['2026-08-01', 'Pat Testing', 'Afrikaans', 'Ongwediva', 'Oshana', 'Not recorded', 'Not answered']);
   });
 
   it('groups by region, from the file or the town, with files whose region cannot be told last', () => {
@@ -124,7 +124,7 @@ describe('demographics and new patients', () => {
     ]);
     expect(countBy(withRegions, 'region')).toEqual([{ key: 'Oshana', count: 2 }, { key: 'Khomas', count: 1 }, { key: REGION_NOT_RECORDED, count: 1 }]);
     const list = patientListTable(withRegions, { title: 'Patients on file', basis: 'Every patient', notes: [] });
-    expect(list.table.columns.map(column => column.header)).toEqual(['File opened', 'Patient', 'Home language', 'Town', 'Region', 'Came to us through']);
+    expect(list.table.columns.map(column => column.header)).toEqual(['File opened', 'Patient', 'Home language', 'Town', 'Region', 'Came to us through', 'Heard about us through']);
   });
 });
 

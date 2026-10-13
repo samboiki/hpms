@@ -113,7 +113,7 @@ describe('gross profit', () => {
     movement({ kind: 'sale_reversed', itemId: 'amox', invoiceLineId: 'l3', quantity: 5, valueCents: 500 }),
     movement({ kind: 'sold', itemId: 'amox', invoiceLineId: 'l5', quantity: -2, valueCents: -200 })
   ];
-  const sold = soldLines({ lines, invoices, movements, items, defaultVatRate: 15, range: RANGE });
+  const sold = soldLines({ lines, invoices, movements, items, defaultVatRate: 15, vatRegistered: true, range: RANGE });
 
   it('takes VAT off what was billed the way the stock price rule splits a VAT-inclusive price', () => {
     expect(withoutVat(23000, 15)).toBe(priceStockLine({ quantity: 1, lineCostCents: null, vatRate: 15, rule: DEFAULT_PRICE_RULE, fixedUnitPriceCents: 23000 })?.exclVatCents);
@@ -131,13 +131,21 @@ describe('gross profit', () => {
     expect(sold.some(row => row.lineId === 'l5')).toBe(false);
   });
 
+  // Owner, 13 Oct 2026: VAT follows Settings > Practice > VAT. A practice that is not VAT registered charged no VAT, so
+  // taking 15 % off its frame and medicine sales understated its sales and profit
+  it('takes no VAT off for a practice that is not VAT registered', () => {
+    const unregistered = soldLines({ lines, invoices, movements, items, defaultVatRate: 15, vatRegistered: false, range: RANGE });
+    expect(unregistered.find(row => row.lineId === 'l1')).toMatchObject({ billedCents: 23000, vatRate: 0, vatCents: 0, salesCents: 23000, profitCents: 22000 });
+    expect(profitNotes(unregistered, { defaultVatRate: 15, vatRegistered: false, dispensedCostCents: 0 })).toContain('No VAT is taken off: the practice is not VAT registered (Settings > Practice), so it charged none.');
+  });
+
   it('keeps lines without a known cost out of the margins but in the notes, so billed still adds up to Revenue by tariff code', () => {
     const byItem = profitBy(sold, itemGroup);
     expect(byItem.map(group => [group.label, group.salesCents, group.costCents, group.profitCents])).toEqual([
       ['Frame Model A', 90000, 40000, 50000],
       ['Amoxicillin 500 mg', 20000, 1000, 19000]
     ]);
-    const notes = profitNotes(sold, { defaultVatRate: 15, dispensedCostCents: 1234 });
+    const notes = profitNotes(sold, { defaultVatRate: 15, vatRegistered: true, dispensedCostCents: 1234 });
     expect(notes.some(note => note.includes('1 line (N$ 115.00 billed) whose stock came back'))).toBe(true);
     expect(notes.some(note => note.includes('1 line (N$ 46.00 billed) never taken off stock'))).toBe(true);
     expect(notes.some(note => note.includes('N$ 12.34'))).toBe(true);

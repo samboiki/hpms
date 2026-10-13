@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Upload, 
@@ -163,7 +164,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
       }
     } catch (error) {
       console.error('💥 Error in handleFileUpload:', error);
-      onUploadError?.(error instanceof Error ? error.message : 'File upload failed');
+      onUploadError?.(error instanceof Error ? plainWords(error.message) : 'File upload failed');
     }
   };
 
@@ -363,7 +364,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
 
     } catch (error) {
       console.error('💥 Upload error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      const errorMessage = error instanceof Error ? plainWords(error.message) : 'Upload failed';
       onUploadError?.(errorMessage);
       
       // Set uploading to false but keep modal open for retry
@@ -731,7 +732,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
         <details className="mt-2">
           <summary className="text-red-700 text-xs cursor-pointer">Technical Details</summary>
           <pre className="text-red-600 text-xs mt-1 whitespace-pre-wrap">
-            {error instanceof Error ? error.message : String(error)}
+            {error instanceof Error ? plainWords(error.message) : String(error)}
           </pre>
         </details>
       </div>

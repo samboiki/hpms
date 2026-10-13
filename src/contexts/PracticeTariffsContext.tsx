@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
+import { useQueryClient } from '@tanstack/react-query';
+import { loadPracticeRow } from '../lib/practiceRow';
 import { getOptimizedTariffs, getOptimizedFrequentTariffs } from '../lib/optimizedQueries';
 import { useAuthStore } from '../stores/authStore';
 import { selectBillableTariffs, type TariffRow } from '../utils/billing/pricing';
@@ -73,6 +74,7 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
   const selectedPracticeId = useAuthStore(state => state.selectedPracticeId);
   const userPracticeId = useAuthStore(state => state.user?.practice_id);
   const practiceId = selectedPracticeId || userPracticeId || null;
+  const queryClient = useQueryClient();
 
   const [allTariffs, setAllTariffs] = useState<PracticeTariff[]>([]);
   const [frequentTariffs, setFrequentTariffs] = useState<PracticeTariff[]>([]);
@@ -134,15 +136,11 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
   }, []);
 
   // The practice's type decides its tariff list; no guessing ("dental") when it is unknown
+  // From the practice row the menu and the diary share (lib/practiceRow.ts), not a read of its own
   const fetchPracticeType = async (): Promise<string | null> => {
     if (!practiceId) return null;
-    const { data: practice, error: practiceError } = await supabase
-      .from('practices')
-      .select('practice_type')
-      .eq('id', practiceId)
-      .maybeSingle();
-    if (practiceError) throw new Error(practiceError.message);
-    return practice?.practice_type ?? null;
+    const practice = await loadPracticeRow(practiceId, queryClient);
+    return typeof practice?.practice_type === 'string' ? practice.practice_type : null;
   };
 
   const clearTariffs = (message: string | null) => {

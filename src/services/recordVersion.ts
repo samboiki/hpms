@@ -7,6 +7,7 @@
  * (tested); only readRecordVersions and loadPeopleNames read the database.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { addDaysToKey, formatServiceDate } from '../utils/billing/dates';
 import { windhoekClock } from '../utils/patientLists/listDates';
@@ -140,7 +141,7 @@ export async function checkRecordVersions(opened: readonly OpenedVersion[]): Pro
   try {
     return compareVersions(opened, await readRecordVersions(opened));
   } catch (error) {
-    return { state: 'not_checked', reason: error instanceof Error ? error.message : String(error) };
+    return { state: 'not_checked', reason: error instanceof Error ? plainWords(error.message) : String(error) };
   }
 }
 

@@ -4,6 +4,7 @@
  * src/utils/diary/patientBookings.ts.
  */
 import { supabase } from '../lib/supabase';
+import { plainWords } from '../utils/plainErrors';
 import { loadVisitsInRange } from './diaryService';
 import { loadReminderStatuses } from './reminderStatusService';
 import { addDaysToKey, toDateKey } from '../utils/diary/diaryTime';
@@ -50,6 +51,6 @@ export async function loadPatientBookings(practiceId: string, patientId: string)
     const { upcoming, past } = splitPatientBookings(visits, invoices, today);
     return { state: 'ready', data: { upcoming, past, reminderStatuses } };
   } catch (error) {
-    return { state: 'error', message: error instanceof Error ? error.message : String(error) };
+    return { state: 'error', message: error instanceof Error ? plainWords(error.message) : String(error) };
   }
 }

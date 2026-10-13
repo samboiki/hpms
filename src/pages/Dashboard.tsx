@@ -6,14 +6,12 @@ import { supabase } from '../lib/supabase';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths, isValid, getDay } from 'date-fns';
 import { usePractice } from '../contexts/PracticeContext';
-import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVisitsStore } from '../stores/visitsStore';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
 import { useSeesFinanceFigures } from '../hooks/useScreenAccess';
-import DetailedReportModal from '../components/modals/DetailedReportModal';
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
@@ -26,11 +24,6 @@ import { useAutoPatientPrefetch } from '../hooks/usePatientPrefetch';
 import PremiumAppointmentScheduler from '../components/PremiumAppointmentScheduler';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
-import AppointmentDetailsModal from '../components/modals/AppointmentDetailsModal';
-import RescheduleAppointmentModal from '../components/modals/RescheduleAppointmentModal';
-import AppointmentActionModal from '../components/modals/AppointmentActionModal';
-import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
-import AppointmentGridView from '../components/appointments/AppointmentGridView';
 import { usePracticeData } from '../hooks/usePracticeData';
 
 // Using Visit type from enhanced-visit.types
@@ -46,6 +39,7 @@ import { readDiaryDayFocus, withoutDiaryDayLink, type DiaryDayFocus } from '../u
 import { freedSlotOf, type DiarySlot } from '../utils/diary/waitingList';
 import { lazyWindow } from '../components/layout/lazyScreen';
 import { useEscapeToClose } from '../hooks/useEscapeToClose';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 
 // Opened from the Dashboard on demand, so their code (the charts; the whole visit screen) loads when first opened
 // instead of before the Dashboard can show (and says so if it cannot load: lazyScreen.tsx)
@@ -104,18 +98,12 @@ function Dashboard() {
   const { practiceData, colors } = usePracticeData();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [patientsData, setPatientsData] = useState<any[]>([]);
-  const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
-  const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<any>(null);
   // appointments now come from useTodayAppointments hook
-  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
-  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
-  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
   // Escape closes the visit confirmation and the visit details, as Cancel and the X do
   useEscapeToClose(isDetailsModalOpen && !!selectedVisit, () => { setIsDetailsModalOpen(false); setSelectedVisit(null); });
@@ -127,17 +115,14 @@ function Dashboard() {
   // Time slots (practitioners side by side) unless this user last chose the cards
   const [internalViewMode, setInternalViewMode] = useState<DiaryLayout>(() => readDiaryLayout(user?.id));
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
-  const [showGridView, setShowGridView] = useState(false);
-  const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready'>('pending');
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   // Note: patientStats now comes from usePatientStats hook - no longer using local state
-  const [selectedReportModal, setSelectedReportModal] = useState<{
-    isOpen: boolean;
-    type: 'patients' | 'notifications' | 'encounters' | 'finance' | null;
-  }>({ isOpen: false, type: null });
-  
+
   const [isEnhancedFinancialModalOpen, setIsEnhancedFinancialModalOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  // One notifications panel: beside the diary on a large screen, below it otherwise. Both used to be rendered (one
+  // hidden by CSS), each loading and subscribing to the same notifications
+  const isLargeScreen = useMediaQuery('(min-width: 1024px)');
   const [showCalendarPicker, setShowCalendarPicker] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
@@ -459,36 +444,6 @@ function Dashboard() {
 
 
 
-  const handleEditVisit = (visit: Visit) => {
-    setSelectedVisit(visit);
-    setIsRescheduleModalOpen(true);
-  };
-
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<{
-    doctorId: string;
-    date: string;
-    time: string;
-  } | null>(null);
-
-  const handleCreateVisit = async (doctorId: string, date: string, time: string) => {
-    setSelectedTimeSlot({ doctorId, date, time });
-    setIsAddVisitModalOpen(true);
-  };
-
-  const handleDeleteVisit = async (visitId: string) => {
-    try {
-      const { error } = await supabase
-        .from('visits')
-        .delete()
-        .eq('id', visitId);
-      
-      if (error) throw error;
-      // Real-time updates will handle the refresh
-    } catch (error) {
-      console.error('Error deleting visit:', error);
-    }
-  };
-
   const handleConfirmVisit = async (visitId: string, doctorId?: string) => {
     try {
       const { confirmVisit } = useVisitsStore.getState();
@@ -529,7 +484,6 @@ function Dashboard() {
       await startVisit(visitId);
       
       // Close any open modals
-      setIsActionModalOpen(false);
       setIsConfirmationModalOpen(false);
       setSelectedVisit(null);
       
@@ -638,34 +592,6 @@ function Dashboard() {
     // Rebuilt when the visits change; the actions read that render's handlers
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visits]);
-
-  const handleCompleteVisit = async (visitId: string) => {
-    try {
-      const { completeVisit } = useVisitsStore.getState();
-      const visit = visits.find(v => v.id === visitId);
-      if (!visit) {
-        toast.error('Visit not found');
-        return;
-      }
-      
-      await completeVisit(visitId);
-      
-      // Close modals
-      setIsActionModalOpen(false);
-      setSelectedVisit(null);
-      
-      // Show success message
-      toast.success(
-        `Visit completed for ${visit.patient?.first_name} ${visit.patient?.last_name}`,
-        { duration: 3000, icon: '✅' }
-      );
-      
-    } catch (error) {
-      console.error('Error completing visit:', error);
-      toast.error('Failed to complete visit');
-    }
-  };
-
 
   // Calculate today's statistics using visits
   const todayVisits = visits.filter(v => 
@@ -1473,6 +1399,46 @@ function Dashboard() {
 
                 {/* Notifications Panel and Practice Overview - Hidden on mobile/tablet, 4 columns on desktop */}
                 <div className="relative col-span-4 space-y-4 hidden lg:block">
+                  {isLargeScreen && (
+                    <NotificationsPanel
+                      notifications={notifications}
+                      onNotificationAction={(notificationId, action) => {
+                        // Handle notification actions here
+                      }}
+                      onMarkAsRead={(notificationId) => {
+                        setNotifications(prev => 
+                          prev.map(notif => 
+                            notif.id === notificationId 
+                              ? { ...notif, read: true }
+                              : notif
+                          )
+                        );
+                      }}
+                      onMarkAllAsRead={() => {
+                        setNotifications(prev => 
+                          prev.map(notif => ({ ...notif, read: true }))
+                        );
+                      }}
+                    />
+                  )}
+
+                  {/* Practice Overview */}
+                  <PracticeOverviewTile
+                    totalPatients={patientsData.length}
+                    todayAppointments={todayAppointments.length}
+                    pendingAppointments={pendingAppointments.length}
+                    completedToday={completedToday}
+                    practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
+                    financeOpen={seesFinanceFigures}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Mobile Notifications Section - Only visible on mobile/tablet */}
+            <div className="mt-6 lg:hidden">
+              <div className="space-y-4">
+                {!isLargeScreen && (
                   <NotificationsPanel
                     notifications={notifications}
                     onNotificationAction={(notificationId, action) => {
@@ -1493,43 +1459,7 @@ function Dashboard() {
                       );
                     }}
                   />
-
-                  {/* Practice Overview */}
-                  <PracticeOverviewTile
-                    totalPatients={patientsData.length}
-                    todayAppointments={todayAppointments.length}
-                    pendingAppointments={pendingAppointments.length}
-                    completedToday={completedToday}
-                    practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
-                    financeOpen={seesFinanceFigures}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Mobile Notifications Section - Only visible on mobile/tablet */}
-            <div className="mt-6 lg:hidden">
-              <div className="space-y-4">
-                <NotificationsPanel
-                  notifications={notifications}
-                  onNotificationAction={(notificationId, action) => {
-                    // Handle notification actions here
-                  }}
-                  onMarkAsRead={(notificationId) => {
-                    setNotifications(prev => 
-                      prev.map(notif => 
-                        notif.id === notificationId 
-                          ? { ...notif, read: true }
-                          : notif
-                      )
-                    );
-                  }}
-                  onMarkAllAsRead={() => {
-                    setNotifications(prev => 
-                      prev.map(notif => ({ ...notif, read: true }))
-                    );
-                  }}
-                />
+                )}
 
                 {/* Mobile Practice Overview */}
                 <PracticeOverviewTile
@@ -1550,166 +1480,6 @@ function Dashboard() {
       </div>
 
       {/* Modals */}
-      <FormModal
-        isOpen={isAddAppointmentModalOpen}
-        onClose={() => {
-          setIsAddAppointmentModalOpen(false);
-          setSelectedTimeSlot(null);
-        }}
-        title="Schedule New Appointment"
-      >
-        <PremiumAddAppointmentForm
-          initialDate={selectedTimeSlot ? new Date(selectedTimeSlot.date) : undefined}
-          initialTime={selectedTimeSlot?.time}
-          initialDoctorId={selectedTimeSlot?.doctorId}
-          onSuccess={(newVisit) => {
-            setIsAddAppointmentModalOpen(false);
-            setSelectedTimeSlot(null);
-            
-            // The form already creates a visit in the visits table
-            // So we just need to refresh the visits list
-            if (newVisit) {
-              refreshSelectedDayVisits();
-            }
-          }}
-          onCancel={() => {
-            setIsAddAppointmentModalOpen(false);
-            setSelectedTimeSlot(null);
-          }}
-        />
-      </FormModal>
-
-      {selectedAppointment && (
-        <>
-          <AppointmentDetailsModal
-            isOpen={isDetailsModalOpen}
-            onClose={() => {
-              setIsDetailsModalOpen(false);
-              setSelectedAppointment(null);
-            }}
-            appointment={selectedAppointment}
-            onEdit={() => {
-              setIsDetailsModalOpen(false);
-              setIsRescheduleModalOpen(true);
-            }}
-          />
-
-          <RescheduleAppointmentModal
-            isOpen={isRescheduleModalOpen}
-            onClose={() => {
-              setIsRescheduleModalOpen(false);
-              setSelectedAppointment(null);
-            }}
-            appointment={{
-              id: selectedAppointment.id,
-              patient_name: `${selectedAppointment.patient?.first_name} ${selectedAppointment.patient?.last_name}`,
-              doctor_id: selectedAppointment.doctor_id,
-              doctor_name: staff.find(d => d.id === selectedAppointment.doctor_id)?.user_metadata?.full_name || 'Unknown Doctor',
-              date: selectedAppointment.date,
-              time: selectedAppointment.time,
-              type: selectedAppointment.type
-            }}
-            onReschedule={async () => {
-              setIsRescheduleModalOpen(false);
-              setSelectedAppointment(null);
-              // Real-time updates will handle the refresh
-            }}
-          />
-
-          <AppointmentActionModal
-            isOpen={isActionModalOpen}
-            onClose={() => {
-              setIsActionModalOpen(false);
-              setSelectedAppointment(null);
-            }}
-            appointment={selectedAppointment}
-            onUpdate={() => {
-              setIsActionModalOpen(false);
-              setSelectedAppointment(null);
-              // Real-time updates will handle the refresh
-            }}
-            currentUserRole={currentUserRole}
-            onStartVisit={handleStartVisit}
-            onCompleteVisit={handleCompleteVisit}
-            onEditAppointment={(_appointment) => {
-              setIsActionModalOpen(false);
-              setIsRescheduleModalOpen(true);
-            }}
-          />
-        </>
-      )}
-
-      {/* Appointment Approval Modal */}
-      {isApprovalModalOpen && selectedAppointment && (
-        <AppointmentApprovalModal
-          isOpen={isApprovalModalOpen}
-          onClose={() => {
-            setIsApprovalModalOpen(false);
-            setSelectedAppointment(null);
-          }}
-          appointment={selectedAppointment}
-          onApprove={async () => {
-            const visit = visits.find(v => v.id === selectedAppointment.id);
-            if (visit) {
-              await handleConfirmVisit(visit.id);
-            }
-            setIsApprovalModalOpen(false);
-            setSelectedAppointment(null);
-          }}
-          onReject={async (reason) => {
-            const visit = visits.find(v => v.id === selectedAppointment.id);
-            if (visit) {
-              await handleRejectVisit(visit.id, reason);
-            }
-            setIsApprovalModalOpen(false);
-            setSelectedAppointment(null);
-          }}
-          onReschedule={() => {
-            setIsApprovalModalOpen(false);
-            setIsRescheduleModalOpen(true);
-          }}
-        />
-      )}
-
-      {/* Appointment Grid View */}
-      {showGridView && currentPracticeId && (
-        <AppointmentGridView
-          status={gridViewStatus}
-          practiceId={currentPracticeId}
-          onClose={() => setShowGridView(false)}
-        />
-      )}
-
-      {/* Add Visit Modal (keeping for direct visit creation) */}
-      {isAddVisitModalOpen && (
-        // Bottom sheet on phones (up to full height), centred dialog from sm; the title row stays in view
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
-          <div role="dialog" aria-modal="true" aria-labelledby="schedule-visit-title" className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-2xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="flex-none flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
-              <h2 id="schedule-visit-title" className="text-lg sm:text-xl font-bold text-gray-900">Schedule New Visit</h2>
-              <button
-                onClick={() => setIsAddVisitModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Close"
-                aria-label="Close"
-              >
-                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
-              <AddScheduledVisitForm
-                practiceId={currentPracticeId || ''}
-                onSuccess={() => {
-                  setIsAddVisitModalOpen(false);
-                  toast.success('Visit scheduled successfully');
-                }}
-                onCancel={() => setIsAddVisitModalOpen(false)}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Visit Confirmation Modal */}
       {isConfirmationModalOpen && selectedVisit && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
@@ -1807,27 +1577,6 @@ function Dashboard() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Detailed Report Modal */}
-      {selectedReportModal.isOpen && selectedReportModal.type && (
-        <DetailedReportModal
-          isOpen={selectedReportModal.isOpen}
-          onClose={() => {
-            setSelectedReportModal({ isOpen: false, type: null });
-          }}
-          data={dashboardStats ? generateReportData(selectedReportModal.type, dashboardStats) : {
-            type: selectedReportModal.type,
-            title: 'Loading...',
-            subtitle: 'Please wait while we load the data',
-            overview: { total: 0, change: 'Loading...', isPositive: true, period: 'N/A' },
-            breakdown: [],
-            chartData: { labels: [], datasets: [] },
-            timeSeriesData: { labels: [], datasets: [] },
-            insights: ['Loading data...'],
-            actionItems: ['Please wait...']
-          }}
-        />
       )}
 
       {/* Enhanced Financial Modal */}
@@ -2224,149 +1973,6 @@ function generateFinancialReportData(stats: DashboardStats) {
       'Review and optimize payment processes'
     ]
   };
-}
-
-// Helper function to generate report data
-function generateReportData(type: 'patients' | 'notifications' | 'encounters' | 'finance', stats: DashboardStats) {
-  switch (type) {
-    case 'patients':
-        return {
-          type: 'patients' as const,
-          title: 'Patient Analytics',
-          subtitle: 'Comprehensive patient demographics and growth analysis',
-          overview: {
-            total: stats.patients.total,
-            change: `+${stats.patients.newThisMonth}`,
-            isPositive: stats.patients.newThisMonth > 0,
-            period: 'This Month'
-          },
-          breakdown: [
-            { label: 'Male Patients', value: stats.patients.male, percentage: Math.round((stats.patients.male / stats.patients.total) * 100), color: '#3B82F6' },
-            { label: 'Female Patients', value: stats.patients.female, percentage: Math.round((stats.patients.female / stats.patients.total) * 100), color: '#06B6D4' },
-            { label: 'New This Month', value: stats.patients.newThisMonth, percentage: Math.round((stats.patients.newThisMonth / stats.patients.total) * 100), color: '#10B981' },
-            { label: 'Top Medical Aid', value: stats.patients.topMedicalAids[0]?.count || 0, percentage: Math.round(((stats.patients.topMedicalAids[0]?.count || 0) / stats.patients.total) * 100), color: '#8B5CF6' }
-          ],
-          chartData: {
-            labels: ['Male', 'Female', 'New This Month', 'Average Age'],
-            datasets: [{
-              label: 'Patient Statistics',
-              data: [stats.patients.male, stats.patients.female, stats.patients.newThisMonth, stats.patients.averageAge]
-            }]
-          },
-          timeSeriesData: {
-            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
-            datasets: [{
-              label: 'Patient Growth',
-              data: stats.patients.growthData
-            }]
-          },
-          insights: [
-            `You have ${stats.patients.total} total patients with an average age of ${stats.patients.averageAge} years`,
-            `${stats.patients.newThisMonth} new patients registered this month, showing ${stats.patients.newThisMonth > 0 ? 'positive' : 'stable'} growth`,
-            `Gender distribution: ${Math.round((stats.patients.male / stats.patients.total) * 100)}% male, ${Math.round((stats.patients.female / stats.patients.total) * 100)}% female`,
-            stats.patients.topMedicalAids.length > 0 ? `Top medical aid provider: ${stats.patients.topMedicalAids[0].name} (${stats.patients.topMedicalAids[0].count} patients)` : 'No medical aid data available'
-          ],
-          actionItems: [
-            'Review patient demographics for targeted care programs',
-            'Follow up with new patients for satisfaction surveys',
-            'Analyze medical aid coverage for billing optimization'
-          ]
-        };
-
-      case 'notifications':
-        return {
-          type: 'notifications' as const,
-          title: 'Notifications Dashboard',
-          subtitle: 'Active alerts and communication overview',
-          overview: {
-            total: stats.notifications.total,
-            change: `${stats.notifications.unread} unread`,
-            isPositive: false,
-            period: 'Active Now'
-          },
-          breakdown: stats.notifications.types.map(type => ({
-            label: type.type,
-            value: type.count,
-            percentage: Math.round((type.count / stats.notifications.total) * 100),
-            color: type.color
-          })),
-          chartData: {
-            labels: stats.notifications.types.map(t => t.type),
-            datasets: [{
-              label: 'Notification Types',
-              data: stats.notifications.types.map(t => t.count)
-            }]
-          },
-          timeSeriesData: {
-            labels: ['6d ago', '5d ago', '4d ago', '3d ago', '2d ago', 'Yesterday', 'Today'],
-            datasets: [{
-              label: 'Daily Notifications',
-              data: stats.notifications.weeklyData
-            }]
-          },
-          insights: [
-            `${stats.notifications.unread} unread notifications require attention`,
-            `${stats.notifications.urgent} urgent notifications need immediate action`,
-            `Peak notification day this week: ${Math.max(...stats.notifications.weeklyData)} notifications`,
-            `Most common notification type: ${stats.notifications.types[0]?.type || 'None'}`
-          ],
-          actionItems: [
-            'Review and clear unread notifications',
-            'Address urgent notifications immediately',
-            'Set up notification filters to reduce noise'
-          ]
-        };
-
-      case 'encounters':
-        return {
-          type: 'encounters' as const,
-          title: 'Patient Encounters',
-          subtitle: 'Visit analytics and encounter management',
-          overview: {
-            total: stats.encounters.total,
-            change: `+${stats.encounters.thisMonth}`,
-            isPositive: stats.encounters.thisMonth > 0,
-            period: 'This Month'
-          },
-          breakdown: [
-            { label: 'Total Encounters', value: stats.encounters.total, percentage: 100, color: '#10B981' },
-            { label: 'This Month', value: stats.encounters.thisMonth, percentage: Math.round((stats.encounters.thisMonth / stats.encounters.total) * 100), color: '#059669' },
-            { label: 'Completed', value: stats.encounters.completed, percentage: Math.round((stats.encounters.completed / stats.encounters.total) * 100), color: '#047857' },
-            { label: 'Pending', value: stats.encounters.pending, percentage: Math.round((stats.encounters.pending / stats.encounters.total) * 100), color: '#F59E0B' }
-          ],
-          chartData: {
-            labels: stats.encounters.types.map(t => t.type),
-            datasets: [{
-              label: 'Encounter Types',
-              data: stats.encounters.types.map(t => t.count)
-            }]
-          },
-          timeSeriesData: {
-            labels: ['6mo ago', '5mo ago', '4mo ago', '3mo ago', '2mo ago', 'Last month'],
-            datasets: [{
-              label: 'Monthly Encounters',
-              data: stats.encounters.monthlyData
-            }]
-          },
-          insights: [
-            `${stats.encounters.completed} encounters completed with ${stats.encounters.pending} still pending`,
-            `Average encounters per month: ${Math.round(stats.encounters.total / 6)}`,
-            `Most common encounter type: ${stats.encounters.types[0]?.type || 'Consultation'}`,
-            `Completion rate: ${Math.round((stats.encounters.completed / stats.encounters.total) * 100)}%`
-          ],
-          actionItems: [
-            'Follow up on pending encounters',
-            'Review encounter efficiency metrics',
-            'Schedule follow-up appointments as needed'
-          ]
-        };
-
-    case 'finance':
-      return generateFinancialReportData(stats);
-
-    default:
-      throw new Error(`Unknown report type: ${type}`);
-  }
 }
 
 export default Dashboard;

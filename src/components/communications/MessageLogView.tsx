@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../utils/cn';
@@ -80,7 +81,7 @@ export function MessageLogView({ practiceId, patientId = null, onNavigate }: Mes
       const page = await loadMessageLog(practiceId, { search: term, channel, outcome, patientId });
       if (mine === request.current) setView({ kind: 'ready', entries: page.entries, names: page.patientNames, more: page.more, incomplete: page.incomplete });
     } catch (error) {
-      if (mine === request.current) setView({ kind: 'error', message: error instanceof Error ? error.message : 'The message log could not be loaded.' });
+      if (mine === request.current) setView({ kind: 'error', message: error instanceof Error ? plainWords(error.message) : 'The message log could not be loaded.' });
     }
   }, [practiceId, term, channel, outcome, patientId]);
 
@@ -111,7 +112,7 @@ export function MessageLogView({ practiceId, patientId = null, onNavigate }: Mes
         incomplete: view.incomplete || page.incomplete
       });
     } catch (error) {
-      setView({ kind: 'error', message: error instanceof Error ? error.message : 'The message log could not be loaded.' });
+      setView({ kind: 'error', message: error instanceof Error ? plainWords(error.message) : 'The message log could not be loaded.' });
     } finally {
       setLoadingMore(false);
     }
@@ -127,7 +128,7 @@ export function MessageLogView({ practiceId, patientId = null, onNavigate }: Mes
       const body = await loadMessageBody(entry);
       setOpened(current => (current?.key === entry.key ? { key: entry.key, body, error: null } : current));
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'The message could not be opened.';
+      const message = error instanceof Error ? plainWords(error.message) : 'The message could not be opened.';
       setOpened(current => (current?.key === entry.key ? { key: entry.key, body: null, error: message } : current));
     }
   };

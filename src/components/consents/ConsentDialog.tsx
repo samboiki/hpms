@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
@@ -89,7 +90,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({ open, onClose, pra
         setSignerName(result.context.patient.name);
       })
       .catch((error: unknown) => {
-        if (active) setLoadError(error instanceof Error ? error.message : 'Could not read the patient record.');
+        if (active) setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not read the patient record.');
       });
     loadLetterTemplates(practiceId)
       .then(list => {
@@ -165,7 +166,7 @@ export const ConsentDialog: React.FC<ConsentDialogProps> = ({ open, onClose, pra
       onSigned?.();
     } catch (error) {
       if (error instanceof ConsentsNotSetUpError) setProblems([error.message]);
-      else toast.error(error instanceof Error ? error.message : 'The signed form could not be kept.', { duration: 8000 });
+      else toast.error(error instanceof Error ? plainWords(error.message) : 'The signed form could not be kept.', { duration: 8000 });
     } finally {
       setSaving(false);
     }

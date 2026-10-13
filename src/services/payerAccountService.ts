@@ -5,6 +5,7 @@
  * PayersNotSetUpError, which the screens show as "not set up yet".
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { readAllPages } from '../lib/pagedRows';
 import { isMissingFunctionError, isMissingTableError } from '../utils/diary/dbErrors';
@@ -286,7 +287,7 @@ export async function loadPracticePayerData(practiceId: string, invoices: Readon
   } catch (error) {
     if (isPayersNotSetUp(error)) return NO_PRACTICE_PAYERS;
     console.error('Finance: could not load the company accounts', error);
-    return { ...NO_PRACTICE_PAYERS, status: 'error', error: error instanceof Error ? error.message : 'The company accounts could not be read.' };
+    return { ...NO_PRACTICE_PAYERS, status: 'error', error: error instanceof Error ? plainWords(error.message) : 'The company accounts could not be read.' };
   }
 }
 

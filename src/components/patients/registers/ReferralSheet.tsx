@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../../finance/receipts/ArUi';
 import { todayKey } from '../../../utils/billing/dates';
@@ -72,14 +73,14 @@ const ReferralSheet: React.FC<ReferralSheetProps> = ({ practiceId, patientId, re
     } catch (error) {
       // A letter stored for a referral that was not saved is taken away again
       if (uploaded) void supabase.storage.from(RECORDS_BUCKET).remove([uploaded]);
-      setSaveError(error instanceof Error ? error.message : 'The referral could not be saved.');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The referral could not be saved.');
     } finally {
       setSaving(false);
     }
   };
 
   const openLetter = () => {
-    if (letter.path) void openRecord(letter.path).catch(error => setSaveError(error instanceof Error ? error.message : 'The letter could not be opened.'));
+    if (letter.path) void openRecord(letter.path).catch(error => setSaveError(error instanceof Error ? plainWords(error.message) : 'The letter could not be opened.'));
   };
 
   return (

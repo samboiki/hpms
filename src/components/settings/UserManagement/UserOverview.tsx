@@ -2,7 +2,7 @@ import React from 'react';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
 import { format, formatDistanceToNow } from 'date-fns';
-import { getGenderAppropriateAvatar, getFallbackAvatarColors } from '../../../utils/avatarUtils';
+import { UserAvatar } from '../../layout/ProfileMenu';
 import { formatRole, formatStaffName, maskAccountNumber, parseDateOnly, StaffActivityItem } from './staffUtils';
 
 interface UserData {
@@ -83,23 +83,8 @@ export const UserOverview: React.FC<UserOverviewProps> = ({
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-gray-200">
-            <img 
-              src={user.avatar || getGenderAppropriateAvatar(user.gender, user.email)}
-              alt={displayName}
-              className="w-full h-full object-cover"
-              onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                const target = e.currentTarget;
-                // If the avatar fails to load, show initials with gender-appropriate colors
-                const parent = target.parentElement;
-                if (parent) {
-                  parent.innerHTML = `
-                    <div class="w-full h-full bg-gradient-to-br ${getFallbackAvatarColors(user.gender)} flex items-center justify-center">
-                      <span class="text-white text-2xl font-bold">${user.full_name.charAt(0).toUpperCase()}</span>
-                    </div>
-                  `;
-                }
-              }}
-            />
+            {/* Their own photo, or their initials (never a stock photo of a stranger) */}
+            <span className="block h-full w-full text-2xl"><UserAvatar avatar={user.avatar} name={user.full_name} /></span>
           </div>
           <div>
             <h3 className="text-2xl font-bold text-gray-900">{displayName}</h3>

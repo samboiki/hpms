@@ -1,4 +1,5 @@
 import { decodeText, sha256Hex } from '../../../utils/remittance/fileRead';
+import { plainWords } from '../../../utils/plainErrors';
 import { extractPdfPages, looksLikePdf, PdfPasswordError } from '../../../utils/remittance/pdfExtract';
 import { isParsed, parseRemittancePages, parseRemittanceText } from '../../../utils/remittance/parseRemittance';
 import type { ParsedRemittanceFile } from '../../../utils/remittance/types';
@@ -38,6 +39,6 @@ export async function readRemittanceFile(file: Blob, password?: string): Promise
     return { sha256, state: isParsed(outcome) ? { status: 'parsed', parsed: outcome } : { status: 'unsupported', reason: outcome.reason } };
   } catch (error) {
     if (error instanceof PdfPasswordError) return { sha256, state: { status: 'password', incorrect: error.incorrect } };
-    return { sha256, state: { status: 'error', message: error instanceof Error && error.message ? error.message : 'The file could not be read.' } };
+    return { sha256, state: { status: 'error', message: error instanceof Error && error.message ? plainWords(error.message) : 'The file could not be read.' } };
   }
 }

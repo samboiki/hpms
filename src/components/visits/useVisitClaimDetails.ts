@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { loadVisitClaimDetails, saveVisitClaimDetails } from '../../services/claimRegistersService';
 import { draftOfClaimDetails, validateClaimDetailsDraft, type VisitClaimDetailsDraft } from '../../utils/billing/visitClaimDetails';
 
@@ -69,7 +70,7 @@ export function useVisitClaimDetails(visitId: string | null): VisitClaimDetailsS
         setDirty(false);
         return null;
       } catch (error) {
-        return error instanceof Error ? error.message : 'The referral and hospital details could not be saved.';
+        return error instanceof Error ? plainWords(error.message) : 'The referral and hospital details could not be saved.';
       }
     },
     [status, draft]

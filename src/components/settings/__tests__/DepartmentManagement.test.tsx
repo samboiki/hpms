@@ -11,14 +11,17 @@ import '@testing-library/jest-dom';
 
 const mocks = vi.hoisted(() => ({
   updatedRows: [{ id: 'dep-1' }] as unknown[],
+  role: 'admin',
   writes: [] as Array<{ table: string; values: unknown; filters: unknown[][] }>,
   toastSuccess: vi.fn(),
-  toastError: vi.fn()
+  toastError: vi.fn(),
+  refreshAfterSave: vi.fn(() => Promise.resolve())
 }));
+vi.mock('../../../lib/queryClient', () => ({ refreshAfterSave: mocks.refreshAfterSave }));
 
 vi.mock('react-hot-toast', () => ({ toast: { success: mocks.toastSuccess, error: mocks.toastError } }));
 vi.mock('../../../stores/authStore', () => ({
-  useAuthStore: () => ({ user: { id: 'u1', practice_id: 'practice-1', role: 'admin' } })
+  useAuthStore: () => ({ user: { id: 'u1', practice_id: 'practice-1', role: mocks.role } })
 }));
 vi.mock('../../../lib/supabase', () => {
   const rows: Record<string, unknown[]> = {
@@ -61,9 +64,11 @@ async function renameTo(name: string) {
 describe('DepartmentManagement save', () => {
   beforeEach(() => {
     mocks.updatedRows = [{ id: 'dep-1' }];
+    mocks.role = 'admin';
     mocks.writes = [];
     mocks.toastSuccess.mockReset();
     mocks.toastError.mockReset();
+    mocks.refreshAfterSave.mockClear();
   });
 
   it('moves the staff of a renamed department to the new name', async () => {
@@ -73,6 +78,8 @@ describe('DepartmentManagement save', () => {
     expect(staffMove?.values).toEqual({ department: 'Reception' });
     expect(staffMove?.filters).toContainEqual(['department', 'Front desk']);
     expect(staffMove?.filters).toContainEqual(['practice_id', 'practice-1']);
+    // Settings > Users keeps its list for 5 minutes (owner, 13 Oct 2026): the moved staff must show the new name there
+    expect(mocks.refreshAfterSave).toHaveBeenCalledWith('staff');
   });
 
   it('says the change was not saved when the database changed no row', async () => {
@@ -81,5 +88,18 @@ describe('DepartmentManagement save', () => {
     await waitFor(() => expect(mocks.toastError).toHaveBeenCalled());
     expect(mocks.toastSuccess).not.toHaveBeenCalled();
     expect(mocks.writes.some(w => w.table === 'users')).toBe(false);
+  });
+});
+
+// Owner decision 13 Oct 2026: Settings > Practice edit controls are for administrators; everyone else reads
+describe('DepartmentManagement for staff who are not administrators', () => {
+  it('shows the departments read-only: no add, edit, switch-off or delete buttons', async () => {
+    mocks.role = 'receptionist';
+    render(<DepartmentManagement />);
+    expect(await screen.findByText('Front desk')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add Department/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Edit department Front desk')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Delete department Front desk')).not.toBeInTheDocument();
+    mocks.role = 'admin';
   });
 });

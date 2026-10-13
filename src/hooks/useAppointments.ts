@@ -30,87 +30,46 @@ export interface Appointment {
   };
 }
 
+/**
+ * Today's appointments of the practice, with each patient and practitioner. The practice is matched through the
+ * appointment's patient in the same request (patients!patient_id!inner), instead of first reading every patient id of
+ * the practice and putting them all in one address: past about a thousand patients that address became too long and
+ * the Dashboard's appointments failed to load.
+ */
+export async function loadTodayAppointments(practiceId: string, todayDate: string): Promise<Appointment[]> {
+  const { data: appointments, error } = await supabase
+    .from('appointments')
+    .select('*, patient:patients!patient_id!inner(id, first_name, last_name, email, cell_number, practice_id)')
+    .eq('patient.practice_id', practiceId)
+    .eq('date', todayDate)
+    .order('time', { ascending: true });
+
+  if (error) throw error;
+  if (!appointments || appointments.length === 0) return [];
+
+  // Only today's practitioners (a handful), so this list stays short
+  const doctorIds = [...new Set(appointments.map(a => a.doctor_id).filter(Boolean))] as string[];
+  const doctors = doctorIds.length > 0
+    ? await supabase.from('users').select('id, full_name, email').in('id', doctorIds)
+    : { data: [], error: null };
+  if (doctors.error) throw doctors.error;
+  const doctorsMap = new Map((doctors.data || []).map(d => [d.id, d]));
+
+  return (appointments as unknown as Appointment[]).map(appointment => ({
+    ...appointment,
+    doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
+  }));
+}
+
 export function useTodayAppointments() {
   const { practiceId } = usePractice();
   const todayDate = format(new Date(), 'yyyy-MM-dd');
-  
+
   return useQuery({
     queryKey: ['appointments', 'today', practiceId, todayDate],
-    queryFn: async () => {
+    queryFn: () => {
       if (!practiceId) throw new Error('No practice ID available');
-      
-      const startTime = performance.now();
-      console.log('📅 Fetching today\'s appointments for practice:', practiceId);
-      
-      // Get all patients for this practice first
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('practice_id', practiceId);
-        
-      if (patientsError) throw patientsError;
-      
-      if (!patients || patients.length === 0) {
-        console.log('⚠️ No patients found for practice');
-        return [];
-      }
-      
-      const patientIds = patients.map(p => p.id);
-      
-      // Get today's appointments
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('*')
-        .in('patient_id', patientIds)
-        .eq('date', todayDate)
-        .order('time', { ascending: true });
-        
-      if (error) throw error;
-      
-      if (!appointments || appointments.length === 0) {
-        console.log('⚠️ No appointments found for today');
-        return [];
-      }
-      
-      // Get unique patient and doctor IDs
-      const uniquePatientIds = [...new Set(appointments.map(a => a.patient_id).filter(Boolean))];
-      const uniqueDoctorIds = [...new Set(appointments.map(a => a.doctor_id).filter(Boolean))];
-      
-      // Fetch patients and doctors in parallel
-      const [patientsResponse, doctorsResponse] = await Promise.all([
-        uniquePatientIds.length > 0 
-          ? supabase
-              .from('patients')
-              .select('id, first_name, last_name, email, cell_number')
-              .in('id', uniquePatientIds)
-          : Promise.resolve({ data: [], error: null }),
-        uniqueDoctorIds.length > 0
-          ? supabase
-              .from('users')
-              .select('id, full_name, email')
-              .in('id', uniqueDoctorIds)
-          : Promise.resolve({ data: [], error: null })
-      ]);
-      
-      if (patientsResponse.error) throw patientsResponse.error;
-      if (doctorsResponse.error) throw doctorsResponse.error;
-      
-      // Create lookup maps
-      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
-      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
-      
-      // Combine appointments with patient and doctor data
-      const appointmentsWithRelations = appointments.map(appointment => ({
-        ...appointment,
-        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
-        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
-      }));
-      
-      const queryTime = performance.now() - startTime;
-      console.log(`⏱️ Today's appointments fetched in ${queryTime.toFixed(2)}ms`);
-      console.log(`📊 Found ${appointments.length} appointments for today`);
-      
-      return appointmentsWithRelations;
+      return loadTodayAppointments(practiceId, todayDate);
     },
     enabled: !!practiceId,
     staleTime: 1000 * 60, // Consider data stale after 1 minute
@@ -120,105 +79,8 @@ export function useTodayAppointments() {
   });
 }
 
-export function useAppointments(filters?: {
-  date?: string;
-  doctorId?: string;
-  status?: string;
-  patientId?: string;
-}) {
-  const { practiceId } = usePractice();
-  
-  return useQuery({
-    queryKey: ['appointments', practiceId, filters],
-    queryFn: async () => {
-      if (!practiceId) throw new Error('No practice ID available');
-      
-      // Get all patients for this practice first
-      const { data: patients, error: patientsError } = await supabase
-        .from('patients')
-        .select('id')
-        .eq('practice_id', practiceId);
-        
-      if (patientsError) throw patientsError;
-      
-      if (!patients || patients.length === 0) {
-        return [];
-      }
-      
-      const patientIds = patients.map(p => p.id);
-      
-      // Build query - fetch appointments first without joins
-      let query = supabase
-        .from('appointments')
-        .select('*')
-        .in('patient_id', patientIds);
-        
-      // Apply filters
-      if (filters?.date) {
-        query = query.eq('date', filters.date);
-      }
-      if (filters?.doctorId) {
-        query = query.eq('doctor_id', filters.doctorId);
-      }
-      if (filters?.status) {
-        query = query.eq('status', filters.status);
-      }
-      if (filters?.patientId) {
-        query = query.eq('patient_id', filters.patientId);
-      }
-      
-      // Order by date and time
-      query = query.order('date', { ascending: false }).order('time', { ascending: true });
-      
-      const { data: appointments, error } = await query;
-      
-      if (error) throw error;
-      
-      if (!appointments || appointments.length === 0) {
-        return [];
-      }
-      
-      // Get unique patient and doctor IDs
-      const uniquePatientIds = [...new Set(appointments.map(a => a.patient_id).filter(Boolean))];
-      const uniqueDoctorIds = [...new Set(appointments.map(a => a.doctor_id).filter(Boolean))];
-      
-      // Fetch patients and doctors in parallel
-      const [patientsResponse, doctorsResponse] = await Promise.all([
-        uniquePatientIds.length > 0 
-          ? supabase
-              .from('patients')
-              .select('id, first_name, last_name, email, cell_number')
-              .in('id', uniquePatientIds)
-          : Promise.resolve({ data: [], error: null }),
-        uniqueDoctorIds.length > 0
-          ? supabase
-              .from('users')
-              .select('id, full_name, email')
-              .in('id', uniqueDoctorIds)
-          : Promise.resolve({ data: [], error: null })
-      ]);
-      
-      if (patientsResponse.error) throw patientsResponse.error;
-      if (doctorsResponse.error) throw doctorsResponse.error;
-      
-      // Create lookup maps
-      const patientsMap = new Map((patientsResponse.data || []).map(p => [p.id, p]));
-      const doctorsMap = new Map((doctorsResponse.data || []).map(d => [d.id, d]));
-      
-      // Combine appointments with patient and doctor data
-      const appointmentsWithRelations = appointments.map(appointment => ({
-        ...appointment,
-        patient: appointment.patient_id ? patientsMap.get(appointment.patient_id) : undefined,
-        doctor: appointment.doctor_id ? doctorsMap.get(appointment.doctor_id) : undefined
-      }));
-      
-      return appointmentsWithRelations;
-    },
-    enabled: !!practiceId,
-    staleTime: 1000 * 60 * 2, // Consider data stale after 2 minutes
-    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
-  });
-}
+// useAppointments (any day, with filters) read every patient id of the practice the same way; nothing used it, so it
+// was removed (13 Oct 2026)
 
 // Hook to subscribe to real-time appointment changes
 export function useRealtimeAppointments() {
@@ -245,7 +107,6 @@ export function useRealtimeAppointments() {
           
           // Invalidate relevant queries
           queryClient.invalidateQueries({ queryKey: ['appointments', 'today', practiceId, todayDate] });
-          queryClient.invalidateQueries({ queryKey: ['appointments', practiceId] });
         }
       )
       .subscribe();

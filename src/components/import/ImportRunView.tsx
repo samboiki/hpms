@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import {
@@ -53,7 +54,7 @@ const progressOf = (run: ImportRun): ImportProgress => ({
   undoLeft: 0
 });
 
-const message = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? error.message : fallback);
+const message = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? plainWords(error.message) : fallback);
 
 /** The rows of a finished import that staff may want to look at, per list */
 function resultRows(rows: readonly ImportRowResult[]) {

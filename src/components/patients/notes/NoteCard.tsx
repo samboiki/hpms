@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { CHIP, INPUT, LABEL, PRIMARY_BUTTON, QUIET_BUTTON, SECONDARY_BUTTON } from '../../patientLists/listStyles';
@@ -99,7 +100,7 @@ export const NoteCard: React.FC<NoteCardProps> = ({ note, visible, staff, staffB
       toast.success(success);
       return true;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'That did not work. Try again.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'That did not work. Try again.');
       return false;
     } finally {
       setBusy(false);

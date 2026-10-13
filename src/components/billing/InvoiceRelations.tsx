@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -107,7 +108,7 @@ const InvoiceRelations: React.FC<InvoiceRelationsProps> = ({ invoice, onNavigate
       const doc = await downloadInvoicePdf(invoice.id);
       if (doc.missing.length > 0) toast(`Invoice downloaded. NAMAF rule 008 also asks for: ${doc.missing.join(' ')}`, { duration: 10000 });
     } catch (error) {
-      toast.error(`Could not make the invoice PDF: ${error instanceof Error ? error.message : 'unknown error'}`);
+      toast.error(`Could not make the invoice PDF: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}`);
     } finally {
       setDownloading(false);
     }

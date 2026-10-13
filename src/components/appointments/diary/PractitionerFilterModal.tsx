@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import type { DiaryPractitioner } from '../../../utils/diary/diaryPractitioners';
@@ -71,7 +72,7 @@ export const PractitionerFilterModal: React.FC<PractitionerFilterModalProps> = (
     setSaveError(null);
     const result = await onSaveDefault(view);
     setSaving(false);
-    if (!result.ok) setSaveError(result.message);
+    if (!result.ok) setSaveError(plainWords(result.message));
   };
 
   const rowClass = (checked: boolean) =>

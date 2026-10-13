@@ -36,6 +36,8 @@ vi.mock('../../../lib/supabase', () => ({
   }
 }));
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
+const refresh = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock('../../../lib/queryClient', () => ({ refreshAfterSave: refresh }));
 
 import { PracticeTypeSection } from '../PracticeTypeSection';
 
@@ -43,6 +45,7 @@ beforeEach(() => {
   db.practice = { practice_type: 'general', practice_type_id: 'type-dental' };
   db.updateResult = { data: [{ id: 'practice-1' }], error: null };
   db.updates = [];
+  refresh.mockClear();
 });
 
 describe('PracticeTypeSection', () => {
@@ -61,6 +64,9 @@ describe('PracticeTypeSection', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save type' }));
     await waitFor(() => expect(db.updates).toEqual([{ practice_type: 'dental', practice_type_id: 'type-dental' }]));
     expect(await screen.findByText(/Saved: Dental/)).toBeInTheDocument();
+    // The menu, the tariff list and the diary read the practice from the shared 5-minute cache (owner, 13 Oct 2026):
+    // the saved type refreshes it, or the menu would keep the old type for up to 5 minutes
+    expect(refresh).toHaveBeenCalledWith('practice');
   });
 
   // The practices_protected_columns trigger refuses anyone but an administrator; its own words explain why
@@ -81,5 +87,6 @@ describe('PracticeTypeSection', () => {
     render(<PracticeTypeSection practiceId="practice-1" canChange />);
     fireEvent.click(await screen.findByRole('button', { name: 'Save type' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Not saved');
+    expect(refresh).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { isRecallsNotSetUpError, patientRecallService } from '../../services/patientRecallService';
@@ -99,7 +100,7 @@ export const RecallSheet: React.FC<RecallSheetProps> = ({ open, onClose, practic
       await load();
       onChanged?.();
     } catch (error) {
-      setProblem(isRecallsNotSetUpError(error) ? 'Recalls are not set up in this database yet.' : error instanceof Error ? error.message : 'Could not save the recall.');
+      setProblem(isRecallsNotSetUpError(error) ? 'Recalls are not set up in this database yet.' : error instanceof Error ? plainWords(error.message) : 'Could not save the recall.');
     } finally {
       setBusy(null);
     }
@@ -115,7 +116,7 @@ export const RecallSheet: React.FC<RecallSheetProps> = ({ open, onClose, practic
       await load();
       onChanged?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not remove the recall.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not remove the recall.');
     } finally {
       setBusy(null);
     }

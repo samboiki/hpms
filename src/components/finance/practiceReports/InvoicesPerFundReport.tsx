@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import type { FinanceWorkspace } from '../financeData';
 import { formatDateKey } from '../financeFormat';
 import type { PeriodLabels } from '../financeNav';
@@ -49,7 +50,7 @@ export const InvoicesPerFundReport: React.FC<Props> = ({ practiceId, practiceNam
     setBatchError(null);
     loadBatchInfo(batchIds ? batchIds.split(',') : [])
       .then(map => { if (!cancelled) setBatches(map); })
-      .catch(error => { if (!cancelled) setBatchError(error instanceof Error ? error.message : 'Could not load the claim batches.'); });
+      .catch(error => { if (!cancelled) setBatchError(error instanceof Error ? plainWords(error.message) : 'Could not load the claim batches.'); });
     return () => {
       cancelled = true;
     };

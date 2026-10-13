@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { buildClaimFile, joinDiagnosisCodes, splitDiagnosisCodes } from '../../../utils/billing/claimFile';
 import { validateClaimBatch, type LineValidation } from '../../../utils/billing/claimValidation';
-import { describeDeadline, getFundRule } from '../../../utils/billing/fundRules';
+import { deadlineFromService, getFundRule } from '../../../utils/billing/fundRules';
 import { formatNad, toCents } from '../../../utils/billing/money';
 import { formatServiceDate, todayKey } from '../../../utils/billing/dates';
 import { isValidIcd10Format, normalizeIcd10, type Icd10Selection } from '../../../utils/billing/icd10';
@@ -129,13 +130,13 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
           })
           .catch(err => {
             if (!cancelled) {
-              setPreSend({ history: NO_HISTORY, note: `Earlier fund answers could not be read (${err instanceof Error ? err.message : 'unknown error'}), so those checks were skipped.` });
+              setPreSend({ history: NO_HISTORY, note: `Earlier fund answers could not be read (${err instanceof Error ? plainWords(err.message) : 'unknown error'}), so those checks were skipped.` });
             }
           });
         setDrafts(initialDrafts(result, usual.status === 'ready' ? usual.defaults : null));
       })
       .catch(err => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the batch lines.');
+        if (!cancelled) setError(err instanceof Error ? plainWords(err.message) : 'Could not load the batch lines.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -155,7 +156,7 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
         setOutcomesNote(result === null ? "The funds' answers per line are not set up in this database yet (proposals/2026-10-08-claims-follow-up.sql)." : null);
       })
       .catch(err => {
-        if (!cancelled) setOutcomesNote(`The funds' answers could not be loaded (${err instanceof Error ? err.message : 'unknown error'}).`);
+        if (!cancelled) setOutcomesNote(`The funds' answers could not be loaded (${err instanceof Error ? plainWords(err.message) : 'unknown error'}).`);
       });
     return () => {
       cancelled = true;
@@ -313,7 +314,7 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
         )
       ].join('');
     } catch (err) {
-      return ` The codes could not be put on the invoice lines: ${err instanceof Error ? err.message : 'unknown error'}.`;
+      return ` The codes could not be put on the invoice lines: ${err instanceof Error ? plainWords(err.message) : 'unknown error'}.`;
     }
   };
 
@@ -336,7 +337,7 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
       setReloadKey(key => key + 1);
       onChanged();
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : 'The ICD-10 codes could not be saved.');
+      setNotice(err instanceof Error ? plainWords(err.message) : 'The ICD-10 codes could not be saved.');
     } finally {
       setSaving(false);
     }
@@ -371,13 +372,13 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
     setNotice(null);
     try {
       const result = await removeInvoiceFromBatch(batch, group.invoiceId, group.invoiceNumber);
-      setNotice(result.message);
+      setNotice(plainWords(result.message));
       if (result.status !== 'blocked') {
         setReloadKey(key => key + 1);
         onChanged();
       }
     } catch (err) {
-      setNotice(err instanceof Error ? err.message : 'The invoice could not be removed from the batch.');
+      setNotice(err instanceof Error ? plainWords(err.message) : 'The invoice could not be removed from the batch.');
     } finally {
       setRemovingInvoiceId(null);
     }
@@ -433,7 +434,7 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
             </p>
           ) : (
             <p className="text-sm text-gray-500">
-              {lines.length} line(s), {formatNad(validation.totalCents / 100)}. Deadline: {fundRule.label} ({describeDeadline(fundRule)} from the service date)
+              {lines.length} line(s), {formatNad(validation.totalCents / 100)}. Deadline: {fundRule.label} ({deadlineFromService(fundRule)})
               {submitBy ? `; submit by ${formatServiceDate(submitBy)}` : ''}.
             </p>
           )}

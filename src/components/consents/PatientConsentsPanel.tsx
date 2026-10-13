@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { ConsentsNotSetUpError, listConsents, type ConsentRecord } from '../../services/patientConsentsService';
@@ -29,7 +30,7 @@ export const PatientConsentsPanel: React.FC<PatientConsentsPanelProps> = ({ prac
     try {
       setState({ status: 'ready', consents: await listConsents(patientId, { visitId }) });
     } catch (error) {
-      setState(error instanceof ConsentsNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? error.message : 'Could not load the consent forms.' });
+      setState(error instanceof ConsentsNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the consent forms.' });
     }
   }, [patientId, visitId]);
 

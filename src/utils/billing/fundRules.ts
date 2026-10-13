@@ -6,11 +6,14 @@
  * OneHealth support on Administration > Medical aid funds; src/hooks/useFundRules.ts reads them once per session and
  * puts them in force here (setFundRulesInForce). Until then, and whenever the table cannot be read, FUND_RULES below
  * (the values the app always used) apply, so claims keep working without the table.
- *   deadline        NHP 4 months, NMC 120 days, PSEMAS 180 days (team research, October 2026): confirmed, so a line
- *                   past it is not sent. NAMMED and Prosperity 120 days: NOT confirmed with the fund, so a late line
- *                   is flagged, never blocked. A fund without a rule gets the shortest known deadline (120 days),
- *                   also only flagged: a guess never stops a claim the fund might still pay.
- *   membership      digits only, one of these lengths (NMC 9, NHP and NAMMED 11, learned from accepted claims); a
+ *   deadline        The standard (researched 13 Oct 2026; sources at FUND_RULES, owner summary in the wave-11 note
+ *                   claims-standards.md): NHP and NAMMED to the last day of the 4th month after the month of service
+ *                   (their published rules), NMC 120 and PSEMAS 180 calendar days (Methealth): confirmed, so a line
+ *                   past it is not sent. Prosperity 4 months: NOT confirmed with the fund, so a late line is flagged,
+ *                   never blocked. A fund without a rule gets the shortest known deadline (120 days), also only
+ *                   flagged: a guess never stops a claim the fund might still pay.
+ *   membership      digits only, one of these lengths (NMC 9, NHP and NAMMED 11, PSEMAS 9 or the old 13-14, Prosperity
+ *                   6; learned from claims the funds accepted and their statements, no fund publishes a format); a
  *                   number that does not fit is only a warning: reception checks it against the card.
  *   dependant code  a spouse or child is claimed with the code from the card ("01 JOHN"), unless the fund says not.
  *   payment terms   days a fund usually takes to answer (PSEMAS 60, the others 30): how long "Funds that have not
@@ -24,7 +27,23 @@ import { identifyFund } from '../remittance/funds.ts';
 export interface FundDeadline {
   days?: number;
   months?: number;
+  /** With months: counted to the last day of the Nth month after the month of service (set by MONTH_END_FUNDS) */
+  monthEnd?: boolean;
 }
+
+/**
+ * Funds whose rules count a months deadline to the end of the month: "not later than the last day of the fourth month
+ * following the month in which the service was rendered". The same wording as the Medical Aid Funds Regulations, 1997
+ * (GN 12 of 1997, regulation 7(1)(a)), the shortest period a registered fund may set
+ * (https://www.lac.org.na/laws/annoREG/Medical%20Aid%20Funds%20Act%2023%20of%201995-Regulations%201997-012.docx).
+ *   NAMM  Nammed Medical Aid Fund member guide, "Claims procedures" (https://www.nammed.com.na/uploads/documents/
+ *         4260bdcc2c8fbf7db85adf639cbdc921ff17106e.pdf, read 13 Oct 2026)
+ *   NHPM  NHP notice "Submission of claims for medical treatment within 4 months after the treatment date"
+ *         (https://nhp.com.na/news/submission-of-claims-for-medical-treatment-within-4-months-after-the-treatment-date/)
+ *         and User Guide 2026: December's claims run to 30 April (read 13 Oct 2026)
+ * Applies to the fund master's months deadline for these funds too, so support only sets the number of months.
+ */
+export const MONTH_END_FUNDS: ReadonlySet<string> = new Set(['NHPM', 'NAMM']);
 
 export interface FundRule {
   /** The fund's claim code (MAG1, NMC1, NHPM, NAMM, PROS); 'DEFAULT' for a fund without a rule */
@@ -77,10 +96,11 @@ interface RuleValues {
 function ruleFor(code: string, values: RuleValues, fundName?: string | null): FundRule {
   const identity = identifyFund(code);
   const sameFund = identity?.code === code;
+  const { months } = values.deadline;
   return {
     key: code,
     label: (sameFund ? identity.label : null) ?? (fundName?.trim() || code),
-    deadline: values.deadline,
+    deadline: months !== undefined && MONTH_END_FUNDS.has(code) ? { months, monthEnd: true } : values.deadline,
     references: sameFund ? [code, ...identity.aliases.filter(alias => alias !== code)] : [code],
     configured: true,
     confirmed: values.confirmed,
@@ -93,16 +113,42 @@ function ruleFor(code: string, values: RuleValues, fundName?: string | null): Fu
 }
 
 /**
- * The built-in rules: the values the app used before the fund master (and the table's seed). They apply until the
- * table is read, and for any fund it has no usable row for.
+ * The built-in rules: the standard researched on 13 Oct 2026. They apply until the fund master table is read, and for
+ * any fund it has no usable row for; OneHealth support overrides any of them on Administration > Medical aid funds
+ * (proposals/2026-10-13-claims-standards.sql brings the table's rows to the same values).
+ * Membership lengths: no fund publishes a number format; they are the lengths on claims the fund accepted (the
+ * practice's Eminance claim files) and on the funds' own statements, so a mismatch only warns.
  */
 export const FUND_RULES: readonly FundRule[] = [
+  // Last day of the 4th month after the service month (MONTH_END_FUNDS: NHP's notice and User Guide 2026)
   ruleFor('NHPM', { deadline: { months: 4 }, confirmed: true, membershipDigits: [11], paymentTermsDays: 30 }),
+  // Methealth "Claim submission period": NMC 120 calendar days from the date of service, later claims rejected
+  // (https://www.methealth.com.na/guidelines2?proc=Claim+Submission+Period, read 13 Oct 2026)
   ruleFor('NMC1', { deadline: { days: 120 }, confirmed: true, membershipDigits: [9], paymentTermsDays: 30 }),
+  // Methealth "Claim submission period": PSEMAS 180 calendar days from the date of service (same page; the PSEMAS
+  // member guide 2013/14 said the same). Numbers: 9 digits on Methealth's statements (new format, zero-padded); older
+  // cards carry a 13 or 14 digit number that PSEMAS accepted on claims.
   // PSEMAS pays a median 31 days after the service: at 30 days half its batches would show as not answered
-  ruleFor('MAG1', { deadline: { days: 180 }, confirmed: true, paymentTermsDays: 60 }),
-  ruleFor('NAMM', { deadline: { days: 120 }, confirmed: false, membershipDigits: [11], paymentTermsDays: 30 }),
-  ruleFor('PROS', { deadline: { days: 120 }, confirmed: false, paymentTermsDays: 30 })
+  ruleFor('MAG1', {
+    deadline: { days: 180 },
+    confirmed: true,
+    membershipDigits: [9, 13, 14],
+    membershipHint: 'New PSEMAS numbers have 9 digits (with leading zeros); older cards show 13 or 14. Check the card.',
+    paymentTermsDays: 60
+  }),
+  // Last day of the 4th month after the service month (MONTH_END_FUNDS: Nammed member guide, "Claims procedures")
+  ruleFor('NAMM', { deadline: { months: 4 }, confirmed: true, membershipDigits: [11], paymentTermsDays: 30 }),
+  // Not confirmed: Prosperity Health publishes no rule; the only source is the Napotel booklet 2020, a fund Prosperity
+  // administers: "not later than four (4) months from the date of service"
+  // (http://www.napotelmedical.com.na/images/documents/13399_Prosperita_Napotel_Contents.pdf, read 13 Oct 2026).
+  // 6 digits: seen on the practice's accepted PROS claim files only.
+  ruleFor('PROS', {
+    deadline: { months: 4 },
+    confirmed: false,
+    membershipDigits: [6],
+    membershipHint: 'Prosperity numbers seen so far have 6 digits; not confirmed with the fund. Check the card.',
+    paymentTermsDays: 30
+  })
 ];
 
 export const DEFAULT_FUND_RULE: FundRule = {
@@ -205,7 +251,12 @@ export function fundRulesFromRows(rows: readonly FundRuleRow[], fundNames?: Read
 
 /** The last day (yyyy-MM-dd) on which a claim for this service date can still be submitted. */
 export function lastSubmissionDay(serviceDate: string, rule: FundRule): string {
-  if (rule.deadline.months !== undefined) return addMonthsToKey(serviceDate, rule.deadline.months);
+  const { months, monthEnd } = rule.deadline;
+  if (months !== undefined && monthEnd) {
+    // The day before the first of the month after the Nth month: 10 Jan + 4 -> 31 May
+    return addDaysToKey(addMonthsToKey(`${serviceDate.slice(0, 7)}-01`, months + 1), -1);
+  }
+  if (months !== undefined) return addMonthsToKey(serviceDate, months);
   return addDaysToKey(serviceDate, rule.deadline.days ?? DEFAULT_FUND_RULE.deadline.days ?? 120);
 }
 
@@ -237,11 +288,27 @@ export function checkClaimDeadline(
   return { status: 'ok', lastDay, daysLeft };
 }
 
-/** Describes a fund deadline in words, e.g. "4 months" or "120 days". */
+/** Describes a fund deadline in words, e.g. "4 months", "120 days" or "4 months to month-end". */
 export function describeDeadline(rule: FundRule): string {
-  if (rule.deadline.months !== undefined) return `${rule.deadline.months} months`;
+  if (rule.deadline.months !== undefined) return `${rule.deadline.months} months${rule.deadline.monthEnd ? ' to month-end' : ''}`;
   return `${rule.deadline.days ?? 120} days`;
 }
+
+/**
+ * The deadline as a sentence part: "120 days from the service date", or "to the end of the 4th month after the
+ * service month" for a fund that counts to the month's end.
+ */
+export function deadlineFromService(rule: FundRule): string {
+  const { months, monthEnd } = rule.deadline;
+  if (months !== undefined && monthEnd) return `to the end of the ${ordinal(months)} month after the service month`;
+  return `${describeDeadline(rule)} from the service date`;
+}
+
+const ordinal = (n: number): string => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+  return `${n}${suffix}`;
+};
 
 /** Why a deadline only warns, in words: null for a confirmed one */
 export function deadlineCaveat(rule: FundRule): string | null {

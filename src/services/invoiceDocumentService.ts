@@ -20,6 +20,7 @@ import { MATERIAL_FACTOR_CODE } from '../utils/billing/tariffRules';
 import { matchInvoiceServices } from '../components/finance/claims/buildClaimLines';
 import type { BatchDetailRow, InvoiceServiceRow } from '../components/finance/claims/types';
 import { loadLetterhead } from '../components/quotes/quoteService';
+import { loadItemVatRates } from './vatSettingsService';
 import { buildInvoiceDocument, type InvoiceDocument, type InvoiceDocumentInput, type InvoiceDocumentLine } from '../components/billing/invoiceDocument';
 import { renderInvoicePdf } from '../components/billing/invoicePdf';
 import { isQuadrant } from '../utils/dental/lineTeeth';
@@ -90,12 +91,14 @@ export async function loadInvoiceDocumentInput(invoiceId: string): Promise<Invoi
   const practiceId = text(inv.practice_id) ?? visit?.practice_id ?? null;
   if (!practiceId) throw new Error('The invoice is not linked to a practice, so it has no letterhead.');
   const patientId = String(inv.patient_id);
-  const [letterhead, practiceRow, patientResult, aidResult, providersResult] = await Promise.all([
+  const [letterhead, practiceRow, patientResult, aidResult, providersResult, vatRates] = await Promise.all([
     loadLetterhead(practiceId),
     supabase.from('practices').select('practice_type').eq('id', practiceId).maybeSingle(),
     supabase.from('patients').select('first_name, last_name, date_of_birth, cell_number, email, id_number, gender').eq('id', patientId).maybeSingle(),
     db.from('medical_aid_details').select('*').eq('patient_id', patientId).order('updated_at', { ascending: false }).limit(1),
-    supabase.from('medical_aid_providers').select('id, name, short_name, medical_aid_reference')
+    supabase.from('medical_aid_providers').select('id, name, short_name, medical_aid_reference'),
+    // Settings > Practice > VAT and the VAT rate of each stock item billed (services are exempt); never throws
+    loadItemVatRates(practiceId, lineRows.map(row => text(row.stock_item_id) ?? ''))
   ]);
   const practiceType = practiceRow.data?.practice_type ?? null;
   const patient = patientResult.data;
@@ -137,7 +140,8 @@ export async function loadInvoiceDocumentInput(invoiceId: string): Promise<Invoi
       authorisationNumber: text(row.authorisation_number),
       // A filling's surfaces and the quadrant of a code billed per quadrant (line-teeth update), in the tooth column
       surfaces: text(row.tooth_surfaces),
-      quadrant: isQuadrant(Number(row.tooth_quadrant)) ? Number(row.tooth_quadrant) : null
+      quadrant: isQuadrant(Number(row.tooth_quadrant)) ? Number(row.tooth_quadrant) : null,
+      vatRate: text(row.stock_item_id) ? vatRates.rates.get(String(row.stock_item_id)) ?? 0 : 0
     };
   });
 
@@ -205,6 +209,7 @@ export async function loadInvoiceDocumentInput(invoiceId: string): Promise<Invoi
     })),
     lines,
     offBenchmarkCodes: await offBenchmarkCodes(practiceType, lines, toDateKey(visit?.visit_date ?? null) ?? issueDate ?? todayKey()),
+    vat: vatRates.settings.registered ? { vatNumber: vatRates.settings.vatNumber } : null,
     discounts: standingDiscounts(discountRows).discounts.map(discount => ({
       number: discount.number,
       amountCents: discount.amountCents,

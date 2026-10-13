@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { formatServiceDate } from '../../../utils/billing/dates';
@@ -101,7 +102,7 @@ const PatientPayersRegister: React.FC<PatientPayersRegisterProps> = ({ practiceI
       payers.reload();
       if (invoices) onInvoicesChanged?.();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'That did not work. Try again.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'That did not work. Try again.');
     } finally {
       setBusy(null);
     }

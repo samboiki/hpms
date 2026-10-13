@@ -26,7 +26,9 @@ const mocks = vi.hoisted(() => {
     updatePassword: vi.fn(),
     checkPassword: vi.fn(),
     endCheckSession: vi.fn(),
-    createClient: vi.fn()
+    createClient: vi.fn(),
+    listFactors: vi.fn(),
+    signOutOthers: vi.fn()
   };
 });
 
@@ -51,7 +53,7 @@ vi.mock('../lib/supabase', () => {
       Promise.resolve({ data: [], error: null }).then(resolve, reject);
     return chain;
   };
-  return { supabase: { from: () => builder(), rpc: () => builder(), auth: { updateUser: mocks.updatePassword } } };
+  return { supabase: { from: () => builder(), rpc: () => builder(), auth: { updateUser: mocks.updatePassword, signOut: mocks.signOutOthers, mfa: { listFactors: mocks.listFactors } } } };
 });
 // The throwaway client that checks the current password
 vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }));
@@ -98,6 +100,8 @@ beforeEach(() => {
   mocks.checkPassword.mockReset().mockResolvedValue({ error: null });
   mocks.endCheckSession.mockReset().mockResolvedValue({ error: null });
   mocks.createClient.mockReset().mockImplementation(() => ({ auth: { signInWithPassword: mocks.checkPassword, signOut: mocks.endCheckSession } }));
+  mocks.listFactors.mockReset().mockResolvedValue({ data: { all: [], totp: [], phone: [] }, error: null });
+  mocks.signOutOthers.mockReset().mockResolvedValue({ error: null });
   vi.mocked(toast.success).mockClear();
   vi.mocked(toast.error).mockClear();
 });
@@ -300,5 +304,35 @@ describe('Account > Security: changing one\'s own password', () => {
     await waitFor(() => expect(screen.getByLabelText('Current Password')).toHaveValue(''));
     expect(screen.getByLabelText('New Password')).toHaveValue('');
     expect(screen.getByLabelText('Confirm Password')).toHaveValue('');
+  });
+});
+
+// Owner decision 13 Oct 2026: the security block shows only what is true (no invented session list or a 2FA that
+// says "enabled" for everyone), using Supabase Auth's own two-step sign-in and "sign out of other devices"
+describe('Account > Security: two-step sign-in and other devices', () => {
+  const openSecurity = () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Security' }));
+  };
+
+  it('says two-step sign-in is off when no authenticator app is linked, and offers to set it up', async () => {
+    openSecurity();
+    expect(await screen.findByText(/Two-step sign-in is off/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Set up two-step sign-in/ })).toBeInTheDocument();
+    expect(screen.queryByText(/San Francisco|New York/)).not.toBeInTheDocument();
+  });
+
+  it('says it is on when an authenticator app is linked', async () => {
+    mocks.listFactors.mockResolvedValue({ data: { all: [], totp: [{ id: 'f1', factor_type: 'totp', status: 'verified', created_at: '2026-10-01T08:00:00Z' }], phone: [] }, error: null });
+    openSecurity();
+    expect(await screen.findByText(/Two-step sign-in is on/)).toBeInTheDocument();
+    expect(screen.getByText(/added 1 Oct 2026/)).toBeInTheDocument();
+  });
+
+  it('signs out the other devices only, keeping this one signed in', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    openSecurity();
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out of all other devices' }));
+    await waitFor(() => expect(mocks.signOutOthers).toHaveBeenCalledWith({ scope: 'others' }));
   });
 });

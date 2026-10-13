@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { ChoiceGroup, ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../../finance/receipts/ArUi';
 import { MedicalAidLogo } from '../../ui/MedicalAidLogo';
 import { loadFundLogos } from '../../../hooks/useMedicalAidLogo';
@@ -82,7 +83,7 @@ const AuthorisationSheet: React.FC<AuthorisationSheetProps> = ({ patientId, auth
     try {
       onSaved(await savePatientAuthorisation(authorisation?.id ?? null, patientId, checked.value));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The authorisation could not be saved.');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The authorisation could not be saved.');
     } finally {
       setSaving(false);
     }

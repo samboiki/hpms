@@ -26,10 +26,11 @@ const workspace = (arState: 'ready' | 'not_set_up') =>
 
 describe('Finance > Invoicing says where invoices are paid', () => {
   // "Finance is read-only ... marked paid on the patient's Billing tab" was untrue once receipts are in use: the invoice
-  // in Finance takes payments, credit notes and discounts itself
+  // in Finance takes payments and credit notes itself (no discounts: owner, 13 Oct 2026)
   it('once receipts are in use, points to the invoice itself', () => {
     render(<InvoicingTab workspace={workspace('ready')} labels={labels} onOpenInvoice={vi.fn()} />);
-    expect(screen.getByText(/Open an invoice to receive a payment, credit it or give a discount/)).toBeInTheDocument();
+    expect(screen.getByText(/Open an invoice to receive a payment or credit it;/)).toBeInTheDocument();
+    expect(screen.queryByText(/discount/)).toBeNull();
     expect(screen.queryByText(/Finance is read-only/)).toBeNull();
   });
 

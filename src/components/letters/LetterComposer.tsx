@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -127,7 +128,7 @@ export const LetterComposer: React.FC<LetterComposerProps> = ({ open, onClose, p
         if (active) setLoaded(result);
       })
       .catch((error: unknown) => {
-        if (active) setLoadError(error instanceof Error ? error.message : 'Could not read the patient record.');
+        if (active) setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not read the patient record.');
       });
     // Before the letter templates update (or when they cannot be read) there are simply none to choose from
     loadLetterTemplates(practiceId)
@@ -198,7 +199,7 @@ export const LetterComposer: React.FC<LetterComposerProps> = ({ open, onClose, p
       if (error instanceof LettersNotSetUpError) {
         notKept = true;
       } else {
-        toast.error(error instanceof Error ? error.message : 'Could not keep the letter on the file.');
+        toast.error(error instanceof Error ? plainWords(error.message) : 'Could not keep the letter on the file.');
         setSaving(false);
         return;
       }
@@ -239,7 +240,7 @@ export const LetterComposer: React.FC<LetterComposerProps> = ({ open, onClose, p
       if (error instanceof LettersNotSetUpError) {
         notKept = true;
       } else {
-        toast.error(error instanceof Error ? error.message : 'Could not keep the letter on the file.');
+        toast.error(error instanceof Error ? plainWords(error.message) : 'Could not keep the letter on the file.');
         setSaving(false);
         return;
       }

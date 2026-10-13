@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import { parseAmountInput } from '../../../services/ledgerService';
 import { AmountInput, ChoiceGroup, ErrorBox, Field, PrimaryButton, SecondaryButton, SummaryRow, inputClass } from '../receipts/ArUi';
@@ -71,7 +72,7 @@ export const CompanyPaymentForm: React.FC<CompanyPaymentFormProps> = ({ accountI
         `Receipt ${result.receiptNumber} recorded for ${accountName}: ${nad(result.allocatedCents)} on its invoices${result.unallocatedCents > 0 ? `, ${nad(result.unallocatedCents)} kept as its credit` : ''}.`
       );
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The payment could not be recorded.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The payment could not be recorded.');
     } finally {
       setSaving(false);
     }

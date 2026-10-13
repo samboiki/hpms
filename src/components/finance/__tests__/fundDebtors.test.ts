@@ -15,7 +15,7 @@ const inv = (row: Partial<RawInvoiceRow> & { id: string }): LedgerInvoice => nor
   ...row
 });
 
-const SCHEMES: Record<string, string> = { 'nhp-patient': 'Namibia Health Plan', 'nmc-patient': 'NMC', 'nammed-patient': 'Nammed' };
+const SCHEMES: Record<string, string> = { 'nhp-patient': 'Namibia Health Plan', 'nmc-patient': 'NMC', 'nammed-patient': 'Nammed', 'pros-patient': 'Prosperity Health' };
 
 const batch = (id: string, status: string | null, sentAt: string | null = null, fundReference: string | null = null): ClaimBatchState =>
   ({ id, status, sentAt, fundReference });
@@ -55,12 +55,12 @@ describe('debtors by medical aid fund', () => {
       { batches: [batch('b-open', 'active'), batch('b-sent', 'sent', '2026-09-25T08:00:00Z'), batch('b-paid', 'paid', '2026-09-01T08:00:00Z')] }
     );
     expect(result.rows[0]).toEqual({
-      fund: 'Namibia Health Plan', deadline: '4 months', invoiceCount: 4, notBatched: 100, inUnsentBatch: 200, pastDeadline: 0, sent: 700, total: 1000
+      fund: 'Namibia Health Plan', deadline: '4 months to month-end', invoiceCount: 4, notBatched: 100, inUnsentBatch: 200, pastDeadline: 0, sent: 700, total: 1000
     });
   });
 
   it('flags an unsent claim past the fund deadline, counted from the visit date (else the invoice date), as the claims screen does', () => {
-    // NHP allows 4 months: a 1 May visit had to be claimed by 1 Sep
+    // NHP allows until the end of the 4th month after the service month: a 1 May visit had to be claimed by 30 Sep
     const late = inv({ id: 'late', visit_id: 'v-may', issue_date: '2026-07-01' });
     expect(debtors([late], { serviceDateByVisit: { 'v-may': '2026-05-01' } }).rows[0]).toMatchObject({ pastDeadline: 800, notBatched: 0 });
     // without the visit date the 1 Jul invoice date is used, which is still in time
@@ -85,11 +85,12 @@ describe('debtors by medical aid fund', () => {
 
   it('only judges deadlines that are configured for the fund, and says so', () => {
     const result = debtors([
-      inv({ id: 'nammed', patient_id: 'nammed-patient', issue_date: '2025-01-15', due_date: '2025-02-15' }),
+      // Prosperity publishes no deadline (claims standard of 13 Oct 2026): its 4 months are a guess, never judged here
+      inv({ id: 'prosperity', patient_id: 'pros-patient', issue_date: '2025-01-15', due_date: '2025-02-15' }),
       inv({ id: 'unknown', patient_id: 'no-medical-aid-record', issue_date: '2025-01-15', due_date: '2025-02-15' })
     ]);
     expect(result.rows).toEqual([
-      expect.objectContaining({ fund: 'Nammed', notBatched: 800, pastDeadline: 0, deadline: null }),
+      expect.objectContaining({ fund: 'Prosperity Health', notBatched: 800, pastDeadline: 0, deadline: null }),
       expect.objectContaining({ fund: 'Scheme not recorded', notBatched: 800, pastDeadline: 0, deadline: null })
     ]);
   });

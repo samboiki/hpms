@@ -89,11 +89,24 @@ export const patientLabOrderLink = (patientId: string, orderId: string): string 
 /** The patient's file on the Eyes tab (optometry practices): prescriptions, lab orders, contact lenses and eye exams. */
 export const patientEyesLink = (patientId: string): string => `/patients?patientId=${q(patientId)}&tab=eyes`;
 
-/** The Optometry page (optometry practices): lab orders, frames with their barcodes, the reports or benefit notes. */
-export const optometryLink = (tab: 'orders' | 'frames' | 'reports' | 'notes' = 'orders'): string => `/optometry?tab=${q(tab)}`;
+/**
+ * Optometry in Stock (optometry practices; the Optometry page was merged into Stock on 13 Oct 2026): lens orders to the
+ * lab with the benefit notes, frames with their barcodes, or the optometry reports under Stock > Reports.
+ */
+export const optometryLink = (tab: 'orders' | 'frames' | 'reports' | 'notes' = 'orders'): string =>
+  `/stock?tab=${tab === 'frames' ? 'frames' : tab === 'reports' ? 'reports' : 'lenses'}`;
 
-/** Optometry > Reports > Consignment frames: what is owed per supplier and the supplier invoices recorded. */
+/** Stock > Reports > Consignment frames: what is owed per supplier and the supplier invoices recorded. */
 export const consignmentLink = (): string => `${optometryLink('reports')}&report=consignment`;
+
+/** Where an old /optometry address (bookmarks, links in messages) opens now: the same part of Stock */
+export function optometryRedirect(search: string): string {
+  const params = new URLSearchParams(search);
+  const tab = params.get('tab');
+  const target = optometryLink(tab === 'frames' || tab === 'reports' || tab === 'notes' ? tab : 'orders');
+  const report = params.get('report');
+  return tab === 'reports' && report ? `${target}&report=${q(report)}` : target;
+}
 
 /** The patient's file on the Overview tab: letters, the messages they were sent, bookings and notes. */
 export const patientOverviewLink = (patientId: string): string => `/patients?patientId=${q(patientId)}&tab=overview`;

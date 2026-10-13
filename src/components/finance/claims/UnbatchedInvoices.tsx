@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { formatNad } from '../../../utils/billing/money';
@@ -45,7 +46,7 @@ const UnbatchedInvoices: React.FC<UnbatchedInvoicesProps> = ({ practice, funds, 
       setInvoices(await loadUnbatchedInvoices(practice.id, funds, addMonthsToKey(today, -12)));
       setSelected(new Set());
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load the invoices.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load the invoices.');
     } finally {
       setLoading(false);
     }
@@ -87,7 +88,7 @@ const UnbatchedInvoices: React.FC<UnbatchedInvoicesProps> = ({ practice, funds, 
       onAdded();
       await load();
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'The invoices could not be added.');
+      setMessage(err instanceof Error ? plainWords(err.message) : 'The invoices could not be added.');
     } finally {
       setBusyFund(null);
     }

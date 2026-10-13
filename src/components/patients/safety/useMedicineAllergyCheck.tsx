@@ -1,4 +1,5 @@
 import React, { useCallback, useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { isSafetyNotSetUp, recordAllergyOverride, SEVERITY_LABELS } from '../../../services/patientSafetyService';
@@ -103,7 +104,7 @@ export function useMedicineAllergyCheck(params: {
       toast.success(`${pending.medicine} added. Your reason was kept with the allergy record.`);
       setPending(null);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not record the reason. The medicine was not added.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not record the reason. The medicine was not added.');
     } finally {
       setSaving(false);
     }

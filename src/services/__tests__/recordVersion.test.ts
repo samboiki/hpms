@@ -114,7 +114,7 @@ describe('reading the versions', () => {
 
   it('never stops a save because the check itself failed (offline): it reports "not checked" instead of throwing', async () => {
     state.results = [{ data: null, error: { code: '08006', message: 'Failed to fetch' } }];
-    await expect(checkRecordVersions([{ kind: 'visit', id: 'v1', updatedAt: OPENED }])).resolves.toEqual({ state: 'not_checked', reason: 'Failed to fetch' });
+    await expect(checkRecordVersions([{ kind: 'visit', id: 'v1', updatedAt: OPENED }])).resolves.toEqual({ state: 'not_checked', reason: 'There is no connection to OneHealth. Check the internet connection and try again' }); // plain words (owner, 13 Oct 2026)
   });
 
   it('asks nothing when the screen opened nothing to compare', async () => {

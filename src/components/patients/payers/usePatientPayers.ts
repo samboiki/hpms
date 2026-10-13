@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { isPayersNotSetUp, loadPatientPayers, type PatientPayers } from '../../../services/payerAccountService';
 
 export type PatientPayersStatus = 'loading' | 'ready' | 'not_set_up' | 'error';
@@ -32,7 +33,7 @@ export function usePatientPayers(practiceId: string | null | undefined, patientI
         if (isPayersNotSetUp(error)) setState({ ...EMPTY, status: 'not_set_up', error: null });
         else {
           console.error("Could not load the patient's cases and accounts:", error);
-          setState(current => ({ ...current, status: 'error', error: error instanceof Error ? error.message : "The patient's cases could not be read." }));
+          setState(current => ({ ...current, status: 'error', error: error instanceof Error ? plainWords(error.message) : "The patient's cases could not be read." }));
         }
       });
     return () => {

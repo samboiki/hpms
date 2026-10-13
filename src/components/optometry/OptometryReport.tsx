@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { LINK, SECONDARY, nad } from '../stock/stockUi';
 import { addDaysToKey, addMonthsToKey, formatServiceDate } from '../../utils/billing/dates';
 import { useSeesFinanceFigures } from '../../hooks/useScreenAccess';
@@ -62,7 +63,7 @@ const num = 'px-2 py-1.5 text-right text-sm tabular-nums text-gray-800';
 const OptometryReport: React.FC<{
   practiceId: string;
   today: string;
-  /** The report a link asks for (Optometry page ?report=, e.g. a consignment invoice's "The frames are in ..."); a money report still needs Finance access */
+  /** The report a link asks for (Stock > Reports ?report=, e.g. a consignment invoice's "The frames are in ..."); a money report still needs Finance access */
   initialView?: string | null;
 }> = ({ practiceId, today, initialView = null }) => {
   const seesMoney = useSeesFinanceFigures();
@@ -86,7 +87,7 @@ const OptometryReport: React.FC<{
     setLoad({ status: 'loading' });
     loadReportData(practiceId, bounds.from, bounds.to)
       .then(data => !cancelled && setLoad(data === 'not_set_up' ? { status: 'not_set_up' } : { status: 'ready', data }))
-      .catch((error: unknown) => !cancelled && setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not build the report.' }));
+      .catch((error: unknown) => !cancelled && setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not build the report.' }));
     return () => {
       cancelled = true;
     };

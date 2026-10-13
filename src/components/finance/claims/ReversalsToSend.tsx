@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -34,7 +35,7 @@ const ReversalsToSend: React.FC<ReversalsToSendProps> = ({ practiceId, fundNameO
       setRows(await loadReversals({ practiceQueued: practiceId }));
       setError(null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'The reversals could not be loaded');
+      setError(loadError instanceof Error ? plainWords(loadError.message) : 'The reversals could not be loaded');
     }
   }, [practiceId]);
 
@@ -59,7 +60,7 @@ const ReversalsToSend: React.FC<ReversalsToSendProps> = ({ practiceId, fundNameO
       await load();
       onMade(result.batchId);
     } catch (makeError) {
-      toast.error(makeError instanceof Error ? makeError.message : 'The credit file could not be made');
+      toast.error(makeError instanceof Error ? plainWords(makeError.message) : 'The credit file could not be made');
     } finally {
       setBusyFund(null);
     }

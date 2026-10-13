@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { makeInvoicePdf } from '../../services/invoiceDocumentService';
@@ -42,7 +43,7 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) =>
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
       }
     } catch (error) {
-      toast.error(`Could not create the invoice PDF: ${error instanceof Error ? error.message : 'unknown error'}`);
+      toast.error(`Could not create the invoice PDF: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}`);
     } finally {
       setBusy(null);
     }

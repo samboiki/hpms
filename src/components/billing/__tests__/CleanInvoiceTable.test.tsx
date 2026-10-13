@@ -131,6 +131,17 @@ describe('CleanInvoiceTable', () => {
     expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('could not be loaded'));
   });
 
+  // Owner decision (13 Oct 2026): invoices are never deleted, only cancelled or credited, so the invoice numbers
+  // have no gaps and the books always match what was billed
+  it('offers no way to delete an invoice', async () => {
+    answerWith([invoiceRow('1', 100, 'pending', '2026-10-02T08:00:00Z')]);
+    renderTable();
+
+    await waitFor(() => expect(screen.getByText('#INV-1')).toBeInTheDocument());
+    expect(screen.queryByRole('button', { name: /delete invoice/i })).not.toBeInTheDocument();
+    expect(screen.queryByTitle(/delete invoice/i)).not.toBeInTheDocument();
+  });
+
   // An empty list should tell staff how invoices get there
   it('explains how invoices are created when the patient has none', async () => {
     renderTable();

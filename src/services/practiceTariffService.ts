@@ -10,6 +10,7 @@
  * proposals/2026-10-13-tariff-code-rules.sql no code has rules.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import type { Json } from '../types/database.types';
 import { mergeOwnTariffs, ownTariffPayload, withDefaultPortions, type OwnTariffDraft, type OwnTariffRow, type PracticeTariffLike } from '../utils/billing/practiceTariffs';
@@ -113,12 +114,12 @@ export async function loadPracticeTariffRows(practiceId: string | null, practice
   const [shared, own, portions, rules] = await Promise.all([
     supabase.from('practice_tariffs_with_types').select(columns).eq('practice_type_name', practiceType).order('code', { ascending: true }),
     loadOwnTariffs(practiceId).catch((error: unknown) => {
-      problems.push(`${error instanceof Error ? error.message : "The practice's own codes could not be read"}; the shared tariff list is used.`);
+      problems.push(`${error instanceof Error ? plainWords(error.message) : "The practice's own codes could not be read"}; the shared tariff list is used.`);
       return { rows: [], enabled: false } as OwnTariffsLoad;
     }),
     loadTariffPortions(practiceId),
     loadCodeRules(practiceId).catch(
-      (error: unknown): CodeRulesLoad => ({ status: 'error', rules: new Map(), message: error instanceof Error ? error.message : 'The code rules could not be read' })
+      (error: unknown): CodeRulesLoad => ({ status: 'error', rules: new Map(), message: error instanceof Error ? plainWords(error.message) : 'The code rules could not be read' })
     )
   ]);
   if (shared.error) throw new Error(`Could not load the tariff list: ${shared.error.message}`);

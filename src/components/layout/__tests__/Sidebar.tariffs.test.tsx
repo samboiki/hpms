@@ -8,6 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 type TestUser = { id: string; role: string; practice_id: string | null; is_super_admin?: boolean; can_manage_practices?: boolean };
 const auth = vi.hoisted(() => ({ user: null as TestUser | null }));
@@ -25,7 +26,7 @@ vi.mock('../../../utils/auth/screenAccess', () => ({ sidebarShowsPath: () => tru
 vi.mock('../../../stores/themeStore', () => ({ useTheme: () => ({ currentTheme: { gradients: { sidebar: '' } } }) }));
 vi.mock('../../../services/unreadMessagesService', () => ({ unreadMessagesService: { initialize: vi.fn(), subscribe: () => () => undefined } }));
 vi.mock('../../../lib/supabase', () => ({
-  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }) }
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) }
 }));
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 vi.mock('framer-motion', async () => {
@@ -40,9 +41,11 @@ import Sidebar from '../Sidebar';
 const renderAs = (user: TestUser) => {
   auth.user = user;
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter>
       <Sidebar collapsed={false} onToggle={vi.fn()} isMobile={false} />
     </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 

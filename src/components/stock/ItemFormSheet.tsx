@@ -38,7 +38,8 @@ export const ItemFormSheet: React.FC<ItemFormSheetProps> = ({ context, item, ope
     const quantity = Number(draft.packSize) > 0 ? Number(draft.packSize) : 1;
     const cost = Number(draft.unitCost);
     const fixed = draft.sellingPrice.trim() === '' ? null : Number(draft.sellingPrice);
-    const vat = draft.vatRate.trim() === '' ? context.settings.defaultVatRate : Number(draft.vatRate);
+    // VAT is added only when the practice is VAT registered (Settings > Practice) and the item is VAT-able
+    const vat = !context.settings.vatRegistered ? 0 : draft.vatRate.trim() === '' ? context.settings.defaultVatRate : Number(draft.vatRate);
     if (!Number.isFinite(cost) || (fixed !== null && !Number.isFinite(fixed)) || !Number.isFinite(vat)) return null;
     const unitCost = costLocked && item ? item.unitCostCents : toCents(cost);
     const price = priceStockLine({ quantity, lineCostCents: unitCost * quantity || null, vatRate: vat, rule: context.settings.priceRule, fixedUnitPriceCents: fixed === null ? null : toCents(fixed) });
@@ -136,8 +137,18 @@ export const ItemFormSheet: React.FC<ItemFormSheetProps> = ({ context, item, ope
             <Field label="Cost per unit (excl. VAT)" error={errors.unitCost} hint={costLocked ? 'Follows the deliveries (average cost).' : 'What one unit costs you.'}>
               {props => <input {...props} value={draft.unitCost} disabled={costLocked} onChange={event => set({ unitCost: event.target.value })} className={INPUT} inputMode="decimal" placeholder="0.00" />}
             </Field>
-            <Field label={`VAT rate (empty = ${context.settings.defaultVatRate}%)`} error={errors.vatRate}>
-              {props => <input {...props} value={draft.vatRate} onChange={event => set({ vatRate: event.target.value })} className={INPUT} inputMode="decimal" placeholder={String(context.settings.defaultVatRate)} />}
+            <Field
+              label="VAT when sold"
+              error={errors.vatRate}
+              hint={context.settings.vatRegistered ? 'Frames and over-the-counter medicines carry VAT.' : 'The practice is not VAT registered (Settings > Practice): no VAT is added.'}
+            >
+              {props => (
+                <select {...props} value={draft.vatRate.trim()} onChange={event => set({ vatRate: event.target.value })} className={INPUT}>
+                  <option value="">VAT-able ({context.settings.defaultVatRate}%)</option>
+                  <option value="0">Not VAT-able</option>
+                  {draft.vatRate.trim() !== '' && Number(draft.vatRate) > 0 && <option value={draft.vatRate.trim()}>VAT-able ({draft.vatRate.trim()}%)</option>}
+                </select>
+              )}
             </Field>
             <Field label="Fixed price per unit (incl. VAT)" error={errors.sellingPrice} hint="Empty = your price rule (Stock > Settings).">
               {props => <input {...props} value={draft.sellingPrice} onChange={event => set({ sellingPrice: event.target.value })} className={INPUT} inputMode="decimal" placeholder="from the rule" />}

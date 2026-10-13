@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import {
@@ -86,7 +87,7 @@ const CodeRulesForm: React.FC<CodeRulesFormProps> = ({
       toast.success(`${code} saved: staff see these rules when they bill it.`);
       onSaved(checked.rules);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The rules could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The rules could not be saved.');
     } finally {
       setSaving(false);
     }

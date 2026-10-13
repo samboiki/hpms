@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { communicationService } from '../services/communicationService';
@@ -49,7 +50,7 @@ export default function WorkingSMSTest() {
     } catch (error) {
       setResult({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
       });
     } finally {
       setLoading(false);
@@ -85,7 +86,7 @@ export default function WorkingSMSTest() {
     } catch (error) {
       setResult({
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
       });
     } finally {
       setLoading(false);

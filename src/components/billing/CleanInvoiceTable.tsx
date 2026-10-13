@@ -19,7 +19,6 @@ import {
   Printer,
   Mail,
   Edit3,
-  Trash2,
   TrendingUp,
   TrendingDown,
   AlertCircle
@@ -30,7 +29,6 @@ import { supabase } from '../../lib/supabase';
 import { PatientStatementChooser } from '../finance/receipts/PatientStatementChooser';
 import { PAYMENT_METHOD_META } from '../finance/financeTheme';
 import type { PaymentMethodKey } from '../../services/ledgerService';
-import { INVOICE_LOCK_MESSAGES, loadInvoiceLock } from '../../utils/invoiceLock';
 import { formatNad, nadParts } from '../../utils/billing/money';
 
 /** Ways a patient or fund settles an invoice, recorded so Finance can report collections by method */
@@ -73,7 +71,6 @@ interface CleanInvoiceTableProps {
   ) => void | Promise<void>;
   onEmailInvoice?: (invoice: Invoice) => void;
   onPrintInvoice?: (invoice: Invoice) => void;
-  onDeleteInvoice?: (invoice: Invoice) => void;
   isPrintingPDF?: boolean;
 }
 
@@ -83,7 +80,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   onStatusChange,
   onEmailInvoice,
   onPrintInvoice,
-  onDeleteInvoice,
   isPrintingPDF = false
 }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -98,7 +94,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   // "Paid" is a two-step choice: the status menu then asks how the invoice was paid
   const [choosingPaymentMethod, setChoosingPaymentMethod] = useState(false);
   const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
   useEffect(() => {
     if (patientId) {
@@ -120,61 +115,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [statusDropdown]);
-
-  // Handle invoice deletion with real-time update
-  const handleDeleteInvoice = async (invoiceId: string) => {
-    try {
-      console.log('🗑️ Starting deletion for invoice:', invoiceId);
-
-      // Paid invoices and invoices in a claim batch are financial records: deleting them would lose the
-      // payment or leave the claim batch pointing at an invoice that no longer exists
-      const lock = await loadInvoiceLock(invoiceId);
-      if (lock) {
-        toast.error(`Can't delete this invoice. ${INVOICE_LOCK_MESSAGES[lock]}`, { duration: 7000 });
-        setShowDeleteModal(null);
-        return;
-      }
-
-      // Delete invoice services first
-      const { error: servicesError } = await supabase
-        .from('invoice_services')
-        .delete()
-        .eq('invoice_id', invoiceId);
-      
-      if (servicesError) {
-        throw new Error(`Failed to delete invoice services: ${servicesError.message}`);
-      }
-      
-      // Delete the invoice
-      const { error: invoiceError } = await supabase
-        .from('invoices_enhanced')
-        .delete()
-        .eq('id', invoiceId);
-      
-      if (invoiceError) {
-        throw new Error(`Failed to delete invoice: ${invoiceError.message}`);
-      }
-      
-      // Update local state immediately without refresh
-      setInvoices(prevInvoices => prevInvoices.filter(inv => inv.id !== invoiceId));
-      
-      console.log('✅ Invoice deleted successfully');
-      setShowDeleteModal(null);
-      
-      // Optional: call parent callback if provided
-      if (onDeleteInvoice) {
-        const deletedInvoice = invoices.find(inv => inv.id === invoiceId);
-        if (deletedInvoice) {
-          onDeleteInvoice(deletedInvoice);
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ Error deleting invoice:', error);
-      toast.error(error instanceof Error ? error.message : 'Could not delete the invoice');
-      setShowDeleteModal(null);
-    }
-  };
 
   const fetchInvoices = async () => {
     try {
@@ -372,8 +312,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       </>
     );
   };
-
-  const invoicePendingDelete = showDeleteModal ? invoices.find(inv => inv.id === showDeleteModal) : undefined;
 
   if (loading) {
     return (
@@ -692,18 +630,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                 <Printer className="w-4 h-4 text-gray-600" />
                               )}
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                console.log('🗑️ Delete invoice button clicked for invoice:', invoice.invoice_number);
-                                setShowDeleteModal(invoice.id);
-                              }}
-                              className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
-                              title="Delete Invoice"
-                              aria-label={`Delete invoice ${invoice.invoice_number}`}
-                            >
-                              <Trash2 className="w-4 h-4 text-red-600" />
-                            </button>
                             <div className="relative">
                               <button
                                 onClick={(e) => {
@@ -874,51 +800,6 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
         />
       )}
       
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-            <div className="flex items-center mb-4">
-              <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-red-600" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-medium text-gray-900">Delete Invoice</h3>
-                <p className="text-sm text-gray-500">
-                  Are you sure you want to delete this invoice? This action cannot be undone.
-                </p>
-              </div>
-            </div>
-            
-            <div className="bg-gray-50 rounded-lg p-3 mb-4">
-              <p className="text-sm font-medium text-gray-900">
-                Invoice: #{invoices.find(inv => inv.id === showDeleteModal)?.invoice_number}
-              </p>
-              <p className="text-xs text-gray-600">
-                Total: {invoicePendingDelete ? formatNad(invoicePendingDelete.total) : '—'}
-              </p>
-              <p className="text-xs text-gray-600">
-                Services: {invoices.find(inv => inv.id === showDeleteModal)?.services.length || 0}
-              </p>
-            </div>
-            
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteInvoice(showDeleteModal)}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-              >
-                Delete Invoice
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -21,6 +21,7 @@ import {
 import { claimedPractitionerOf } from '../../../utils/billing/claimLine';
 import type { StockItem } from '../../../utils/stock/items';
 import { DEFAULT_PRICE_RULE, priceStockLine } from '../../../utils/stock/pricing';
+import { lineVatRate } from '../../../utils/billing/vat';
 import type { StockMovement } from '../../../utils/stock/stockRows';
 import type { CsvCell } from '../financeExport';
 import { formatMonthKey, formatNad, pluralize } from '../financeFormat';
@@ -80,6 +81,8 @@ export function soldLines(input: {
   movements: readonly StockMovement[];
   items: ReadonlyMap<string, StockItem>;
   defaultVatRate: number;
+  /** Settings > Practice > VAT: a practice that is not VAT registered charged no VAT, so none is taken off */
+  vatRegistered: boolean;
   range: DateRange;
 }): SoldLine[] {
   const byLine = new Map<string, { units: number; cents: number; count: number }>();
@@ -100,7 +103,7 @@ export function soldLines(input: {
     const item = input.items.get(row.stock_item_id);
     const stock = byLine.get(row.id);
     const billedCents = toCents(line.total);
-    const vatRate = item?.vatRate ?? input.defaultVatRate;
+    const vatRate = input.vatRegistered ? lineVatRate({ registered: true, vatNumber: '' }, { vatRate: item?.vatRate ?? null }, input.defaultVatRate) : 0;
     const salesCents = withoutVat(billedCents, vatRate);
     const costCents = stock?.cents ?? 0;
     sold.push({
@@ -163,14 +166,16 @@ export const marginOf = (profitCents: number, salesCents: number): number | null
 const amount = (cents: number): number => cents / 100;
 
 /** What the notes say about the lines left out of the margins, and stock given out without a bill */
-export function profitNotes(lines: readonly SoldLine[], extras: { defaultVatRate: number; dispensedCostCents: number }): string[] {
+export function profitNotes(lines: readonly SoldLine[], extras: { defaultVatRate: number; vatRegistered: boolean; dispensedCostCents: number }): string[] {
   const left = (state: LineState) => lines.filter(line => line.state === state);
   const back = left('stock_back');
   const none = left('no_movement');
   const billed = (list: readonly SoldLine[]) => formatNad(amount(list.reduce((sum, line) => sum + line.billedCents, 0)));
   return [
     'Stock items billed on uncancelled invoices dated in the period (the lines in Revenue by tariff code). Cost is what the stock ledger took off for each line at the average cost, excluding VAT, less anything that came back.',
-    `VAT is taken off what was billed at the item's VAT rate, else the practice's (Stock > Settings: ${extras.defaultVatRate} %). A practice that is not registered for VAT sets 0 % there.`,
+    extras.vatRegistered
+      ? `VAT is taken off what was billed for VAT-able items at the item's VAT rate, else the practice's (Stock > Settings: ${extras.defaultVatRate} %).`
+      : 'No VAT is taken off: the practice is not VAT registered (Settings > Practice), so it charged none.',
     ...(back.length > 0 ? [`Left out: ${pluralize(back.length, 'line')} (${billed(back)} billed) whose stock came back after a full credit note.`] : []),
     ...(none.length > 0 ? [`Left out: ${pluralize(none.length, 'line')} (${billed(none)} billed) never taken off stock, so their cost is not known (billed before stock was tracked).`] : []),
     ...(extras.dispensedCostCents !== 0 ? [`Medicine dispensed without a bill in the period cost ${formatNad(amount(extras.dispensedCostCents))} (Stock > Reports > Dispensing).`] : [])

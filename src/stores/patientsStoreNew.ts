@@ -13,6 +13,16 @@ import {
   warmUpCache 
 } from '../lib/cachedQueries';
 import { lightning, lightningCache } from '../lib/lightningCache';
+import { readAllPages } from '../lib/pagedRows';
+
+// The database hands out at most 1000 rows per request: the patient list is read page by page (lib/pagedRows.ts) so a
+// practice with more patients sees all of them, not the first 1000 by surname
+const PATIENT_PAGE_SIZE = 1000;
+const asError = (error: { message?: string } | null): Error => new Error(error?.message || 'The patient list could not be loaded');
+
+// Each load of the list is numbered: only the newest one may replace the list, so an older, slower load that finishes
+// later can never put back a list without the visits (two loads used to race when the Patients page opened)
+let latestListLoad = 0;
 
 export interface Patient {
   id: string;
@@ -86,6 +96,7 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
   error: null,
   
   fetchPatients: async () => {
+    const load = ++latestListLoad;
     set({ isLoading: true, error: null });
     const startTime = performance.now();
     
@@ -108,15 +119,18 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
         console.log('🚀 LIGHTNING SPEED ACHIEVED!');
       }
       
+      if (load !== latestListLoad) return;
       set({ patients, isLoading: false });
       // (No visit-count "pre-warm" here: lib/lightningCache.ts keeps nothing, so those 10 requests were thrown away)
     } catch (error) {
       console.error('❌ [PatientsStore] Error fetching patients:', error);
+      if (load !== latestListLoad) return;
       set({ error: 'Failed to fetch patients', isLoading: false });
     }
   },
   
   fetchPatientsWithVisits: async () => {
+    const load = ++latestListLoad;
     set({ isLoading: true, error: null });
     try {
       console.log('🔄 [PatientsStore] Starting ENHANCED fetchPatientsWithVisits');
@@ -125,12 +139,13 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       const authContext = await practiceDataService.getAuthContext();
       if (!authContext?.practiceId) {
         console.error('❌ [PatientsStore] No practice ID found in auth context');
-        set({ patients: [], isLoading: false, error: 'No practice context found' });
+        if (load === latestListLoad) set({ patients: [], isLoading: false, error: 'No practice context found' });
         return;
       }
+      const practiceId = authContext.practiceId;
 
       // APPROACH 1: Try the standard Supabase query first
-      const { data: patientsWithData, error } = await supabase
+      const patientsWithData = await readAllPages(PATIENT_PAGE_SIZE, (from, to) => supabase
         .from('patients')
         .select(`
           *,
@@ -147,14 +162,11 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
             name
           )
         `)
-        .eq('practice_id', authContext?.practiceId)
+        .eq('practice_id', practiceId)
         .order('last_name', { ascending: true })
-        .order('first_name', { ascending: true });
-
-      if (error) {
-        console.error('❌ Initial query error:', error);
-        throw error;
-      }
+        .order('first_name', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to), asError);
 
       console.log('📊 Fetched patients:', patientsWithData?.length);
 
@@ -219,6 +231,7 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       console.log('✅ [PatientsStore] Successfully processed all patients with visits');
       console.log('📊 Patients with visits:', patientsWithVisits.filter(p => p.total_visits > 0).length);
       
+      if (load !== latestListLoad) return;
       set({ patients: patientsWithVisits, isLoading: false });
     } catch (error) {
       console.error('❌ [PatientsStore] Critical error:', error);
@@ -228,20 +241,24 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
         // Keep the practice filter on the fallback too, so a failure never widens which patients are listed
         const fallbackContext = await practiceDataService.getAuthContext();
         if (!fallbackContext?.practiceId) {
-          set({ patients: [], isLoading: false, error: 'Failed to fetch patients' });
+          if (load === latestListLoad) set({ patients: [], isLoading: false, error: 'Failed to fetch patients' });
           return;
         }
-        const { data: fallbackPatients, error: fallbackError } = await supabase
+        const fallbackPracticeId = fallbackContext.practiceId;
+        // An error here (readAllPages throws it) says the list failed to load instead of showing "No patients found"
+        const fallbackPatients = await readAllPages(PATIENT_PAGE_SIZE, (from, to) => supabase
           .from('patients')
           .select('*')
-          .eq('practice_id', fallbackContext.practiceId)
-          .order('last_name', { ascending: true });
-        // An unread error here showed "No patients found" instead of saying the list failed to load
-        if (fallbackError) throw fallbackError;
+          .eq('practice_id', fallbackPracticeId)
+          .order('last_name', { ascending: true })
+          .order('id', { ascending: true })
+          .range(from, to), asError);
 
-        set({ patients: fallbackPatients || [], isLoading: false });
+        if (load !== latestListLoad) return;
+        set({ patients: fallbackPatients, isLoading: false });
       } catch (fallbackError) {
         console.error('❌ Even fallback failed:', fallbackError);
+        if (load !== latestListLoad) return;
         set({ error: 'Failed to fetch patients', isLoading: false });
       }
     }

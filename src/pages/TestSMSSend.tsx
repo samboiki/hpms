@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { processPendingSMS, sendPendingSMS } from '../utils/sendPendingSMS';
 import Button from '../components/ui/Button';
 import { supabase } from '../lib/supabase';
@@ -48,7 +49,7 @@ export default function TestSMSSend() {
       setResult(res);
       await fetchPendingSMS(); // Refresh the list
     } catch (error) {
-      setResult({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      setResult({ success: false, error: error instanceof Error ? plainWords(error.message) : 'Unknown error' });
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,7 @@ export default function TestSMSSend() {
       setResult(res);
       await fetchPendingSMS(); // Refresh the list
     } catch (error) {
-      setResult({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
+      setResult({ success: false, error: error instanceof Error ? plainWords(error.message) : 'Unknown error' });
     } finally {
       setLoading(false);
     }

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { centsToInput, parseAmountInput } from '../../../services/ledgerService';
 import type { PeriodLabels } from '../financeNav';
@@ -140,7 +141,7 @@ export const ReportBuilderReport: React.FC<Props> = ({ practiceId, practiceName,
       toast.success(`Saved "${name.trim()}" for everyone in the practice`);
       reloadSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The report could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The report could not be saved.');
     } finally {
       setBusy(false);
     }
@@ -154,7 +155,7 @@ export const ReportBuilderReport: React.FC<Props> = ({ practiceId, practiceName,
       startNew(source);
       reloadSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The report could not be removed.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The report could not be removed.');
     } finally {
       setBusy(false);
     }

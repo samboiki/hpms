@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { format } from 'date-fns';
@@ -98,7 +99,7 @@ export const ListMembersPanel: React.FC<ListMembersPanelProps> = ({
       const name = fullName(member.facts);
       toast.success(value ? `${name} was taken off "${list.name}".` : `${name} is back on "${list.name}".`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not update the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not update the list.');
     } finally {
       setBusyId(null);
     }
@@ -332,7 +333,7 @@ const AddPatientsSheet: React.FC<{
       setAdded((previous) => new Set(previous).add(patient.patientId));
       await onAdded();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not add the patient.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not add the patient.');
     } finally {
       setBusyId(null);
     }

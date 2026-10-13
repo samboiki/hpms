@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Toaster, type ToasterProps } from 'react-hot-toast';
+import { installPlainToasts } from '../../utils/plainToast';
+
+// Error toasts never show the database's own wording (owner, 13 Oct 2026: plain words everywhere)
+installPlainToasts();
 
 // Toasts confirm what just happened ("Payment received") or why it failed, so they must show above every window.
 // Full-screen visit screens and the dialogs over them use the highest z-index there is and are added to the end of

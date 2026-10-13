@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { usePracticeRow } from '../lib/practiceRow';
 
 interface PracticeData {
   id: string;
@@ -18,37 +17,12 @@ interface PracticeData {
 
 export function usePracticeData() {
   const { user, selectedPracticeId } = useAuthStore();
-  const [practiceData, setPracticeData] = useState<PracticeData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const fetchPracticeData = async () => {
-      const practiceId = selectedPracticeId || user?.practice_id;
-      if (!practiceId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const { data, error: fetchError } = await supabase
-          .from('practices')
-          .select('*')
-          .eq('id', practiceId)
-          .single();
-
-        if (fetchError) throw fetchError;
-        setPracticeData(data);
-      } catch (err) {
-        console.error('Error fetching practice data:', err);
-        setError(err as Error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPracticeData();
-  }, [selectedPracticeId, user?.practice_id]);
+  // The practice row the menu, the tariff list and the diary share (one cached read: lib/practiceRow.ts)
+  const practiceId = selectedPracticeId || user?.practice_id;
+  const row = usePracticeRow(practiceId);
+  const practiceData = (row.data ?? null) as unknown as PracticeData | null;
+  const loading = !!practiceId && row.isLoading;
+  const error = row.error ? (row.error instanceof Error ? row.error : new Error('The practice could not be loaded')) : null;
 
   // Generate color variations
   const getColorVariations = () => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { buildClaimFile, type ClaimFile } from '../../../utils/billing/claimFile';
@@ -51,7 +52,7 @@ const ClaimReportSheet: React.FC<ClaimReportSheetProps> = ({ practice, batch, fu
         setLoaded({ file, details: sources.details });
       })
       .catch(err => {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'The batch lines could not be loaded.');
+        if (!cancelled) setError(err instanceof Error ? plainWords(err.message) : 'The batch lines could not be loaded.');
       });
     return () => {
       cancelled = true;

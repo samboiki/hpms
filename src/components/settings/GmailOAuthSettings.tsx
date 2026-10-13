@@ -3,7 +3,6 @@ import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import { usePractice } from '../../contexts/PracticeContext';
 import {
-  GMAIL_CONNECTION_COLUMNS,
   GMAIL_RETURN_PATH,
   completeGmailConnect,
   describeGoogleCallbackError,
@@ -455,35 +454,6 @@ export const GmailOAuthSettings: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
-      {/* Debug: Check credentials */}
-      {!gmailConnection?.connected && (
-        <div className="text-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={async () => {
-              // Never the tokens: only the address and dates of each connection
-              const { data, error } = await supabase
-                .from('practice_oauth_credentials')
-                .select(GMAIL_CONNECTION_COLUMNS)
-                .eq('practice_id', practiceId)
-                .eq('provider', 'google');
-
-              console.log('Gmail connections found:', data?.length ?? 0);
-              console.log('Error:', error);
-              
-              if (data && data.length > 0) {
-                toast.success(`Found ${data.length} Gmail credential(s)`);
-              } else {
-                toast.error('No Gmail credentials found');
-              }
-            }}
-          >
-            Debug: Check Credentials
-          </Button>
-        </div>
-      )}
 
     </motion.div>
   );

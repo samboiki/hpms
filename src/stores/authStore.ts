@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { decideSessionKind, identityOfAuthUser, type SessionKind } from '../patientPortal/portalRouting';
 import { SIGN_OUT_WAIT_MS, logRecordAccess, settleWithin } from '../services/recordAccessLog';
+import { secondStepNeeded } from '../services/mfaService';
 
 interface User {
   id: string;
@@ -28,6 +29,10 @@ interface AuthState {
   selectedPracticeId: string | null;
   /** Who the restored session belongs to: App.tsx shows the patient app for 'patient' */
   sessionKind: SessionKind | null;
+  /** The password was right and the account has two-step sign-in: the sign-in screen asks for the app's code */
+  mfaRequired: boolean;
+  /** Leaves a half-finished two-step sign-in (back to email and password) */
+  cancelSecondStep: () => Promise<void>;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -55,6 +60,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   selectedPracticeId: null,
   sessionKind: null,
+  mfaRequired: false,
+  cancelSecondStep: async () => {
+    set({ mfaRequired: false });
+    await supabase.auth.signOut({ scope: 'local' });
+  },
   login: async (email: string, password: string) => {
     console.log('🔐 Login attempt for:', email);
     
@@ -124,6 +134,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           return false;
         }
 
+        // Two-step sign-in turned on and only the password given so far: the sign-in screen asks for the code
+        if (await secondStepNeeded()) {
+          set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null, mfaRequired: true });
+          return false;
+        }
+
         // Use database user data if available, otherwise fallback to auth metadata
         const authUser = session.user;
         const user: User = dbUser ? {
@@ -150,7 +166,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           can_manage_practices: false
         };
 
-        set({ isAuthenticated: true, user, sessionKind: 'staff' });
+        set({ isAuthenticated: true, user, sessionKind: 'staff', mfaRequired: false });
         console.log('✅ Session restored successfully');
         return true;
       }
@@ -178,6 +194,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       console.log('✅ Auth successful, user ID:', authUser.id);
+
+      // Two-step sign-in: the password alone does not sign in; the sign-in screen asks for the app's code
+      if (await secondStepNeeded()) {
+        set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null, mfaRequired: true });
+        return false;
+      }
       console.log('📊 Auth user metadata:', authUser.user_metadata);
 
       // Try to fetch user profile from users table, but use auth metadata as fallback
@@ -270,7 +292,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isAuthenticated: true, 
         user,
         selectedPracticeId,
-        sessionKind: 'staff'
+        sessionKind: 'staff',
+        mfaRequired: false
       });
       // The sign-in is recorded for the practice's administrators (parity Q8); signing in never waits for it
       void logRecordAccess('signed_in', { screen: 'sign_in', userId: user.id });
@@ -290,7 +313,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const recorded = sessionKind === 'staff' ? logRecordAccess('signed_out', { screen: 'app', userId: signedIn?.id }) : Promise.resolve();
 
       // Clear auth state immediately to prevent any race conditions
-      set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null });
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null, mfaRequired: false });
 
       // Clear any cached data
       localStorage.removeItem('supabase.auth.token');

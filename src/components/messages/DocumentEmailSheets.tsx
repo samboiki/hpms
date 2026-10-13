@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { formatNad, fromCents } from '../../utils/billing/money';
 import { formatLetterDate } from '../../utils/clinical/letters';
 import type { DocumentEmailFacts } from '../../utils/messages/documentEmail';
@@ -51,7 +52,7 @@ const DocumentEmailSheet: React.FC<DocumentSheetProps> = ({ open, onClose, pract
         if (active) setLetterhead(result);
       })
       .catch((loadError: unknown) => {
-        if (active) setError(loadError instanceof Error ? loadError.message : 'Could not read the practice details.');
+        if (active) setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not read the practice details.');
       });
     return () => {
       active = false;

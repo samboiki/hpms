@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 
@@ -217,7 +218,7 @@ export const usePracticeSettings = () => {
 
     } catch (err) {
       console.error('Error loading practice settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load practice settings');
+      setError(err instanceof Error ? plainWords(err.message) : 'Failed to load practice settings');
     } finally {
       setLoading(false);
     }

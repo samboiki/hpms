@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { usePractice } from '../../contexts/PracticeContext';
 import { useAuthStore } from '../../stores/authStore';
@@ -84,7 +85,7 @@ export const EminanceImportPage: React.FC = () => {
       if (isImportNotSetUpError(error)) {
         setState('not_set_up');
       } else {
-        setLoadError(error instanceof Error ? error.message : 'Could not read the imports');
+        setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not read the imports');
         setState('error');
       }
     }
@@ -113,7 +114,7 @@ export const EminanceImportPage: React.FC = () => {
       await undoImport(run.id, '');
       await refresh();
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Could not discard it');
+      setActionError(error instanceof Error ? plainWords(error.message) : 'Could not discard it');
     } finally {
       setBusy(false);
     }

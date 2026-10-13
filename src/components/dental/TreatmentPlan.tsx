@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -115,7 +116,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({
       await arrangePlan(patientId, changes);
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not change the plan.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not change the plan.');
     } finally {
       setBusy(null);
     }
@@ -128,7 +129,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({
       toast.success(status === 'done' ? `${item.entry.tariffCode} on ${item.entry.tooth} marked done.` : `${item.entry.tariffCode} on ${item.entry.tooth} taken off the plan.`);
       onChanged();
     } catch (error) {
-      toast.error(isDentalChartNotSetUp(error) ? 'Charting is not set up yet.' : error instanceof Error ? error.message : 'Could not change the plan.');
+      toast.error(isDentalChartNotSetUp(error) ? 'Charting is not set up yet.' : error instanceof Error ? plainWords(error.message) : 'Could not change the plan.');
     } finally {
       setBusy(null);
     }
@@ -146,7 +147,7 @@ const TreatmentPlan: React.FC<TreatmentPlanProps> = ({
       onChanged();
       onOpenQuote(result.quoteId);
     } catch (error) {
-      toast.error(isQuotesNotEnabledError(error) ? 'Quotes are not switched on yet.' : error instanceof Error ? error.message : 'Could not make the quote.', {
+      toast.error(isQuotesNotEnabledError(error) ? 'Quotes are not switched on yet.' : error instanceof Error ? plainWords(error.message) : 'Could not make the quote.', {
         duration: 8000
       });
     } finally {

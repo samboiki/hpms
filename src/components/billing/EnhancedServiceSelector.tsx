@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search,
@@ -46,6 +47,8 @@ import { billableAtPatientRate } from '../../utils/billing/patientRates';
 import { isDentalPractice } from '../../utils/billing/tariffRules';
 import { fundPricingNotice } from '../visits/visitBillingLines';
 import { useFundPricing } from '../visits/useFundPricing';
+import PracticeTypeNeededNotice from '../settings/PracticeTypeNeededNotice';
+import { needsPracticeTypeChoice } from '../../utils/practiceType';
 
 interface EnhancedServiceSelectorProps {
   practiceId?: string;
@@ -139,7 +142,7 @@ const EnhancedServiceSelector = forwardRef<EnhancedServiceSelectorHandle, Enhanc
           .eq('id', effectivePracticeId)
           .maybeSingle();
         if (practiceError) throw new Error(practiceError.message);
-        if (!practice?.practice_type) throw new Error('the practice type is not set, so its tariff list is unknown');
+        if (!practice?.practice_type) throw new Error('the practice type is not set, so its tariff list is unknown. An administrator chooses it in Settings > Practice');
         if (!cancelled) setPracticeType(practice.practice_type);
 
         const { data, error: tariffError } = await supabase
@@ -151,7 +154,7 @@ const EnhancedServiceSelector = forwardRef<EnhancedServiceSelectorHandle, Enhanc
       } catch (err) {
         if (!cancelled) {
           setTariffRows([]);
-          setError(`Could not load the tariff list: ${err instanceof Error ? err.message : 'unknown error'}.`);
+          setError(`Could not load the tariff list: ${err instanceof Error ? plainWords(err.message) : 'unknown error'}.`);
         }
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -830,6 +833,9 @@ const EnhancedServiceSelector = forwardRef<EnhancedServiceSelectorHandle, Enhanc
             Showing the first {MAX_VISIBLE_TARIFFS} of {filteredTariffs.length} codes. Refine the search to see more.
           </p>
         )}
+
+        {/* Owner, 13 Oct 2026: a 'general' practice matches no price list; say where the type is chosen */}
+        {tariffs.length === 0 && needsPracticeTypeChoice(practiceType) && <PracticeTypeNeededNotice />}
 
         {filteredTariffs.length === 0 && (
           <div className="text-center py-8 text-gray-500">

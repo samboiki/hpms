@@ -10,6 +10,7 @@
  *   builder): the plan is priced, and its quote saved, exactly as a quote made by hand.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../utils/plainErrors';
 import { supabase } from '../../lib/supabase';
 import { loadInvoicingSetup } from '../invoicingSetup';
 import { isMissingFunctionError, isMissingTableError } from '../../utils/diary/dbErrors';
@@ -402,6 +403,6 @@ export async function makePlanQuote(params: {
     await linkPlanToQuote(params.items.map(item => item.entry.id), quoteId);
     return { quoteId, linkError: null, linked: priced.linked };
   } catch (error) {
-    return { quoteId, linkError: error instanceof Error ? error.message : 'unknown error', linked: priced.linked };
+    return { quoteId, linkError: error instanceof Error ? plainWords(error.message) : 'unknown error', linked: priced.linked };
   }
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import {
@@ -73,7 +74,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({ practiceId, patientId, p
       setEditing(null);
       onChanged();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not saved');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not saved');
     } finally {
       setBusy(false);
     }

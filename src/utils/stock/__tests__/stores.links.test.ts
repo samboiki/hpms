@@ -55,6 +55,6 @@ describe('the links between stock documents', () => {
   });
 
   it('opens the consignment report from a consignment invoice', () => {
-    expect(consignmentLink()).toBe('/optometry?tab=reports&report=consignment');
+    expect(consignmentLink()).toBe('/stock?tab=reports&report=consignment');
   });
 });

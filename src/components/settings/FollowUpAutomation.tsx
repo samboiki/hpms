@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
@@ -91,7 +92,7 @@ export default function FollowUpAutomation() {
       setIsAutomationEnabled(practiceData.is_follow_up_automation_enabled || false);
     } catch (error) {
       console.error('Error fetching practice settings:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load practice settings';
+      const errorMessage = error instanceof Error ? plainWords(error.message) : 'Failed to load practice settings';
       setError(errorMessage);
       toast.error(errorMessage);
     }
@@ -127,7 +128,7 @@ export default function FollowUpAutomation() {
       setError(null); // Clear any previous errors
     } catch (error) {
       console.error('Error fetching templates:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Failed to load templates';
+      const errorMessage = error instanceof Error ? plainWords(error.message) : 'Failed to load templates';
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { loadStockItems, loadStockSettings, type StockItemsLoad } from '../../services/stock/stockService';
 import type { StockItem } from '../../utils/stock/items';
 import type { ItemLevel, StockSettings } from '../../utils/stock/stockRows';
@@ -44,7 +45,7 @@ export function useBundleStock(practiceId: string | null, active: boolean, hasMe
         if (!cancelled) setLoaded({ stock, settings });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoaded({ error: error instanceof Error ? error.message : 'The stock list could not be read.' });
+        if (!cancelled) setLoaded({ error: error instanceof Error ? plainWords(error.message) : 'The stock list could not be read.' });
       });
     return () => {
       cancelled = true;

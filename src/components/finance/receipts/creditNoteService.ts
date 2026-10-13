@@ -10,6 +10,8 @@ import { supabase } from '../../../lib/supabase';
 import { toCents } from '../../../utils/billing/money';
 import { toDateKey } from '../../../utils/billing/dates';
 import { ArQueryError, isArNotSetUp } from './arService';
+import { useAuthStore } from '../../../stores/authStore';
+import { moneyCorrectionRefusal } from '../../../services/ledger/moneyRights';
 import { isCreditBatch, isSentClaimBatch, serviceKeyOf } from '../claims/claimCorrections';
 import { loadReversals, type ReversalRow } from '../claims/claimCorrectionsService';
 import { isOpenBatch } from '../claims/status';
@@ -150,6 +152,9 @@ export interface SavedCreditNote {
 
 /** Saves the credit note: one per portion touched; reversals are queued for lines the fund was sent */
 export async function postCreditNoteLines(input: { practiceId: string; invoiceId: string; reason: string; lines: Array<{ invoice_line_id: string; amount: string }> }): Promise<{ creditNotes: SavedCreditNote[]; reversals: number }> {
+  // Credit notes are for administrators only (owner, 13 Oct 2026)
+  const refusal = moneyCorrectionRefusal('credit_note', useAuthStore.getState().user?.role);
+  if (refusal) throw new Error(refusal);
   const { data, error } = await db.rpc('credit_note_post_lines', {
     p_payload: { practice_id: input.practiceId, invoice_id: input.invoiceId, reason: input.reason.trim(), lines: input.lines }
   });

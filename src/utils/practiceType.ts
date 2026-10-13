@@ -37,6 +37,18 @@ const LABELS: Readonly<Record<string, string>> = {
 
 const clean = (value: unknown): string => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
+/** The database's default type for a new practice; no tariff list is called 'general' */
+const GENERAL = 'general';
+
+/**
+ * Owner decision 13 Oct 2026: a practice whose type is 'general' (or not set) matches no price list, so Settings >
+ * Practice asks an administrator to choose the type, and the price-list screens point there.
+ */
+export function needsPracticeTypeChoice(practiceType: unknown): boolean {
+  const key = clean(practiceType);
+  return !key || key === GENERAL;
+}
+
 export function practiceTypeLabel(name: string | null | undefined): string {
   const key = clean(name);
   if (!key) return 'Not chosen yet';
@@ -52,7 +64,8 @@ export function practiceTypeOptions(rows: readonly unknown[]): PracticeTypeOptio
       const r = row && typeof row === 'object' ? (row as Record<string, unknown>) : null;
       const id = typeof r?.id === 'string' ? r.id : '';
       const name = clean(r?.name);
-      if (!id || !name || r?.is_active === false) return [];
+      // 'general' matches no price list, so it is never offered (owner, 13 Oct 2026: the practice chooses its type)
+      if (!id || !name || name === GENERAL || r?.is_active === false) return [];
       return [{ id, name, label: practiceTypeLabel(name) }];
     })
     .sort((a, b) => rank(a.name) - rank(b.name) || a.label.localeCompare(b.label));

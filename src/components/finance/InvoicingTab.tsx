@@ -228,8 +228,8 @@ export const InvoicingTab: React.FC<InvoicingTabProps> = ({ workspace, labels, o
         <div className="mt-4">
           <Notice tone="info">
             {workspace.ar?.state === 'ready'
-              ? // Once receipts are in use an invoice takes its payments, credit notes and discounts right here
-                "Invoices are created from a visit's billing. Open an invoice to receive a payment, credit it or give a discount; \"Open patient billing\" shows the patient's whole account."
+              ? // Once receipts are in use an invoice takes its payments and credit notes right here (no discounts: owner, 13 Oct 2026)
+                "Invoices are created from a visit's billing. Open an invoice to receive a payment or credit it; \"Open patient billing\" shows the patient's whole account."
               : 'Invoices are created from a visit\'s billing and marked paid on the patient\'s Billing tab (open an invoice and choose "Open patient billing"). Finance is read-only, so figures here always match those records.'}
           </Notice>
         </div>

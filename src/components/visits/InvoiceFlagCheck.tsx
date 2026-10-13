@@ -1,4 +1,5 @@
 import React, { useCallback, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -123,7 +124,7 @@ export const InvoiceFlagDialog: React.FC<{
       try {
         await recordCreditLimitOverride(practiceId, patientId, check.patientCents, reason);
       } catch (saveError) {
-        setError(saveError instanceof Error ? saveError.message : 'The reason could not be saved, so the invoice was not saved');
+        setError(saveError instanceof Error ? plainWords(saveError.message) : 'The reason could not be saved, so the invoice was not saved');
         setBusy(false);
         return;
       }

@@ -7,7 +7,7 @@
  * date past the fund's deadline, or amounts that do not add up.
  * Errors block submission; warnings are shown but do not block.
  */
-import { checkClaimDeadline, deadlineCaveat, describeDeadline, type DeadlineCheck, type FundRule } from './fundRules.ts';
+import { checkClaimDeadline, deadlineCaveat, deadlineFromService, describeDeadline, type DeadlineCheck, type FundRule } from './fundRules.ts';
 import { isValidDateKey, daysBetweenKeys } from './dates.ts';
 import { formatNad, hasAtMostDecimals, sumCents, toCents } from './money.ts';
 import { MAX_QUANTITY, isValidFdiTooth, parseToothList, verifyLineAmounts } from './pricing.ts';
@@ -210,9 +210,9 @@ export function validateClaimLine(line: ClaimLine, context: ClaimValidationConte
   else if (deadline.status === 'expired' && !reversal) {
     // Only a deadline confirmed with the fund blocks; a guessed one must not stop a claim the fund may still pay
     if (context.fundRule.confirmed) {
-      error('serviceDate', `The claim deadline passed on ${deadline.lastDay} (${context.fundRule.label}: ${describeDeadline(context.fundRule)} from the service date).`);
+      error('serviceDate', `The claim deadline passed on ${deadline.lastDay} (${context.fundRule.label}: ${deadlineFromService(context.fundRule)}).`);
     } else {
-      warn('serviceDate', `The claim deadline (${describeDeadline(context.fundRule)} from the service date, ${deadlineCaveat(context.fundRule)}) passed on ${deadline.lastDay}. The line can still be sent; the fund may refuse it.`);
+      warn('serviceDate', `The claim deadline (${deadlineFromService(context.fundRule)}, ${deadlineCaveat(context.fundRule)}) passed on ${deadline.lastDay}. The line can still be sent; the fund may refuse it.`);
     }
   } else if (deadline.status === 'expiring' && !reversal) {
     warn('serviceDate', `Submit by ${deadline.lastDay}: ${deadline.daysLeft} day(s) left before the fund deadline.`);

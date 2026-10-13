@@ -1,4 +1,5 @@
 import React, { useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/cn';
@@ -68,7 +69,7 @@ export const MessageTemplateEditor: React.FC<MessageTemplateEditorProps> = ({ pr
       toast.success(`"${draft.name.trim()}" saved.`);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the template.', { duration: 8000 });
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the template.', { duration: 8000 });
     } finally {
       setBusy(null);
     }
@@ -83,7 +84,7 @@ export const MessageTemplateEditor: React.FC<MessageTemplateEditorProps> = ({ pr
       toast.success(`"${template.name}" removed.`);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not remove the template.', { duration: 8000 });
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not remove the template.', { duration: 8000 });
     } finally {
       setBusy(null);
     }

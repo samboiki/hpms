@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 type TestUser = { id: string; role: string; practice_id: string | null; is_super_admin?: boolean; can_manage_practices?: boolean };
 const auth = vi.hoisted(() => ({ user: null as TestUser | null }));
@@ -33,7 +34,7 @@ vi.mock('../../../services/unreadMessagesService', () => ({
   }
 }));
 vi.mock('../../../lib/supabase', () => ({
-  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }) }) }
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null, error: null }) }) }) }) }
 }));
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 vi.mock('framer-motion', async () => {
@@ -49,9 +50,11 @@ const renderWith = (count: number, collapsed = false) => {
   unread.count = count;
   auth.user = { id: 'u1', role: 'receptionist', practice_id: 'practice-1' };
   render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
     <MemoryRouter>
       <Sidebar collapsed={collapsed} onToggle={vi.fn()} isMobile={false} />
     </MemoryRouter>
+    </QueryClientProvider>
   );
 };
 

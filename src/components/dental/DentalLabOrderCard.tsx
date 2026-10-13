@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -100,7 +101,7 @@ const DentalLabOrderCard: React.FC<DentalLabOrderCardProps> = ({ order, today, h
       setNewDue('');
       onChanged();
     } catch (failure) {
-      toast.error(isDentalLabNotSetUp(failure) ? 'Lab work is not set up yet.' : failure instanceof Error ? failure.message : 'Could not change the order.');
+      toast.error(isDentalLabNotSetUp(failure) ? 'Lab work is not set up yet.' : failure instanceof Error ? plainWords(failure.message) : 'Could not change the order.');
     } finally {
       setBusy(null);
     }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
 import { addDaysToKey, todayKey } from '../../../utils/billing/dates';
@@ -108,7 +109,7 @@ export const RejectionSheet: React.FC<RejectionSheetProps> = ({ item, canApprove
       toast.success(action === 'resubmit' ? "Added to the fund's next batch with the resubmission flag" : 'Saved');
       onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not save.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not save.');
     } finally {
       setBusy(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { refreshAfterSave } from '../../lib/queryClient';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +10,7 @@ import TimePickerModal from '../ui/TimePickerModal';
 import { describeDbError, ensureRowsUpdated, formatRole } from './UserManagement/staffUtils';
 import { dayClosingBeforeOpening, parseTime12Hour } from './businessHours';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { canEditPracticeSettings } from './practiceSettingsAccess';
 
 interface BusinessHours {
   day: string;
@@ -121,6 +123,8 @@ const parseBusinessHours = (hours: BusinessHours[] | undefined | null): Business
 
 const BranchManagement: React.FC = () => {
   const { user } = useAuthStore();
+  // Administrators change locations; everyone else sees them read-only (owner, 13 Oct 2026)
+  const canEdit = canEditPracticeSettings(user);
   const [practice, setPractice] = useState<Practice | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
@@ -365,8 +369,9 @@ const BranchManagement: React.FC = () => {
         toast.success('Staff member removed from branch');
       }
 
-      // Reload the staff list (every staff count and list on this screen comes from it)
+      // Reload the staff list (every staff count and list on this screen comes from it), and Settings > Users' list
       loadAllStaff();
+      void refreshAfterSave('staff');
     } catch (error) {
       console.error('Error assigning user:', error);
       toast.error(describeDbError(error, 'Failed to update staff assignment'));
@@ -421,6 +426,7 @@ const BranchManagement: React.FC = () => {
               <h2 className="text-2xl font-semibold text-gray-900">Practice Locations</h2>
               <p className="text-gray-600 mt-1">Manage your practice branches and locations</p>
             </div>
+            {canEdit && (
             <Button
               onClick={() => {
                 setEditingBranch(null);
@@ -432,6 +438,7 @@ const BranchManagement: React.FC = () => {
               <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
               Add Location
             </Button>
+            )}
           </div>
 
           {/* Stats Overview */}
@@ -587,7 +594,7 @@ const BranchManagement: React.FC = () => {
                       }`}
                       onClick={() => {
                         setSelectedBranch(branch.id);
-                        handleEdit(branch);
+                        if (canEdit) handleEdit(branch);
                       }}
                     >
                       <div className="flex items-start justify-between mb-4">
@@ -608,6 +615,7 @@ const BranchManagement: React.FC = () => {
                             </span>
                           )}
                         </div>
+                        {canEdit && (
                         <div className="flex gap-1">
                           <button
                             onClick={(e) => {
@@ -647,6 +655,7 @@ const BranchManagement: React.FC = () => {
                             <Icon icon={SolarIcons.trash} className="w-5 h-5" />
                           </button>
                         </div>
+                        )}
                       </div>
 
                       <div className="space-y-2 text-sm">
@@ -705,7 +714,7 @@ const BranchManagement: React.FC = () => {
                               Staff ({allStaff.filter(u => u.branch_id === branch.id).length})
                             </span>
                           </div>
-                          {selectedBranch === branch.id && (
+                          {selectedBranch === branch.id && canEdit && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

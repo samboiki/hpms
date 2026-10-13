@@ -34,9 +34,17 @@ describe('membershipNumberHint', () => {
   });
 
   it('says nothing for funds whose number length is not known yet (never a false alarm)', () => {
-    expect(membershipNumberHint({ reference: 'MAG1', name: 'PSEMAS' }, '12')).toBeNull();
     expect(membershipNumberHint({ name: 'Some new fund' }, '12')).toBeNull();
     expect(membershipNumberHint({ reference: 'NMC1' }, '')).toBeNull();
+  });
+
+  // Claims standard of 13 Oct 2026: PSEMAS numbers are 9 digits (Methealth statements) or 13-14 on older cards. A
+  // number of another length is only a hint: registration never stops on it
+  it('accepts every PSEMAS length seen and only hints at another', () => {
+    for (const number of ['000123456', '1234567890123', '12345678901234']) {
+      expect(membershipNumberHint({ reference: 'MAG1', name: 'PSEMAS' }, number)).toBeNull();
+    }
+    expect(membershipNumberHint({ reference: 'MAG1', name: 'PSEMAS' }, '12')).toMatch(/9 or 13 or 14 digits; this one has 2. New PSEMAS numbers/);
   });
 
   // Reception sees what OneHealth support set on Administration > Medical aid funds, at registration as at claiming

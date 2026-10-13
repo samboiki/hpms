@@ -84,7 +84,9 @@ export async function loadFrameCatalogue(practiceId: string): Promise<FrameCatal
     detailRows = (plain.data ?? []) as Row[];
   }
   const detailById = new Map(detailRows.map(row => [String(row.item_id), row] as const));
-  const defaultVatRate = settings?.defaultVatRate ?? 15;
+  // A practice that is not VAT registered (Settings > Practice) charged no VAT on its frames: none is taken off
+  const registered = settings?.vatRegistered === true;
+  const defaultVatRate = registered ? settings?.defaultVatRate ?? 15 : 0;
   const frames = new Map<string, FrameInfo>();
   const vatRates = new Map<string, number>();
   for (const item of (items.data ?? []) as Row[]) {
@@ -97,7 +99,7 @@ export async function loadFrameCatalogue(practiceId: string): Promise<FrameCatal
       brand: (typeof detail?.brand === 'string' && detail.brand.trim()) || name,
       consignmentSupplierId: detail?.consignment === true && typeof detail.consignment_supplier_id === 'string' ? detail.consignment_supplier_id : null
     });
-    vatRates.set(id, item.vat_rate === null || item.vat_rate === undefined ? defaultVatRate : Number(item.vat_rate));
+    vatRates.set(id, !registered ? 0 : item.vat_rate === null || item.vat_rate === undefined ? defaultVatRate : Math.max(Number(item.vat_rate), 0));
   }
   return { frames, vatRates, defaultVatRate };
 }

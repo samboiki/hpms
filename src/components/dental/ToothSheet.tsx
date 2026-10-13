@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -87,7 +88,7 @@ const ToothSheet: React.FC<ToothSheetProps> = props => {
       onChanged();
     } catch (error) {
       toast.error(
-        isDentalChartNotSetUp(error) ? 'Charting is not set up yet.' : error instanceof Error ? error.message : 'Could not change the chart.',
+        isDentalChartNotSetUp(error) ? 'Charting is not set up yet.' : error instanceof Error ? plainWords(error.message) : 'Could not change the chart.',
         { duration: 8000 }
       );
     } finally {

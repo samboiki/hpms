@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { patientListService, type PatientListRecord } from '../../services/patientListService';
@@ -63,7 +64,7 @@ export const SendNowSheet: React.FC<SendNowSheetProps> = ({ open, onClose, list,
       setResult(outcome);
       if (outcome.sent > 0) toast.success(`${plural(outcome.sent, 'SMS')} sent from "${list.name}".`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Sending failed.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Sending failed.');
       setResult(null);
     } finally {
       setPhase('done');

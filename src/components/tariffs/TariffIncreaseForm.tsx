@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { formatNad } from '../../utils/billing/money';
@@ -69,7 +70,7 @@ const TariffIncreaseForm: React.FC<TariffIncreaseFormProps> = ({ practiceId, row
       toast.success(`${changed} price${changed === 1 ? '' : 's'} go up from ${formatServiceDate(fromDate)}.`);
       onApplied();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The new prices could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The new prices could not be saved.');
     } finally {
       setSaving(false);
     }

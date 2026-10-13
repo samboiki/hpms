@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import {
@@ -64,7 +65,7 @@ export const VisitLettersPanel: React.FC<VisitLettersPanelProps> = ({
       setState({ status: 'ready', letters: await listLetters(patientId, visitId) });
     } catch (error) {
       if (error instanceof LettersNotSetUpError) setState({ status: 'not_set_up' });
-      else setState({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the letters.' });
+      else setState({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the letters.' });
     }
   }, [patientId, visitId]);
 

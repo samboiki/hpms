@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TestTube, 
@@ -511,7 +512,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
       
     } catch (error) {
       console.error('💥 Error deleting lab request:', error);
-      toast.error(`Failed to delete lab request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to delete lab request: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
     }
   };
 

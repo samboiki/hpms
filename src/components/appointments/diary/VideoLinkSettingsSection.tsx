@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { loadPracticeVideoLink, savePracticeVideoLink } from '../../../services/videoBookingService';
@@ -95,7 +96,7 @@ export const VideoLinkSettingsSection: React.FC<VideoLinkSettingsSectionProps> =
                 try {
                   setDraft(createTelemedicineRoomUrl(practiceId));
                 } catch (error) {
-                  setErrors([error instanceof Error ? error.message : 'Could not make a room.']);
+                  setErrors([error instanceof Error ? plainWords(error.message) : 'Could not make a room.']);
                 }
               }}
               className={SECONDARY_CLASS}

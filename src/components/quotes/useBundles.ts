@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import type { CodeBundle } from './bundles';
 import { isQuotesNotEnabledError, loadBundles } from './quoteService';
 
@@ -28,7 +29,7 @@ export function useBundles(practiceId: string | null, active: boolean): { state:
         setState(
           isQuotesNotEnabledError(error)
             ? { status: 'not_enabled' }
-            : { status: 'error', message: error instanceof Error ? error.message : 'Could not load the code bundles.' }
+            : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the code bundles.' }
         );
       });
     return () => {

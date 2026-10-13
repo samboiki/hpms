@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { answerByLink, loadByLink, type LinkPageState } from '../services/previsitService';
 import { cleanPrevisitAnswers, previsitCodeFromLocation } from '../utils/clinical/previsitQuestions';
@@ -70,7 +71,7 @@ const PrevisitQuestionnairePage: React.FC = () => {
     const result = await answerByLink(code, checked.answers);
     setSending(false);
     if (result.status === 'invalid' || result.status === 'error') {
-      setProblem(result.message);
+      setProblem(plainWords(result.message));
       return;
     }
     setState(result);

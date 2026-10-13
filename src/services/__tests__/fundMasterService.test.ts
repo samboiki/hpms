@@ -111,7 +111,8 @@ describe('the Medical aid funds screen', () => {
     expect(data.problems).toEqual([]);
     expect(data.practiceWaits).toBeNull();
     expect(data.funds[0]).toMatchObject({ code: 'NAMM', changedAt: null, note: null });
-    expect(data.funds[0].rule).toMatchObject({ deadline: { days: 120 }, confirmed: false });
+    // The built-in claims standard (13 Oct 2026): Nammed's member guide, to the end of the 4th month, confirmed
+    expect(data.funds[0].rule).toMatchObject({ deadline: { months: 4, monthEnd: true }, confirmed: true });
   });
 });
 

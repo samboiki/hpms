@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { SECONDARY } from '../stock/stockUi';
 import { patientEyesLink } from '../billing/invoiceLinks';
 import { loadPracticeLabOrders, loadSlipHeading, type PracticeLabOrder, type SlipHeading } from '../../services/optometry/optometryService';
@@ -28,7 +29,7 @@ const PracticeLabOrders: React.FC<{ practiceId: string; today: string }> = ({ pr
         setLoad({ status: 'ready', orders });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not read the lab orders.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the lab orders.' });
       });
     return () => {
       cancelled = true;

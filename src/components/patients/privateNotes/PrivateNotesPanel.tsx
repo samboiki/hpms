@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../../stores/authStore';
@@ -50,7 +51,7 @@ export const PrivateNotesPanel: React.FC<PrivateNotesPanelProps> = ({ practiceId
     try {
       setState({ status: 'ready', notes: await loadPrivateNotes(patientId, userId) });
     } catch (error) {
-      setState(error instanceof PrivateNotesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? error.message : 'Could not load your private notes.' });
+      setState(error instanceof PrivateNotesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load your private notes.' });
     }
   }, [patientId, userId]);
 
@@ -100,7 +101,7 @@ export const PrivateNotesPanel: React.FC<PrivateNotesPanelProps> = ({ practiceId
       toast.success('Private note saved. Only you can read it.');
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the note.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the note.');
     } finally {
       setBusy(false);
     }
@@ -119,7 +120,7 @@ export const PrivateNotesPanel: React.FC<PrivateNotesPanelProps> = ({ practiceId
       toast.success('Private note changed.');
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not change the note.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not change the note.');
     } finally {
       setBusy(false);
     }
@@ -133,7 +134,7 @@ export const PrivateNotesPanel: React.FC<PrivateNotesPanelProps> = ({ practiceId
       toast.success('Private note deleted.');
       await load();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete the note.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not delete the note.');
     } finally {
       setBusy(false);
     }

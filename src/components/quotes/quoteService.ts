@@ -11,6 +11,7 @@
  *   screens, so the invoice gets the same checks and amounts.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../utils/plainErrors';
 import { supabase } from '../../lib/supabase';
 import { communicationService, getCommunicationErrorMessage } from '../../services/communicationService';
 import { invoiceService } from '../../services/invoiceService';
@@ -611,7 +612,7 @@ export async function convertQuoteToInvoice(params: {
     await linkQuoteToInvoice(quote.id, invoiceId, params.visitId);
     return { invoiceId, invoiceNumber, linkError: null };
   } catch (linkError) {
-    return { invoiceId, invoiceNumber, linkError: linkError instanceof Error ? linkError.message : 'unknown error' };
+    return { invoiceId, invoiceNumber, linkError: linkError instanceof Error ? plainWords(linkError.message) : 'unknown error' };
   }
 }
 

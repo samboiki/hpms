@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { loadDiaryRangeVisits } from '../services/diaryService';
@@ -41,7 +42,7 @@ export function useDiaryRangeVisits(practiceId: string | null | undefined, range
         setError(null);
       }
     } catch (failure) {
-      if (request === requestRef.current) setError(failure instanceof Error ? failure.message : String(failure));
+      if (request === requestRef.current) setError(failure instanceof Error ? plainWords(failure.message) : String(failure));
     } finally {
       if (request === requestRef.current) setLoading(false);
     }

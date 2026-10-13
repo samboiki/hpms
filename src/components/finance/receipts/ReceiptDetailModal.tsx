@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { formatNad, fromCents } from '../../../utils/billing/money';
@@ -23,6 +24,8 @@ import { loadReceiptEntries, loadStaffNames, reverseAdjustment, reverseAllocatio
 import { ErrorBox, PrimaryButton, SecondaryButton, Sheet, SummaryRow } from './ArUi';
 import { AllocateCreditDialog } from './AllocateCreditDialog';
 import { RefundDialog, ReverseEntryDialog } from './RefundAndReverseDialogs';
+import { useAuthStore } from '../../../stores/authStore';
+import { canCorrectMoney } from '../../../services/ledger/moneyRights';
 import { ReceiptShareActions } from './ReceiptShareActions';
 import { formatDay, type ReceiptDocument } from './receiptDocuments';
 
@@ -61,6 +64,8 @@ export const ReceiptDetailModal: React.FC<{
   const [staffLoaded, setStaffLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [action, setAction] = useState<Action | null>(null);
+  // Refunds and reversals are for administrators only (owner, 13 Oct 2026)
+  const mayCorrect = useAuthStore(state => canCorrectMoney(state.user?.role));
 
   const load = useCallback(async () => {
     setError(null);
@@ -75,7 +80,7 @@ export const ReceiptDetailModal: React.FC<{
         .then(names => { setStaff(names); setStaffLoaded(true); })
         .catch(() => setStaff({}));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load the receipt');
+      setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not load the receipt');
     }
   }, [initial.id, practiceId]);
 
@@ -135,10 +140,10 @@ export const ReceiptDetailModal: React.FC<{
             {!reversed && receipt.unallocatedCents > 0 && (
               <>
                 <SecondaryButton icon="solar:card-recive-bold-duotone" onClick={() => setAction({ type: 'allocate' })}>Allocate credit</SecondaryButton>
-                <SecondaryButton icon="solar:card-send-bold-duotone" onClick={() => setAction({ type: 'refund' })}>Refund</SecondaryButton>
+                {mayCorrect && <SecondaryButton icon="solar:card-send-bold-duotone" onClick={() => setAction({ type: 'refund' })}>Refund</SecondaryButton>}
               </>
             )}
-            {!reversed && (
+            {!reversed && mayCorrect && (
               <SecondaryButton icon="solar:undo-left-round-bold-duotone" onClick={() => setAction({ type: 'reverse_receipt' })} className="text-red-700">
                 Reverse receipt
               </SecondaryButton>
@@ -211,7 +216,7 @@ export const ReceiptDetailModal: React.FC<{
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="tabular-nums text-sm font-semibold text-gray-900">{nad(allocation.amountCents)}</span>
-                      {!allocation.reversal && !reversed && (
+                      {!allocation.reversal && !reversed && mayCorrect && (
                         <button type="button" className="text-xs font-medium text-red-700 hover:underline" onClick={() => setAction({ type: 'reverse_allocation', allocation })}>
                           Take off
                         </button>
@@ -237,7 +242,7 @@ export const ReceiptDetailModal: React.FC<{
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="tabular-nums text-sm font-semibold text-gray-900">{nad(refund.amountCents)}</span>
-                      {!refund.reversal && (
+                      {!refund.reversal && mayCorrect && (
                         <button type="button" className="text-xs font-medium text-red-700 hover:underline" onClick={() => setAction({ type: 'reverse_refund', refund })}>
                           Reverse
                         </button>

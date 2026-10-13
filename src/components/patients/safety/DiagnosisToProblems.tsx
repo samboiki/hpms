@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { addProblem } from '../../../services/patientSafetyService';
@@ -40,7 +41,7 @@ export const DiagnosisToProblems: React.FC<DiagnosisToProblemsProps> = ({ patien
       await safety.refresh();
       toast.success(`${suggestion.description} added to the problem list.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not add it to the problem list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not add it to the problem list.');
     } finally {
       setBusy(null);
     }

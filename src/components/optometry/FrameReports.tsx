@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Chip } from '../stock/stockParts';
 import { INPUT, LINK, day, nad } from '../stock/stockUi';
@@ -11,7 +12,7 @@ import { FRAME_UNIT_STATUSES, FRAME_UNIT_STATUS_LABELS, type FrameUnitStatus } f
 import { NOT_KNOWN, frameSalesTable, framesByBarcodeTable, salespeopleTable } from './optometryDocuments';
 import { BarcodesNotSetUp, ExportButtons, NUM, ReportStatus, TABLE_BOX, TD, TH } from './reportParts';
 
-const errorMessage = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? error.message : fallback);
+const errorMessage = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? plainWords(error.message) : fallback);
 
 type Names = Map<string, string>;
 

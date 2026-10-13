@@ -6,6 +6,8 @@ import { Building2, Lock, Mail, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import PatientSignIn from './PatientSignIn';
+import { TotpSignInStep } from '../../components/auth/TotpSignInStep';
+import { supabase } from '../../lib/supabase';
 
 type SignInMode = 'staff' | 'patient';
 // One sign-in screen for everyone: staff use email and password, patients their cell number and an SMS code.
@@ -37,8 +39,14 @@ const Login: React.FC = () => {
     }
   };
 
-  const { login } = useAuthStore();
+  const { login, mfaRequired, cancelSecondStep } = useAuthStore();
   const navigate = useNavigate();
+
+  // Two-step sign-in: the code was accepted, so the session can now be opened
+  const finishSecondStep = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (await login(session?.user.email ?? email, '')) navigate('/');
+  };
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,7 +57,8 @@ const Login: React.FC = () => {
       const success = await login(email, password);
       if (success) {
         navigate('/');
-      } else {
+      } else if (!useAuthStore.getState().mfaRequired) {
+        // A two-step account goes on to the code (the form below changes); anything else is a wrong password
         setError('Invalid email or password');
       }
     } catch (err) {
@@ -109,7 +118,9 @@ const Login: React.FC = () => {
             ))}
           </div>
 
-          {mode === 'patient' ? <PatientSignIn /> : (<>
+          {mode === 'patient' ? <PatientSignIn /> : mfaRequired ? (
+            <TotpSignInStep onVerified={finishSecondStep} onCancel={cancelSecondStep} />
+          ) : (<>
           {error && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}

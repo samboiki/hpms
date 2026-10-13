@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { format, isValid, parseISO } from 'date-fns';
 import { patientFileLink } from '../debtors/accountText';
@@ -60,7 +61,7 @@ export const CompanyEmployees: React.FC<CompanyEmployeesProps> = ({ practiceId, 
           if (active) setMatches(found.slice(0, 8));
         })
         .catch(error => {
-          if (active) onError(error instanceof Error ? error.message : 'The patients could not be searched.');
+          if (active) onError(error instanceof Error ? plainWords(error.message) : 'The patients could not be searched.');
         })
         .finally(() => {
           if (active) setSearching(false);
@@ -82,7 +83,7 @@ export const CompanyEmployees: React.FC<CompanyEmployeesProps> = ({ practiceId, 
       setTerm('');
       setEmployeeNumber('');
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'The patient could not be added.');
+      onError(error instanceof Error ? plainWords(error.message) : 'The patient could not be added.');
     } finally {
       setBusy(null);
     }
@@ -96,7 +97,7 @@ export const CompanyEmployees: React.FC<CompanyEmployeesProps> = ({ practiceId, 
       onChanged(`${names[removing.patientId] ?? 'The patient'} was taken off the account. Visits already billed to it stay billed to it.`);
       setRemoving(null);
     } catch (error) {
-      onError(error instanceof Error ? error.message : 'The patient could not be taken off the account.');
+      onError(error instanceof Error ? plainWords(error.message) : 'The patient could not be taken off the account.');
     } finally {
       setBusy(null);
     }

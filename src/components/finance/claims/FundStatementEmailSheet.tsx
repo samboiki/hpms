@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../receipts/ArUi';
 import { pdfBase64, renderFinanceDocumentPdf } from '../receipts/documentPdf';
@@ -42,7 +43,7 @@ const FundStatementEmailSheet: React.FC<FundStatementEmailSheetProps> = ({ pract
         setLetterhead(practiceLetterhead);
       })
       .catch((error: unknown) => {
-        if (live) setLoadError(error instanceof Error ? error.message : 'The fund or the practice details could not be read.');
+        if (live) setLoadError(error instanceof Error ? plainWords(error.message) : 'The fund or the practice details could not be read.');
       });
     return () => {
       live = false;
@@ -61,7 +62,7 @@ const FundStatementEmailSheet: React.FC<FundStatementEmailSheetProps> = ({ pract
     try {
       setResult(await emailFundStatement({ practice, statement, recipient, message, attachment: { fileName: model.fileName, base64: pdfBase64(renderFinanceDocumentPdf(model)) } }));
     } catch (error) {
-      setResult({ ok: false, message: error instanceof Error ? error.message : 'The statement could not be emailed.' });
+      setResult({ ok: false, message: error instanceof Error ? plainWords(error.message) : 'The statement could not be emailed.' });
     } finally {
       setSending(false);
     }

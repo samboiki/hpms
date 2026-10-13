@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { isListsNotEnabledError, patientListService, type PatientListRecord } from '../../services/patientListService';
 import { windhoekClock } from '../../utils/patientLists/listDates';
 import type { PracticeDetails } from '../../utils/patientLists/listMessages';
@@ -25,7 +26,7 @@ interface ListsState {
   todayKey: string;
 }
 
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : 'Something went wrong.');
+const errorText = (error: unknown): string => (error instanceof Error ? plainWords(error.message) : 'Something went wrong.');
 
 const initialState = (): ListsState => ({
   status: 'loading',

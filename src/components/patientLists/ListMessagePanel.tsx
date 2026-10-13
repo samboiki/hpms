@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { getSmsLength } from '../messages/messageText';
@@ -128,7 +129,7 @@ export const ListMessagePanel: React.FC<ListMessagePanelProps> = ({ list, member
       toast.success(enabled ? `Saved. ${automaticSendLine(saved, new Date())}.` : 'Message settings saved.');
       return saved;
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : 'Could not save the message.';
+      const message = saveError instanceof Error ? plainWords(saveError.message) : 'Could not save the message.';
       setError(message);
       toast.error(message);
       return null;

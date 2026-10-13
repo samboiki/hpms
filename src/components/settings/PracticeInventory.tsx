@@ -89,7 +89,8 @@ const categories: InventoryCategory[] = [
 const formatMoney = (amount: number | null | undefined): string =>
   typeof amount === 'number' && Number.isFinite(amount) ? formatNad(amount) : '-';
 
-const PracticeInventory: React.FC = () => {
+// readOnly: Settings > Practice shows the list without the add, edit and delete buttons to non-administrators (owner, 13 Oct 2026)
+const PracticeInventory: React.FC<{ readOnly?: boolean }> = ({ readOnly = false }) => {
   const { practiceId } = usePractice();
   const { user } = useAuthStore();
   // Once the stock update is applied, items live on the Stock page: on hand follows the ledger and is never typed here
@@ -433,10 +434,12 @@ const PracticeInventory: React.FC = () => {
             ))}
           </select>
 
+          {!readOnly && (
           <Button onClick={() => setShowAddModal(true)}>
             <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 mr-2" />
             Add Item
           </Button>
+          )}
         </div>
       </div>
 
@@ -548,6 +551,7 @@ const PracticeInventory: React.FC = () => {
                           )}
                         </td>
                         <td className="px-6 py-4">
+                          {!readOnly && (
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => {
@@ -584,6 +588,7 @@ const PracticeInventory: React.FC = () => {
                               <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                             </button>
                           </div>
+                          )}
                         </td>
                       </tr>
                     );

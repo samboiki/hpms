@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import {
   ServiceSelection,
@@ -206,10 +207,10 @@ export class InvoiceService {
       console.error('💥 Error generating invoice:', error);
       console.error('📊 Error context:', {
         requestData: request,
-        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorMessage: error instanceof Error ? plainWords(error.message) : 'Unknown error',
         errorStack: error instanceof Error ? error.stack : undefined
       });
-      throw new Error(`Failed to generate invoice: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to generate invoice: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
     }
   }
 
@@ -343,7 +344,7 @@ export class InvoiceService {
       } catch (fallbackError) {
         // Never return a made-up invoice: the visit would look billed while nothing was saved
         console.error('Invoice could not be saved:', fallbackError);
-        throw new Error(`Invoice not created: ${fallbackError instanceof Error ? fallbackError.message : 'the connection to the database failed'}`);
+        throw new Error(`Invoice not created: ${fallbackError instanceof Error ? plainWords(fallbackError.message) : 'the connection to the database failed'}`);
       }
     }
 

@@ -120,7 +120,8 @@ describe('posting a fund payment', () => {
   it('queues a line rejected for a fixable reason with the fund deadline to resubmit by, and never bills it', () => {
     const doc: RemittanceDocument = { ...statement([remLine(1, {}), remLine(2, { tariffRaw: '1201', claimedCents: 31000, paidCents: 0, status: 'rejected', reasonCodes: ['154'] })]), administrator: 'medscheme', fundCode: 'NHPM' };
     const result = plan(doc, [claim({ fundCode: 'NHPM' }), claim({ fundCode: 'NHPM', tariffCode: '1201', amountCents: 31000 })]);
-    expect(result.rejections).toEqual([expect.objectContaining({ seq: 2, category: 'fixable', suggestedAction: 'resubmit', resubmitBy: '2027-01-15', atStakeCents: 31000 })]);
+    // NHP: to the end of the 4th month after the service month (claims standard of 13 Oct 2026): 15 Sep -> 31 Jan
+    expect(result.rejections).toEqual([expect.objectContaining({ seq: 2, category: 'fixable', suggestedAction: 'resubmit', resubmitBy: '2027-01-31', atStakeCents: 31000 })]);
     expect(result.shortfalls).toEqual([]);
   });
 

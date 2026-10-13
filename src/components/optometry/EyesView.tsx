@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -56,7 +57,7 @@ const EyesView: React.FC<EyesViewProps> = ({ practiceId, patientId, onOpenVisit 
   const isOptometry = useOptometryPractice(practiceId);
   const role = useAuthStore(state => state.user?.role ?? null);
   const clinical = role !== null && CLINICAL_ROLES.has(role);
-  // The practice view is the Optometry page's content: it follows Stock's access as the page does
+  // The practice view is the same lens orders, frames and reports Stock shows: it follows Stock's access
   const user = useAuthStore(state => state.user);
   const screenAccess = useScreenAccess();
   const opensOptometryPage = screenGate(user, OPTOMETRY_FOLLOWS, screenAccess) === 'open';
@@ -82,7 +83,7 @@ const EyesView: React.FC<EyesViewProps> = ({ practiceId, patientId, onOpenVisit 
         setLoad(records.status === 'not_set_up' ? { status: 'not_set_up' } : { ...records, patient, heading });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the eye records.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the eye records.' });
       });
     return () => {
       cancelled = true;

@@ -4,14 +4,16 @@ import { useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { APP_COLOR, SECTION_COLORS, type SectionKey } from '../../config/sectionColors';
+import { initialsOf, personalAvatar } from '../../utils/avatarUtils';
 
 /** The user's photo, or their initials when there is none (never a stock photo standing in for them) */
 export const UserAvatar: React.FC<{ avatar?: string | null; name: string }> = ({ avatar, name }) => {
   const [failed, setFailed] = useState(false);
-  if (avatar && !failed) {
-    return <img src={avatar} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />;
+  const photo = personalAvatar(avatar);
+  if (photo && !failed) {
+    return <img src={photo} alt="" className="h-full w-full object-cover" onError={() => setFailed(true)} />;
   }
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('') || '?';
+  const initials = initialsOf(name);
   return (
     <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-purple-500 to-indigo-600 font-semibold text-white" aria-hidden="true">
       {initials}

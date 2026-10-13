@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { refreshAfterSave } from '../../lib/queryClient';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,6 +10,7 @@ import Icon, { SolarIcons } from '../ui/Icon';
 import { ConfirmDialog } from './UserManagement/ConfirmDialog';
 import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { canEditPracticeSettings } from './practiceSettingsAccess';
 
 interface Department {
   id: string;
@@ -33,6 +35,8 @@ interface DepartmentUser {
 
 const DepartmentManagement: React.FC = () => {
   const { user } = useAuthStore();
+  // Administrators change departments; everyone else sees them read-only (owner, 13 Oct 2026)
+  const canEdit = canEditPracticeSettings(user);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -153,6 +157,9 @@ const DepartmentManagement: React.FC = () => {
           if (staffError) {
             console.error('Error moving staff to the renamed department:', staffError);
             toast.error(`The department was renamed, but its staff still show "${oldName}". Open each person in Users to choose the department again.`);
+          } else {
+            // Settings > Users shows each person's department from its cached list
+            void refreshAfterSave('staff');
           }
         }
         toast.success('Department updated successfully');
@@ -277,6 +284,7 @@ const DepartmentManagement: React.FC = () => {
               <h2 className="text-2xl font-semibold text-gray-900">Department Management</h2>
               <p className="text-gray-600 mt-1">Organize your practice into departments</p>
             </div>
+            {canEdit && (
             <Button
               onClick={() => {
                 setEditingDepartment(null);
@@ -288,6 +296,7 @@ const DepartmentManagement: React.FC = () => {
               <Icon icon={SolarIcons.plus} className="w-5 h-5 mr-2" />
               Add Department
             </Button>
+            )}
           </div>
 
           {/* Departments Grid */}
@@ -335,6 +344,7 @@ const DepartmentManagement: React.FC = () => {
                           )}
                         </div>
                       </div>
+                      {canEdit && (
                       <div className="flex gap-1">
                         <button
                           onClick={() => handleToggleActive(department)}
@@ -365,6 +375,7 @@ const DepartmentManagement: React.FC = () => {
                           <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                         </button>
                       </div>
+                      )}
                     </div>
 
                     {department.description && (

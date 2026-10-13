@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { format } from 'date-fns';
@@ -106,7 +107,7 @@ const VideoConsultModal: React.FC<VideoConsultModalProps> = ({
     } catch (error) {
       console.error('[VideoConsultModal] Could not create a video room:', error);
       setRoom(null);
-      setRoomError(error instanceof Error ? error.message : 'Could not create a video room.');
+      setRoomError(error instanceof Error ? plainWords(error.message) : 'Could not create a video room.');
     }
   }, [isOpen, roomKey, practiceId, roomUrl]);
 

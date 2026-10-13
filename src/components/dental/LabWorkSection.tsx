@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useSearchParams } from 'react-router-dom';
 import { primaryButton, secondaryButton } from '../quotes/QuoteBits';
@@ -68,7 +69,7 @@ const LabWorkSection: React.FC<LabWorkSectionProps> = ({ practiceId, patientId, 
         if (!cancelled) setLoad(result.status === 'not_set_up' ? { status: 'not_set_up' } : { status: 'ready', orders: result.orders });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not read the lab orders.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the lab orders.' });
       });
     return () => {
       cancelled = true;

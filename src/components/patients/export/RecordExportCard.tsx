@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../../stores/authStore';
 import { exportRecordSummary, exportRecordZip, type ExportProgress, type RecordExportResult } from '../../../services/patientRecordExportService';
@@ -55,7 +56,7 @@ export const RecordExportCard: React.FC<RecordExportCardProps> = ({ practiceId, 
       const options = { practiceId, patientId, userId: user.id, includeMyPrivateNotes: includePrivate };
       setResult(format === 'zip' ? await exportRecordZip({ ...options, onProgress: setProgress }) : await exportRecordSummary(options));
     } catch (exportError) {
-      setError(exportError instanceof Error ? exportError.message : 'The record could not be exported. Please try again.');
+      setError(exportError instanceof Error ? plainWords(exportError.message) : 'The record could not be exported. Please try again.');
     } finally {
       setBusy(false);
     }

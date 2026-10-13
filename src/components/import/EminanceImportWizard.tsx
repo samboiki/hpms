@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import {
   isImportNotSetUpError,
@@ -66,7 +67,7 @@ export const EminanceImportWizard: React.FC<EminanceImportWizardProps> = ({ prac
       setReference({ existing, funds });
     } catch (error) {
       if (isImportNotSetUpError(error)) onNotSetUp();
-      else setReferenceError(error instanceof Error ? error.message : 'Could not read your patients and medical aid funds');
+      else setReferenceError(error instanceof Error ? plainWords(error.message) : 'Could not read your patients and medical aid funds');
     }
   }, [practiceId, onNotSetUp]);
 
@@ -172,7 +173,7 @@ export const EminanceImportWizard: React.FC<EminanceImportWizardProps> = ({ prac
         onNotSetUp();
         return;
       }
-      setSendError(error instanceof Error ? error.message : 'The import could not be started');
+      setSendError(error instanceof Error ? plainWords(error.message) : 'The import could not be started');
       setSending(null);
     }
   };

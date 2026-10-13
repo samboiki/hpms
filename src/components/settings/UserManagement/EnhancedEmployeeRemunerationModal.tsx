@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { refreshAfterSave } from '../../../lib/queryClient';
 import { supabase } from '../../../lib/supabase';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
@@ -402,10 +403,8 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
       return { bankingWarning };
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['employee-salaries'] });
-      queryClient.invalidateQueries({ queryKey: ['current-salary'] });
-      queryClient.invalidateQueries({ queryKey: ['user-details'] });
-      queryClient.invalidateQueries({ queryKey: ['staff-details'] });
+      // Every cached screen that shows a salary, also payslip adjustments' percentages and bonuses due
+      void refreshAfterSave('salary', queryClient);
       toast.success('Employee remuneration updated');
       if (result?.bankingWarning) {
         toast.error(result.bankingWarning, { duration: 8000 });

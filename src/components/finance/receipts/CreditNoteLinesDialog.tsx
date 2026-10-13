@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import { formatServiceDate } from '../../../utils/billing/dates';
@@ -45,7 +46,7 @@ export const CreditNoteLinesDialog: React.FC<CreditNoteLinesDialogProps> = ({ pr
         else setLines(result.lines);
       })
       .catch(error => {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'The invoice lines could not be loaded');
+        if (!cancelled) setLoadError(error instanceof Error ? plainWords(error.message) : 'The invoice lines could not be loaded');
       });
     return () => {
       cancelled = true;
@@ -73,7 +74,7 @@ export const CreditNoteLinesDialog: React.FC<CreditNoteLinesDialogProps> = ({ pr
       const saved = await postCreditNoteLines({ practiceId, invoiceId: invoice.id, reason, lines: result.lines });
       onSaved(saved.creditNotes, saved.reversals);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The credit note could not be saved');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The credit note could not be saved');
       setStep('edit');
       setConfirmed(false);
     } finally {

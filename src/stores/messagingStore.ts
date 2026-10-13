@@ -21,6 +21,8 @@ import {
   MessagingError
 } from '../types/internal-messaging.types';
 import { internalMessagingService } from '../services/internalMessagingService';
+import { countWantedUnread, loadNotificationPreferences } from '../services/notificationPreferencesService';
+import { prefsHideSomething, wantsNotification, type StaffNotificationPrefs } from '../utils/notifications/notificationPreferences';
 
 // ========================================
 // STORE STATE INTERFACE
@@ -36,6 +38,9 @@ interface MessagingStore {
   notificationUIState: NotificationUIState;
   isLoadingNotifications: boolean;
   notificationError?: MessagingError;
+  /** The signed-in person's notification settings (null: not loaded, everything shows) and whose they are */
+  notificationPrefs: StaffNotificationPrefs | null;
+  notificationPrefsUserId: string | null;
 
   // ========================================
   // CHANNELS STATE
@@ -83,6 +88,8 @@ interface MessagingStore {
   addNotification: (notification: SystemNotification) => void;
   removeNotification: (notificationId: string) => void;
   getUnreadCount: () => Promise<void>;
+  /** Uses new notification settings at once (after a save): hidden kinds leave the list and the counts */
+  applyNotificationPrefs: (userId: string, prefs: StaffNotificationPrefs) => void;
 
   // ========================================
   // CHANNEL ACTIONS
@@ -180,6 +187,8 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
   notificationFilters: {},
   notificationUIState: initialNotificationUIState,
   isLoadingNotifications: false,
+  notificationPrefs: null,
+  notificationPrefsUserId: null,
   
   channels: [],
   activeChannel: null,
@@ -212,11 +221,18 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
         filters,
         pagination
       );
+      // The person's own settings decide which kinds they see (owner, 13 Oct 2026: the settings must be real)
+      if (get().notificationPrefsUserId !== userId) {
+        const loaded = await loadNotificationPreferences(userId);
+        set({ notificationPrefs: loaded.status === 'ready' ? loaded.prefs : null, notificationPrefsUserId: userId });
+      }
+      const prefs = get().notificationPrefs;
+      const wanted = response.data.filter(notification => wantsNotification(notification, prefs));
       
       set(state => ({
         // A load without paging is a fresh list (each panel and list loads on opening): appending it again showed every
         // notification twice, three times... Only a later page adds to the list
-        notifications: !pagination || pagination.page === 1 ? response.data : [...state.notifications, ...response.data],
+        notifications: !pagination || pagination.page === 1 ? wanted : [...state.notifications, ...wanted],
         isLoadingNotifications: false
       }));
       
@@ -315,6 +331,8 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
   },
 
   addNotification: (notification: SystemNotification) => {
+    // A kind the person switched off is not shown or counted
+    if (!wantsNotification(notification, get().notificationPrefs)) return;
     set(state => ({
       notifications: [notification, ...state.notifications],
       unreadNotificationCount: notification.status === 'pending' || notification.status === 'delivered' 
@@ -339,11 +357,24 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
 
   getUnreadCount: async () => {
     try {
-      const count = await internalMessagingService.getUnreadNotificationCount();
+      const { notificationPrefs, notificationPrefsUserId } = get();
+      // The database counts every kind; when the person hides some, count only the ones they see
+      const count = notificationPrefsUserId && prefsHideSomething(notificationPrefs)
+        ? await countWantedUnread(notificationPrefsUserId, notificationPrefs as StaffNotificationPrefs)
+        : await internalMessagingService.getUnreadNotificationCount();
       set({ unreadNotificationCount: count });
     } catch (error) {
       console.error('Failed to get unread notification count:', error);
     }
+  },
+
+  applyNotificationPrefs: (userId: string, prefs: StaffNotificationPrefs) => {
+    set(state => ({
+      notificationPrefs: prefs,
+      notificationPrefsUserId: userId,
+      notifications: state.notifications.filter(notification => wantsNotification(notification, prefs))
+    }));
+    void get().getUnreadCount();
   },
 
   // ========================================
@@ -737,6 +768,8 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
       notificationUIState: initialNotificationUIState,
       isLoadingNotifications: false,
       notificationError: undefined,
+      notificationPrefs: null,
+      notificationPrefsUserId: null,
       
       channels: [],
       activeChannel: null,

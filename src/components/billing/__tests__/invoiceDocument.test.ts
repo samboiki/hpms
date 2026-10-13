@@ -357,3 +357,34 @@ describe('an invoice billed to a company or fund account', () => {
     expect(() => renderInvoicePdf(doc)).not.toThrow();
   });
 });
+
+// Owner, 13 Oct 2026: a VAT-registered practice charges 15 % VAT only on VAT-able stock (a frame), never on services,
+// and its invoice is a tax invoice with its VAT number; a practice that is not registered shows no VAT at all
+describe('VAT on the printed invoice', () => {
+  const frame = line({ id: 'l3', code: 'FRAME', description: 'Frame', teeth: [], icd10: [], unitPrice: 1150, total: 1150, medicalAid: 0, patient: 1150, vatRate: 15 });
+  const consult = line({ id: 'l4', code: '11011', description: 'Consultation', teeth: [], unitPrice: 450, total: 450, medicalAid: 0, patient: 450 });
+
+  it('is a tax invoice that shows the VAT in the frame and none in the consultation', () => {
+    const doc = buildInvoiceDocument(input({ medicalAid: null, lines: [frame, consult], vat: { vatNumber: '1234567-01-5' } }));
+    expect(doc.title).toBe('TAX INVOICE');
+    expect(doc.footerLeft).toContain('VAT no 1234567-01-5');
+    expect(doc.totals).toEqual(expect.arrayContaining([
+      { label: 'Total excluding VAT', value: 'N$ 1,450.00' },
+      { label: 'VAT 15 % included', value: 'N$ 150.00' },
+      { label: 'Invoice total', value: 'N$ 1,600.00', bold: true }
+    ]));
+    expect(doc.statements.some(text => text.includes('Services are VAT exempt'))).toBe(true);
+  });
+
+  it('says no VAT is charged when a registered practice bills services only', () => {
+    const doc = buildInvoiceDocument(input({ medicalAid: null, lines: [consult], vat: { vatNumber: '1234567-01-5' } }));
+    expect(doc.totals.some(total => total.label.startsWith('VAT'))).toBe(false);
+    expect(doc.statements).toContain('No VAT is charged on this invoice: services are VAT exempt.');
+  });
+
+  it('shows no VAT for a practice that is not VAT registered, even on a frame', () => {
+    const doc = buildInvoiceDocument(input({ medicalAid: null, lines: [frame, consult], vat: null }));
+    expect(doc.title).toBe('INVOICE');
+    expect(doc.totals.some(total => /VAT/.test(total.label))).toBe(false);
+  });
+});

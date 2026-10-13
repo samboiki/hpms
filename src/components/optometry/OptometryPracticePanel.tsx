@@ -10,7 +10,7 @@ import OptometryReport from './OptometryReport';
 import FundNotesPanel from './FundNotesPanel';
 
 type PracticeTab = 'orders' | 'frames' | 'report' | 'notes';
-/** The same part on the Optometry page */
+/** The same part in Stock (the Optometry page merged into Stock, 13 Oct 2026) */
 const PAGE_TABS = { orders: 'orders', frames: 'frames', report: 'reports', notes: 'notes' } as const;
 
 const TABS: ReadonlyArray<{ key: PracticeTab; label: string; icon: string }> = [
@@ -57,7 +57,7 @@ const OptometryPracticePanel: React.FC<{ practiceId: string }> = ({ practiceId }
         {tab === 'notes' && <FundNotesPanel practiceId={practiceId} />}
       </div>
       <p className="mt-3 text-xs text-gray-500">
-        <Link to={optometryLink(PAGE_TABS[tab])} className={LINK}>Open on the Optometry page</Link> (also in the menu)
+        <Link to={optometryLink(PAGE_TABS[tab])} className={LINK}>Open in Stock</Link> (also in the menu)
       </p>
     </section>
   );

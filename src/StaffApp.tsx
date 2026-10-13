@@ -25,9 +25,9 @@ import TestQueryProtection from './pages/TestQueryProtection';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { PATIENT_APP_PATH } from './patientPortal/portalRouting';
 import { useScreenAccess } from './hooks/useScreenAccess';
-import { OPTOMETRY_FOLLOWS, screenGate, type GuardedScreen } from './utils/auth/screenAccess';
+import { screenGate, type GuardedScreen } from './utils/auth/screenAccess';
 import { ScreenAccessNotice, type FollowingPage } from './components/access/ScreenAccessNotice';
-import { OPTOMETRY_PAGE } from './components/optometry/optometryPageHeader';
+import OptometryRedirect from './components/optometry/OptometryRedirect';
 
 /**
  * Everything a signed-in staff member gets: the providers, the layout, the Dashboard and every staff route. App.tsx
@@ -39,30 +39,26 @@ import { OPTOMETRY_PAGE } from './components/optometry/optometryPageHeader';
 // "This page could not load" with "Try again", never an empty screen
 // Stock and dispensing (proposals/2026-10-07-dispensing-and-stock.sql), loaded when opened
 const StockPage = lazyPage(PAGE_LOADERS['/stock']);
-// Optometry for the whole practice (optometry practices only: the page says so elsewhere), loaded when opened
-const OptometryPage = lazyPage(PAGE_LOADERS['/optometry']);
 // Every other staff page is also loaded when first opened, so a phone downloads only the sign-in screen, the layout and
 // the Dashboard before the first screen shows (the installed app still keeps every page for offline start)
 const Patients = lazyPage(PAGE_LOADERS['/patients']);
-const PatientDetail = lazyPage(() => import('./pages/PatientDetail'));
 const Encounters = lazyPage(PAGE_LOADERS['/encounters']);
 const Communications = lazyPage(PAGE_LOADERS['/communications']);
 const Finance = lazyPage(PAGE_LOADERS['/finance']);
-const BillingWorkflow = lazyPage(PAGE_LOADERS['/billing/workflow']);
-const EnhancedPracticeProfile = lazyPage(PAGE_LOADERS['/practice-profile']);
 const PracticesManagement = lazyPage(PAGE_LOADERS['/admin/practices']);
 const TariffManagement = lazyPage(PAGE_LOADERS['/admin/tariffs']);
 const FundMaster = lazyPage(PAGE_LOADERS['/admin/funds']);
 const SystemBlueprint = lazyPage(PAGE_LOADERS['/admin/blueprint']);
 const Settings = lazyPage(PAGE_LOADERS['/settings']);
 
-// Older links go to /patients/<id> (optionally ?visit=<id>); the Patients page opens a patient and a visit
-// from its query string, so send them there instead of to "page not found"
+// Older links go to /patients/<id> (optionally ?visit=<id>) or /patients/<id>/visit/<id> (the old patient page, removed
+// 13 Oct 2026: nothing linked to it); the Patients page opens a patient and a visit from its query string, so send them
+// there instead of to "page not found"
 const PatientLinkRedirect: React.FC = () => {
-  const { patientId } = useParams();
+  const { patientId, visitId: visitInPath } = useParams();
   const [searchParams] = useSearchParams();
   const target = new URLSearchParams({ patientId: patientId ?? '' });
-  const visitId = searchParams.get('visit');
+  const visitId = visitInPath ?? searchParams.get('visit');
   if (visitId) {
     target.set('visitId', visitId);
     target.set('action', 'edit-visit');
@@ -141,7 +137,7 @@ export default function StaffApp() {
               <Route index element={<Dashboard />} />
               <Route path="patients" element={<Suspense fallback={spinner}><Patients /></Suspense>} />
               <Route path="patients/:patientId" element={<PatientLinkRedirect />} />
-              <Route path="patients/:patientId/visit/:visitId" element={<Suspense fallback={spinner}><PatientDetail /></Suspense>} />
+              <Route path="patients/:patientId/visit/:visitId" element={<PatientLinkRedirect />} />
               <Route path="encounters" element={<Suspense fallback={spinner}><Encounters /></Suspense>} />
               <Route path="communications" element={<Suspense fallback={spinner}><Communications /></Suspense>} />
               {/* SMS test pages: local development only (test-sms-direct bypasses the SMS gateway) */}
@@ -152,9 +148,8 @@ export default function StaffApp() {
               {import.meta.env.DEV && <Route path="test-sms-auth" element={<TestSMSWithAuth />} />}
               <Route path="finance" element={<RequireRole screen="finance"><Suspense fallback={spinner}><Finance /></Suspense></RequireRole>} />
               <Route path="stock" element={<RequireRole screen="stock"><Suspense fallback={spinner}><StockPage /></Suspense></RequireRole>} />
-              <Route path="optometry" element={<RequireRole screen={OPTOMETRY_FOLLOWS} page={OPTOMETRY_PAGE}><Suspense fallback={spinner}><OptometryPage /></Suspense></RequireRole>} />
-              <Route path="billing/workflow" element={<Suspense fallback={spinner}><BillingWorkflow /></Suspense>} />
-              <Route path="practice-profile" element={<Suspense fallback={spinner}><EnhancedPracticeProfile /></Suspense>} />
+              {/* The Optometry page was merged into Stock (owner, 13 Oct 2026): old addresses open the same part there */}
+              <Route path="optometry" element={<OptometryRedirect />} />
               <Route path="admin/practices" element={<RequireRole allow="admin"><Suspense fallback={spinner}><PracticesManagement /></Suspense></RequireRole>} />
               <Route path="admin/tariffs" element={<RequireRole allow="admin"><Suspense fallback={spinner}><TariffManagement /></Suspense></RequireRole>} />
               {/* Medical aid funds: OneHealth support changes them, practice administrators read them and keep notes */}

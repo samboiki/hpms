@@ -4,6 +4,7 @@
  * Stock's own section colour marks the section: header icon, selected tab, card icons, its tiles.
  */
 import { toast } from 'react-hot-toast';
+import { plainWords } from '../../utils/plainErrors';
 import { SECTION_COLORS } from '../../config/sectionColors';
 import { formatServiceDate } from '../../utils/billing/dates';
 import { formatNad, fromCents } from '../../utils/billing/money';
@@ -34,7 +35,7 @@ export const dayTime = (timestamp: string | null | undefined): string =>
     : '';
 
 export const errorText = (error: unknown, fallback = 'Something went wrong. Try again.'): string =>
-  error instanceof Error && error.message ? error.message : fallback;
+  error instanceof Error && error.message ? plainWords(error.message) : fallback;
 
 /** Prints a report, or says the browser blocked the print window (a blocked print did nothing at all). */
 export function printOrSay(report: ReportTable, practiceName: string): boolean {

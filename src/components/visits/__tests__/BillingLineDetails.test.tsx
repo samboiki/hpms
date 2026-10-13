@@ -154,6 +154,26 @@ describe('who pays a line and its authorisation number', () => {
   });
 });
 
+// Owner decision (13 Oct 2026): the practice gives no discounts on invoice lines, so the line editor has no discount
+// field; a line saved with a discount before still shows it, because the invoice and statements count it
+describe('discounts on a line', () => {
+  it('offers no discount field, even for a private patient', () => {
+    renderLine({ hasMedicalAid: false, editable: true });
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+    expect(screen.getByLabelText('Date of service')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Discount/)).toBeNull();
+  });
+
+  it('still shows a discount saved on the line before', () => {
+    renderLine({
+      hasMedicalAid: false,
+      service: { ...consultation, discountAmount: 50 },
+      amounts: { unitCents: 45000, grossCents: 45000, discountCents: 5000, totalCents: 40000, fundCents: 0, patientCents: 40000 }
+    });
+    expect(screen.getByText('Discount N$ 50.00')).toBeInTheDocument();
+  });
+});
+
 // Parity D5: a filling is billed by its number of surfaces; the line says which tooth and surfaces it is for, lets
 // staff mark them when the chart did not, and names the code that fits when the code is for another number
 describe('tooth surfaces on a billing line', () => {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { EminanceClaimHistoryDialog } from '../import/EminanceClaimHistoryDialog';
 import { loadPatientFileNumbers } from '../../services/patientFileService';
 import { hasLegacyClaimHistory } from '../../services/import/eminanceImportService';
@@ -41,7 +42,7 @@ export const PatientFileNumbers: React.FC<{ patientId?: string | null; className
       .then(([file, hasEminanceHistory]) => {
         if (active) setNumbers({ reference: patientReferenceLabel(file.reference), oldFileNumber: file.oldFileNumber, hasEminanceHistory });
       })
-      .catch(error => console.warn('Patient file numbers not loaded:', error instanceof Error ? error.message : error));
+      .catch(error => console.warn('Patient file numbers not loaded:', error instanceof Error ? plainWords(error.message) : error));
     return () => {
       active = false;
     };

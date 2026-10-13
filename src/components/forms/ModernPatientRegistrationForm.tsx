@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { useForm } from 'react-hook-form';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -46,6 +47,11 @@ import { DependantCodeInput, MainMemberFields } from './medicalAid/MainMemberFie
 import { useDependantCodeColumn } from './medicalAid/dependantCode';
 import { usePatientTitleColumns } from './patientTitleColumns';
 import { usePatientTownColumns } from './patientTownColumns';
+import { usePatientPhotoColumn, useReferralSourceColumns } from './patientExtrasColumns';
+import { RegistrationPhotoField } from '../patients/photo/RegistrationPhotoField';
+import { savePatientPhoto } from '../patients/photo/patientPhotoService';
+import { ReferralSourceFields } from '../patients/referralSource/ReferralSourceFields';
+import { NO_REFERRAL_ANSWER, referralColumns, type ReferralAnswer } from '../../utils/patients/referralSource';
 import { RegionSelect, TownPicker } from '../address/TownPicker';
 import { toNamibianRegion } from '../../utils/address/namibianTowns';
 import CompletePatientFileModal from './CompletePatientFileModal';
@@ -219,6 +225,11 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess, onUseExisti
   const titleColumnsAvailable = usePatientTitleColumns();
   // Town and region (picking a town fills its region): shown and saved once the columns exist
   const townColumnsAvailable = usePatientTownColumns();
+  // Photo and "How did you hear about us?" (owner, 13 Oct 2026): shown and saved once the columns exist
+  const photoColumnAvailable = usePatientPhotoColumn();
+  const referralColumnsAvailable = useReferralSourceColumns();
+  const [photo, setPhoto] = useState<Blob | null>(null);
+  const [referralAnswer, setReferralAnswer] = useState<ReferralAnswer>(NO_REFERRAL_ANSWER);
   // The first names before the last keystroke: initials follow them until reception types their own
   const firstNamesRef = useRef('');
 
@@ -383,6 +394,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess, onUseExisti
           postal_address: data.postalAddress || null,
           postal_code: data.postalCode || null,
           ...(townColumnsAvailable ? { town: (data.town ?? '').trim() || null, region: toNamibianRegion(data.region) } : {}),
+          ...(referralColumnsAvailable ? referralColumns(referralAnswer) : {}),
           practice_id: practiceId,
           // Only when typed: patients who had a paper file or an account in the previous system are found by it
           ...(oldFileNumber ? { legacy_account_number: oldFileNumber } : {})
@@ -446,12 +458,22 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess, onUseExisti
         if (nextOfKinError) throw nextOfKinError;
       }
 
+      // The photo is stored once the file exists (its folder is the file's); a failure leaves the file registered
+      if (photo && photoColumnAvailable) {
+        try {
+          await savePatientPhoto({ practiceId, patientId: registeredPatient.id, photo });
+        } catch (photoError) {
+          console.error('Could not save the patient photo:', photoError);
+          toast.error(`${registeredPatient.first_name} ${registeredPatient.last_name} was registered, but the photo was not saved. Add it on the patient file.`);
+        }
+      }
+
     } catch (error) {
       console.error('Error registering patient:', error);
       if (registeredPatient) {
         toast.error(`${registeredPatient.first_name} ${registeredPatient.last_name} was registered, but the medical aid or next of kin details were not saved. Add them from the patient's profile.`);
       } else {
-        toast.error(`Couldn't register the patient. ${error instanceof Error ? error.message : 'Please try again.'}`);
+        toast.error(`Couldn't register the patient. ${error instanceof Error ? plainWords(error.message) : 'Please try again.'}`);
       }
     } finally {
       setIsSubmitting(false);
@@ -505,7 +527,7 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess, onUseExisti
       });
     } catch (error) {
       console.error('Error registering patient:', error);
-      toast.error(`Couldn't register the patient. ${error instanceof Error ? error.message : 'Please try again.'}`);
+      toast.error(`Couldn't register the patient. ${error instanceof Error ? plainWords(error.message) : 'Please try again.'}`);
       setIsSubmitting(false);
       return;
     }
@@ -825,6 +847,18 @@ const ModernPatientRegistrationForm: React.FC<Props> = ({ onSuccess, onUseExisti
                     )}
                   </div>
                 </div>
+
+                {referralColumnsAvailable && (
+                  <ReferralSourceFields
+                    id="registration-referral-source"
+                    value={referralAnswer}
+                    onChange={setReferralAnswer}
+                    labelClassName={labelClass}
+                    inputClassName="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                )}
+
+                {photoColumnAvailable && <RegistrationPhotoField value={photo} onChange={setPhoto} labelClassName={labelClass} />}
               </div>
             )}
 

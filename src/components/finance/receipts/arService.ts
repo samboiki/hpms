@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../../utils/plainErrors';
 import { supabase } from '../../../lib/supabase';
 import { withTimeout } from '../../../services/financialKpiService';
 import { readAllPages } from '../../../lib/pagedRows';
@@ -30,6 +31,8 @@ import {
 import { buildAdjustmentPayload, buildAllocationLines, buildReceiptPayload, type AdjustmentInput, type ReceiptInput } from './arPayloads';
 import { fundOfClaim, type FundRecord } from './fundPaymentKeying';
 import { invoicesBilledToAccounts } from '../../../services/accountBilledInvoices';
+import { useAuthStore } from '../../../stores/authStore';
+import { NO_DISCOUNTS_MESSAGE, adjustmentCorrection, moneyCorrectionRefusal, type MoneyCorrection } from '../../../services/ledger/moneyRights';
 
 /**
  * Supabase access for receipts, allocations and adjustments. Reads go to the tables and views of
@@ -104,7 +107,7 @@ async function fetchByIds<T>(ids: readonly string[], label: string, build: (chun
 const timed = <T>(task: Promise<T>, label: string): Promise<T> =>
   withTimeout(task, TIMEOUT_MS, `Loading ${label} took too long. Check your connection and try again.`);
 
-const errorText = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? error.message : fallback);
+const errorText = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? plainWords(error.message) : fallback);
 
 const toBalanceMap = (rows: RawInvoiceBalanceRow[]): Record<string, ArInvoiceBalance> =>
   Object.fromEntries(rows.map(row => [row.invoice_id, normalizeInvoiceBalance(row)]));
@@ -611,14 +614,27 @@ export const postReceipt = (input: ReceiptInput): Promise<PostedReceipt> =>
 export const allocateReceipt = (receiptId: string, lines: Parameters<typeof buildAllocationLines>[0]) =>
   callRpc<{ receipt_number: string; unallocated: number | string }>('ar_allocate_receipt', { p_receipt_id: receiptId, p_allocations: buildAllocationLines(lines) }, 'Allocating the credit');
 
+/** Refunds, reversals and credit notes are for administrators only (owner, 13 Oct 2026); discounts are not given */
+const refuseUnlessAllowed = (action: MoneyCorrection | null): Promise<void> => {
+  if (!action) return Promise.resolve();
+  const refusal = moneyCorrectionRefusal(action, useAuthStore.getState().user?.role);
+  return refusal ? Promise.reject(new Error(refusal)) : Promise.resolve();
+};
+
 export const postAdjustment = (input: AdjustmentInput) =>
-  callRpc<{ id: string; number: string; kind: string }>('ar_post_adjustment', { p_payload: buildAdjustmentPayload(input) }, 'Saving the adjustment');
+  input.kind === 'discount'
+    ? Promise.reject(new Error(NO_DISCOUNTS_MESSAGE))
+    : refuseUnlessAllowed(adjustmentCorrection(input.kind)).then(() =>
+      callRpc<{ id: string; number: string; kind: string }>('ar_post_adjustment', { p_payload: buildAdjustmentPayload(input) }, 'Saving the adjustment'));
 
 export const reverseReceipt = (receiptId: string, reason: string) =>
-  callRpc<{ receipt_number: string }>('ar_reverse_receipt', { p_receipt_id: receiptId, p_reason: reason }, 'Reversing the receipt');
+  refuseUnlessAllowed('reverse_receipt').then(() =>
+    callRpc<{ receipt_number: string }>('ar_reverse_receipt', { p_receipt_id: receiptId, p_reason: reason }, 'Reversing the receipt'));
 
 export const reverseAllocation = (allocationId: string, reason: string) =>
-  callRpc<{ allocation_id: string }>('ar_reverse_allocation', { p_allocation_id: allocationId, p_reason: reason }, 'Reversing the allocation');
+  refuseUnlessAllowed('reverse_allocation').then(() =>
+    callRpc<{ allocation_id: string }>('ar_reverse_allocation', { p_allocation_id: allocationId, p_reason: reason }, 'Reversing the allocation'));
 
 export const reverseAdjustment = (adjustmentId: string, reason: string) =>
-  callRpc<{ number: string }>('ar_reverse_adjustment', { p_adjustment_id: adjustmentId, p_reason: reason }, 'Reversing the adjustment');
+  refuseUnlessAllowed('reverse_adjustment').then(() =>
+    callRpc<{ number: string }>('ar_reverse_adjustment', { p_adjustment_id: adjustmentId, p_reason: reason }, 'Reversing the adjustment'));

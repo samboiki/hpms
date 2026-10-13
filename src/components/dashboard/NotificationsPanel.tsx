@@ -86,6 +86,9 @@ const convertSystemNotifications = (systemNotifications: SystemNotification[]): 
   });
 };
 
+/** How many of the newest system notifications the Dashboard panel loads */
+export const DASHBOARD_NOTIFICATIONS_PAGE = 50;
+
 interface NotificationsPanelProps {
   notifications: Notification[];
   onNotificationAction?: (notificationId: string, action: 'primary' | 'secondary') => void;
@@ -115,10 +118,11 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
   // Set up real-time subscription
   useNotificationSubscription(user?.id || '', user?.practice_id || '');
   
-  // Load notifications on mount
+  // Load the newest notifications on mount: one page, not every notification the person ever received (the panel shows
+  // the latest; Messages > Notifications keeps the full list)
   useEffect(() => {
     if (user?.id && user?.practice_id) {
-      loadNotifications(user.id, user.practice_id);
+      loadNotifications(user.id, user.practice_id, undefined, { page: 1, limit: DASHBOARD_NOTIFICATIONS_PAGE });
     }
   }, [user?.id, user?.practice_id, loadNotifications]);
   

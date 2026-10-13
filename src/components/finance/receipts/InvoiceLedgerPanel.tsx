@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import {
@@ -8,10 +9,8 @@ import {
   adjustmentReversalEffect,
   billedPortions,
   canApproveWriteOffs,
-  canGiveDiscounts,
   checkAdjustmentReversal,
   coverSummary,
-  discountBaseCents,
   discountReasonText,
   discountedPortions,
   payerLabel,
@@ -28,7 +27,6 @@ import { formatTimestamp } from '../financeFormat';
 import { ActionButton, Notice } from '../FinanceUI';
 import { loadInvoiceEntries, loadStaffNames, reverseAdjustment, reverseAllocation, type InvoiceEntries } from './arService';
 import { AdjustmentDialog } from './AdjustmentDialog';
-import { DiscountDialog } from './DiscountDialog';
 import { loadInvoiceDiscounts } from '../../../services/discountService';
 import { CreditNoteLinesDialog } from './CreditNoteLinesDialog';
 import { CreditNoteEntry } from './CreditNoteEntry';
@@ -37,6 +35,7 @@ import { ReceivePaymentDialog } from './ReceivePaymentDialog';
 import { ReceiptDetailModal } from './ReceiptDetailModal';
 import { ReverseEntryDialog } from './RefundAndReverseDialogs';
 import { formatDay } from './receiptDocuments';
+import { canCorrectMoney } from '../../../services/ledger/moneyRights';
 
 const nad = (cents: number) => formatNad(fromCents(cents));
 
@@ -55,7 +54,6 @@ export interface InvoiceLedgerPanelProps {
 type Action =
   | { type: 'pay' }
   | { type: 'credit_lines' }
-  | { type: 'discount' }
   | { type: 'adjust'; kind: InvoiceAdjustmentKind }
   | { type: 'reverse_adjustment'; adjustment: ArAdjustment }
   | { type: 'reverse_allocation'; allocation: ArAllocation };
@@ -89,7 +87,7 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
         ...result.adjustments.flatMap(d => [d.createdBy, d.approvedBy, d.reversal?.by ?? null])
       ]).then(setStaff).catch(() => setStaff({}));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Could not load the payments on this invoice');
+      setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not load the payments on this invoice');
     }
   }, [invoice.id, practiceId]);
 
@@ -112,10 +110,11 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
   const billed = balance?.billed ?? billedPortions(invoice);
   const who = (id: string | null | undefined) => (id ? staff[id] ?? 'Staff member' : 'The system');
   const isCancelled = invoice.status === 'cancelled';
+  // Credit notes and reversals are for administrators only (owner, 13 Oct 2026); no new discounts are given
+  const mayCorrect = canCorrectMoney(role);
   const anyOwed = Math.max(owes.medical_aid, 0) + Math.max(owes.patient, 0) > 0;
-  // Standing discounts (the patient's portion only) and what a percentage is of: what the patient was charged here
+  // Standing discounts given before discounts were stopped (the patient's portion only), still shown
   const discounted = discountedPortions(entries?.adjustments ?? []);
-  const discountBase = discountBaseCents({ billed, shortfallCents: balance?.shortfallCents ?? 0 });
 
   const rows: Array<{ label: string; medicalAid: number; patient: number; strong?: boolean }> = [
     { label: 'Billed', medicalAid: billed.medical_aid, patient: billed.patient },
@@ -144,7 +143,7 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
         receipt,
         amountCents: allocation.amountCents,
         reversed: !!allocation.reversal || !!receipt?.reversal,
-        onReverse: allocation.reversal || receipt?.reversal ? undefined : () => setAction({ type: 'reverse_allocation', allocation })
+        onReverse: !mayCorrect || allocation.reversal || receipt?.reversal ? undefined : () => setAction({ type: 'reverse_allocation', allocation })
       };
     }),
     ...(entries?.adjustments ?? []).map(adjustment => ({
@@ -171,7 +170,7 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
       creditNoteId: adjustment.kind === 'credit_note' ? adjustment.id : undefined,
       amountCents: adjustment.amountCents,
       reversed: !!adjustment.reversal,
-      onReverse: adjustment.reversal ? undefined : () => setAction({ type: 'reverse_adjustment', adjustment })
+      onReverse: !mayCorrect || adjustment.reversal ? undefined : () => setAction({ type: 'reverse_adjustment', adjustment })
     }))
   ].sort((a, b) => a.when.localeCompare(b.when));
 
@@ -182,14 +181,7 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
         {!isCancelled && (
           <div className="flex flex-wrap gap-2">
             <ActionButton variant="primary" icon="solar:hand-money-bold-duotone" label="Receive payment" onClick={() => setAction({ type: 'pay' })} disabled={!anyOwed} />
-            <ActionButton icon="solar:document-add-bold-duotone" label="Credit note" onClick={() => setAction({ type: 'credit_lines' })} disabled={!anyOwed || !entries} />
-            <ActionButton
-              icon="solar:sale-bold-duotone"
-              label="Discount"
-              onClick={() => setAction({ type: 'discount' })}
-              disabled={owes.patient <= 0 || !entries || !canGiveDiscounts(role)}
-              title={!canGiveDiscounts(role) ? 'Only a practice administrator or practitioner can give a discount' : owes.patient <= 0 ? 'The patient owes nothing on this invoice: a discount comes off what the patient pays' : 'Discount'}
-            />
+            {mayCorrect && <ActionButton icon="solar:document-add-bold-duotone" label="Credit note" onClick={() => setAction({ type: 'credit_lines' })} disabled={!anyOwed || !entries} />}
             <ActionButton icon="solar:transfer-horizontal-bold-duotone" label="Shortfall to patient" onClick={() => setAction({ type: 'adjust', kind: 'shortfall_transfer' })} disabled={owes.medical_aid <= 0 || !entries} />
             <ActionButton
               icon="solar:bill-cross-bold-duotone"
@@ -296,18 +288,6 @@ export const InvoiceLedgerPanel: React.FC<InvoiceLedgerPanelProps> = ({ practice
           onUseAmount={() => setAction({ type: 'adjust', kind: 'credit_note' })}
           onSaved={(notes, reversals) =>
             changed(`Credit note ${notes.map(note => note.number).join(' and ')} saved${reversals > 0 ? `; ${reversals} reversal(s) wait in Claims for the fund` : ''}`)}
-        />
-      )}
-      {action?.type === 'discount' && (
-        <DiscountDialog
-          practiceId={practiceId}
-          invoice={{ id: invoice.id, invoiceNumber: invoice.invoiceNumber, patientName }}
-          outstanding={owes}
-          baseCents={discountBase}
-          role={role}
-          staffName={staffName}
-          onClose={() => setAction(null)}
-          onSaved={number => changed(`Discount ${number} saved`)}
         />
       )}
       {action?.type === 'adjust' && (

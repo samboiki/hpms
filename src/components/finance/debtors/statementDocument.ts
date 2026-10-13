@@ -179,6 +179,8 @@ export interface StatementMeta {
   message: string;
   /** The practice's own message on its statements (parity D22; documentSettings.ts) */
   practiceMessage?: string | null;
+  /** A VAT-registered practice's VAT number line (vat.ts vatStatementNote) */
+  vatNote?: string | null;
 }
 
 /** The notices at the top of a statement: the run's message, then the account's own, then the lay-bye note */
@@ -187,8 +189,8 @@ export function statementNotices(account: Pick<StatementAccount, 'language' | 'l
 }
 
 /** The lines at the foot of a statement: that settled items are left off, then the practice's message */
-export function statementFootnotes(account: Pick<StatementAccount, 'language'>, built: Pick<AccountStatement, 'settledLeftOff'>, meta: Pick<StatementMeta, 'practiceMessage'>): string[] {
-  return [(built.settledLeftOff ?? 0) > 0 ? WORDS[account.language].settledLeftOff : '', meta.practiceMessage?.trim() ?? ''].filter(Boolean);
+export function statementFootnotes(account: Pick<StatementAccount, 'language'>, built: Pick<AccountStatement, 'settledLeftOff'>, meta: Pick<StatementMeta, 'practiceMessage' | 'vatNote'>): string[] {
+  return [(built.settledLeftOff ?? 0) > 0 ? WORDS[account.language].settledLeftOff : '', meta.practiceMessage?.trim() ?? '', meta.vatNote?.trim() ?? ''].filter(Boolean);
 }
 
 const STYLE = `body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:#111827;margin:32px;max-width:760px}

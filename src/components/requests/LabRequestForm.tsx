@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   TestTube, 
@@ -229,7 +230,7 @@ const LabRequestForm: React.FC<LabRequestFormProps> = ({
       
     } catch (error) {
       console.error('💥 Error saving lab request:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      const errorMessage = error instanceof Error ? plainWords(error.message) : 'Unknown error occurred';
       toast.error(`Failed to save lab request: ${errorMessage}`);
       setLoading(false);
       // Don't close modal on error - let user try again

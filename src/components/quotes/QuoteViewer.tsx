@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
@@ -85,7 +86,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
         setLoad(
           isQuotesNotEnabledError(error)
             ? { status: 'not_enabled' }
-            : { status: 'error', message: error instanceof Error ? error.message : 'Could not open the quote.' }
+            : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not open the quote.' }
         );
       });
     return () => {
@@ -124,7 +125,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
       toast.success(success);
       refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'That did not work. Try again.', { duration: 8000 });
+      toast.error(error instanceof Error ? plainWords(error.message) : 'That did not work. Try again.', { duration: 8000 });
     } finally {
       setBusy(false);
     }
@@ -144,7 +145,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
       downloadQuotePdf(ready.quote, ready.lines, head, { name: ready.contact.name, phone: ready.contact.phone, email: ready.contact.email });
       toast.success(ready.quote.status === 'draft' ? 'Quote PDF downloaded. Mark it as sent when you give it to the patient.' : 'Quote PDF downloaded.');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create the PDF.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not create the PDF.');
     } finally {
       setBusy(false);
     }
@@ -155,7 +156,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
       await withLetterhead();
       setPanel('sms');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not read the practice details.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not read the practice details.');
     }
   };
 
@@ -165,7 +166,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
       await withLetterhead();
       setPanel('email');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not read the practice details.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not read the practice details.');
     }
   };
 
@@ -310,7 +311,7 @@ const QuoteViewer: React.FC<QuoteViewerProps> = ({ quoteId, onClose, onEdit, onC
                       onChanged();
                       onClose();
                     })
-                    .catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Could not delete the quote.'))
+                    .catch((error: unknown) => toast.error(error instanceof Error ? plainWords(error.message) : 'Could not delete the quote.'))
                     .finally(() => setBusy(false));
                 }}
               >

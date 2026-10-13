@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import type { ServiceSelection } from '../../types/billing';
 import { formatServiceDate, isValidDateKey } from '../../utils/billing/dates';
@@ -117,8 +118,6 @@ const BillingLineDetails: React.FC<BillingLineDetailsProps> = ({
   const [open, setOpen] = useState(false);
   const [authorisationText, setAuthorisationText] = useState(service.authorisationNumber ?? '');
   const [authorisationError, setAuthorisationError] = useState<string | null>(null);
-  const [discountText, setDiscountText] = useState(service.discountAmount ? String(service.discountAmount) : '');
-  const [discountError, setDiscountError] = useState<string | null>(null);
   const [notesText, setNotesText] = useState(service.notes ?? '');
   const [codesDraft, setCodesDraft] = useState<Icd10Selection>(icd10SelectionOf(icd10?.codes ?? []));
   const [feeText, setFeeText] = useState(priceText(service.unitPrice));
@@ -169,26 +168,11 @@ const BillingLineDetails: React.FC<BillingLineDetailsProps> = ({
   const applyAuthorisation = () => {
     const parsed = parseAuthorisationNumber(authorisationText);
     if (!parsed.ok) {
-      setAuthorisationError(parsed.message);
+      setAuthorisationError(plainWords(parsed.message));
       return;
     }
     setAuthorisationError(null);
     if ((parsed.value ?? '') !== (service.authorisationNumber ?? '')) onChange({ authorisationNumber: parsed.value ?? '' });
-  };
-
-  const applyDiscount = () => {
-    const value = parseAmount(discountText);
-    if (value === null) {
-      setDiscountError('Enter an amount such as 50 or 50.00.');
-      return false;
-    }
-    if (amounts && Math.round(value * 100) > amounts.grossCents) {
-      setDiscountError(`The discount can be at most ${formatNad(fromCents(amounts.grossCents))}.`);
-      return false;
-    }
-    setDiscountError(null);
-    if (value !== (service.discountAmount ?? 0)) onChange({ discountAmount: value });
-    return true;
   };
 
   const changeCodes = (selection: Icd10Selection) => {
@@ -372,29 +356,6 @@ const BillingLineDetails: React.FC<BillingLineDetailsProps> = ({
                 </select>
                 {practitioner?.warning && <span className="mt-0.5 block text-amber-700">{practitioner.warning}</span>}
               </label>
-              {hasMedicalAid ? (
-                <p className="self-center text-xs text-gray-500">No discount: the medical aid is claimed at the agreed price.</p>
-              ) : (
-                <label className="text-xs text-gray-600">
-                  Discount (N$)
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={discountText}
-                    placeholder="0.00"
-                    onChange={event => setDiscountText(event.target.value)}
-                    onBlur={applyDiscount}
-                    aria-invalid={discountError ? true : undefined}
-                    aria-describedby={discountError ? `${id}-discount-error` : undefined}
-                    className={INPUT}
-                  />
-                  {discountError && (
-                    <span id={`${id}-discount-error`} className="mt-0.5 block text-red-700" role="alert">
-                      {discountError}
-                    </span>
-                  )}
-                </label>
-              )}
             </div>
           )}
 

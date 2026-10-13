@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import DateInput from '../../ui/DateInput';
 import { formatNad, fromCents } from '../../../utils/billing/money';
@@ -17,6 +18,8 @@ import {
   type StatementLine
 } from '../../../services/ledgerService';
 import { loadDocumentSettings } from '../../../services/documentSettingsService';
+import { loadVatSettings } from '../../../services/vatSettingsService';
+import { vatStatementNote } from '../../../utils/billing/vat';
 import { DEFAULT_DOCUMENT_SETTINGS, practiceMessageFor, type DocumentSettings } from '../../../utils/billing/documentSettings';
 import { loadInvoiceAuthorisations } from '../debtors/debtorsService';
 import { statementWords } from '../debtors/statementDocument';
@@ -60,21 +63,24 @@ export const PatientStatementDialog: React.FC<{
   // A payment line's receipt, open on top of the statement (the statement waits behind it)
   const [openedReceipt, setOpenedReceipt] = useState<ArReceipt | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // A VAT-registered practice's VAT number at the foot of the statement (Settings > Practice)
+  const [vatNote, setVatNote] = useState<string | null>(null);
   const accountFlags = useAccountFlags(patientId, practiceId);
   const accountMessage = statementMessageOf(accountFlags.flags);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadPatientAccount(practiceId, patientId), loadDocumentSettings(practiceId)])
-      .then(async ([result, loadedSettings]) => {
+    Promise.all([loadPatientAccount(practiceId, patientId), loadDocumentSettings(practiceId), loadVatSettings(practiceId)])
+      .then(async ([result, loadedSettings, vat]) => {
         if (cancelled) return;
         setAccount(result);
         setSettings(loadedSettings);
+        setVatNote(vatStatementNote(vat));
         if (result.state !== 'ready') return;
         const numbers = await loadInvoiceAuthorisations(result.invoices.map(invoice => invoice.id));
         if (!cancelled) setAuthorisations(numbers);
       })
-      .catch(loadError => { if (!cancelled) setError(loadError instanceof Error ? loadError.message : 'Could not load the account'); });
+      .catch(loadError => { if (!cancelled) setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not load the account'); });
     return () => { cancelled = true; };
   }, [practiceId, patientId, reloadKey]);
 
@@ -104,7 +110,7 @@ export const PatientStatementDialog: React.FC<{
 
   const print = () => {
     if (!statement || !built) return;
-    const footnotes = [built.leftOff > 0 ? statementWords('en').settledLeftOff : '', practiceMessageFor(settings, 'statement') ?? ''];
+    const footnotes = [built.leftOff > 0 ? statementWords('en').settledLeftOff : '', practiceMessageFor(settings, 'statement') ?? '', vatNote ?? ''];
     if (!printDocument(statementHtml(statement, { practiceName, patientName, asAtKey: todayKey, notices: accountMessage ? [accountMessage] : [], footnotes }))) {
       toast.error('Your browser blocked the print window. Allow pop-ups for this site and try again.');
     }

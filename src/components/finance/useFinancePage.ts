@@ -5,6 +5,8 @@ import { financeRequestKey, type FinanceLoadRequest, type FinanceWorkspace } fro
 import { formatDateKey, formatRangeLabel } from './financeFormat';
 import type { PeriodLabels } from './financeNav';
 import { useFinanceWorkspace } from './useFinanceWorkspace';
+import { useAuthStore } from '../../stores/authStore';
+import { isStaffAdmin } from '../settings/UserManagement/staffUtils';
 
 const TREND_MONTHS = 12;
 
@@ -25,6 +27,8 @@ export interface FinancePageState {
 export function useFinancePage(practiceId: string | null): FinancePageState {
   const [period, setPeriod] = useState<PeriodSelection>({ preset: 'this_month' });
   const [now, setNow] = useState(() => new Date());
+  // Payslips: administrators see the practice's payroll, everyone else only their own (owner, 13 Oct 2026)
+  const includePayroll = isStaffAdmin(useAuthStore(state => state.user));
 
   const ranges = useMemo(() => getPeriodRanges(period, now), [period, now]);
   const todayKey = toDateKey(now);
@@ -37,9 +41,10 @@ export function useFinancePage(practiceId: string | null): FinancePageState {
     return {
       practiceId,
       windowStartKey: ranges.previous.startKey < trendStartKey ? ranges.previous.startKey : trendStartKey,
-      lineItemRange: ranges.current
+      lineItemRange: ranges.current,
+      includePayroll
     };
-  }, [practiceId, ranges, trendMonths]);
+  }, [practiceId, ranges, trendMonths, includePayroll]);
 
   const { data, loading, error, reload } = useFinanceWorkspace(request);
   // Never pair new period ranges with data loaded for another window: that would show wrong totals

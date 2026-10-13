@@ -9,6 +9,8 @@ import { openRecord } from '../../../services/recordFiles';
 import toast from 'react-hot-toast';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO } from 'date-fns';
 import { classifyWorkedHours } from '../../../utils/hr/labourAct';
+import { standardDayHours } from '../../../utils/hr/standardHours';
+import { loadStandardHours, saveStandardHours } from '../../../services/timesheetStandardHoursService';
 import { getNamibiaHolidayName, isNamibiaPublicHoliday } from '../../../utils/hr/namibiaHolidays';
 import TimesheetPDFGeneratorFixed from './TimesheetPDFGeneratorFixed';
 import MonthInput from '../../ui/MonthInput';
@@ -209,6 +211,36 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       }
     }
   }, [userPracticeInfo]);
+
+  // The practice's saved standard day (owner, 13 Oct 2026): hours above it are overtime, here and in payroll
+  const standardPracticeId = userPracticeInfo?.practice_id ?? null;
+  const { data: savedStandard = null, refetch: refetchStandard } = useQuery({
+    queryKey: ['timesheet-standard-hours', standardPracticeId],
+    queryFn: async () => {
+      const result = await loadStandardHours(standardPracticeId as string);
+      return result.status === 'ready' ? result.hours : null;
+    },
+    enabled: !!standardPracticeId
+  });
+  const standardHoursPerDay = standardDayHours(savedStandard);
+  const [savingStandard, setSavingStandard] = useState(false);
+
+  useEffect(() => {
+    if (savedStandard) setStandardHours(savedStandard);
+  }, [savedStandard]);
+
+  const handleSaveStandardHours = async () => {
+    if (!standardPracticeId) return;
+    setSavingStandard(true);
+    const result = await saveStandardHours(standardPracticeId, standardHours);
+    setSavingStandard(false);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+    await refetchStandard();
+    toast.success('Standard hours saved: hours above them count as overtime');
+  };
 
   // Initialize day entries for the month
   useEffect(() => {
@@ -421,7 +453,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       const workedDays = dayEntries.filter(entry => entry.timeIn && entry.timeOut);
       const savedHours = classifyWorkedHours(
         workedDays.map(entry => ({ date: entry.date, hours: entry.totalHours, timeIn: entry.timeIn, timeOut: entry.timeOut })),
-        isNamibiaPublicHoliday
+        isNamibiaPublicHoliday,
+        { standardHoursPerDay }
       );
       const savedByDate = new Map(savedHours.days.map(day => [day.date, day]));
       const entries = workedDays.map(entry => ({
@@ -582,11 +615,12 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   };
 
   const totalHours = dayEntries.reduce((sum, entry) => sum + entry.totalHours, 0);
-  // Ordinary time and overtime follow the Labour Act (9 h a day, 8 h for a 6-day week, 45 h a week),
-  // not the practice's opening hours; Sunday and public holiday hours are counted separately
+  // Ordinary time and overtime follow the practice's saved standard day and the Labour Act (9 h a day, 8 h for a
+  // 6-day week, 45 h a week), not the opening hours; Sunday and public holiday hours are counted separately
   const hoursSummary = classifyWorkedHours(
     dayEntries.map(entry => ({ date: entry.date, hours: entry.totalHours, timeIn: entry.timeIn, timeOut: entry.timeOut })),
-    isNamibiaPublicHoliday
+    isNamibiaPublicHoliday,
+    { standardHoursPerDay }
   );
   const hoursByDate = new Map(hoursSummary.days.map(day => [day.date, day]));
   const regularHours = hoursSummary.ordinaryHours;
@@ -988,6 +1022,24 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                     Clear All
                   </Button>
                 </div>
+              </div>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-gray-600">
+                  {savedStandard
+                    ? `Practice standard day: ${savedStandard.start} to ${savedStandard.end}. Hours above it count as overtime, here and in payroll.`
+                    : 'No standard day saved for the practice: overtime is counted above the Labour Act day (9 hours).'}
+                </p>
+                {isAdmin && standardPracticeId && (
+                  <Button
+                    onClick={handleSaveStandardHours}
+                    disabled={savingStandard}
+                    variant="outline"
+                    className="border-teal-300 text-teal-700 hover:bg-teal-50 sm:flex-shrink-0"
+                  >
+                    <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4 mr-2" />
+                    {savingStandard ? 'Saving...' : 'Save as practice standard'}
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

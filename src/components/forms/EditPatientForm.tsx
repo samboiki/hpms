@@ -41,6 +41,8 @@ import { DependantCodeInput, MainMemberFields } from './medicalAid/MainMemberFie
 import { useDependantCodeColumn } from './medicalAid/dependantCode';
 import { usePatientTitleColumns } from './patientTitleColumns';
 import { usePatientTownColumns } from './patientTownColumns';
+import { ReferralSourceFields } from '../patients/referralSource/ReferralSourceFields';
+import { useReferralSourceOnFile } from '../patients/referralSource/useReferralSourceOnFile';
 import { RegionSelect, TownPicker } from '../address/TownPicker';
 import { toNamibianRegion } from '../../utils/address/namibianTowns';
 import { useRecordChangeGuard } from '../records/RecordChangeGuard';
@@ -152,6 +154,8 @@ const EditPatientFormBody: React.FC<Props & { onReload: () => void }> = ({ patie
   const dependantCodeAvailable = useDependantCodeColumn();
   const titleColumnsAvailable = usePatientTitleColumns();
   const townColumnsAvailable = usePatientTownColumns();
+  // "How did you hear about us?" (owner, 13 Oct 2026): shown and saved once read from the file
+  const referral = useReferralSourceOnFile(patientId);
   // What a file opened with a name and cell only still needs; empty for a complete file
   const [stillMissing, setStillMissing] = useState<MissingDetail[]>([]);
   const isTemporaryFile = stillMissing.includes('ID number');
@@ -495,7 +499,8 @@ const EditPatientFormBody: React.FC<Props & { onReload: () => void }> = ({ patie
         ...(oldFileNumberChanged ? { legacy_account_number: oldFileNumberToSave || null } : {}),
         // Only once the columns exist, so the save never fails before the SQL is applied
         ...(titleColumnsAvailable ? { title: data.title || null, initials: normalizeInitials(data.initials) || null } : {}),
-        ...(townLoaded ? { town: (data.town ?? '').trim() || null, region: toNamibianRegion(data.region) } : {})
+        ...(townLoaded ? { town: (data.town ?? '').trim() || null, region: toNamibianRegion(data.region) } : {}),
+        ...referral.columns()
       };
       const { error: patientError } = await untypedDb
         .from('patients')
@@ -862,6 +867,15 @@ const EditPatientFormBody: React.FC<Props & { onReload: () => void }> = ({ patie
                   )}
                 </div>
               </div>
+            )}
+            {referral.shown && (
+              <ReferralSourceFields
+                id="edit-patient-referral-source"
+                value={referral.value}
+                onChange={referral.setValue}
+                labelClassName="block text-sm font-medium text-gray-700"
+                inputClassName="block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-[#01b9d5] focus:ring-[#01b9d5]"
+              />
             )}
           </div>
         )}

@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, eachDayOfInterval, endOfMonth, format, getDay, isValid, isWeekend, parseISO, startOfDay, startOfMonth } from 'date-fns';
 import { formatDoctorName } from '../../../utils/formatDoctorName';
+import { plainErrorMessage } from '../../../utils/plainErrors';
 
 /**
  * Shared helpers for staff management (team list, leave, payroll, timesheets).
@@ -138,21 +139,12 @@ export function ensureRowsUpdated(rows: unknown[] | null | undefined, what: stri
   }
 }
 
-/** Turns raw database errors into messages a practice manager can act on. */
+/**
+ * Turns raw database errors into messages a practice manager can act on. One rule for the whole app (owner, 13 Oct
+ * 2026: plain words everywhere): src/utils/plainErrors.ts. The database's own wording goes to the console, never the screen.
+ */
 export function describeDbError(error: unknown, fallback: string): string {
-  const message = error instanceof Error
-    ? error.message
-    : typeof error === 'object' && error !== null && 'message' in error
-      ? String((error as { message: unknown }).message)
-      : '';
-  if (!message) return fallback;
-  if (/row-level security|permission denied/i.test(message)) {
-    return `${fallback}: your account is not permitted to make this change.`;
-  }
-  if (/duplicate key|already exists/i.test(message)) {
-    return `${fallback}: a record with these details already exists.`;
-  }
-  return message;
+  return plainErrorMessage(error, fallback);
 }
 
 export interface CsvColumn<T> {

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
@@ -78,7 +79,7 @@ const FundSchedulesPanel: React.FC<FundSchedulesPanelProps> = ({
       toast.success('The prices were ended.');
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The prices could not be ended.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The prices could not be ended.');
     } finally {
       setEnding(null);
     }

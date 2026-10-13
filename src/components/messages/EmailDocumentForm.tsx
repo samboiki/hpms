@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { cn } from '../../utils/cn';
@@ -129,7 +130,7 @@ export const EmailDocumentForm: React.FC<EmailDocumentFormProps> = ({
         toast.error(result.message, { duration: 8000 });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The email could not be sent.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The email could not be sent.');
     } finally {
       setSending(false);
     }

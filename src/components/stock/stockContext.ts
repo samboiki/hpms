@@ -37,6 +37,10 @@ export const stockLevelOf = (item: Pick<StockItem, 'id' | 'unitCostCents'>, leve
 
 export const vatRateOf = (item: Pick<StockItem, 'vatRate'>, settings: StockSettings): number => item.vatRate ?? settings.defaultVatRate;
 
+/** The VAT the practice adds when it sells the item: none unless it is VAT registered (Settings > Practice) and the item is VAT-able */
+export const sellingVatRateOf = (item: Pick<StockItem, 'vatRate'>, settings: StockSettings): number =>
+  settings.vatRegistered ? Math.max(vatRateOf(item, settings), 0) : 0;
+
 /**
  * The selling price of `quantity` units of an item: its fixed price, or the practice's rules on the average cost (the
  * price bands; a medicine's tier for the patient and its fund reference price, a material's handling fee, once the
@@ -49,7 +53,7 @@ export function priceOf(item: StockItem, quantity: number, settings: StockSettin
     kind: itemKindOf(item.category),
     quantity,
     lineCostCents: cost > 0 ? cost : null,
-    vatRate: vatRateOf(item, settings),
+    vatRate: sellingVatRateOf(item, settings),
     bands: settings.priceRule,
     rules: settings.pricing ?? NO_PRICING_RULES,
     fixedUnitPriceCents: item.sellingPriceCents,

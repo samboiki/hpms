@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import RecordImage from '../uploads/RecordImage';
@@ -33,7 +34,7 @@ export const VisitDrawingsSection: React.FC<VisitDrawingsSectionProps> = ({ pati
       setDrawings(await loadVisitDrawings(visitId));
       setProblem(null);
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : "Could not load the visit's drawings.");
+      setProblem(error instanceof Error ? plainWords(error.message) : "Could not load the visit's drawings.");
     }
   }, [visitId]);
 

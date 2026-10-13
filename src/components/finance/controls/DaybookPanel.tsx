@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import { format } from 'date-fns';
@@ -83,7 +84,7 @@ export const DaybookPanel: React.FC<DaybookPanelProps> = ({ practiceId, practice
       }
       setData(fresh.state === 'ready' ? fresh : data);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The daybook could not be printed');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The daybook could not be printed');
     } finally {
       setBusy(null);
     }

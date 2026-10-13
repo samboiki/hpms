@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -29,7 +30,7 @@ export const CreditNoteEntry: React.FC<CreditNoteEntryProps> = ({ adjustmentId, 
     try {
       await downloadCreditNotePdf(adjustmentId);
     } catch (error) {
-      toast.error(`Could not make the credit note PDF: ${error instanceof Error ? error.message : 'unknown error'}`);
+      toast.error(`Could not make the credit note PDF: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}`);
     } finally {
       setPrinting(false);
     }

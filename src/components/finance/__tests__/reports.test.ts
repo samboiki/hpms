@@ -220,7 +220,7 @@ describe('debtors by medical aid fund report', () => {
     const ws = workspace();
     const derived = deriveFinance(ws, context);
     const report = buildReport('fund_debtors', derived, ws, labels).report!;
-    expect(report.rows).toEqual([['Namibia Health Plan', 1, 0, 800, 0, 0, 800, '4 months']]);
+    expect(report.rows).toEqual([['Namibia Health Plan', 1, 0, 800, 0, 0, 800, '4 months to month-end']]);
     expect(report.totals?.[column(report, 'Owed by fund')]).toBe(derived.aging.medicalAid);
   });
 

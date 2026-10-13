@@ -10,6 +10,11 @@
  * - On a claim (claim layout 1.1): field 25 holds the referring practitioner's practice number, or their name when the
  *   number is not known; field 43 their council number; field 44 the referral number; 15 characters each
  *   (CLAIM_FIELD_MAX). sync_invoice_to_batch fills the claim line the same way (referralClaimFields).
+ *   Why the number first: the Medical Aid Funds Regulations, 1997, regulation 6(1)(i), require the account to show
+ *   "the name and the practice number of the referring medical practitioner or dentist" (checked 13 Oct 2026,
+ *   https://www.lac.org.na/laws/annoREG/Medical%20Aid%20Funds%20Act%2023%20of%201995-Regulations%201997-012.docx); the
+ *   15-character field takes one, and the number identifies the practitioner. The printed invoice does not show the
+ *   referring practitioner yet (an open item in the wave-11 claims-standards note).
  * - A referral counts from its date until its last day; without a last day it stays valid until it is removed.
  * Explicit .ts imports: the claim modules use these rules too.
  */

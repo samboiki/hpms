@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Camera, 
@@ -340,7 +341,7 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
       
     } catch (error) {
       console.error('❌ Upload error:', error);
-      onUploadError(error instanceof Error ? error.message : 'Upload failed');
+      onUploadError(error instanceof Error ? plainWords(error.message) : 'Upload failed');
     } finally {
       setIsUploading(false);
     }

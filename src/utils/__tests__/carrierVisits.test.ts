@@ -59,21 +59,19 @@ const COUNTING_PLACES = [
   'src/components/finance/financeData.ts', // Finance > Reports: appointments and attendance, doctor productivity
   'src/components/finance/practiceReports/reportBuilderService.ts', // Finance > Reports > Build a report: visits
   'src/lib/aiSearchFallback.ts', // patient search: seen recently, a condition named at a visit
-  'src/pages/BillingWorkflow.tsx', // the billing workflow page's record counts
   'src/components/patients/ComprehensivePatientModal.tsx' // the patient file: visits on record, the Encounters tab
 ];
 
 // Every place where staff pick a visit, or that lists a patient's visits: such a row is not a visit, so it is never
 // offered (a lab or imaging request, a quote's invoice or an optical lab order would land on a row nobody sees) and
-// never shown as one (the record a patient or another practice receives, the patient page's timeline, the history
-// beside the visit being recorded).
+// never shown as one (the record a patient or another practice receives, the history beside the visit
+// being recorded).
 const PICKING_PLACES = [
   'src/components/forms/AddLabRequestForm.tsx', // the visit of a lab request
   'src/components/forms/AddMediaRequestForm.tsx', // the visit of an imaging request
   'src/components/quotes/quoteService.ts', // the visit a quote is invoiced at
   'src/services/optometry/optometryService.ts', // the visit an optical lab order is billed at
   'src/services/patientRecordExportService.ts', // the record export's visit list
-  'src/components/visits/VisitsTimeline.tsx', // the patient page's visit timeline
   'src/components/visits/PatientHistoryPanel.tsx' // previous visits beside the visit being recorded
 ];
 

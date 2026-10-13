@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../../stores/authStore';
@@ -77,7 +78,7 @@ export const CompanyAccountSheet: React.FC<CompanyAccountSheetProps> = ({ practi
         if (active) setLoaded(result);
       })
       .catch(failure => {
-        if (active) setLoadError(failure instanceof Error ? failure.message : 'The account could not be read.');
+        if (active) setLoadError(failure instanceof Error ? plainWords(failure.message) : 'The account could not be read.');
       });
     return () => {
       active = false;
@@ -154,7 +155,7 @@ export const CompanyAccountSheet: React.FC<CompanyAccountSheetProps> = ({ practi
       onChanged();
       onClose();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The account could not be closed.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The account could not be closed.');
     } finally {
       setBusy(null);
     }

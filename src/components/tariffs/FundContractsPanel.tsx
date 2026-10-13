@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
@@ -87,7 +88,7 @@ const FundContractsPanel: React.FC<FundContractsPanelProps> = ({
       setDraft(emptyDraft(draft.fundReference));
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The contract could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The contract could not be saved.');
     } finally {
       setSaving(false);
     }
@@ -105,7 +106,7 @@ const FundContractsPanel: React.FC<FundContractsPanelProps> = ({
       toast.success('The contract was ended.');
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The contract could not be ended.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The contract could not be ended.');
     }
   };
 
@@ -115,7 +116,7 @@ const FundContractsPanel: React.FC<FundContractsPanelProps> = ({
       toast.success(`8109 is now billed for ${staff} clinical staff member${staff === 1 ? '' : 's'} by default.`);
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The setting could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The setting could not be saved.');
     }
   };
 

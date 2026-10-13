@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import type { StockContext } from '../stockContext';
 import type { Delivery } from '../../../utils/stock/stockRows';
 
-// An invented supplier invoice for consignment frames sold (Optometry > Reports > Consignment > Supplier's invoice)
+// An invented supplier invoice for consignment frames sold (Stock > Reports > Consignment frames > Supplier's invoice)
 const CSG: Delivery = {
   id: 'csg-1', number: 'CSG2026-0001', kind: 'received', supplierId: 's1', supplierReference: 'F-77', documentDate: '2026-10-01',
   exclVatCents: 40000, vatCents: 6000, inclVatCents: 46000, consignment: true, expenseId: 'e1', orderId: null, reason: null,
@@ -39,7 +39,8 @@ describe('a consignment invoice on Stock > Deliveries', () => {
       </MemoryRouter>
     );
     const sheet = await screen.findByRole('dialog', { name: 'Consignment invoice CSG2026-0001' });
-    expect(within(sheet).getByRole('link', { name: /The frames are in Optometry/ })).toHaveAttribute('href', '/optometry?tab=reports&report=consignment');
+    // The Optometry page merged into Stock (owner, 13 Oct 2026): the frames are under Stock's own reports
+    expect(within(sheet).getByRole('link', { name: /The frames are in Stock/ })).toHaveAttribute('href', '/stock?tab=reports&report=consignment');
     fireEvent.click(within(sheet).getByRole('button', { name: /Reverse it/ }));
     expect(within(sheet).getByText(/Its frames are owed to the supplier again/)).toBeInTheDocument();
     expect(screen.getAllByText(/Consignment · F-77/).length).toBeGreaterThan(0);

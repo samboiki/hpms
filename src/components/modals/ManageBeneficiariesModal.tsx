@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -445,7 +446,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
       await fetchMembers();
       onRefresh?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not change the main member.');
+      toast.error(err instanceof Error ? plainWords(err.message) : 'Could not change the main member.');
     } finally {
       setIsSwapping(false);
     }

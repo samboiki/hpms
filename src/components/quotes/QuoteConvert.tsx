@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { toDateKey, todayKey } from '../../utils/billing/dates';
@@ -81,7 +82,7 @@ const QuoteConvert: React.FC<QuoteConvertProps> = ({ quote, lines, onCancel, onC
         setVisitId(current => current ?? visits[0]?.id ?? null);
       })
       .catch((error: unknown) => {
-        if (!cancelled) setSetup({ status: 'error', message: error instanceof Error ? error.message : 'Could not prepare the invoice.' });
+        if (!cancelled) setSetup({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not prepare the invoice.' });
       });
     return () => {
       cancelled = true;
@@ -129,7 +130,7 @@ const QuoteConvert: React.FC<QuoteConvertProps> = ({ quote, lines, onCancel, onC
       toast.success(`Invoice ${result.invoiceNumber} created from quote ${quote.quoteNumber}.`, { duration: 8000 });
       onConverted();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create the invoice.', { duration: 10000 });
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not create the invoice.', { duration: 10000 });
     } finally {
       setCreating(false);
     }
@@ -143,7 +144,7 @@ const QuoteConvert: React.FC<QuoteConvertProps> = ({ quote, lines, onCancel, onC
       setUnlinked(null);
       onConverted();
     } catch (error) {
-      setUnlinked({ ...unlinked, message: error instanceof Error ? error.message : 'unknown error' });
+      setUnlinked({ ...unlinked, message: error instanceof Error ? plainWords(error.message) : 'unknown error' });
     }
   };
 

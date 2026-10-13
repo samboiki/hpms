@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import EncounterTimeline from './EncounterTimeline';
 import {
@@ -342,7 +343,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     queryKey: ['patient-details-optimized', patientId],
     queryFn: () => fetchPatientDetailsOptimized(patientId!),
     enabled: !!patientId && isOpen && activeTab === 'details',
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    // The clinical record: opening a file shows the copy loaded earlier at once and reads it again behind it, whatever
+    // its age (the app's 5-minute cache would otherwise hide a visit, invoice or payment saved on another screen)
+    refetchOnMount: 'always',
     gcTime: 1000 * 60 * 30, // 30 minutes
     refetchOnWindowFocus: false,
     initialData: () => {
@@ -505,7 +508,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       }
       return true;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create the invoice PDF. Please try again, or use Preview instead.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not create the invoice PDF. Please try again, or use Preview instead.');
       return false;
     } finally {
       setIsPrintingPDF(false);
@@ -1367,7 +1370,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
     } catch (error) {
       console.error('Error fetching patient details:', error);
-      setDetailsError(error instanceof Error ? error.message : 'An error occurred while fetching patient data');
+      setDetailsError(error instanceof Error ? plainWords(error.message) : 'An error occurred while fetching patient data');
     } finally {
       setIsLoadingDetails(false);
       
@@ -1385,6 +1388,13 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       }
     }
   }, []);
+
+  // After a save in the file: read the patient again, not the cached copy (the file's load goes through the query
+  // cache, which hands back a copy up to 5 minutes old; a saved vital, request or medical aid did not show)
+  const refreshPatientDetails = useCallback(async (id: string) => {
+    await queryClient.invalidateQueries({ queryKey: ['patient-details-optimized', id], refetchType: 'none' });
+    await fetchPatientDetails(id);
+  }, [queryClient, fetchPatientDetails]);
 
   // AI search handler using the extracted hook
   const onAiSearch = useCallback(() => {
@@ -1687,6 +1697,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   };
 
   const handlePatientUpdated = () => {
+    // The edited patient's file is read again when next opened
+    if (selectedPatient) invalidatePatientCache(selectedPatient.id);
     setIsEditPatientModalOpen(false);
     setSelectedPatient(null);
     // Use store directly to prevent re-render issues
@@ -1782,7 +1794,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       }
 
       if (selectedPatientDetails) {
-        await fetchPatientDetails(selectedPatientDetails.id);
+        await refreshPatientDetails(selectedPatientDetails.id);
       }
     } catch (error) {
       console.error('Error updating visit status:', error);
@@ -3720,7 +3732,7 @@ OneHealth Medical Team`;
                                         }
                                       } catch (error) {
                                         console.error('Error updating invoice status:', error);
-                                        toast.error(error instanceof Error ? error.message : 'Could not update the invoice');
+                                        toast.error(error instanceof Error ? plainWords(error.message) : 'Could not update the invoice');
                                       }
                                     }}
                                     onEmailInvoice={(invoice) => {
@@ -3749,22 +3761,6 @@ OneHealth Medical Team`;
                                           void handleDirectPrintPDF(invoice);
                                         }
                                       }, 100);
-                                    }}
-                                    onDeleteInvoice={async (invoice) => {
-                                      // CleanInvoiceTable has already asked, checked the invoice lock and deleted the invoice
-                                      // before calling this. Asking again here came too late: Cancel left a deleted invoice
-                                      // in the account summary above. So only report it and refresh.
-                                      toast.success(`Invoice ${invoice.invoice_number} deleted`);
-                                      patientInvoices.reload();
-                                      const { data: updatedBilling, error: billingError } = await supabase
-                                        .from('invoices_enhanced')
-                                        .select('*')
-                                        .eq('patient_id', selectedPatientDetails.id);
-                                      if (billingError) {
-                                        console.error('Error refreshing invoices after a delete:', billingError);
-                                        return;
-                                      }
-                                      setBillingData(updatedBilling || []);
                                     }}
                                     isPrintingPDF={isPrintingPDF}
                                   />
@@ -3865,7 +3861,7 @@ OneHealth Medical Team`;
             modalState.closeEditVisitModal();
             setEditVisitInitialTab(undefined);
             setActiveDetailTab('encounters');
-            fetchPatientDetails(selectedPatientDetails.id);
+            refreshPatientDetails(selectedPatientDetails.id);
             // Saving a visit can create or change its invoice
             patientInvoices.reload();
           }}
@@ -3880,7 +3876,7 @@ OneHealth Medical Team`;
           patientId={selectedPatientDetails.id}
           onSuccess={() => {
             modalState.closeAddVisitModal();
-            fetchPatientDetails(selectedPatientDetails.id);
+            refreshPatientDetails(selectedPatientDetails.id);
           }}
         />
       )}
@@ -3906,7 +3902,7 @@ OneHealth Medical Team`;
             } : undefined}
             onSuccess={() => {
               modalState.closeMedicalAidModal();
-              fetchPatientDetails(selectedPatientDetails.id);
+              refreshPatientDetails(selectedPatientDetails.id);
               // Refresh beneficiaries count if medical aid was updated
               if (medicalAid?.membership_number) {
                 fetchBeneficiariesCount(medicalAid.membership_number);
@@ -3940,7 +3936,7 @@ OneHealth Medical Team`;
             visitId={encounterVisits[0]?.id || ''}
             onSuccess={() => {
               modalState.closeVitalsModal();
-              fetchPatientDetails(selectedPatientDetails.id);
+              refreshPatientDetails(selectedPatientDetails.id);
             }}
           />
         )}
@@ -3957,7 +3953,7 @@ OneHealth Medical Team`;
             visitId={visits[0]?.id || ''}
             onSuccess={() => {
               modalState.closeLabRequestModal();
-              fetchPatientDetails(selectedPatientDetails.id);
+              refreshPatientDetails(selectedPatientDetails.id);
             }}
           />
         )}
@@ -3974,7 +3970,7 @@ OneHealth Medical Team`;
             visitId={visits[0]?.id || ''}
             onSuccess={() => {
               modalState.closeMediaRequestModal();
-              fetchPatientDetails(selectedPatientDetails.id);
+              refreshPatientDetails(selectedPatientDetails.id);
             }}
           />
         )}
@@ -4139,7 +4135,7 @@ OneHealth Medical Team`;
             patient_id: selectedPatientDetails.id
           }}
           onRefresh={() => {
-            fetchPatientDetails(selectedPatientDetails.id);
+            refreshPatientDetails(selectedPatientDetails.id);
             if (medicalAid?.membership_number) {
               fetchBeneficiariesCount(medicalAid.membership_number);
             }

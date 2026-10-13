@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { formatServiceDate, todayKey } from '../../../utils/billing/dates';
 import DateInput from '../../ui/DateInput';
 import Icd10CodeInput from '../../billing/Icd10CodeInput';
@@ -49,7 +50,7 @@ const CorrectClaimLineSheet: React.FC<CorrectClaimLineSheetProps> = ({ practiceI
         if (!cancelled) setChoices(result);
       })
       .catch(error => {
-        if (!cancelled) setChoicesError(error instanceof Error ? error.message : 'The family and practitioners could not be loaded');
+        if (!cancelled) setChoicesError(error instanceof Error ? plainWords(error.message) : 'The family and practitioners could not be loaded');
       });
     return () => {
       cancelled = true;
@@ -81,7 +82,7 @@ const CorrectClaimLineSheet: React.FC<CorrectClaimLineSheetProps> = ({ practiceI
           `it goes to ${fundName} with that batch.${result.invoiceLineUpdated ? ` Invoice ${line.invoiceNumber} says the same now.` : ''}`
       );
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The line could not be corrected');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The line could not be corrected');
       setStep('edit');
     } finally {
       setSaving(false);

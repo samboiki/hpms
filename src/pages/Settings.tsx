@@ -26,12 +26,19 @@ import { describeDbError, ensureRowsUpdated, formatRole, isStaffAdmin } from '..
 import { PageTabs } from '../components/ui/PageTabs';
 import { EminanceImportPage } from '../components/import/EminanceImportPage';
 import { PracticeTypeSection } from '../components/settings/PracticeTypeSection';
+import { ClaimBatchStartSection } from '../components/settings/ClaimBatchStartSection';
+import { canEditPracticeSettings, canEditProtectedPracticeDetails } from '../components/settings/practiceSettingsAccess';
+import { VatSettingsSection } from '../components/settings/VatSettingsSection';
 import { ScreenAccessSettings } from '../components/settings/ScreenAccessSettings';
 import { FinanceFiguresGate } from '../components/access/FinanceFiguresGate';
 import { UserAvatar } from '../components/layout/ProfileMenu';
 import { PRACTICE_SECTIONS, sectionFromAddress } from '../utils/settingsSection';
 import { dayClosingBeforeOpening } from '../components/settings/businessHours';
 import { useEscapeToClose } from '../hooks/useEscapeToClose';
+import { PracticeCompanyDetails } from '../components/settings/PracticeCompanyDetails';
+import { OtherDevicesCard, TwoStepSignInCard } from '../components/settings/AccountSecurityCards';
+import { MetaConnectCards } from '../components/settings/MetaConnectCards';
+import { refreshAfterSave } from '../lib/queryClient';
 
 // Iconify is now handled by @iconify/react package
 
@@ -226,250 +233,11 @@ const Settings: React.FC = () => {
                 <AccountTabContent />
               )}
           
-              {activeTab === 'security' && (
-                <div className="space-y-6">
-                  <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                    <CardHeader>
-                      <div className="flex items-center gap-3 -ml-2">
-                        <div className="p-2 bg-red-100 rounded-lg">
-                          <Icon icon={SolarIcons.lock} className="w-5 h-5 text-red-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg font-semibold text-gray-900">Change Password</CardTitle>
-                          <p className="text-sm text-gray-500">Update your security credentials</p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="current-password" className="block text-sm font-medium text-gray-700 mb-2">
-                        Current Password
-                      </label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="password"
-                          id="current-password"
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
-                            focus:outline-none focus:ring-2 focus:ring-purple-500 
-                            transition-all duration-200 text-gray-700
-                            hover:bg-gray-200"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 mb-2">
-                        New Password
-                      </label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="password"
-                          id="new-password"
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
-                            focus:outline-none focus:ring-2 focus:ring-purple-500 
-                            transition-all duration-200 text-gray-700
-                            hover:bg-gray-200"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 mb-2">
-                        Confirm Password
-                      </label>
-                      <div className="relative">
-                        <Icon icon={SolarIcons.lock} className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="password"
-                          id="confirm-password"
-                          className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
-                            focus:outline-none focus:ring-2 focus:ring-purple-500 
-                            transition-all duration-200 text-gray-700
-                            hover:bg-gray-200"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                      <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />
-                      Update Password
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">Two-Factor Authentication</CardTitle>
-                      <p className="text-sm text-gray-500">Add an extra layer of security</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-start">
-                    <div className="flex-shrink-0 mt-0.5">
-                      <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-gray-900">Two-factor authentication is enabled</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Two-factor authentication adds an extra layer of security to your account.
-                        In addition to your password, you'll need to enter a code that we text to your phone.
-                      </p>
-                      <div className="mt-3">
-                        <Button variant="outline" size="sm">
-                          <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
-                          Manage 2FA Settings
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-                <CardHeader>
-                  <div className="flex items-center gap-3 -ml-2">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Icon icon={SolarIcons.hardDrive} className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
-                      <p className="text-sm text-gray-500">Manage your active sessions</p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-green-100 rounded-full">
-                          <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">Current Session</p>
-                          <p className="text-xs text-gray-500">This device • 42.122.144.55 • San Francisco, USA</p>
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" disabled>
-                        Active
-                      </Button>
-                    </div>
-                    
-                    <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-gray-100 rounded-full">
-                          <Icon icon={SolarIcons.hardDrive} className="w-4 h-4 text-gray-600" />
-                        </div>
-                        <div className="ml-3">
-                          <p className="text-sm font-medium text-gray-900">Mac OS • Chrome</p>
-                          <p className="text-xs text-gray-500">34.232.123.55 • New York, USA • 3 days ago</p>
-                        </div>
-                      </div>
-                      <Button variant="outline" size="sm">
-                        End Session
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-6">
-                    <Button variant="outline" className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
-                      Log Out of All Sessions
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-          
           
           {activeTab === 'system' && (
             <div className="space-y-4">
-              {/* Company Information Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Icon icon={SolarIcons.building} className="w-5 h-5 text-purple-600" />
-                    Company Information
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <Icon icon="solar:verified-check-bold-duotone" className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Verified Provider</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                      <p className="text-gray-900 font-medium">OneHealth Systems</p>
-                      <p className="text-sm text-gray-500">Healthcare Practice Management Solutions</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Contact Number</label>
-                      <a href="tel:081222331" className="text-gray-900 hover:text-purple-600 transition-colors">
-                        081 222 331
-                      </a>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Support Email</label>
-                      <a href="mailto:support@onehealthsystems.com" className="text-gray-900 hover:text-purple-600 transition-colors">
-                        support@onehealthsystems.com
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
-                      <a href="https://onehealthsystems.com" target="_blank" rel="noopener noreferrer" 
-                         className="text-gray-900 hover:text-purple-600 transition-colors flex items-center gap-1">
-                        onehealthsystems.com
-                        <Icon icon="solar:square-arrow-right-up-line-duotone" className="w-4 h-4" />
-                      </a>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Headquarters</label>
-                      <p className="text-gray-900">South Africa</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Support Resources</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() => { window.location.href = 'tel:081222331'; }}
-                    >
-                      <Icon icon="solar:phone-calling-bold-duotone" className="w-4 h-4" />
-                      Call Support
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex items-center gap-2"
-                      onClick={() => { window.location.href = 'mailto:support@onehealthsystems.com'; }}
-                    >
-                      <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
-                      Email Support
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              {/* The practice's own company details (owner, 13 Oct 2026: replaces the invented OneHealth block) */}
+              <PracticeCompanyDetails />
               
               {/* Theme Settings Section */}
               <div className="bg-gray-50 rounded-lg p-6">
@@ -720,6 +488,8 @@ const convertBusinessHoursObjectToArray = (hoursObj: BusinessHoursData | Busines
 // Practice Profile Component
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
+  // Administrators change the practice's settings; everyone else sees the same information read-only (owner, 13 Oct 2026)
+  const canEditPractice = canEditPracticeSettings(user);
   const { practiceId: contextPracticeId } = usePractice();
   const effectivePracticeId = user?.practice_id || contextPracticeId;
   const { currentTheme } = useTheme();
@@ -916,6 +686,8 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
         return;
       }
 
+      // The menu, the diary's opening hours and the tariff list read the practice from the shared cache
+      void refreshAfterSave('practice');
       // Update local state
       setPracticeData(prev => ({ ...prev, ...updates }));
       setFormData(prev => ({ ...prev, ...updates }));
@@ -1207,6 +979,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                       )}
                     </div>
                     
+                    {canEditPractice && (
                     <div className="flex-1">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Upload Logo</h4>
                       <p className="text-sm text-gray-500 mb-4">
@@ -1242,6 +1015,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                         )}
                       </div>
                     </div>
+                    )}
                   </div>
                 </div>
 
@@ -1252,7 +1026,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                       <Icon icon={SolarIcons.info} className="w-5 h-5 text-purple-600" />
                       Basic Information
                     </h3>
-                    {editingSection !== 'basic_info' ? (
+                    {!canEditPractice ? null : editingSection !== 'basic_info' ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1343,6 +1117,12 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                 {/* Practice type: decides the tariff list and the discipline's records (administrators only) */}
                 <PracticeTypeSection practiceId={effectivePracticeId} canChange={isStaffAdmin(user)} />
 
+                {/* VAT registration and number (administrators only; owner, 13 Oct 2026) */}
+                <VatSettingsSection practiceId={effectivePracticeId} canChange={isStaffAdmin(user)} />
+
+                {/* Claim batches continue after the last Eminance batch (administrators only; owner, 13 Oct 2026) */}
+                <ClaimBatchStartSection practiceId={effectivePracticeId} canChange={canEditProtectedPracticeDetails(user)} />
+
                 {/* Address Information Section */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1350,7 +1130,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                       <Icon icon={SolarIcons.mapPin} className="w-5 h-5 text-purple-600" />
                       Address Information
                     </h3>
-                    {editingSection !== 'address' ? (
+                    {!canEditPractice ? null : editingSection !== 'address' ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1431,7 +1211,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                       <Icon icon={SolarIcons.document} className="w-5 h-5 text-purple-600" />
                       About Practice
                     </h3>
-                    {editingSection !== 'about' ? (
+                    {!canEditPractice ? null : editingSection !== 'about' ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1485,7 +1265,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                       <Icon icon={SolarIcons.clock} className="w-5 h-5 text-purple-600" />
                       Business Hours
                     </h3>
-                    {editingSection !== 'business_hours' ? (
+                    {!canEditPractice ? null : editingSection !== 'business_hours' ? (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1632,7 +1412,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             )}
 
             {practiceTab === 'inventory' && (
-              <PracticeInventory />
+              <PracticeInventory readOnly={!canEditPractice} />
             )}
           </motion.div>
         </div>
@@ -1683,7 +1463,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
 // Account Tab Content Component with Security Integration
 const AccountTabContent: React.FC = () => {
-  const { user, updateUser, logout } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const [accountTab, setAccountTab] = useState<'profile' | 'security'>('profile');
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingSignature, setIsUploadingSignature] = useState(false);
@@ -1806,6 +1586,8 @@ const AccountTabContent: React.FC = () => {
 
       if (updateError) throw updateError;
 
+      // Settings > Users shows the photo from its cached list
+      void refreshAfterSave('staff');
       // Update local state
       updateUser({ avatar: publicUrl });
 
@@ -1926,17 +1708,10 @@ const AccountTabContent: React.FC = () => {
           <CardContent>
             <div className="flex flex-col sm:flex-row sm:items-center mb-6">
               <div className="mb-4 sm:mb-0 sm:mr-6">
-                {user?.avatar ? (
-                  <img 
-                    src={user.avatar} 
-                    alt={user.name} 
-                    className="w-20 h-20 rounded-full object-cover border-4 border-gray-200"
-                  />
-                ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                    <Icon icon={SolarIcons.user} className="w-10 h-10 text-white" />
-                  </div>
-                )}
+                {/* Their own photo, or their initials (never a stock photo of a stranger) */}
+                <div className="w-20 h-20 rounded-full overflow-hidden border-4 border-gray-200 text-2xl">
+                  <UserAvatar avatar={user?.avatar} name={user?.name ?? ''} />
+                </div>
               </div>
               <div>
                 <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
@@ -2203,39 +1978,9 @@ const AccountTabContent: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3 -ml-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Icon icon={SolarIcons.hardDrive} className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
-                  <p className="text-sm text-gray-500">Sign out on every device where you use OneHealth</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600">
-                If you signed in on a shared or lost computer or phone, sign out everywhere.
-                This also signs you out here, so you will need to sign in again.
-              </p>
-
-              <div className="mt-6">
-                <Button
-                  variant="outline"
-                  className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                  onClick={async () => {
-                    if (!window.confirm('Sign out of OneHealth on all devices, including this one?')) return;
-                    // Supabase signOut() defaults to the global scope, so this ends every session of this user
-                    await logout();
-                  }}
-                >
-                  Sign Out on All Devices
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Two-step sign-in and other devices: Supabase Auth's own features (owner, 13 Oct 2026: only what is true) */}
+          <TwoStepSignInCard />
+          <OtherDevicesCard />
         </div>
       )}
     </div>
@@ -2703,13 +2448,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
   const socialPlatforms = [
     { value: 'gmail', label: 'Gmail', icon: 'logos:google-gmail', color: 'bg-red-50 text-red-600', description: 'Send automated emails from your practice Gmail account' },
-    { value: 'facebook', label: 'Facebook', icon: 'devicon:facebook', color: 'bg-blue-100 text-blue-600', description: 'Connect with patients and share practice updates' },
-    { value: 'instagram', label: 'Instagram', icon: 'skill-icons:instagram', color: 'bg-pink-100 text-pink-600', description: 'Share visual content and practice highlights' },
-    { value: 'twitter', label: 'Twitter/X', icon: 'garden:twitter-fill-12', color: 'bg-sky-100 text-sky-600', description: 'Share quick updates and health tips' },
-    { value: 'linkedin', label: 'LinkedIn', icon: 'logos:linkedin-icon', color: 'bg-blue-100 text-blue-600', description: 'Professional networking and practice promotion' },
-    { value: 'tiktok', label: 'TikTok', icon: 'logos:tiktok-icon', color: 'bg-black text-black', description: 'Engage younger audience with health content' },
-    { value: 'youtube', label: 'YouTube', icon: 'logos:youtube-icon', color: 'bg-red-100 text-red-600', description: 'Educational videos and practice content' },
-    { value: 'whatsapp_business', label: 'WhatsApp Business', icon: 'logos:whatsapp-icon', color: 'bg-green-100 text-green-600', description: 'Direct patient communication' },
+    // Facebook and Instagram: the practice's own accounts through Meta (MetaConnectCards, below). The other platforms
+    // went (owner, 13 Oct 2026): their "Setup" could never save, so nothing is offered that does not work
   ];
 
   const loadSocialAccounts = async () => {
@@ -2994,7 +2734,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
               </div>
               <div>
                 <CardTitle className="text-lg font-semibold text-gray-900">Social Media Accounts</CardTitle>
-                <p className="text-sm text-gray-500">Manage practice social media presence for future broadcasting</p>
+                <p className="text-sm text-gray-500">Connect the practice's own Gmail, Facebook page and Instagram account</p>
               </div>
             </div>
             <Button
@@ -3207,6 +2947,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
                 </div>
               );
             })}
+            {/* The practice's own Facebook page and Instagram business account (owner, 13 Oct 2026) */}
+            <MetaConnectCards practiceId={practiceId} />
           </div>
         </CardContent>
       </Card>
@@ -4329,38 +4071,6 @@ const PracticeSocialAccountsContent: React.FC = () => {
         </div>,
         document.body
       )}
-
-      {/* Future Broadcasting Note */}
-      <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-lg">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Icon icon={SolarIcons.broadcast} className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Coming Soon: Unified Broadcasting</h3>
-              <p className="text-gray-700 mb-3">
-                Once you've connected your social media accounts, you'll be able to create and broadcast 
-                promotional messages across all platforms simultaneously from the Communications tab.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                  <Icon icon={SolarIcons.broadcast} className="w-3 h-3 mr-1" />
-                  Multi-platform posting
-                </span>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                  <Icon icon={SolarIcons.calendar} className="w-3 h-3 mr-1" />
-                  Scheduled posts
-                </span>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  <Icon icon={SolarIcons.analytics} className="w-3 h-3 mr-1" />
-                  Analytics tracking
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Success Modal for Gmail OAuth */}
       {showSuccessModal && (

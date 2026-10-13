@@ -5,7 +5,7 @@ import { claimBatchesLink } from '../billing/invoiceLinks';
 import { MedicalAidLogo } from '../ui/MedicalAidLogo';
 import { Chip } from '../stock/stockParts';
 import { CARD, LINK, QUIET } from '../stock/stockUi';
-import { describeDeadline } from '../../utils/billing/fundRules';
+import { deadlineFromService } from '../../utils/billing/fundRules';
 import { formatServiceDate } from '../../utils/billing/dates';
 import { describeMembership } from '../../utils/billing/fundMaster';
 import { SILENT_DAYS_GENERAL, silentDaysFor, type SilentFundDays } from '../finance/claims/batchFollowUp';
@@ -62,7 +62,7 @@ export const FundCard: React.FC<FundCardProps> = ({ fund, practiceWaits, canEdit
 
       <dl className="grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-[auto_minmax(0,1fr)]">
         <Row icon="solar:calendar-mark-bold-duotone" label="Claim deadline">
-          {rule.configured ? `${describeDeadline(rule)} from the service date` : 'Not known (120 days assumed)'}
+          {rule.configured ? deadlineFromService(rule) : 'Not known (120 days assumed)'}
           <div className="mt-1">
             {rule.confirmed ? (
               <Chip tone="green" icon="solar:check-circle-bold-duotone">Confirmed: later lines are not sent</Chip>

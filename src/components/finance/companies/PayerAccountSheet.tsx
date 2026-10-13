@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { ChoiceGroup, ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../receipts/ArUi';
 import { RegionSelect, TownPicker } from '../../address/TownPicker';
 import { savePayerAccount } from '../../../services/payerAccountService';
@@ -49,7 +50,7 @@ export const PayerAccountSheet: React.FC<PayerAccountSheetProps> = ({ practiceId
     try {
       onSaved(await savePayerAccount(practiceId, account?.id ?? null, checked.value));
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The account could not be saved.');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The account could not be saved.');
     } finally {
       setSaving(false);
     }

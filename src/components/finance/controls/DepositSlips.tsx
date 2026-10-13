@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import { addDays, parseISO } from 'date-fns';
@@ -64,7 +65,7 @@ export const DepositSlips: React.FC<DepositSlipsProps> = ({ practiceId, practice
       .catch(loadError => {
         if (cancelled) return;
         if (isArNotSetUp(loadError)) { setState('not_set_up'); return; }
-        setError(loadError instanceof Error ? loadError.message : 'Could not load the deposit slips');
+        setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not load the deposit slips');
         setState('error');
       });
     return () => { cancelled = true; };
@@ -104,7 +105,7 @@ export const DepositSlips: React.FC<DepositSlipsProps> = ({ practiceId, practice
       setNotes('');
       load();
     } catch (saveError) {
-      toast.error(saveError instanceof Error ? saveError.message : 'The slip was not prepared');
+      toast.error(saveError instanceof Error ? plainWords(saveError.message) : 'The slip was not prepared');
     } finally {
       setSaving(false);
     }
@@ -224,7 +225,7 @@ const MarkDepositedSheet: React.FC<{ deposit: BankDeposit; todayKey: string; onC
       toast.success(`${deposit.number} marked deposited`);
       onDone();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not saved');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not saved');
     } finally {
       setSaving(false);
     }
@@ -255,7 +256,7 @@ const CancelDepositSheet: React.FC<{ deposit: BankDeposit; onClose: () => void; 
       toast.success(`${deposit.number} cancelled: its receipts can go on a new slip`);
       onDone();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not cancelled');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not cancelled');
     } finally {
       setSaving(false);
     }

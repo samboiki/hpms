@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { communicationService } from '../../../services/communicationService';
 import { loadPatientContact } from './arService';
@@ -60,7 +61,7 @@ export const ReceiptShareActions: React.FC<ReceiptShareActionsProps> = ({ practi
       setSent(previous => ({ ...previous, sms: true }));
       toast.success(`Receipt sent by SMS to ${contact.cellNumber}`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The SMS was not sent');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The SMS was not sent');
     } finally {
       setSending(null);
     }

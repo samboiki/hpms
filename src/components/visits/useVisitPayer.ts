@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { isPayersNotSetUp, loadPatientPayers, loadVisitPayer, setVisitPayer, type PatientPayers } from '../../services/payerAccountService';
 import { billsAccount, choiceOfVisit, sameChoice, visitPayerOptions, type VisitPayerChoice, type VisitPayerOption } from '../../utils/accounts/visitPayer';
 
@@ -104,7 +105,7 @@ export function useVisitPayer(input: { practiceId: string | null | undefined; pa
       } catch (error) {
         // The invoice follows what is saved, not the refused choice
         return {
-          problem: error instanceof Error ? error.message : 'Who pays for the visit could not be saved.',
+          problem: error instanceof Error ? plainWords(error.message) : 'Who pays for the visit could not be saved.',
           billsAccount: billsAccount(saved.current, payers.cases)
         };
       }

@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { startOfMonth, endOfMonth, getMonth, format } from 'date-fns';
 import { classifyWorkedHours, hourlyBasicWage, timesheetPayLines, type TimesheetPayLine } from '../utils/hr/labourAct';
+import { standardDayHours, standardWeeklyHours } from '../utils/hr/standardHours';
+import { standardHoursOrNull } from './timesheetStandardHoursService';
 import { isNamibiaPublicHoliday } from '../utils/hr/namibiaHolidays';
 import { applyNamibianStatutoryDeductions } from '../utils/hr/namibiaPayroll';
 
@@ -384,7 +386,7 @@ export class PayrollService {
     }
 
     // Overtime, Sunday, public holiday and night work from the month's approved timesheet (Labour Act s17, s19, s21, s22)
-    const timesheetPay = await this.calculateTimesheetPay(userId, payPeriodEnd, basicSalary);
+    const timesheetPay = await this.calculateTimesheetPay(userId, payPeriodEnd, basicSalary, user.practice_id);
     timesheetPay.forEach(line => {
       earnings.push({ name: line.name, code: line.code, amount: line.amount, isCompanyContribution: false });
     });
@@ -576,7 +578,7 @@ export class PayrollService {
    * Extra pay for the hours on the employee's timesheet for the month. Only an approved timesheet counts:
    * overtime has to be agreed, and a draft can still change.
    */
-  private static async calculateTimesheetPay(userId: string, payPeriodEnd: Date, basicSalary: number): Promise<TimesheetPayLine[]> {
+  private static async calculateTimesheetPay(userId: string, payPeriodEnd: Date, basicSalary: number, practiceId?: string | null): Promise<TimesheetPayLine[]> {
     const { data: timesheet, error } = await supabase
       .from('timesheets')
       .select('status, entries:timesheet_entries(date, start_time, end_time, total_hours)')
@@ -589,6 +591,9 @@ export class PayrollService {
     if (!timesheet || timesheet.status !== 'approved') return [];
 
     const entries = (timesheet.entries || []) as Array<{ date: string; start_time: string | null; end_time: string | null; total_hours: number | string | null }>;
+    // The practice's standard day (Settings > Users > Timesheets): hours above it are overtime, and the hourly wage
+    // is the monthly basic over the standard week (owner, 13 Oct 2026)
+    const standard = await standardHoursOrNull(practiceId);
     const summary = classifyWorkedHours(
       entries.map(entry => ({
         date: entry.date,
@@ -596,9 +601,10 @@ export class PayrollService {
         timeIn: entry.start_time?.slice(0, 5),
         timeOut: entry.end_time?.slice(0, 5)
       })),
-      isNamibiaPublicHoliday
+      isNamibiaPublicHoliday,
+      { standardHoursPerDay: standardDayHours(standard) }
     );
-    return timesheetPayLines(summary, hourlyBasicWage(basicSalary));
+    return timesheetPayLines(summary, hourlyBasicWage(basicSalary, standardWeeklyHours(standard)));
   }
 
   private static async createPayslip(calculation: PayrollCalculation) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X,
@@ -415,7 +416,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       return pdf;
     } catch (error) {
       console.error('❌ Enhanced PDF generation failed:', error);
-      throw new Error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to generate PDF: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
     } finally {
       setGenerating(false);
     }

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import type { PatientListRecord } from '../../services/patientListService';
 import { loadMailingSources } from '../../services/labels/mailingLabelsService';
 import { mailingRun } from '../../utils/labels/labelContent';
@@ -24,7 +25,7 @@ export const ListLabelsSheet: React.FC<{ onClose: () => void; list: PatientListR
     loadMailingSources(members.map(member => member.patientId))
       .then(loaded => active && setSources(loaded))
       .catch((loadError: unknown) => {
-        if (active) setError(loadError instanceof Error ? loadError.message : 'Could not read the addresses.');
+        if (active) setError(loadError instanceof Error ? plainWords(loadError.message) : 'Could not read the addresses.');
       });
     return () => {
       active = false;

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../../stores/authStore';
@@ -46,6 +47,8 @@ import {
 import { accountStatement, statementSection, statementsHtml, type AccountStatement, type StatementAccount, type StatementMeta } from './statementDocument';
 import { StatementEmailSheet } from '../../messages/DocumentEmailSheets';
 import { loadDocumentSettings } from '../../../services/documentSettingsService';
+import { loadVatSettings } from '../../../services/vatSettingsService';
+import { vatStatementNote } from '../../../utils/billing/vat';
 import { practiceMessageFor } from '../../../utils/billing/documentSettings';
 
 const nad = (cents: number) => formatNad(fromCents(cents));
@@ -247,7 +250,7 @@ const PromiseSection: React.FC<{
       setNote('');
       onChanged();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not saved');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not saved');
     } finally {
       setBusy(false);
     }
@@ -262,7 +265,7 @@ const PromiseSection: React.FC<{
       toast.success('Promise cancelled');
       onChanged();
     } catch (cancelError) {
-      toast.error(cancelError instanceof Error ? cancelError.message : 'Not cancelled');
+      toast.error(cancelError instanceof Error ? plainWords(cancelError.message) : 'Not cancelled');
     }
   };
 
@@ -320,7 +323,7 @@ const NotesSection: React.FC<{ practiceId: string; accountId: string; notes: Con
       setText('');
       onChanged();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Not saved');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'Not saved');
     } finally {
       setBusy(false);
     }
@@ -397,7 +400,7 @@ const ContactSection: React.FC<{
       toast.success(`Reminder sent to ${contact.cellNumber}`);
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The SMS was not sent');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The SMS was not sent');
     } finally {
       setBusy(null);
     }
@@ -408,12 +411,13 @@ const ContactSection: React.FC<{
     setBusy(channel);
     try {
       // The practice's message on statements and its settled-items default (parity D22, D26) come with every statement
-      const [entries, settings] = await Promise.all([loadStatementData(practiceId, memberIds), loadDocumentSettings(practiceId)]);
+      const [entries, settings, vat] = await Promise.all([loadStatementData(practiceId, memberIds), loadDocumentSettings(practiceId), loadVatSettings(practiceId)]);
       const account = { holderId: accountId, holderName: name, memberIds, patientNames, reference: contact?.reference ?? null, language, layBye, message: statementMessage };
       const built = accountStatement(account, entries, { fromKey: statementFromKey(todayKey, 3), asAtKey: todayKey, leaveSettledOff: settings.leaveSettledOff });
       const meta = {
         practiceName: practice.name, contactPhone: practice.contactPhone, contactEmail: practice.contactEmail, payment: practice.payment, asAtKey: todayKey, message: '',
-        practiceMessage: practiceMessageFor(settings, 'statement')
+        practiceMessage: practiceMessageFor(settings, 'statement'),
+        vatNote: vatStatementNote(vat)
       };
       if (channel === 'print') {
         if (!printDocument(statementsHtml([statementSection(account, built, meta)], `Statement ${name}`))) toast.error('Your browser blocked the print window. Allow pop-ups for this site and try again.');
@@ -422,7 +426,7 @@ const ContactSection: React.FC<{
         setEmailing({ account, built, meta });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The statement could not be made');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The statement could not be made');
     } finally {
       setBusy(null);
     }

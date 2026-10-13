@@ -16,6 +16,8 @@ const db = vi.hoisted(() => ({
   dependantCodeColumn: false,
   titleColumns: true,
   townColumns: true,
+  // patients.photo_path and referral_source (proposals/2026-10-13-patient-photo-and-referral-source.sql)
+  extrasColumns: true,
   // Temporary files (booked with a name and cell only) the check finds by cell number
   temporaryFiles: [] as Record<string, unknown>[],
   // Files the check finds by old file number, and medical aid rows (with their file) found by membership number
@@ -104,7 +106,8 @@ vi.mock('../../../lib/supabase', () => ({
         };
         // The title and initials column check (proposals/2026-10-08-patient-title-initials.sql)
         chain.select = (columns: string) =>
-          (columns === 'title, initials' && !db.titleColumns) || (columns === 'town, region' && !db.townColumns)
+          (columns === 'title, initials' && !db.titleColumns) || (columns === 'town, region' && !db.townColumns) ||
+          ((columns === 'photo_path' || columns === 'referral_source, referral_source_other') && !db.extrasColumns)
             ? query(() => ({ data: null, error: { code: '42703', message: `column patients.${columns.split(',')[0]} does not exist` } }))
             : chain;
         chain.insert = (rows: unknown) => {
@@ -124,6 +127,7 @@ import ModernPatientRegistrationForm from '../ModernPatientRegistrationForm';
 import { resetDependantCodeColumnCache } from '../medicalAid/dependantCode';
 import { resetPatientTitleColumnsCache } from '../patientTitleColumns';
 import { resetPatientTownColumnsCache } from '../patientTownColumns';
+import { resetPatientExtrasColumnsCache } from '../patientExtrasColumns';
 
 const fillPersonalDetails = (idNumber = '90051400123') => {
   fireEvent.change(screen.getByPlaceholderText('Enter first name'), { target: { value: 'Ndapewa' } });
@@ -152,6 +156,7 @@ beforeEach(() => {
   db.dependantCodeColumn = false;
   db.titleColumns = true;
   db.townColumns = true;
+  db.extrasColumns = true;
   db.temporaryFiles = [];
   db.existingByOldNumber = [];
   db.membershipRows = [];
@@ -164,6 +169,7 @@ beforeEach(() => {
   resetDependantCodeColumnCache();
   resetPatientTitleColumnsCache();
   resetPatientTownColumnsCache();
+  resetPatientExtrasColumnsCache();
 });
 
 describe('registration: ID number', () => {
@@ -499,5 +505,49 @@ describe('registration: a caller booked earlier with a name and cell only', () =
     expect(await screen.findByRole('button', { name: 'Save as a new patient' })).toBeInTheDocument();
     expect(onSuccess).not.toHaveBeenCalled();
     expect(db.patientInsert).not.toHaveBeenCalled();
+  });
+});
+
+// Owner's decision (13 Oct 2026): an optional "How did you hear about us?" at registration, counted per month in
+// Reports > Demographics, and an optional photo. Before the database has the columns, nothing is asked or sent, so
+// registration keeps working exactly as before.
+describe('registration: how the patient heard about us, and the photo', () => {
+  it('saves the answer with the new file, with the words typed for Other', async () => {
+    const onSuccess = vi.fn();
+    render(<ModernPatientRegistrationForm onSuccess={onSuccess} />);
+    fillPersonalDetails();
+    fireEvent.change(await screen.findByLabelText('How did you hear about us?'), { target: { value: 'other' } });
+    fireEvent.change(screen.getByLabelText('Where they heard about us'), { target: { value: ' Church notice board ' } });
+    await completeWithoutMedicalAid();
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(db.patientInsert.mock.calls[0][0][0]).toMatchObject({ referral_source: 'other', referral_source_other: 'Church notice board' });
+  });
+
+  it('saves no answer when the question is skipped, so the report counts it as not answered', async () => {
+    const onSuccess = vi.fn();
+    render(<ModernPatientRegistrationForm onSuccess={onSuccess} />);
+    fillPersonalDetails();
+    await screen.findByLabelText('How did you hear about us?');
+    await completeWithoutMedicalAid();
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(db.patientInsert.mock.calls[0][0][0]).toMatchObject({ referral_source: null, referral_source_other: null });
+  });
+
+  it('offers taking or uploading a photo once photos are set up', async () => {
+    render(<ModernPatientRegistrationForm />);
+    expect(await screen.findByRole('button', { name: 'Take photo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload photo' })).toBeInTheDocument();
+  });
+
+  it('asks nothing and sends neither column before the database has them', async () => {
+    db.extrasColumns = false;
+    const onSuccess = vi.fn();
+    render(<ModernPatientRegistrationForm onSuccess={onSuccess} />);
+    fillPersonalDetails();
+    await completeWithoutMedicalAid();
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(screen.queryByLabelText('How did you hear about us?')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Take photo' })).not.toBeInTheDocument();
+    expect(db.patientInsert.mock.calls[0][0][0]).not.toHaveProperty('referral_source');
   });
 });

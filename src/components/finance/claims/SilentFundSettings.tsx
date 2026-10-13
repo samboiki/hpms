@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { MedicalAidLogo } from '../../ui/MedicalAidLogo';
 import { fundLabel } from '../../../utils/remittance/funds';
 import {
@@ -67,7 +68,7 @@ export const SilentFundSettings: React.FC<SilentFundSettingsProps> = ({ settings
       await onSave({ default: defaultDays, byFund });
       setEditing(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'The setting could not be saved.');
+      setError(err instanceof Error ? plainWords(err.message) : 'The setting could not be saved.');
     } finally {
       setSaving(false);
     }

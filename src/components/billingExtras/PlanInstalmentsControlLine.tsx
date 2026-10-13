@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -42,7 +43,7 @@ export const PlanInstalmentsControlLine: React.FC<{ practiceId: string; onPosted
       await count();
       onPosted?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The due instalments could not be posted.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The due instalments could not be posted.');
     } finally {
       setPosting(false);
     }

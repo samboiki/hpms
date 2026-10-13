@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { EMPTY_PRICE_BOOK } from '../../utils/billing/fundPricing';
 import { DEFAULT_INFECTION_CONTROL_STAFF } from '../../utils/billing/tariffRules';
 import { NO_PRACTITIONER_BILLING, rateOf, type PractitionerBillingMap } from '../../utils/billing/practitionerBilling';
@@ -94,7 +95,7 @@ export function useFundPricing(params: {
       })
       .catch(error => {
         if (cancelled) return;
-        const reason = error instanceof Error ? error.message : 'unknown error';
+        const reason = error instanceof Error ? plainWords(error.message) : 'unknown error';
         setLoaded({
           key,
           state: { ...NO_PRACTICE, blockMessage: `The medical aid prices could not be loaded (${reason}). Close and reopen the visit to try again.` }

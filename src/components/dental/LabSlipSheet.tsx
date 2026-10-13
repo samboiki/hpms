@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import FormModal from '../modals/FormModal';
@@ -81,7 +82,7 @@ const LabSlipSheet: React.FC<LabSlipSheetProps> = ({ order, onClose, onSaved }) 
       onSaved();
       onClose();
     } catch (failure) {
-      setFormError(failure instanceof Error ? failure.message : "The lab's invoice could not be saved.");
+      setFormError(failure instanceof Error ? plainWords(failure.message) : "The lab's invoice could not be saved.");
     } finally {
       setBusy(false);
     }

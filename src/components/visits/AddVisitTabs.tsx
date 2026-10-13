@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { useForm } from 'react-hook-form';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -693,7 +694,7 @@ const AddVisitTabs: React.FC<Props> = ({
         } catch (invoiceError) {
           console.error('Invoice creation failed:', invoiceError);
           // Show user-friendly error but don't block the main save
-          alert(`Invoice creation failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}. The visit was created but invoice was not generated.`);
+          alert(`Invoice creation failed: ${invoiceError instanceof Error ? plainWords(invoiceError.message) : 'Unknown error'}. The visit was created but invoice was not generated.`);
         }
       }
 
@@ -750,7 +751,7 @@ const AddVisitTabs: React.FC<Props> = ({
 
         } catch (medicationError) {
           console.error('Error saving medications:', medicationError);
-          alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was created but medications were not saved.`);
+          alert(`Medications save failed: ${medicationError instanceof Error ? plainWords(medicationError.message) : 'Unknown error'}. The visit was created but medications were not saved.`);
         }
       }
 
@@ -809,7 +810,7 @@ const AddVisitTabs: React.FC<Props> = ({
       onSuccess();
     } catch (error) {
       console.error('❌ Error creating visit:', error);
-      alert(`Failed to create visit: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Failed to create visit: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
     } finally {
       setIsSubmitting(false);
     }

@@ -32,6 +32,7 @@ import { toast } from 'react-hot-toast';
 import { formatDoctorName } from '../../utils/formatDoctorName';
 import { lazyWindow } from '../layout/lazyScreen';
 import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { PatientAvatar } from '../patients/photo/PatientAvatar';
 
 // The tracker is on the Dashboard, so the patient file and the visit screen it can open load when first opened
 // instead of with the first screen (and say so if they cannot load: lazyScreen.tsx)
@@ -469,9 +470,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 {index + 1}
                               </div>
                               
-                              <div className="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-full">
-                                <Bell className="w-5 h-5 text-emerald-600" />
-                              </div>
+                              <PatientAvatar patientId={visit.patient_id} className="w-10 h-10 rounded-full">
+                                <div className="flex items-center justify-center w-10 h-10 bg-emerald-100 rounded-full">
+                                  <Bell className="w-5 h-5 text-emerald-600" />
+                                </div>
+                              </PatientAvatar>
                               <div className="flex-1">
                                 <p className="font-medium text-gray-800 text-sm">
                                   {visit.patient?.first_name} {visit.patient?.last_name}
@@ -516,9 +519,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                               
                               {/* Main content area */}
                               <div className="flex items-start gap-3 flex-1">
-                                <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
-                                  <Stethoscope className="w-5 h-5 text-orange-600" />
-                                </div>
+                                <PatientAvatar patientId={visit.patient_id} className="w-10 h-10 rounded-full">
+                                  <div className="flex items-center justify-center w-10 h-10 bg-orange-100 rounded-full">
+                                    <Stethoscope className="w-5 h-5 text-orange-600" />
+                                  </div>
+                                </PatientAvatar>
                                 <div className="flex-1">
                                   <p className="font-medium text-gray-800 text-sm">
                                     {visit.patient?.first_name} {visit.patient?.last_name}

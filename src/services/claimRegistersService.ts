@@ -7,6 +7,7 @@
  * visitClaimDetails.ts (tested).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { normalizeInvoiceStatus } from './ledger/invoices';
 import { isNotSetUpError } from './invoicingSetup';
@@ -81,7 +82,7 @@ export async function loadPatientReferrals(patientId: string): Promise<RegisterL
     if (error) return isNotSetUpError(error) ? { status: 'not_set_up' } : { status: 'error', message: `The referrals could not be loaded: ${error.message}` };
     return { status: 'ready', rows: ((data ?? []) as ReferralRow[]).map(toReferral) };
   } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : 'The referrals could not be loaded.' };
+    return { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'The referrals could not be loaded.' };
   }
 }
 
@@ -184,7 +185,7 @@ export async function loadPatientAuthorisations(patientId: string): Promise<Regi
     if (error) return isNotSetUpError(error) ? { status: 'not_set_up' } : { status: 'error', message: `The authorisations could not be loaded: ${error.message}` };
     return { status: 'ready', rows: ((data ?? []) as AuthorisationRow[]).map(toAuthorisation) };
   } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : 'The authorisations could not be loaded.' };
+    return { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'The authorisations could not be loaded.' };
   }
 }
 
@@ -291,7 +292,7 @@ export async function loadVisitClaimDetails(visitId: string): Promise<ClaimDetai
         : null
     };
   } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : "The visit's claim details could not be loaded." };
+    return { status: 'error', message: error instanceof Error ? plainWords(error.message) : "The visit's claim details could not be loaded." };
   }
 }
 

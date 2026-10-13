@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { toCents } from '../../utils/billing/money';
@@ -53,7 +54,7 @@ export const QuoteSmsPanel: React.FC<SendProps & { practiceName: string; practic
         toast.error(result.message, { duration: 8000 });
       }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not send the SMS.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not send the SMS.');
     } finally {
       setSending(false);
     }

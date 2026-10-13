@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import FormModal from '../modals/FormModal';
 import { SectionCard } from '../finance/FinanceUI';
@@ -42,7 +43,7 @@ const BundleManagerModal: React.FC<{ practiceId: string; isOpen: boolean; onClos
         if (!cancelled) setTariffs({ status: 'ready', practiceType: set.practiceType, tariffs: billableOn(set, todayKey()) });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setTariffs({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the tariff list.' });
+        if (!cancelled) setTariffs({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the tariff list.' });
       });
     return () => {
       cancelled = true;

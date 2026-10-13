@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import FormModal from '../modals/FormModal';
@@ -111,7 +112,7 @@ const QuoteEditor: React.FC<QuoteEditorProps> = ({ isOpen, onClose, practiceId, 
         setLoad(
           isQuotesNotEnabledError(error)
             ? { status: 'not_enabled' }
-            : { status: 'error', message: error instanceof Error ? error.message : 'Could not open the quote.' }
+            : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not open the quote.' }
         );
       });
     return () => {
@@ -177,7 +178,7 @@ const QuoteEditor: React.FC<QuoteEditorProps> = ({ isOpen, onClose, practiceId, 
       onSaved(id);
     } catch (error) {
       if (isQuotesNotEnabledError(error)) setLoad({ status: 'not_enabled' });
-      else toast.error(error instanceof Error ? error.message : 'Could not save the quote.');
+      else toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the quote.');
     } finally {
       setSaving(false);
     }

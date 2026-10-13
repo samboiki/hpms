@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -62,10 +63,10 @@ const FramesPanel: React.FC<{ practiceId: string }> = ({ practiceId }) => {
     let cancelled = false;
     loadFrames(practiceId)
       .then(result => !cancelled && setLoad(result.status === 'not_set_up' ? { status: 'not_set_up' } : { status: 'ready', frames: result.frames }))
-      .catch((error: unknown) => !cancelled && setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not read the frames.' }));
+      .catch((error: unknown) => !cancelled && setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the frames.' }));
     loadFrameUnits(practiceId)
       .then(result => !cancelled && setUnitsState(result.status === 'ready' ? { status: 'ready', units: result.data } : { status: 'not_set_up' }))
-      .catch((error: unknown) => !cancelled && setUnitsState({ status: 'error', message: error instanceof Error ? error.message : 'Could not read the frame barcodes.' }));
+      .catch((error: unknown) => !cancelled && setUnitsState({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the frame barcodes.' }));
     return () => {
       cancelled = true;
     };

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -130,7 +131,7 @@ const PatientPlansPanel: React.FC<PatientPlansPanelProps> = ({ practiceId, patie
       if (said) setNotice(said);
       if (result.posted > 0) invoicesChanged.current?.();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The due instalments could not be posted.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The due instalments could not be posted.');
     }
   }, [practiceId, patientId]);
 
@@ -160,7 +161,7 @@ const PatientPlansPanel: React.FC<PatientPlansPanelProps> = ({ practiceId, patie
       setStopping(null);
       await reload();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The plan could not be stopped.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The plan could not be stopped.');
     } finally {
       setBusyId(null);
     }
@@ -175,7 +176,7 @@ const PatientPlansPanel: React.FC<PatientPlansPanelProps> = ({ practiceId, patie
       setStopping(null);
       await reload();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The package could not be cancelled.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The package could not be cancelled.');
     } finally {
       setBusyId(null);
     }

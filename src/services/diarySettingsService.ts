@@ -11,6 +11,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { loadPracticeRow } from '../lib/practiceRow';
 import {
   DEFAULT_REMINDER_SETTINGS,
   normalizeReminderSettings,
@@ -184,15 +185,18 @@ export function loadWorkingHours(practiceId: string): Promise<WorkingHoursLoad> 
   });
 }
 
-const businessHoursCache = new Map<string, { at: number; load: Promise<unknown> }>();
-
-/** practices.business_hours as stored (null when it can't be read: the Monday to Friday default applies). */
-export function loadPracticeBusinessHours(practiceId: string): Promise<unknown> {
-  return cached(businessHoursCache, practiceId, async () => {
-    const { data, error } = await supabase.from('practices').select('business_hours').eq('id', practiceId).maybeSingle();
-    if (error) console.error('Could not load the opening hours:', error);
-    return data?.business_hours ?? null;
-  });
+/**
+ * practices.business_hours as stored (null when it can't be read: the Monday to Friday default applies). From the
+ * practice row the menu and the tariff list share (lib/practiceRow.ts), so saving the practice profile refreshes it.
+ */
+export async function loadPracticeBusinessHours(practiceId: string): Promise<unknown> {
+  try {
+    const practice = await loadPracticeRow(practiceId);
+    return practice?.business_hours ?? null;
+  } catch (error) {
+    console.error('Could not load the opening hours:', error);
+    return null;
+  }
 }
 
 /** Replaces one practitioner's week (administrators, or the practitioner). An empty list clears it. */

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import type { ClaimLine } from '../../utils/billing/claimLine';
 import { isDentalPractice } from '../../utils/billing/tariffRules';
 import { isLabFeeLine, pairLabSlips, withLabDetails, type BilledLabOrder } from '../../utils/dental/labSlips';
@@ -45,7 +46,7 @@ export function useBatchLabSlips(options: { practiceType: string | null | undefi
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setLoaded({ key: visitKey, orders: [], note: `The lab orders could not be read (${error instanceof Error ? error.message : 'unknown error'}): reload the batch to check the 8099 lines.` });
+          setLoaded({ key: visitKey, orders: [], note: `The lab orders could not be read (${error instanceof Error ? plainWords(error.message) : 'unknown error'}): reload the batch to check the 8099 lines.` });
         }
       });
     return () => {

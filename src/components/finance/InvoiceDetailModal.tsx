@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -63,7 +64,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice,
       const result = await fetchInvoiceLineItems(invoiceId);
       setLines(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load the invoice lines');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load the invoice lines');
     }
   }, [invoiceId]);
 

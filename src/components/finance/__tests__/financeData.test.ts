@@ -34,7 +34,7 @@ vi.mock('../../../lib/supabase', () => ({
   supabase: { from: (table: string) => db.makeBuilder(table) }
 }));
 
-import { FINANCE_SOURCE_TIMEOUT_MS, fetchInvoiceLineItems, loadFinanceWorkspace } from '../financeData';
+import { FINANCE_SOURCE_TIMEOUT_MS, PAYROLL_ADMINS_ONLY, fetchInvoiceLineItems, loadFinanceWorkspace } from '../financeData';
 import { EXCLUDE_CARRIER_VISITS } from '../../../utils/carrierVisits';
 
 type Op = [string, unknown[]];
@@ -253,7 +253,8 @@ describe('loadFinanceWorkspace', () => {
 
     const workspace = await loadFinanceWorkspace(request);
 
-    expect(workspace.payslips.error).toMatch(/permission denied/);
+    // Plain words, not the database's (owner, 13 Oct 2026)
+    expect(workspace.payslips.error).toMatch(/your account is not permitted/);
     expect(workspace.payslips.rows).toEqual([]);
     expect(workspace.invoices.error).toBeNull();
     expect(workspace.invoices.rows).toHaveLength(1);
@@ -265,7 +266,7 @@ describe('loadFinanceWorkspace', () => {
 
     const workspace = await loadFinanceWorkspace(request);
 
-    expect(workspace.invoices.error).toMatch(/Failed to load (unpaid )?invoices: timeout/);
+    expect(workspace.invoices.error).toMatch(/Failed to load (unpaid )?invoices: it took too long/);
     expect(callsFor('invoice_services')).toHaveLength(0);
   });
 
@@ -363,5 +364,26 @@ describe('fetchInvoiceLineItems', () => {
     db.state.responses.invoice_services = { data: null, error: { message: 'relation does not exist' } };
 
     await expect(fetchInvoiceLineItems('inv-1')).rejects.toThrow(/relation does not exist/);
+  });
+});
+
+describe('loadFinanceWorkspace: payroll is for administrators (owner, 13 Oct 2026)', () => {
+  beforeEach(() => {
+    db.state.calls = [];
+    db.state.responses = {};
+  });
+
+  // Payslips: admins see all, everyone else only their own. Finance shows the practice's payroll, so for anyone
+  // else it does not read payslips at all and says why, instead of totals built from their own payslip only
+  it('does not read payslips for someone who is not an administrator', async () => {
+    const workspace = await loadFinanceWorkspace({ ...request, includePayroll: false });
+    expect(callsFor('payslips')).toHaveLength(0);
+    expect(workspace.payslips.rows).toEqual([]);
+    expect(workspace.payslips.error).toBe(PAYROLL_ADMINS_ONLY);
+  });
+
+  it('still reads the practice payroll for an administrator', async () => {
+    await loadFinanceWorkspace({ ...request, includePayroll: true });
+    expect(callsFor('payslips').length).toBeGreaterThan(0);
   });
 });

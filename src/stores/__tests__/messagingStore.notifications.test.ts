@@ -14,6 +14,12 @@ vi.mock('../../services/internalMessagingService', () => ({
   }
 }));
 
+// No notification settings saved: everything shows (messagingStore.preferences.test.ts covers the settings)
+vi.mock('../../services/notificationPreferencesService', () => ({
+  loadNotificationPreferences: vi.fn().mockResolvedValue({ status: 'ready', prefs: null }),
+  countWantedUnread: vi.fn()
+}));
+
 import { useMessagingStore } from '../messagingStore';
 
 const notification = (id: string) => ({ id, title: `Notice ${id}`, priority: 'normal', status: 'pending', created_at: '2026-10-13T08:00:00Z' });

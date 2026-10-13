@@ -18,7 +18,7 @@ import { EditUserModal } from './UserManagement/EditUserModal';
 import { DeleteUserModal } from './UserManagement/DeleteUserModal';
 import { UserOverview } from './UserManagement/UserOverview';
 import { TeamOverview } from './UserManagement/TeamOverview';
-import { getGenderAppropriateAvatar, getFallbackAvatarColors } from '../../utils/avatarUtils';
+import { UserAvatar } from '../layout/ProfileMenu';
 import { formatNad as formatNadAmount } from '../../utils/billing/money';
 import { USER_SECTIONS, sectionFromAddress } from '../../utils/settingsSection';
 import {
@@ -546,22 +546,8 @@ export const EnhancedUserManagement: React.FC = () => {
                     } ${isActiveStaff(userData) ? '' : 'opacity-70'}`}
                   >
                     <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
-                      <img
-                        src={userData.avatar || getGenderAppropriateAvatar(userData.gender, userData.email)}
-                        alt={userData.full_name}
-                        className="w-full h-full object-cover"
-                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                          const target = e.currentTarget;
-                          const parent = target.parentElement;
-                          if (parent) {
-                            parent.innerHTML = `
-                              <div class="w-full h-full bg-gradient-to-br ${getFallbackAvatarColors(userData.gender)} flex items-center justify-center">
-                                <span class="text-white text-xs font-medium">${userData.full_name.charAt(0).toUpperCase()}</span>
-                              </div>
-                            `;
-                          }
-                        }}
-                      />
+                      {/* Their own photo, or their initials (never a stock photo of a stranger) */}
+                      <span className="block h-full w-full text-xs"><UserAvatar avatar={userData.avatar} name={userData.full_name} /></span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">

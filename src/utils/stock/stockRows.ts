@@ -41,6 +41,11 @@ export interface StockSettings {
   pricingSetUp?: boolean;
   /** Each medicine's fund reference price per unit in cents (item id -> cents) */
   referencePrices?: ReadonlyMap<string, number>;
+  /**
+   * Settings > Practice > VAT (src/utils/billing/vat.ts): only a VAT-registered practice adds VAT to what it sells.
+   * Absent or false: selling prices carry no VAT. Deliveries keep the supplier's VAT either way.
+   */
+  vatRegistered?: boolean;
 }
 
 export const DEFAULT_STOCK_SETTINGS: StockSettings = {

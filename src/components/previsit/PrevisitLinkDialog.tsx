@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import FormModal from '../modals/FormModal';
@@ -48,7 +49,7 @@ export const PrevisitLinkDialog: React.FC<PrevisitLinkDialogProps> = ({ request,
     const created = await createPrevisitLink(request.visitId);
     if (!created.ok) {
       setSending(false);
-      setError(created.message);
+      setError(plainWords(created.message));
       return;
     }
     const result = await sendPrevisitLinkSms({
@@ -60,7 +61,7 @@ export const PrevisitLinkDialog: React.FC<PrevisitLinkDialogProps> = ({ request,
     });
     setSending(false);
     if (!result.ok) {
-      setError(result.message);
+      setError(plainWords(result.message));
       return;
     }
     toast.success(`Questions sent to ${request.patientName}`);

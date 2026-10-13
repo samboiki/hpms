@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { ListSheet } from '../../patientLists/ListSheet';
@@ -51,7 +52,7 @@ export const DueDatesSheet: React.FC<DueDatesSheetProps> = ({ open, onClose, pra
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setState(error instanceof DueDatesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? error.message : 'Could not load the due dates.' });
+        setState(error instanceof DueDatesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the due dates.' });
       });
     return () => {
       active = false;

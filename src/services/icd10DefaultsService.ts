@@ -5,6 +5,7 @@
  * the tariff screen says so; billing keeps working with the built-in suggestions (src/utils/billing/icd10Defaults.ts).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { isNotSetUpError } from './invoicingSetup';
 import { normalizeIcd10 } from '../utils/billing/icd10';
@@ -33,7 +34,7 @@ export async function loadTariffIcd10Defaults(practiceId: string | null): Promis
     }
     return { status: 'ready', defaults: toTariffIcd10Defaults((data ?? []) as { tariff_code: string | null; icd10_code: string | null }[]), message: null };
   } catch (error) {
-    return { status: 'error', defaults: new Map(), message: `The practice's usual ICD-10 codes could not be read: ${error instanceof Error ? error.message : 'unknown error'}` };
+    return { status: 'error', defaults: new Map(), message: `The practice's usual ICD-10 codes could not be read: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}` };
   }
 }
 

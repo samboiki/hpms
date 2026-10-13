@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useDentalPractice } from '../../dental/useDentalPractice';
@@ -41,7 +42,7 @@ export const PregnancyDueDateCard: React.FC<PregnancyDueDateCardProps> = ({ prac
     try {
       setState({ status: 'ready', dueDate: await loadDueDate(patientId) });
     } catch (error) {
-      setState(error instanceof DueDatesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? error.message : 'Could not read the due date.' });
+      setState(error instanceof DueDatesNotSetUpError ? { status: 'not_set_up' } : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the due date.' });
     }
   }, [patientId]);
 
@@ -84,7 +85,7 @@ export const PregnancyDueDateCard: React.FC<PregnancyDueDateCardProps> = ({ prac
       setEditing(false);
       setState({ status: 'ready', dueDate: value });
     } catch (error) {
-      setProblem(error instanceof Error ? error.message : 'Could not save the due date.');
+      setProblem(error instanceof Error ? plainWords(error.message) : 'Could not save the due date.');
     } finally {
       setSaving(false);
     }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../utils/plainErrors';
 import { endOfDay, parseISO } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { fetchAllRows, withTimeout } from '../../services/financialKpiService';
@@ -81,11 +82,17 @@ export interface FinanceLoadRequest {
   windowStartKey: string;
   /** The selected period: line items, visits and payslip lines are read for it */
   lineItemRange: DateRange;
+  /** false for anyone but a practice administrator: colleagues' payslips are not theirs to see (owner, 13 Oct 2026) */
+  includePayroll?: boolean;
 }
+
+/** Said in the payroll notice when the signed-in person is not an administrator */
+export const PAYROLL_ADMINS_ONLY = 'Payroll figures are shown to practice administrators only.';
 
 /** Identifies what a workspace was loaded for; figures are only shown for a matching request */
 export const financeRequestKey = (request: FinanceLoadRequest): string =>
-  [request.practiceId, request.windowStartKey, request.lineItemRange.startKey, request.lineItemRange.endKey].join('|');
+  [request.practiceId, request.windowStartKey, request.lineItemRange.startKey, request.lineItemRange.endKey]
+    .concat(request.includePayroll === false ? ['no-payroll'] : []).join('|');
 
 export interface FinanceWorkspace {
   practiceId: string;
@@ -124,7 +131,7 @@ export interface FinanceWorkspace {
 }
 
 const errorMessage = (error: unknown, fallback: string): string =>
-  error instanceof Error && error.message ? error.message : fallback;
+  error instanceof Error && error.message ? plainWords(error.message) : fallback;
 
 async function settle<T>(label: string, task: () => Promise<T[]>): Promise<SourceResult<T>> {
   try {
@@ -385,7 +392,9 @@ export async function loadFinanceWorkspace(request: FinanceLoadRequest): Promise
   const { practiceId, windowStartKey, lineItemRange } = request;
   const [invoices, payslips, expenses, inventory, visits, ar] = await Promise.all([
     settle('invoices', () => loadInvoices(practiceId, windowStartKey, lineItemRange)),
-    settle('payroll', () => loadPayslips(practiceId, windowStartKey)),
+    request.includePayroll === false
+      ? Promise.resolve<SourceResult<LedgerPayslip>>({ rows: [], error: PAYROLL_ADMINS_ONLY })
+      : settle('payroll', () => loadPayslips(practiceId, windowStartKey)),
     settle('practice expenses', () => loadExpenses(practiceId)),
     loadInventory(practiceId),
     settle('visits', () => loadVisits(practiceId, lineItemRange)),

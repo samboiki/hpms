@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { todayKey } from '../../../utils/billing/dates';
@@ -86,7 +87,7 @@ export const DocumentReview: React.FC<DocumentReviewProps> = ({ practiceId, cont
         setLoadWarnings(loaded.warnings);
         setPaymentPosted(posted);
       } catch (error) {
-        if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Could not load the claims to match against.');
+        if (!cancelled) setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not load the claims to match against.');
       }
     })();
     return () => {
@@ -111,7 +112,7 @@ export const DocumentReview: React.FC<DocumentReviewProps> = ({ practiceId, cont
         if (cancelled) return;
         setBalances({});
         setBalancesKey(null);
-        setPostError(error instanceof Error ? error.message : 'What the invoices still owe could not be read.');
+        setPostError(error instanceof Error ? plainWords(error.message) : 'What the invoices still owe could not be read.');
       });
     return () => {
       cancelled = true;
@@ -189,7 +190,7 @@ export const DocumentReview: React.FC<DocumentReviewProps> = ({ practiceId, cont
       toast.success(outcome.receipt_number ? `Posted as receipt ${outcome.receipt_number}` : 'Outcomes recorded');
       onPosted();
     } catch (error) {
-      setPostError(error instanceof Error ? error.message : 'Posting failed. Nothing was saved.');
+      setPostError(error instanceof Error ? plainWords(error.message) : 'Posting failed. Nothing was saved.');
     } finally {
       setPosting(false);
     }

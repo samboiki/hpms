@@ -1,4 +1,5 @@
 import { communicationService } from '../../../services/communicationService';
+import { plainWords } from '../../../utils/plainErrors';
 import type { PlannedStatement } from '../../../services/ledgerService';
 
 /**
@@ -11,7 +12,8 @@ import type { PlannedStatement } from '../../../services/ledgerService';
 
 export interface StatementMessage {
   planned: PlannedStatement;
-  email?: { subject: string; html: string; text: string };
+  /** The statement in the body, and as a plain PDF attachment (no password: owner, 13 Oct 2026) */
+  email?: { subject: string; html: string; text: string; attachment?: { fileName: string; base64: string } };
   sms?: string;
 }
 
@@ -43,6 +45,7 @@ export async function sendStatementMessage(message: StatementMessage, context: S
         subject: message.email.subject,
         htmlContent: message.email.html,
         textContent: message.email.text,
+        ...(message.email.attachment ? { attachments: [{ filename: message.email.attachment.fileName, content: message.email.attachment.base64, type: 'application/pdf' }] } : {}),
         emailType: 'invoice',
         patientId: planned.patientId,
         metadata
@@ -62,7 +65,7 @@ export async function sendStatementMessage(message: StatementMessage, context: S
     }
     return { patientId: planned.patientId, channel: planned.channel, ok: true, error: null };
   } catch (error) {
-    return { patientId: planned.patientId, channel: planned.channel, ok: false, error: error instanceof Error ? error.message : 'Not sent' };
+    return { patientId: planned.patientId, channel: planned.channel, ok: false, error: error instanceof Error ? plainWords(error.message) : 'Not sent' };
   }
 }
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import FormModal from '../../modals/FormModal';
@@ -212,7 +213,7 @@ const DiaryReportContent: React.FC<Omit<DiaryReportModalProps, 'isOpen'>> = ({ p
       if (kind === 'not_seen' && result.set > 0) setRecallsVersion((version) => version + 1);
     } catch (error) {
       if (isRecallsNotSetUpError(error)) toast('No recall was set: recalls are not set up in this database yet.');
-      else toast.error(error instanceof Error ? error.message : 'The recalls could not be set.');
+      else toast.error(error instanceof Error ? plainWords(error.message) : 'The recalls could not be set.');
     }
   };
 

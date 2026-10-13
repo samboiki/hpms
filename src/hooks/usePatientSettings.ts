@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { usePractice } from '../contexts/PracticeContext';
 
+// Default country, default language, data-processing consent, data-export requests and anonymising after 7 years used
+// to be options here too: they were saved but nothing read them, so they were removed (owner, 13 Oct 2026)
 export interface PatientSettings {
-  defaultCountry: string;
-  defaultLanguage: string;
-  requireDataConsent: boolean;
-  enableDataExport: boolean;
-  autoAnonymizeAfterYears: number | null;
   inactiveThresholdDays: number;
   sendSmsReminders: boolean;
   sendEmailReminders: boolean;
@@ -15,11 +13,6 @@ export interface PatientSettings {
 }
 
 const DEFAULT_SETTINGS: PatientSettings = {
-  defaultCountry: 'Namibia',
-  defaultLanguage: 'English',
-  requireDataConsent: true,
-  enableDataExport: true,
-  autoAnonymizeAfterYears: null,
   inactiveThresholdDays: 180, // 6 months
   sendSmsReminders: true,
   sendEmailReminders: true,
@@ -62,7 +55,7 @@ export const usePatientSettings = () => {
       }
     } catch (err) {
       console.error('Error loading patient settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load settings');
+      setError(err instanceof Error ? plainWords(err.message) : 'Failed to load settings');
     } finally {
       setLoading(false);
     }
@@ -124,7 +117,7 @@ export const usePatientSettings = () => {
       return true;
     } catch (err) {
       console.error('Error saving patient settings:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save settings');
+      setError(err instanceof Error ? plainWords(err.message) : 'Failed to save settings');
       return false;
     } finally {
       setSaving(false);

@@ -34,7 +34,7 @@ describe('the fund form', () => {
       deadlineMonths: rule.deadline.months ?? null,
       deadlineConfirmed: rule.confirmed,
       membershipDigits: [...rule.membershipDigits],
-      membershipHint: null,
+      membershipHint: rule.membershipHint,
       dependantCodeRequired: rule.dependantCodeRequired,
       paymentTermsDays: rule.paymentTermsDays
     });
@@ -113,7 +113,9 @@ describe('the fund in words', () => {
   it('describes membership numbers, or says the fund has none set', () => {
     expect(describeMembership(getFundRule('NMC1'))).toBe('9 digits');
     expect(describeMembership({ ...nhp, membershipDigits: [13, 14] })).toBe('13 or 14 digits');
-    expect(describeMembership(getFundRule('MAG1'))).toBeNull();
+    // PSEMAS: 9 digits on Methealth's statements, 13 or 14 on older cards (claims standard of 13 Oct 2026)
+    expect(describeMembership(getFundRule('MAG1'))).toBe('9 or 13 or 14 digits');
+    expect(describeMembership({ ...nhp, membershipDigits: [] })).toBeNull();
   });
 
   // Support must be able to answer "who changed NAMMED's deadline, and from what?" from the history

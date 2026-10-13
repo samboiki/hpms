@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { formatServiceDate, todayKey } from '../../utils/billing/dates';
@@ -49,7 +50,7 @@ const OwnTariffForm: React.FC<OwnTariffFormProps> = ({ practiceId, initial, dent
       toast.success(`${draft.code.trim().toUpperCase()} saved: billed at the new price from ${formatServiceDate(draft.fromDate)}.`);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The code could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The code could not be saved.');
     } finally {
       setSaving(false);
     }

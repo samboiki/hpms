@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { patientListService, type PatientListRecord } from '../../services/patientListService';
@@ -18,7 +19,7 @@ interface CreateListSheetProps {
   onCreated: (list: PatientListRecord) => void;
 }
 
-const errorText = (error: unknown): string => (error instanceof Error ? error.message : 'Could not create the list.');
+const errorText = (error: unknown): string => (error instanceof Error ? plainWords(error.message) : 'Could not create the list.');
 
 /** "New list": one tap on a ready-made smart list creates it; or name a hand-picked list. */
 export const CreateListSheet: React.FC<CreateListSheetProps> = ({ open, onClose, practiceId, practiceType, existingNames, onCreated }) => {

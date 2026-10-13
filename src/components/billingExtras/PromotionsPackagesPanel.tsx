@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import {
@@ -97,7 +98,7 @@ const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ pract
       setPromotionDraft(null);
       reload();
     } catch (error) {
-      setProblem({ form: 'promotion', text: error instanceof Error ? error.message : 'The promotion could not be saved.' });
+      setProblem({ form: 'promotion', text: error instanceof Error ? plainWords(error.message) : 'The promotion could not be saved.' });
     } finally {
       setSaving(false);
     }
@@ -110,7 +111,7 @@ const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ pract
       toast.success(`"${promotion.name}" has ended`);
       reload();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The promotion could not be ended.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The promotion could not be ended.');
     }
   };
 
@@ -130,7 +131,7 @@ const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ pract
       setPackageDraft(null);
       reload();
     } catch (error) {
-      setProblem({ form: 'package', text: error instanceof Error ? error.message : 'The package could not be saved.' });
+      setProblem({ form: 'package', text: error instanceof Error ? plainWords(error.message) : 'The package could not be saved.' });
     } finally {
       setSaving(false);
     }
@@ -144,7 +145,7 @@ const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ pract
       toast.success(type.isActive ? `"${type.name}" is no longer sold. Packages already sold can still be used.` : `"${type.name}" is sold again.`);
       reload();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The package could not be changed.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The package could not be changed.');
     }
   };
 

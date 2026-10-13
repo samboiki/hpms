@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import ReactDOM from 'react-dom';
 import { Icon } from '@iconify/react';
 import { loadLegacyClaimLines, type LegacyClaimLine } from '../../services/import/eminanceImportService';
@@ -20,7 +21,7 @@ export const EminanceClaimHistoryDialog: React.FC<{ patientId: string; accountNu
     let cancelled = false;
     loadLegacyClaimLines(patientId)
       .then(result => { if (!cancelled) setLines(result); })
-      .catch(caught => { if (!cancelled) setError(caught instanceof Error ? caught.message : 'Could not read the claim history'); });
+      .catch(caught => { if (!cancelled) setError(caught instanceof Error ? plainWords(caught.message) : 'Could not read the claim history'); });
     return () => {
       cancelled = true;
     };

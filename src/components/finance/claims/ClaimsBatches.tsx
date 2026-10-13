@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { useSearchParams } from 'react-router-dom';
@@ -106,7 +107,7 @@ const ClaimsBatches: React.FC<ClaimsBatchesProps> = ({ practiceId, finance = nul
       setOwedWarning([waits.error ? `When to warn could not be read (${waits.error}); the usual waits are used.` : null, owed.warning].filter(Boolean).join(' ') || null);
       setLoadCount(count => count + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load the claims.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load the claims.');
     } finally {
       setLoading(false);
     }
@@ -180,7 +181,7 @@ const ClaimsBatches: React.FC<ClaimsBatchesProps> = ({ practiceId, finance = nul
         if (batch) setBatches(current => (current.some(item => item.id === batch.id) ? current : [...current, batch]));
         else dropLink('That claim batch could not be found. It may have been deleted, or belong to another practice.');
       })
-      .catch(err => dropLink(err instanceof Error ? err.message : 'Could not open the claim batch.'));
+      .catch(err => dropLink(err instanceof Error ? plainWords(err.message) : 'Could not open the claim batch.'));
   }, [linkedBatchId, practice, loading, batches, setSearchParams]);
 
   const openReview = (batch: BatchHeaderRow) => {

@@ -51,9 +51,9 @@ export const GrossProfitReport: React.FC<Props> = ({ practiceId, practiceName, l
     ({ key: line.practitionerId ?? NO_PRACTITIONER, label: practitionerName(line.practitionerId) }), [practitionerName]);
 
   const lines = useMemo(() => (data
-    ? soldLines({ lines: data.lines, invoices: data.invoices, movements: data.saleMovements, items: data.items, defaultVatRate: data.defaultVatRate, range })
+    ? soldLines({ lines: data.lines, invoices: data.invoices, movements: data.saleMovements, items: data.items, defaultVatRate: data.defaultVatRate, vatRegistered: data.vatRegistered, range })
     : []), [data, range]);
-  const notes = useMemo(() => (data ? profitNotes(lines, { defaultVatRate: data.defaultVatRate, dispensedCostCents: data.dispensedCostCents }) : []), [data, lines]);
+  const notes = useMemo(() => (data ? profitNotes(lines, { defaultVatRate: data.defaultVatRate, vatRegistered: data.vatRegistered, dispensedCostCents: data.dispensedCostCents }) : []), [data, lines]);
   const byItem = useMemo(() => profitBy(lines, itemGroup), [lines]);
   const byPractitioner = useMemo(() => profitBy(lines, practitionerGroup), [lines, practitionerGroup]);
   const byMonth = useMemo(() => profitBy(lines, monthGroup, true), [lines]);

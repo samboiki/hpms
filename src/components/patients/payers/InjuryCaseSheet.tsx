@@ -1,4 +1,5 @@
 import React, { useId, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { ChoiceGroup, ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../../finance/receipts/ArUi';
 import { todayKey } from '../../../utils/billing/dates';
 import { saveInjuryCase } from '../../../services/payerAccountService';
@@ -83,7 +84,7 @@ export const InjuryCaseSheet: React.FC<InjuryCaseSheetProps> = ({ practiceId, pa
       const result = await saveInjuryCase(practiceId, patientId, injuryCase?.id ?? null, checked.value);
       onSaved(result.injuryCase, result.visitsMoved);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The case could not be saved.');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The case could not be saved.');
     } finally {
       setSaving(false);
     }

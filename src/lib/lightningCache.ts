@@ -3,28 +3,31 @@
 // so the app boots. No in-memory caching, but functionally correct.
 
 import { supabase } from './supabase';
+import { readAllPages } from './pagedRows';
 
 type AnyRecord = Record<string, unknown>;
 
+// Every patient of the practice, page by page (the database hands out at most 1000 rows per request)
 async function fetchPatients(practiceId: string) {
-  const { data, error } = await supabase
-    .from('patients')
-    .select(`
-      *,
-      medical_aid_details!left (
+  try {
+    return await readAllPages(1000, (from, to) => supabase
+      .from('patients')
+      .select(`
         *,
-        medical_aid_provider:medical_aid_providers ( id, name, logo_url )
-      )
-    `)
-    .eq('practice_id', practiceId)
-    .order('last_name', { ascending: true })
-    .order('first_name', { ascending: true });
-
-  if (error) {
-    console.warn('[lightningCache stub] fetchPatients error:', error.message);
+        medical_aid_details!left (
+          *,
+          medical_aid_provider:medical_aid_providers ( id, name, logo_url )
+        )
+      `)
+      .eq('practice_id', practiceId)
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to), (error: { message?: string }) => new Error(error.message));
+  } catch (error) {
+    console.warn('[lightningCache stub] fetchPatients error:', (error as Error).message);
     return [];
   }
-  return data ?? [];
 }
 
 async function fetchVisits(patientId: string) {

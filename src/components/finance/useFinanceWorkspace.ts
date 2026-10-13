@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { financeRequestKey, loadFinanceWorkspace, type FinanceLoadRequest, type FinanceWorkspace } from './financeData';
 
 const inFlight = new Map<string, Promise<FinanceWorkspace>>();
@@ -36,6 +37,7 @@ export function useFinanceWorkspace(request: FinanceLoadRequest | null) {
   const windowStartKey = request?.windowStartKey ?? '';
   const lineStartKey = request?.lineItemRange.startKey ?? '';
   const lineEndKey = request?.lineItemRange.endKey ?? '';
+  const includePayroll = request?.includePayroll;
 
   const load = useCallback(async (force = false) => {
     const requestId = ++requestIdRef.current;
@@ -48,7 +50,8 @@ export function useFinanceWorkspace(request: FinanceLoadRequest | null) {
       const data = await loadWorkspaceOnce({
         practiceId,
         windowStartKey,
-        lineItemRange: { startKey: lineStartKey, endKey: lineEndKey }
+        lineItemRange: { startKey: lineStartKey, endKey: lineEndKey },
+        includePayroll
       }, force);
       if (requestId === requestIdRef.current) setState({ data, loading: false, error: null });
     } catch (error) {
@@ -57,11 +60,11 @@ export function useFinanceWorkspace(request: FinanceLoadRequest | null) {
         setState(prev => ({
           ...prev,
           loading: false,
-          error: error instanceof Error ? error.message : 'Finance data could not be loaded'
+          error: error instanceof Error ? plainWords(error.message) : 'Finance data could not be loaded'
         }));
       }
     }
-  }, [practiceId, windowStartKey, lineStartKey, lineEndKey]);
+  }, [practiceId, windowStartKey, lineStartKey, lineEndKey, includePayroll]);
 
   useEffect(() => {
     void load();

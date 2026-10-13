@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { buildChart, type ChartEntry, type ChartModel, type QuoteRef } from '../../utils/dental/chart';
 import {
   loadBilledToothLines,
@@ -45,7 +46,7 @@ export function useToothChart(practiceId: string | null | undefined, patientId: 
       loadChart(patientId),
       loadQuoteRefs(practiceId, patientId).then(
         quotes => ({ quotes, error: null as string | null }),
-        (error: unknown) => ({ quotes: [] as QuoteRef[], error: error instanceof Error ? error.message : 'unknown error' })
+        (error: unknown) => ({ quotes: [] as QuoteRef[], error: error instanceof Error ? plainWords(error.message) : 'unknown error' })
       ),
       loadPatientBirthDate(patientId)
     ])
@@ -53,7 +54,7 @@ export function useToothChart(practiceId: string | null | undefined, patientId: 
         if (!cancelled) setLoad({ status: 'ready', billed, chart, quotes: quoteLoad.quotes, quotesError: quoteLoad.error, dateOfBirth });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'Could not load the tooth chart.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the tooth chart.' });
       });
     return () => {
       cancelled = true;

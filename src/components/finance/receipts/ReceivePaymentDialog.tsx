@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import DateInput from '../../ui/DateInput';
 import { formatNad, fromCents } from '../../../utils/billing/money';
@@ -178,7 +179,7 @@ export const ReceivePaymentDialog: React.FC<ReceivePaymentDialogProps> = ({
     const timer = setTimeout(() => {
       searchPatients(practiceId, term)
         .then(result => { if (!cancelled) setMatches(result); })
-        .catch(error => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Could not search patients'); })
+        .catch(error => { if (!cancelled) setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not search patients'); })
         .finally(() => { if (!cancelled) setSearching(false); });
     }, 300);
     return () => {
@@ -206,7 +207,7 @@ export const ReceivePaymentDialog: React.FC<ReceivePaymentDialogProps> = ({
       })
       .catch(error => {
         if (cancelled) return;
-        setLoadError(error instanceof Error ? error.message : 'Could not load the account');
+        setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not load the account');
         setLoading(false);
       });
     return () => { cancelled = true; };
@@ -408,7 +409,7 @@ export const ReceivePaymentDialog: React.FC<ReceivePaymentDialogProps> = ({
       });
       onSaved?.();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The receipt could not be saved');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The receipt could not be saved');
     } finally {
       setSaving(false);
     }

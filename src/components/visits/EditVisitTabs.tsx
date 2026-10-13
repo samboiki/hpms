@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { useForm, FieldErrors } from 'react-hook-form';
 import { format, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -535,7 +536,7 @@ const EditVisitTabsScreen: React.FC<Props & { onReload: () => void }> = ({
       if (doc.missing.length > 0) toast(`NAMAF rule 008 also asks for: ${doc.missing.join(' ')}`, { duration: 10000 });
     } catch (error) {
       console.error('Error printing invoice:', error);
-      toast.error(`Could not make the invoice: ${error instanceof Error ? error.message : 'unknown error'}`);
+      toast.error(`Could not make the invoice: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}`);
     } finally {
       setIsPrintingDocument(null);
     }
@@ -1167,7 +1168,7 @@ const EditVisitTabsScreen: React.FC<Props & { onReload: () => void }> = ({
         } catch (invoiceError) {
           console.error('Invoice update/creation failed:', invoiceError);
           // Show user-friendly error but don't block the main save
-          alert(`Invoice update failed: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}. The visit was updated but invoice changes were not saved.`);
+          alert(`Invoice update failed: ${invoiceError instanceof Error ? plainWords(invoiceError.message) : 'Unknown error'}. The visit was updated but invoice changes were not saved.`);
           saveIncomplete = true;
         }
       }
@@ -1236,7 +1237,7 @@ const EditVisitTabsScreen: React.FC<Props & { onReload: () => void }> = ({
           }, 1000);
         } catch (medicationError) {
           console.error('Error saving medications:', medicationError);
-          alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was updated but medications were not saved.`);
+          alert(`Medications save failed: ${medicationError instanceof Error ? plainWords(medicationError.message) : 'Unknown error'}. The visit was updated but medications were not saved.`);
           saveIncomplete = true;
         }
       }

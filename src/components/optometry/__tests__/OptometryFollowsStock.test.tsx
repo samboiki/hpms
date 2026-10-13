@@ -30,8 +30,8 @@ vi.mock('../ReasonSheet', () => ({ default: () => null }));
 vi.mock('../OptometryPracticePanel', () => ({ default: () => <p>The practice view</p> }));
 
 import EyesView from '../EyesView';
-import { ScreenAccessNotice } from '../../access/ScreenAccessNotice';
-import { OPTOMETRY_PAGE } from '../optometryPageHeader';
+import OptometryRedirect from '../OptometryRedirect';
+import { Route, Routes, useLocation } from 'react-router-dom';
 
 afterEach(cleanup);
 
@@ -40,7 +40,7 @@ const ready = (stored: unknown): ScreenAccessRead => ({ status: 'ready', access:
 
 // The Optometry page holds the frames, consignment stock and lab orders: a practice that keeps a role out of Stock keeps
 // it out of these too (the page was open to everyone), while its money reports keep following Finance
-describe('the Optometry page follows Stock access', () => {
+describe('optometry follows Stock access', () => {
   it('is gated by Stock, and the sidebar hides it once the practice keeps the role out of Stock', () => {
     expect(OPTOMETRY_FOLLOWS).toBe('stock');
     expect(screenForPath('/optometry')).toBe('stock');
@@ -50,15 +50,26 @@ describe('the Optometry page follows Stock access', () => {
     expect(sidebarShowsPath(receptionist, '/optometry', ready({ finance: ['doctor'] }))).toBe(true);
   });
 
-  it('tells a role kept out under the page\'s own name that it goes with Stock', () => {
-    render(
-      <MemoryRouter>
-        <ScreenAccessNotice screen={OPTOMETRY_FOLLOWS} gate="closed" onRetry={vi.fn()} page={OPTOMETRY_PAGE} />
-      </MemoryRouter>
-    );
-    expect(screen.getByRole('heading', { level: 1, name: 'Optometry' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Ask your practice administrator for access to Optometry' })).toBeInTheDocument();
-    expect(screen.getByText(/opens for the roles that open Stock/)).toBeInTheDocument();
+  // Owner, 13 Oct 2026: the Optometry page merged into Stock. An old bookmark or a link in a message must still land on
+  // the same part, now under Stock (whose access rule applies), never on an empty page
+  it('sends an old Optometry address to the same part of Stock', async () => {
+    const Where = () => { const location = useLocation(); return <p>At {location.pathname}{location.search}</p>; };
+    const at = async (address: string) => {
+      cleanup();
+      render(
+        <MemoryRouter initialEntries={[address]}>
+          <Routes>
+            <Route path="/optometry" element={<OptometryRedirect />} />
+            <Route path="/stock" element={<Where />} />
+          </Routes>
+        </MemoryRouter>
+      );
+      return (await screen.findByText(/^At /)).textContent;
+    };
+    expect(await at('/optometry')).toBe('At /stock?tab=lenses');
+    expect(await at('/optometry?tab=frames')).toBe('At /stock?tab=frames');
+    expect(await at('/optometry?tab=notes')).toBe('At /stock?tab=lenses');
+    expect(await at('/optometry?tab=reports&report=consignment')).toBe('At /stock?tab=reports&report=consignment');
   });
 
   it('hides the patient file\'s practice view (the same lab orders, frames and reports) from a role kept out of Stock', async () => {

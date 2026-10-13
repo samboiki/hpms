@@ -45,7 +45,7 @@ const draftFromFrame = (frame: FrameRow): FrameDraft => ({
  * A frame for the stock: brand, model, colour and size, its barcode, the code it is billed under (from the practice's
  * own tariff list: no code is made up), its prices and how many are on the shelf. It is a stock item like any other,
  * so deliveries, counts and sales on invoices work as on the Stock page. A consignment frame is the supplier's until
- * it is sold: it has no stock value, and what is owed per frame sold shows under Optometry > Reports > Consignment.
+ * it is sold: it has no stock value, and what is owed per frame sold shows under Stock > Reports > Consignment frames.
  */
 const FrameSheet: React.FC<FrameSheetProps> = ({ open, practiceId, frame = null, onClose, onSaved }) => {
   const [draft, setDraft] = useState<FrameDraft>(emptyFrameDraft());
@@ -182,7 +182,7 @@ const FrameSheet: React.FC<FrameSheetProps> = ({ open, practiceId, frame = null,
             <span className="block text-xs text-gray-500">
               {costLocked
                 ? 'This frame has stock history, so this cannot change. Add consignment frames as a new frame.'
-                : 'No stock value. Each frame sold is owed to the supplier (Optometry > Reports > Consignment).'}
+                : 'No stock value. Each frame sold is owed to the supplier (Stock > Reports > Consignment frames).'}
             </span>
           </span>
         </label>

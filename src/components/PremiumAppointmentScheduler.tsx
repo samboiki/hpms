@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import {
   Plus,
   RefreshCw,
@@ -621,7 +622,7 @@ const PremiumAppointmentScheduler: React.FC<PremiumAppointmentSchedulerProps> = 
       if (freed) waitingList.slotFreed(freed);
     } catch (error) {
       console.error('Error deleting booking:', error);
-      toast.error(error instanceof Error ? error.message : 'Could not delete the booking. Please try again.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not delete the booking. Please try again.');
     }
   };
 

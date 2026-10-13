@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { isListsNotEnabledError, patientListService, type PatientListRecord } from '../../services/patientListService';
@@ -82,7 +83,7 @@ export const AddToListButton: React.FC<AddToListButtonProps> = ({
       setOpen(false);
       onAdded?.({ listId: list.id, listName: list.name, added });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not add the patients to the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not add the patients to the list.');
     } finally {
       setBusyId(null);
     }
@@ -109,7 +110,7 @@ export const AddToListButton: React.FC<AddToListButtonProps> = ({
       setNewName('');
       await addTo(list);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not create the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not create the list.');
       setBusyId(null);
     }
   };

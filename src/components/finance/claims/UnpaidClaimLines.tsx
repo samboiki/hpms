@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -43,7 +44,7 @@ const UnpaidClaimLines: React.FC<UnpaidClaimLinesProps> = ({ practiceId, batches
     try {
       setSources(await loadUnpaidLineSources(practiceId, batches));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'The sent claim lines could not be loaded');
+      setError(loadError instanceof Error ? plainWords(loadError.message) : 'The sent claim lines could not be loaded');
     }
   }, [practiceId, batches]);
 
@@ -81,7 +82,7 @@ const UnpaidClaimLines: React.FC<UnpaidClaimLinesProps> = ({ practiceId, batches
       setChosen(new Set());
       onChanged();
     } catch (sendError) {
-      setOutcome(sendError instanceof Error ? sendError.message : 'The lines could not be sent again');
+      setOutcome(sendError instanceof Error ? plainWords(sendError.message) : 'The lines could not be sent again');
     } finally {
       setSending(false);
     }

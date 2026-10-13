@@ -36,6 +36,7 @@ import type { BillingBadge } from '../../utils/diary/billingBadge';
 import { AccountFlagIcon } from '../finance/debtors/AccountFlagBadges';
 import { OffHoursShade } from './diary/OffHoursShade';
 import { useBookingMove } from './diary/useBookingMove';
+import { PatientAvatar } from '../patients/photo/PatientAvatar';
 
 // Blocked slots are striped so they read as "not available" even without colour
 const BLOCKED_STRIPES = 'repeating-linear-gradient(135deg, rgba(156,163,175,0.16) 0, rgba(156,163,175,0.16) 6px, transparent 6px, transparent 12px)';
@@ -492,6 +493,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                           <div className="p-2 pl-3">
                             <div className="flex items-start justify-between gap-1">
                               <div className="flex-1 min-w-0">
+                                {/* The patient's photo, only when the file has one (parity A12) */}
+                                <PatientAvatar patientId={appointment.patient_id} className="float-left mr-1.5 h-6 w-6 rounded-full" />
                                 <p className="text-sm font-medium text-gray-900 truncate">
                                   {appointment.patient?.first_name} {appointment.patient?.last_name}
                                 </p>

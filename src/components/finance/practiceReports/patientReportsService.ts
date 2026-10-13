@@ -9,6 +9,7 @@ import { supabase } from '../../../lib/supabase';
 import type { DateRange, LedgerInvoice } from '../../../services/ledgerService';
 import { isArNotSetUp } from '../receipts/arService';
 import { fetchPages, timed } from '../debtors/debtorsService';
+import { hasReferralSourceColumns } from '../../forms/patientExtrasColumns';
 import type { PatientRecord } from './patientDemographics';
 import { assertRange, loadPeriodInvoices, settleReport } from './periodReportsService';
 import type { ReportLoad } from './practiceReportsService';
@@ -29,6 +30,8 @@ interface RawPatientRow {
   legacy_account_number: string | null;
   town?: string | null;
   region?: string | null;
+  referral_source?: string | null;
+  referral_source_other?: string | null;
 }
 
 /** "There is no such column": the town and region columns before the database has them */
@@ -48,21 +51,26 @@ export interface PatientFiles {
   records: PatientRecord[];
   /** True when the patients table has the town and region columns (the town on the file is then used first) */
   townField: boolean;
+  /** True when the patients table has the "How did you hear about us?" columns */
+  heardField: boolean;
 }
 
-/** Every patient file of the practice, with the town and region columns when the database has them */
+/** Every patient file of the practice, with the town, region and "heard about us" columns when the database has them */
 export async function loadPatientFiles(practiceId: string): Promise<PatientFiles> {
   let rows: RawPatientRow[];
   let townField = true;
+  const heardField = await hasReferralSourceColumns();
+  const heardColumns = heardField ? ', referral_source, referral_source_other' : '';
   try {
-    rows = await readPatients(practiceId, `${PATIENT_COLUMNS}, town, region`);
+    rows = await readPatients(practiceId, `${PATIENT_COLUMNS}, town, region${heardColumns}`);
   } catch (error) {
     if (!isMissingColumn(error)) throw error;
     townField = false;
-    rows = await readPatients(practiceId, PATIENT_COLUMNS);
+    rows = await readPatients(practiceId, `${PATIENT_COLUMNS}${heardColumns}`);
   }
   return {
     townField,
+    heardField,
     records: rows.map(row => ({
       id: row.id,
       firstName: row.first_name,
@@ -73,7 +81,9 @@ export async function loadPatientFiles(practiceId: string): Promise<PatientFiles
       town: row.town ?? null,
       region: row.region ?? null,
       createdAt: row.created_at,
-      legacyAccountNumber: row.legacy_account_number
+      legacyAccountNumber: row.legacy_account_number,
+      referralSource: row.referral_source ?? null,
+      referralSourceOther: row.referral_source_other ?? null
     }))
   };
 }

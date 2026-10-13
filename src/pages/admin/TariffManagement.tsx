@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { useSearchParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
@@ -23,6 +24,11 @@ import FundContractsPanel from '../../components/tariffs/FundContractsPanel';
 import PracticeTariffPanel from '../../components/tariffs/PracticeTariffPanel';
 import CopaymentPanel from '../../components/billing/CopaymentPanel';
 import PromotionsPackagesPanel from '../../components/billingExtras/PromotionsPackagesPanel';
+import PracticeTypeNeededNotice from '../../components/settings/PracticeTypeNeededNotice';
+import { needsPracticeTypeChoice } from '../../utils/practiceType';
+
+/** The load stops here when the practice has no type: the page then points to Settings instead of an error */
+const PRACTICE_TYPE_MISSING = 'The practice type is not set, so its tariff list is unknown.';
 
 type Tab = 'funds' | 'import' | 'contracts' | 'tariff';
 
@@ -103,7 +109,7 @@ const TariffManagement: React.FC = () => {
         throw new Error('Could not read the practice. Please refresh the page.');
       }
       const practiceType = practice?.practice_type?.trim();
-      if (!practiceType) throw new Error('The practice type is not set, so its tariff list is unknown.');
+      if (!practiceType) throw new Error(PRACTICE_TYPE_MISSING);
       const [practiceTypeId, tariffs, providers, fundLoad, contracts, infectionControlStaff, own, portions, setup] = await Promise.all([
         loadPracticeTypeId(practiceType),
         supabase.from('practice_tariffs_with_types').select(TARIFF_COLUMNS).eq('practice_type_name', practiceType),
@@ -139,7 +145,7 @@ const TariffManagement: React.FC = () => {
         if (!cancelled) setLoad({ status: 'ready', data });
       })
       .catch((error: unknown) => {
-        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'The tariffs could not be loaded.' });
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? plainWords(error.message) : 'The tariffs could not be loaded.' });
       });
     return () => {
       cancelled = true;
@@ -169,7 +175,12 @@ const TariffManagement: React.FC = () => {
           </div>
         )}
 
-        {load.status === 'error' && (
+        {/* Owner, 13 Oct 2026: 'general' or no type matches no price list; the type is chosen in Settings */}
+        {(load.status === 'error' && load.message === PRACTICE_TYPE_MISSING) || (data && needsPracticeTypeChoice(data.practiceType)) ? (
+          <PracticeTypeNeededNotice />
+        ) : null}
+
+        {load.status === 'error' && load.message !== PRACTICE_TYPE_MISSING && (
           <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
             <Icon icon="solar:danger-triangle-bold-duotone" className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
             <div className="flex-1">{load.message}</div>

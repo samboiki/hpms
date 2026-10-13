@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
@@ -90,7 +91,7 @@ export const PatientListsControl: React.FC<PatientListsControlProps> = ({ practi
       await data.reloadRows();
       toast.success(success);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not update the list.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not update the list.');
     } finally {
       setBusyId(null);
     }

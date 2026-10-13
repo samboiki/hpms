@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
@@ -100,7 +101,7 @@ const DentalLabOrderSheet: React.FC<DentalLabOrderSheetProps> = props => {
         }
       })
       .catch((failure: unknown) => {
-        if (!cancelled) setSuppliersError(failure instanceof Error ? failure.message : 'The labs could not be read.');
+        if (!cancelled) setSuppliersError(failure instanceof Error ? plainWords(failure.message) : 'The labs could not be read.');
       });
     return () => {
       cancelled = true;
@@ -131,7 +132,7 @@ const DentalLabOrderSheet: React.FC<DentalLabOrderSheetProps> = props => {
       onSaved();
       onClose();
     } catch (failure) {
-      setFormError(failure instanceof Error ? failure.message : 'The order could not be saved.');
+      setFormError(failure instanceof Error ? plainWords(failure.message) : 'The order could not be saved.');
     } finally {
       setBusy(false);
     }

@@ -11,6 +11,7 @@ import '@testing-library/jest-dom';
 const mocks = vi.hoisted(() => ({
   markNotificationRead: vi.fn(),
   markAllNotificationsRead: vi.fn(),
+  loadNotifications: vi.fn(),
   systemNotifications: [] as unknown[]
 }));
 
@@ -19,7 +20,7 @@ vi.mock('../../../hooks/useRealtimeMessaging', () => ({ useNotificationSubscript
 vi.mock('../../../stores/messagingStore', () => ({
   useMessagingStore: () => ({
     notifications: mocks.systemNotifications,
-    loadNotifications: vi.fn(),
+    loadNotifications: mocks.loadNotifications,
     markNotificationRead: mocks.markNotificationRead,
     markAllNotificationsRead: mocks.markAllNotificationsRead,
     unreadNotificationCount: 1
@@ -34,7 +35,7 @@ vi.mock('framer-motion', () => {
   return { motion: new Proxy({}, { get: () => Plain }), AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</> };
 });
 
-import { NotificationsPanel, type Notification } from '../NotificationsPanel';
+import { DASHBOARD_NOTIFICATIONS_PAGE, NotificationsPanel, type Notification } from '../NotificationsPanel';
 
 const pageItem: Notification = {
   id: 'booking-v1',
@@ -79,5 +80,15 @@ describe('Dashboard notifications', () => {
     expect(row).toHaveAttribute('aria-expanded', 'false');
     fireEvent.keyDown(row, { key: 'Enter' });
     expect(row).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  // Owner, 13 Oct 2026 (speed): the panel read every notification the person ever had, on every Dashboard visit. It
+  // loads one page of the newest; Messages > Notifications still has them all
+  it('loads one page of the newest notifications, not all of them', () => {
+    mocks.loadNotifications.mockReset();
+    render(<NotificationsPanel notifications={[]} />);
+    expect(mocks.loadNotifications).toHaveBeenCalledTimes(1);
+    expect(mocks.loadNotifications).toHaveBeenCalledWith('u1', 'practice-1', undefined, { page: 1, limit: DASHBOARD_NOTIFICATIONS_PAGE });
+    expect(DASHBOARD_NOTIFICATIONS_PAGE).toBeLessThanOrEqual(100);
   });
 });

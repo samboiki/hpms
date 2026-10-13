@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import { notificationDeliveryService } from './notificationDeliveryService';
 import { edgeFunctionService } from './edgeFunctionService';
@@ -253,7 +254,7 @@ class CommunicationService {
           deliveryId,
           channel: 'sms',
           status: 'failed',
-          failureReason: error instanceof Error ? error.message : 'Unknown error'
+          failureReason: error instanceof Error ? plainWords(error.message) : 'Unknown error'
         }).catch(console.error);
       }
       
@@ -261,7 +262,7 @@ class CommunicationService {
         success: false,
         logId: '',
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? plainWords(error.message) : 'Unknown error occurred',
         deliveryId
       };
     }
@@ -346,7 +347,7 @@ class CommunicationService {
           deliveryId,
           channel: 'email',
           status: 'failed',
-          failureReason: error instanceof Error ? error.message : 'Unknown error'
+          failureReason: error instanceof Error ? plainWords(error.message) : 'Unknown error'
         }).catch(console.error);
       }
       
@@ -354,7 +355,7 @@ class CommunicationService {
         success: false,
         logId: '',
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        error: error instanceof Error ? plainWords(error.message) : 'Unknown error occurred',
         deliveryId
       };
     }

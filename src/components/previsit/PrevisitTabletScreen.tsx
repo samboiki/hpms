@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { loadPrevisitQuestionnaire, savePrevisitAnswersOnTablet, type PrevisitQuestionnaire } from '../../services/previsitService';
@@ -65,7 +66,7 @@ export const PrevisitTabletScreen: React.FC<PrevisitTabletScreenProps> = ({ prac
     const result = await savePrevisitAnswersOnTablet(visitId, checked.answers);
     setSaving(false);
     if (!result.ok) {
-      setProblem(result.message);
+      setProblem(plainWords(result.message));
       return;
     }
     setDone(true);

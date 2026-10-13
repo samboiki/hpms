@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import * as XLSX from 'xlsx';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
@@ -197,7 +198,7 @@ const ScheduleImportPanel: React.FC<ScheduleImportPanelProps> = ({
       setStatusFilter('all');
       if (!found) toast.error('No header row with a code column was found. Check the sheet and the columns below.');
     } catch (error) {
-      toast.error(`The file could not be read: ${error instanceof Error ? error.message : 'unknown error'}`);
+      toast.error(`The file could not be read: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}`);
     } finally {
       setReading(false);
     }
@@ -246,7 +247,7 @@ const ScheduleImportPanel: React.FC<ScheduleImportPanelProps> = ({
       setMapping(null);
       onImported();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The prices could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The prices could not be saved.');
     } finally {
       setSaving(false);
     }

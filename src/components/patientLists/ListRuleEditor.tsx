@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { patientListService, type PatientListRecord } from '../../services/patientListService';
@@ -118,7 +119,7 @@ export const ListRuleEditor: React.FC<ListRuleEditorProps> = ({ list, visitTypes
       toast.success('Rule saved. The list is updated straight away.');
       setEditing(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the rule.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the rule.');
     } finally {
       setSaving(false);
     }

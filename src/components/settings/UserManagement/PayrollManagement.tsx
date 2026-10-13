@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { refreshAfterSave } from '../../../lib/queryClient';
 import { supabase } from '../../../lib/supabase';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
@@ -395,8 +396,8 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
         ensureRowsUpdated(data, 'The payslip');
         toast.success('Payslip deleted');
       }
-      queryClient.invalidateQueries({ queryKey: ['payslips'] });
-      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+      // The payslips, the person's payslip count and bonuses due
+      void refreshAfterSave('payslips', queryClient);
       setPayslipAction(null);
     } catch (error) {
       console.error('Error updating payslip:', error);
@@ -1325,7 +1326,7 @@ export const PayrollManagement: React.FC<PayrollManagementProps> = ({ selectedUs
           selectedUsers={selectedUsersForPayslips}
           month={selectedMonth}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['payslips'] });
+            void refreshAfterSave('payslips', queryClient);
             setShowGeneratePayslips(false);
             setSelectedUsersForPayslips([]);
           }}

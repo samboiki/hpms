@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { isStockNotSetUpError, loadStockSettings } from '../../services/stock/stockService';
 import type { StockSettings } from '../../utils/stock/stockRows';
 
@@ -22,7 +23,7 @@ const fetchSetup = (practiceId: string): Promise<StockSetup> => {
       cache.delete(practiceId);
       return isStockNotSetUpError(error)
         ? { status: 'not_set_up' }
-        : { status: 'error', message: error instanceof Error ? error.message : 'Could not read the stock settings' };
+        : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not read the stock settings' };
     });
   cache.set(practiceId, { at: Date.now(), promise });
   return promise;

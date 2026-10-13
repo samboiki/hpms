@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
 import { usePractice } from '../../contexts/PracticeContext';
@@ -68,7 +69,7 @@ export function useFollowUpsDue(): FollowUpsDue {
       setRows(current => current.filter(row => row.noteId !== noteId));
       toast.success('Follow-up done.');
     } catch (doneError) {
-      toast.error(doneError instanceof Error ? doneError.message : 'Could not mark the follow-up done.');
+      toast.error(doneError instanceof Error ? plainWords(doneError.message) : 'Could not mark the follow-up done.');
     }
   }, []);
 

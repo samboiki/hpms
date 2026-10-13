@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import {
   REFUND_METHODS,
@@ -42,7 +43,7 @@ export const RefundDialog: React.FC<{
       const saved = await postAdjustment({ practiceId, kind: 'refund', receiptId: receipt.id, amountCents, method, reason });
       onSaved(saved.number);
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The refund could not be saved');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The refund could not be saved');
     } finally {
       setSaving(false);
     }
@@ -126,7 +127,7 @@ export const ReverseEntryDialog: React.FC<{
     try {
       await onConfirm(reason.trim());
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'It could not be reversed');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'It could not be reversed');
       setSaving(false);
     }
   };

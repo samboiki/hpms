@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { formatNad } from '../../../utils/billing/money';
 import { formatServiceDate } from '../../../utils/billing/dates';
@@ -57,7 +58,7 @@ const SubmitBatchDialog: React.FC<SubmitBatchDialogProps> = ({
       setResult(outcome);
       onSubmitted(outcome);
     } catch (error) {
-      setResult({ status: 'failed', message: error instanceof Error ? error.message : 'The batch could not be submitted.' });
+      setResult({ status: 'failed', message: error instanceof Error ? plainWords(error.message) : 'The batch could not be submitted.' });
     } finally {
       setSending(false);
     }

@@ -6,6 +6,7 @@
  * The rules themselves are in src/utils/billing/practitionerBilling.ts (tested).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../utils/plainErrors';
 import { supabase } from '../lib/supabase';
 import {
   NO_PRACTITIONER_BILLING,
@@ -40,7 +41,7 @@ export async function loadPractitionerBilling(practiceId: string | null): Promis
     }
     return { status: 'ready', billing: practitionerBillingFromRows((result?.data ?? []) as PractitionerBillingRow[]) };
   } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : 'unknown error', billing: NO_PRACTITIONER_BILLING };
+    return { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'unknown error', billing: NO_PRACTITIONER_BILLING };
   }
 }
 
@@ -58,7 +59,7 @@ export async function loadPractitionerBillingFor(userId: string): Promise<OnePra
     const value = practitionerBillingFromRows((result?.data ?? []) as PractitionerBillingRow[]).get(userId);
     return { status: 'ready', value: value ?? { practiceNumber: null, ratePercent: null } };
   } catch (error) {
-    return { status: 'error', message: error instanceof Error ? error.message : 'unknown error' };
+    return { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'unknown error' };
   }
 }
 

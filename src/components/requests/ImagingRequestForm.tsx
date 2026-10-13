@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion } from 'framer-motion';
 import { 
   Camera, 
@@ -135,7 +136,7 @@ const ImagingRequestForm: React.FC<ImagingRequestFormProps> = ({
       
     } catch (error) {
       console.error('💥 Error saving imaging request:', error);
-      alert(`Failed to save imaging request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      alert(`Failed to save imaging request: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }

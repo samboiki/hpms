@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
@@ -108,7 +109,7 @@ export const ClaimLineListSheet: React.FC<{ title: string; filter: { ids: readon
     setError(null);
     loadClaimLines(filter)
       .then(rows => { if (!cancelled) setLines(rows); })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the claim lines.'); });
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? plainWords(err.message) : 'Could not load the claim lines.'); });
     return () => {
       cancelled = true;
     };

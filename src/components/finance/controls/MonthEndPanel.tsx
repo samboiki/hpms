@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import { format, parseISO, subMonths } from 'date-fns';
@@ -337,7 +338,7 @@ const CloseSheet: React.FC<{ monthLabel: string; closingText: ReportTable; notes
     try {
       await onConfirm();
     } catch (closeError) {
-      setError(closeError instanceof Error ? closeError.message : 'The month was not closed');
+      setError(closeError instanceof Error ? plainWords(closeError.message) : 'The month was not closed');
       setBusy(false);
     }
   };
@@ -369,7 +370,7 @@ const ReopenSheet: React.FC<{ monthLabel: string; role: string | undefined; clos
     try {
       await onConfirm(reason);
     } catch (reopenError) {
-      setError(reopenError instanceof Error ? reopenError.message : 'The month was not reopened');
+      setError(reopenError instanceof Error ? plainWords(reopenError.message) : 'The month was not reopened');
       setBusy(false);
     }
   };
@@ -397,7 +398,7 @@ const EmailPackSheet: React.FC<{ defaultTo: string; monthLabel: string; onClose:
     try {
       await onSend(to.trim());
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : 'The email was not sent');
+      setError(sendError instanceof Error ? plainWords(sendError.message) : 'The email was not sent');
       setBusy(false);
     }
   };

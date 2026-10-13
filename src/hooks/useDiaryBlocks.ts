@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../utils/plainErrors';
 import { loadDiaryBlocks, type DiaryBlocksLoad } from '../services/diaryService';
 import type { DiaryBlock } from '../utils/diary/blockedTime';
 
@@ -28,7 +29,7 @@ export function useDiaryBlocks(practiceId: string | null | undefined, fromKey: s
         if (!cancelled) setResult(loaded);
       })
       .catch((error: unknown) => {
-        if (!cancelled) setResult({ state: 'error', message: error instanceof Error ? error.message : String(error) });
+        if (!cancelled) setResult({ state: 'error', message: error instanceof Error ? plainWords(error.message) : String(error) });
       });
     return () => {
       cancelled = true;

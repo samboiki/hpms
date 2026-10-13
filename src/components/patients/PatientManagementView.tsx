@@ -86,6 +86,7 @@ import { PossibleDuplicatesDialog } from './duplicates/PossibleDuplicatesDialog'
 import { FundMoveDialog } from './fundMove/FundMoveDialog';
 import { patientReferenceLabel } from '../../utils/patients/patientNumbers';
 import { patientExportRow } from './patientListExport';
+import { PatientAvatar } from './photo/PatientAvatar';
 
 // Deep-link contract for this page:
 //   /patients?patientId=<id>&tab=<tab>
@@ -311,28 +312,17 @@ export const PatientManagementView: React.FC = () => {
       return;
     }
     
-    // Track when the initial fetches have settled so we never flash "0 results"/empty state while loading
+    // Track when the initial load has settled so we never flash "0 results"/empty state while loading.
+    // One load, with the visits (it falls back to the plain list itself): the page used to read the list twice, the
+    // second time a second later, and whichever finished last won
     let cancelled = false;
-    let enhancedFetchTimer: ReturnType<typeof setTimeout> | undefined;
     setHasInitialLoadSettled(false);
-    const initialFetches: Promise<unknown>[] = [fetchPatients()];
-
-    // Also try the enhanced method
-    if (fetchPatientsWithVisits) {
-      initialFetches.push(new Promise<void>(resolve => {
-        enhancedFetchTimer = setTimeout(() => {
-          fetchPatientsWithVisits().finally(resolve);
-        }, 1000);
-      }));
-    }
-
-    Promise.allSettled(initialFetches).then(() => {
+    void fetchPatientsWithVisits().finally(() => {
       if (!cancelled) setHasInitialLoadSettled(true);
     });
 
     return () => {
       cancelled = true;
-      if (enhancedFetchTimer) clearTimeout(enhancedFetchTimer);
     };
   }, [practiceId]);
 
@@ -830,12 +820,12 @@ export const PatientManagementView: React.FC = () => {
               <div 
                 className="relative inline-flex items-center justify-center w-12 h-12 rounded-full text-white font-bold text-lg shadow-sm z-10"
                 style={{
-                  backgroundColor: isActive 
+                  backgroundColor: isActive
                     ? (patient.gender === 'male' ? '#118dff' : patient.gender === 'female' ? '#ff4f5a' : '#6b7280')
                     : '#9ca3af'
                 }}
               >
-                {patient.first_name[0]?.toUpperCase()}{patient.last_name[0]?.toUpperCase()}
+                <PatientAvatar patientId={patient.id} className="w-12 h-12 rounded-full">{patient.first_name[0]?.toUpperCase()}{patient.last_name[0]?.toUpperCase()}</PatientAvatar>
               </div>
             </div>
             <div className="flex-1 min-w-0">
@@ -1080,12 +1070,12 @@ export const PatientManagementView: React.FC = () => {
               <div 
                 className="relative inline-flex items-center justify-center w-10 h-10 rounded-full text-white font-bold text-sm shadow-sm z-10"
                 style={{
-                  backgroundColor: isActive 
+                  backgroundColor: isActive
                     ? (patient.gender === 'male' ? '#118dff' : patient.gender === 'female' ? '#ff4f5a' : '#6b7280')
                     : '#9ca3af'
                 }}
               >
-                {patient.first_name[0]?.toUpperCase()}{patient.last_name[0]?.toUpperCase()}
+                <PatientAvatar patientId={patient.id} className="w-10 h-10 rounded-full">{patient.first_name[0]?.toUpperCase()}{patient.last_name[0]?.toUpperCase()}</PatientAvatar>
               </div>
             </div>
             <div>
@@ -2079,8 +2069,7 @@ export const PatientManagementView: React.FC = () => {
             // registration the form stayed open with no confirmation and the list didn't refresh
             setIsAddModalOpen(false);
             toast.success('Patient registered');
-            void fetchPatients();
-            if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
+            void fetchPatientsWithVisits();
           }}
           onUseExisting={(patient) => {
             // The duplicate check found the person's file: open it instead of registering them twice
@@ -2123,8 +2112,7 @@ export const PatientManagementView: React.FC = () => {
             onSuccess={() => {
               setIsEditModalOpen(false);
               setSelectedPatient(null);
-              void fetchPatients();
-              if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
+              void fetchPatientsWithVisits();
             }}
           />
         )}

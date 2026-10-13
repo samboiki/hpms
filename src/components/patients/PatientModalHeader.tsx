@@ -26,6 +26,7 @@ import { format, isValid, parseISO } from 'date-fns';
 import { emailUnavailableReason, smsUnavailableReason } from './patientContact';
 import { ageInYears, countRegisteredInMonth, describeMedicalAidRelationship } from './patientSummary';
 import { PatientFileNumbers } from './PatientFileNumbers';
+import { PatientHeaderPhoto } from './photo/PatientHeaderPhoto';
 import { loadFormalName } from '../../services/patientFileService';
 import { describeMissing, patientFileStatus } from '../../utils/patients/temporaryPatient';
 
@@ -302,7 +303,14 @@ const PatientModalHeader: React.FC<PatientModalHeaderProps> = ({
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
               )}
-              
+
+              {/* The patient's photo or initials (parity A12); not shown before photos are set up */}
+              <PatientHeaderPhoto
+                patientId={selectedPatientDetails?.id}
+                firstName={selectedPatientDetails?.first_name}
+                lastName={selectedPatientDetails?.last_name}
+              />
+
               <div>
                 <div className="flex flex-wrap items-center gap-3 mb-1">
                   <h2 className="text-3xl font-bold">

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
@@ -75,7 +76,7 @@ const UsualIcd10Cell: React.FC<{
       await onSave(value === null ? null : normalizeIcd10(value));
       setEditing(false);
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'The code could not be saved.');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'The code could not be saved.');
     } finally {
       setBusy(false);
     }
@@ -268,7 +269,7 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
   useEffect(() => {
     let cancelled = false;
     void loadCodeRules(practiceId)
-      .catch((error: unknown): CodeRulesLoad => ({ status: 'error', rules: new Map(), message: error instanceof Error ? error.message : 'The code rules could not be read.' }))
+      .catch((error: unknown): CodeRulesLoad => ({ status: 'error', rules: new Map(), message: error instanceof Error ? plainWords(error.message) : 'The code rules could not be read.' }))
       .then(result => {
         if (!cancelled) setRulesLoad(result);
       });
@@ -327,7 +328,7 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
         latestPortions.current = before;
         setPortionMap(before);
       }
-      toast.error(error instanceof Error ? error.message : 'Who pays the code could not be saved.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Who pays the code could not be saved.');
     }
   };
 
@@ -342,7 +343,7 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
       toast.success(shared ? `${tariff.code} is back on the shared price.` : `${tariff.code} removed.`);
       onChanged?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'The code could not be removed.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'The code could not be removed.');
     }
   };
 

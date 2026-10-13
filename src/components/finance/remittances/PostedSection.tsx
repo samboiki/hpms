@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toCents } from '../../../utils/billing/money';
 import { invoiceLink } from '../../billing/invoiceLinks';
@@ -36,7 +37,7 @@ export const PostedSection: React.FC<PostedSectionProps> = ({ practiceId, practi
     try {
       setDocuments(await loadDocuments(practiceId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load the remittances.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load the remittances.');
     }
   }, [practiceId, setup]);
 
@@ -117,7 +118,7 @@ const DocumentSheet: React.FC<{ doc: DocumentSummary; practiceId: string; practi
     let cancelled = false;
     loadDocumentLines(doc.id)
       .then(rows => { if (!cancelled) setLines(rows); })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the lines.'); });
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? plainWords(err.message) : 'Could not load the lines.'); });
     return () => {
       cancelled = true;
     };
@@ -129,7 +130,7 @@ const DocumentSheet: React.FC<{ doc: DocumentSummary; practiceId: string; practi
       const entries = await loadReceiptEntries(doc.receipt_id);
       setReceipt(entries.receipt);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not open the receipt.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not open the receipt.');
     }
   };
 

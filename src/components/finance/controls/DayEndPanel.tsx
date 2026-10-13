@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import DateInput from '../../ui/DateInput';
@@ -24,6 +25,8 @@ import { loadDayEnd, recordCashUp, type DayEndData } from './controlsService';
 import { cashierTable, daySheetTable } from './controlsDocuments';
 import { CONTROLS_NOT_SET_UP_MESSAGE } from './controlsCopy';
 import { DepositSlips } from './DepositSlips';
+import { CashierCashUps } from './CashierCashUps';
+import { useAuthStore } from '../../../stores/authStore';
 
 const nad = (cents: number) => formatNad(fromCents(cents));
 const ZERO = /^\s*(N\$)?\s*0+([.,]0*)?\s*$/i;
@@ -43,6 +46,10 @@ export const DayEndPanel: React.FC<DayEndPanelProps> = ({ practiceId, practiceNa
   const [todayKey] = useState(() => toDateKey(new Date()));
   const [dayKey, setDayKey] = useState(todayKey);
   const [data, setData] = useState<DayEndData | null>(null);
+  // Owner, 13 Oct 2026: each cashier cashes up their own takings; the administrator signs the day off (closes it)
+  const myId = useAuthStore(state => state.user?.id ?? null);
+  const isAdmin = useAuthStore(state => state.user?.role === 'admin');
+  const [stillToCount, setStillToCount] = useState<string[]>([]);
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -86,7 +93,22 @@ export const DayEndPanel: React.FC<DayEndPanelProps> = ({ practiceId, practiceNa
 
       {data?.state === 'ready' && figures && sheet && cashier && (
         <>
-          <CashCount practiceId={practiceId} dayKey={dayKey} data={data} figures={figures} onSaved={load} />
+          <CashierCashUps
+            practiceId={practiceId}
+            dayKey={dayKey}
+            lines={figures.cashier.lines}
+            staffNames={data.staffNames}
+            myId={myId}
+            isAdmin={isAdmin}
+            locked={!!data.lockedBy}
+            onStillToCount={setStillToCount}
+          />
+
+          {isAdmin ? (
+            <CashCount practiceId={practiceId} dayKey={dayKey} data={data} figures={figures} stillToCount={stillToCount} onSaved={load} />
+          ) : (
+            <p className="text-sm text-gray-500">An administrator closes the day once every cashier has cashed up.</p>
+          )}
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <SectionCard
@@ -127,11 +149,13 @@ interface CashCountProps {
   dayKey: string;
   data: DayEndData;
   figures: { day: ReturnType<typeof controlSummary> };
+  /** Cashiers with takings who have not cashed up yet */
+  stillToCount: readonly string[];
   onSaved: () => void;
 }
 
 /** The till count that closes a day; a day closed before shows its count and what changed since */
-const CashCount: React.FC<CashCountProps> = ({ practiceId, dayKey, data, figures, onSaved }) => {
+const CashCount: React.FC<CashCountProps> = ({ practiceId, dayKey, data, figures, stillToCount, onSaved }) => {
   const active = data.cashUps.find(record => !record.supersededAt) ?? null;
   const [counting, setCounting] = useState(!active);
   const [counted, setCounted] = useState('');
@@ -165,7 +189,7 @@ const CashCount: React.FC<CashCountProps> = ({ practiceId, dayKey, data, figures
       toast.success(`${formatDay(dayKey)} cashed up${Number(result.difference) === 0 ? ': the till balances' : ''}`);
       onSaved();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'The day was not closed');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'The day was not closed');
     } finally {
       setSaving(false);
     }
@@ -198,6 +222,9 @@ const CashCount: React.FC<CashCountProps> = ({ practiceId, dayKey, data, figures
 
         <div className="space-y-3">
           {locked && <Notice tone="info">{formatMonth(locked.monthKey)} is closed, so this day cannot be counted again.</Notice>}
+          {!active && stillToCount.length > 0 && (
+            <Notice tone="warning" title="Not every cashier has cashed up">Still to count: {stillToCount.join(', ')}.</Notice>
+          )}
           {active && changes.length > 0 && (
             <Notice tone="warning" title="Changed since the cash-up">
               <ul className="list-disc pl-4">

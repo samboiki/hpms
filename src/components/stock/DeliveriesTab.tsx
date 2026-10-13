@@ -59,7 +59,7 @@ const DeliveryDetail: React.FC<{ context: StockContext; delivery: Delivery; paya
     setBusy(true);
     try {
       const result = await reverseDelivery(delivery.id, reason.trim());
-      // A consignment invoice reversed puts its frames back to owed (Optometry > Reports > Consignment)
+      // A consignment invoice reversed puts its frames back to owed (Stock > Reports > Consignment frames)
       const frames = delivery.consignment ? ' Its frames are owed to the supplier again.' : '';
       toast.success(result.payable_already_paid
         ? `${delivery.number} reversed. The supplier invoice was already marked paid: ask the supplier for a credit.${frames}`
@@ -117,7 +117,7 @@ const DeliveryDetail: React.FC<{ context: StockContext; delivery: Delivery; paya
         {delivery.consignment ? (
           <p className="text-sm text-gray-700">
             The supplier&apos;s invoice for consignment frames sold: no stock came in with it.{' '}
-            <Link to={consignmentLink()} className={LINK}>The frames are in Optometry &gt; Reports &gt; Consignment</Link>
+            <Link to={consignmentLink()} className={LINK}>The frames are in Stock &gt; Reports &gt; Consignment frames</Link>
           </p>
         ) : lines === null ? (
           <p className="text-sm text-gray-500" role="status">Loading the lines…</p>

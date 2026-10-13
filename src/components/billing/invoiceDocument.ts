@@ -18,6 +18,7 @@ import { initialsFromNames, isDependantRelationship, splitMemberName } from '../
 import { isDentalPractice } from '../../utils/billing/tariffRules';
 import { practitionerLabel } from '../../utils/billing/invoiceRights';
 import { practiceMessageFor } from '../../utils/billing/documentSettings';
+import { summariseVat, vatRateLabel, vatStatement } from '../../utils/billing/vat';
 import { lineTeethCell } from '../../utils/dental/lineTeeth';
 import type { PracticeLetterhead } from '../quotes/quotePdf';
 
@@ -56,6 +57,8 @@ export interface InvoiceDocumentLine {
   /** Surfaces of the line's one tooth ("MO") and the quadrant of a code billed per quadrant (dental) */
   surfaces?: string | null;
   quadrant?: number | null;
+  /** The VAT in the line's price, in per cent (0 or absent: a service, or not VAT-able; src/utils/billing/vat.ts) */
+  vatRate?: number;
 }
 
 /** Printed under a line the patient pays all of, so the patient and the fund see why it is not claimed. */
@@ -115,6 +118,8 @@ export interface InvoiceDocumentInput {
   notes?: string[];
   /** Discounts still standing on the invoice (taken-back ones are left out); optional */
   discounts?: readonly InvoiceDocumentDiscount[];
+  /** The practice is VAT registered (Settings > Practice): a tax invoice with its VAT number; null or absent: no VAT */
+  vat?: { vatNumber: string } | null;
   /**
    * The company or fund account that pays this invoice (parity A14, A19); optional. The invoice is then not claimed
    * from the medical aid: the account's details, and an injury or accident case's, take the medical aid's place.
@@ -315,8 +320,14 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): InvoiceDocume
     const reason = clean(discount.reason);
     return `Discount ${discount.number}${percent}${reason ? `: ${reason}` : ''}.`;
   };
+  // VAT (owner, 13 Oct 2026): a VAT-registered practice's prices include VAT on VAT-able stock lines only
+  const vat = input.vat ? summariseVat(input.lines.map(line => ({ totalCents: toCents(line.total), rate: line.vatRate ?? 0 }))) : null;
+  const vatTotals = vat && vat.vatCents !== 0
+    ? [{ label: 'Total excluding VAT', value: amount(fromCents(vat.exclVatCents)) }, { label: `${vatRateLabel(vat.rates)} included`, value: amount(fromCents(vat.vatCents)) }]
+    : [];
   const totals = [
     ...(discountCents > 0 ? [{ label: 'Discount given', value: amount(fromCents(discountCents)) }] : []),
+    ...vatTotals,
     { label: 'Invoice total', value: amount(fromCents(totalCents)), bold: true },
     ...(medicalAid ? [{ label: `Medical aid pays${fundLabel ? ` (${clean(medicalAid.fundReference) || clean(medicalAid.fundName)})` : ''}`, value: amount(fromCents(fundCents)) }] : []),
     { label: payerLabel, value: amount(fromCents(patientCents)), bold: true },
@@ -334,6 +345,7 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): InvoiceDocume
       : null,
     ...invoiceDiscounts.map(discountSentence),
     medicalAid && invoiceDiscountCents > 0 ? DISCOUNT_CLAIM_NOTE : null,
+    vat ? vatStatement(vat) : null,
     'All amounts are in Namibian dollars (N$).',
     ...(input.notes ?? []),
     // The practice's own message, when it prints on invoices (parity D22)
@@ -341,7 +353,7 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): InvoiceDocume
   ].filter(present);
 
   const footerLeft = [
-    present(practice.taxNumber) ? `VAT/Tax no ${practice.taxNumber}` : null,
+    input.vat ? `VAT no ${input.vat.vatNumber}` : present(practice.taxNumber) ? `VAT/Tax no ${practice.taxNumber}` : null,
     present(practice.licenseNumber) ? `Licence ${practice.licenseNumber}` : null
   ].filter(present);
   const footerRight =
@@ -350,7 +362,7 @@ export function buildInvoiceDocument(input: InvoiceDocumentInput): InvoiceDocume
       : [];
 
   return {
-    title: 'INVOICE',
+    title: input.vat ? 'TAX INVOICE' : 'INVOICE',
     number: invoice.invoiceNumber,
     meta: [`Date: ${formatServiceDate(invoice.issueDate)}`, ...(present(invoice.dueDate) ? [`Due: ${formatServiceDate(invoice.dueDate)}`] : [])],
     statusLabel: STATUS_LABELS[clean(invoice.paymentStatus).toLowerCase()] ?? null,

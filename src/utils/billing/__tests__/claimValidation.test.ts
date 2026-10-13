@@ -196,14 +196,14 @@ describe('day-based fund deadlines', () => {
   });
 });
 
-// Business rule: NHP counts calendar months (4). A service on 31 October can be claimed until
-// 28/29 February - the end of the shorter month - and not a day later.
-describe('month-based fund deadline (NHP, 4 months)', () => {
+// Business rule (claims standard, 13 Oct 2026): NHP accepts claims until the last day of the 4th month after the
+// month of service (NHP notice and User Guide 2026: December's claims run to 30 April). Any day in January can be
+// claimed until 31 May, and not a day later; counting 4 months from the day blocked claims NHP still pays.
+describe('month-based fund deadline (NHP, to the end of the 4th month)', () => {
   const serviceDates = dayRange('2025-01-01', 730);
   const lastDayOracle = (key: string): string => {
-    const [year, month, day] = key.split('-').map(Number);
-    const daysInTargetMonth = new Date(year, month - 1 + 4 + 1, 0).getDate();
-    return localKey(new Date(year, month - 1 + 4, Math.min(day, daysInTargetMonth)));
+    const [year, month] = key.split('-').map(Number);
+    return localKey(new Date(year, month - 1 + 4 + 1, 0));
   };
   const cases = serviceDates.map(serviceDate => ({ serviceDate, lastDay: lastDayOracle(serviceDate) }));
 
@@ -271,22 +271,28 @@ describe('finding the fund rule', () => {
     expect(fallback.warnings.map(issue => issue.field)).toContain('serviceDate');
   });
 
-  // Business rule (parity F11): a deadline nobody confirmed with the fund (NAMMED, Prosperity, or a fund without a
-  // rule) is a guess. A guess must never stop a claim the fund may still pay, so a line past it is flagged, not
-  // blocked; a confirmed deadline (NHP, NMC, PSEMAS) still blocks, or the practice sends lines the fund will refuse
+  // Business rule (parity F11): a deadline nobody confirmed with the fund (Prosperity, which publishes no rule, or a
+  // fund without a rule) is a guess. A guess must never stop a claim the fund may still pay, so a line past it is
+  // flagged, not blocked; a confirmed deadline (NHP, NAMMED, NMC, PSEMAS: claims standard of 13 Oct 2026) still
+  // blocks, or the practice sends lines the fund will refuse
   it('blocks a line past a confirmed deadline, and only flags one past an unconfirmed deadline', () => {
-    const late = validLine({ fundReference: 'NAMM', serviceDate: '2026-05-09' });
-    const nammed = validateClaimLine(late, { ...context, fundRule: getFundRule('NAMM') });
-    expect(nammed.errors.map(issue => issue.field)).not.toContain('serviceDate');
-    expect(nammed.warnings.find(issue => issue.field === 'serviceDate')?.message).toMatch(/not confirmed with the fund\) passed on 2026-09-06.*can still be sent/);
+    const late = validLine({ fundReference: 'PROS', serviceDate: '2026-05-09' });
+    const prosperity = validateClaimLine(late, { ...context, fundRule: getFundRule('PROS') });
+    expect(prosperity.errors.map(issue => issue.field)).not.toContain('serviceDate');
+    expect(prosperity.warnings.find(issue => issue.field === 'serviceDate')?.message)
+      .toMatch(/4 months from the service date, not confirmed with the fund\) passed on 2026-09-09.*can still be sent/);
     const nmc = validateClaimLine(validLine({ serviceDate: '2026-05-09' }), context);
     expect(nmc.errors.map(issue => issue.field)).toContain('serviceDate');
+    // NAMMED's published rule: a May visit could be claimed until 30 September, and the line is now blocked
+    const nammed = validateClaimLine(validLine({ fundReference: 'NAMM', serviceDate: '2026-05-09' }), { ...context, fundRule: getFundRule('NAMM') });
+    expect(nammed.errors.find(issue => issue.field === 'serviceDate')?.message)
+      .toBe('The claim deadline passed on 2026-09-30 (NAMMED: to the end of the 4th month after the service month).');
   });
 
   it('says once per batch that the fund has not confirmed its deadline', () => {
     const result = validateClaimBatch([validLine({ fundReference: 'PROS' })], { ...context, fundRule: getFundRule('PROS'), storedTotal: null });
     expect(result.batchIssues.map(issue => issue.message)).toEqual([
-      "Prosperity Health's claim deadline (120 days) is not confirmed with the fund yet: late lines are flagged, not blocked."
+      "Prosperity Health's claim deadline (4 months) is not confirmed with the fund yet: late lines are flagged, not blocked."
     ]);
     expect(result.canSubmit).toBe(true);
   });

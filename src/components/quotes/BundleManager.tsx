@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { formatNad, fromCents } from '../../utils/billing/money';
@@ -96,7 +97,7 @@ const BundleManager: React.FC<BundleManagerProps> = ({ practiceId, practiceType,
       toast.success(`Bundle "${bundle.name}" deleted.`);
       onChanged();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not delete the bundle.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not delete the bundle.');
     } finally {
       setDeleting(null);
     }
@@ -235,7 +236,7 @@ const BundleEditor: React.FC<BundleEditorProps> = ({ practiceId, tariffs, contex
       toast.success(`Bundle "${draft.name.trim()}" saved.`);
       onSaved();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the bundle.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the bundle.');
     } finally {
       setSaving(false);
     }

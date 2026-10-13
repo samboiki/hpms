@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { formatServiceDate } from '../../utils/billing/dates';
@@ -88,7 +89,7 @@ const PatientPriceRatePanel: React.FC<PatientPriceRatePanelProps> = ({ practiceI
       setNotice(parsed.value ? `${describePatientRate(parsed.value)}. New lines on this patient's visits and quotes use it.` : 'The price rate was removed: the usual prices apply again.');
       await reload();
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : 'The price rate could not be saved.');
+      setError(failure instanceof Error ? plainWords(failure.message) : 'The price rate could not be saved.');
     } finally {
       setSaving(false);
     }

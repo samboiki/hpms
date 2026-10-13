@@ -54,6 +54,8 @@ export interface GrossProfitData {
   saleMovements: StockMovement[];
   items: Map<string, StockItem>;
   defaultVatRate: number;
+  /** Settings > Practice > VAT */
+  vatRegistered: boolean;
   /** Cost of medicine dispensed without a bill in the period (dispensed less cancelled), cents */
   dispensedCostCents: number;
 }
@@ -83,6 +85,7 @@ export const loadGrossProfit = (practiceId: string, range: DateRange): Promise<R
       saleMovements: movementRows.flatMap(row => normalizeMovement(row) ?? []),
       items: new Map(stock.items.map(item => [item.id, item])),
       defaultVatRate: settings.defaultVatRate,
+      vatRegistered: settings.vatRegistered === true,
       dispensedCostCents
     };
   }, stockNotSetUp);

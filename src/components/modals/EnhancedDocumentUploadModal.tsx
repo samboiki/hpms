@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Upload,
@@ -623,12 +624,12 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         
         setUploadedFiles(prev => prev.map(f => 
           f.id === uploadFile.id 
-            ? { ...f, status: 'error', error: error instanceof Error ? error.message : 'Upload failed' }
+            ? { ...f, status: 'error', error: error instanceof Error ? plainWords(error.message) : 'Upload failed' }
             : f
         ));
         
         errorCount++;
-        toast.error(`Failed to upload ${uploadFile.file.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        toast.error(`Failed to upload ${uploadFile.file.name}: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
       }
     }
 
@@ -653,7 +654,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         
       } catch (error) {
         errorCount++;
-        toast.error(`Failed to upload ${capturedImage.title}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        toast.error(`Failed to upload ${capturedImage.title}: ${error instanceof Error ? plainWords(error.message) : 'Unknown error'}`);
       }
     }
     

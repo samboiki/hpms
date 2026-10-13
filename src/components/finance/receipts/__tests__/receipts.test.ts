@@ -165,7 +165,8 @@ describe('receipts not set up yet', () => {
     db.state.responses.ar_receipt_balances = { data: null, error: { code: '42501', message: 'permission denied for view ar_receipt_balances' } };
     const ar = await loadArWorkspace('practice-1', '2025-11-01');
     expect(ar.state).toBe('error');
-    expect(ar.error).toMatch(/permission denied/);
+    // Plain words, not the database's (owner, 13 Oct 2026)
+    expect(ar.error).toMatch(/your account is not permitted/);
   });
 
   it("reads only the practice's receipts: the window's, plus older ones with money still unallocated", async () => {

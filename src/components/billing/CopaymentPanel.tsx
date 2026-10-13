@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { describeCopayRule, parseCopayPercent, parseShareAmount, type CopayRule } from '../../utils/billing/lineSplit';
@@ -77,7 +78,7 @@ const CopaymentPanel: React.FC<CopaymentPanelProps> = ({ practiceId, canEdit, fu
       toast.success(done);
       return true;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the co-payments.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the co-payments.');
       return false;
     } finally {
       setSaving(false);

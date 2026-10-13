@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import DateInput from '../../ui/DateInput';
@@ -100,7 +101,7 @@ export const FundPaymentSheet: React.FC<FundPaymentSheetProps> = ({ practiceId, 
       setStaffNames(names);
     } catch (error) {
       setFunds([]);
-      setLoadError(isArNotSetUp(error) ? AR_NOT_SET_UP_MESSAGE : error instanceof Error ? error.message : 'Could not load the open claims.');
+      setLoadError(isArNotSetUp(error) ? AR_NOT_SET_UP_MESSAGE : error instanceof Error ? plainWords(error.message) : 'Could not load the open claims.');
     }
   }, [practiceId]);
 
@@ -124,7 +125,7 @@ export const FundPaymentSheet: React.FC<FundPaymentSheetProps> = ({ practiceId, 
       .catch(error => {
         if (!cancelled) {
           setKeyingClaims([]);
-          setLoadError(error instanceof Error ? error.message : 'Could not load the claim lines.');
+          setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not load the claim lines.');
         }
       });
     return () => {
@@ -168,7 +169,7 @@ export const FundPaymentSheet: React.FC<FundPaymentSheetProps> = ({ practiceId, 
 
   const fail = (error: unknown, fallback: string) => {
     setConflict(error instanceof DraftConflictError);
-    setActionError(error instanceof Error ? error.message : fallback);
+    setActionError(error instanceof Error ? plainWords(error.message) : fallback);
   };
 
   const persist = async (current: KeyingDraft): Promise<KeyingDraft> => {

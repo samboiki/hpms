@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { plainWords } from './plainErrors';
 
 /**
  * Process pending SMS messages by invoking the centralized SMS gateway
@@ -84,7 +85,7 @@ export async function processPendingSMS() {
         results.push({
           id: sms.id,
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
         });
       }
     }
@@ -98,7 +99,7 @@ export async function processPendingSMS() {
     console.error('Error in processPendingSMS:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
     };
   }
 }
@@ -167,7 +168,7 @@ export async function sendPendingSMS(smsId: string) {
     console.error('Error in sendPendingSMS:', error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? plainWords(error.message) : 'Unknown error'
     };
   }
 }

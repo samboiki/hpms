@@ -175,6 +175,17 @@ describe('statement runs through the gateways', () => {
     expect(sendSMS.mock.calls[0][0]).toMatchObject({ messageType: 'system', patientId: 'p2', metadata: { bulkSend: true } });
   });
 
+  // Owner, 13 Oct 2026: statements are emailed as a plain PDF, with no password, so patients open them straight away
+  it('attaches the statement as a plain PDF, with no password', async () => {
+    sendEmail.mockResolvedValueOnce({ success: true } as never);
+    await sendStatementRun([
+      { planned: planned({}), email: { subject: 'Statement', html: '<p>Statement</p>', text: 'Statement', attachment: { fileName: 'statement-2026-10-13.pdf', base64: 'JVBERi0=' } } }
+    ], context);
+    const request = sendEmail.mock.calls[0][0];
+    expect(request.attachments).toEqual([{ filename: 'statement-2026-10-13.pdf', content: 'JVBERi0=', type: 'application/pdf' }]);
+    expect(JSON.stringify(request)).not.toMatch(/password/i);
+  });
+
   it('never calls a gateway without an address or a message, and never for statements to print', async () => {
     const totals = await sendStatementRun([
       { planned: planned({ to: null }), email: { subject: 'S', html: 'S', text: 'S' } },

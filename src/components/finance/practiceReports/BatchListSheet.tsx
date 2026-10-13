@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { Link } from 'react-router-dom';
 import { fundLabel } from '../../../utils/remittance/funds';
@@ -17,7 +18,7 @@ export const BatchListSheet: React.FC<{ ids: readonly string[]; label: string; o
     let cancelled = false;
     loadBatchList(key ? key.split(',') : [])
       .then(rows => { if (!cancelled) setBatches(rows); })
-      .catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Could not load the batches.'); });
+      .catch(err => { if (!cancelled) setError(err instanceof Error ? plainWords(err.message) : 'Could not load the batches.'); });
     return () => {
       cancelled = true;
     };

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../../stores/authStore';
 import { EmptyState, ErrorState, LoadingState, Notice, SegmentedTabs } from '../FinanceUI';
@@ -53,7 +54,7 @@ export const RemittancesTab: React.FC<RemittancesTabProps> = ({ practiceId, prac
       setSetup(state);
       setContext(importContext);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load remittance import.');
+      setError(err instanceof Error ? plainWords(err.message) : 'Could not load remittance import.');
     }
   }, [practiceId, role]);
 

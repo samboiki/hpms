@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import ReactDOM from 'react-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
@@ -22,7 +23,7 @@ import { describeRecordCounts, suggestKeptFile, type FileRecordCounts } from '..
 type View = 'pairs' | 'merges';
 
 const pairKey = (pair: DuplicatePair): string => `${pair.files[0].id}|${pair.files[1].id}`;
-const messageOf = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? error.message : fallback);
+const messageOf = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? plainWords(error.message) : fallback);
 
 interface Props {
   practiceId: string;

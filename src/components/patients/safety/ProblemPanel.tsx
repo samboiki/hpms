@@ -1,4 +1,5 @@
 import React, { useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { addProblem, setProblemStatus, type ProblemRecord } from '../../../services/patientSafetyService';
@@ -53,7 +54,7 @@ export const ProblemPanel: React.FC<ProblemPanelProps> = ({ practiceId, patientI
       toast.success(success);
       return true;
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'That did not work. Try again.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'That did not work. Try again.');
       return false;
     } finally {
       setBusy(null);

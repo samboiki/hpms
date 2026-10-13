@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, inputClass } from '../finance/receipts/ArUi';
 import { loadPracticeStaff } from '../../services/invoiceContextService';
 import { savePaymentPlan } from '../../services/billing/billingExtrasService';
@@ -56,7 +57,7 @@ const PaymentPlanSheet: React.FC<PaymentPlanSheetProps> = ({ practiceId, patient
       await savePaymentPlan(result.payload);
       onSaved();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The payment plan could not be saved.');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The payment plan could not be saved.');
     } finally {
       setSaving(false);
     }

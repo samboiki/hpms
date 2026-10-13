@@ -7,7 +7,8 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { DepartmentSelectionModal } from './DepartmentSelectionModal';
 import DateInput from '../../ui/DateInput';
-import { getGenderAppropriateAvatar } from '../../../utils/avatarUtils';
+import { personalAvatar } from '../../../utils/avatarUtils';
+import { UserAvatar } from '../../layout/ProfileMenu';
 import { useAuthStore } from '../../../stores/authStore';
 import type { Database } from '../../../types/database.types';
 import { describeDbError, ensureRowsUpdated } from './staffUtils';
@@ -56,7 +57,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
   const [loading, setLoading] = useState(false);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string>(user.avatar || '');
+  const [avatarPreview, setAvatarPreview] = useState<string>(personalAvatar(user.avatar) ?? '');
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [formData, setFormData] = useState({
     full_name: user.full_name,
@@ -145,7 +146,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
     setLoading(true);
 
     try {
-      let avatarUrl = user.avatar;
+      // Their own photo only: a stock photo saved by older versions is cleared (initials show instead)
+      let avatarUrl = personalAvatar(user.avatar);
       
       // Upload avatar if a new file was selected
       if (avatarFile) {
@@ -153,9 +155,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
         if (uploadedUrl) {
           avatarUrl = uploadedUrl;
         }
-      } else if (!avatarUrl && formData.gender) {
-        // If no avatar exists and gender is set, assign a gender-appropriate avatar
-        avatarUrl = getGenderAppropriateAvatar(formData.gender, user.email);
       }
 
       // Status changes go through Deactivate/Reactivate (with confirmation), not this form.
@@ -229,14 +228,8 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                 <div className="flex items-center gap-6">
                   <div className="relative">
                     <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-gray-200">
-                      <img 
-                        src={avatarPreview || user.avatar || getGenderAppropriateAvatar(formData.gender || user.gender, user.email)}
-                        alt={user.full_name}
-                        className="w-full h-full object-cover"
-                        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
-                          e.currentTarget.src = getGenderAppropriateAvatar(formData.gender || user.gender, user.email);
-                        }}
-                      />
+                      {/* Their own photo, or their initials (never a stock photo of a stranger) */}
+                      <span className="block h-full w-full text-2xl"><UserAvatar avatar={avatarPreview} name={formData.full_name || user.full_name} /></span>
                     </div>
                     {uploadingAvatar && (
                       <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
@@ -269,7 +262,7 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                       </Button>
                     </label>
                     <p className="text-xs text-gray-500 mt-2">JPG, PNG or GIF. Max size 5MB.</p>
-                    <p className="text-xs text-gray-500">If no photo is uploaded, a default from Unsplash will be used.</p>
+                    <p className="text-xs text-gray-500">Without a photo, their initials are shown.</p>
                   </div>
                 </div>
               </div>
@@ -309,10 +302,6 @@ export const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onS
                       value={formData.gender}
                       onChange={(e) => {
                         setFormData({ ...formData, gender: e.target.value });
-                        // Update avatar preview if no custom avatar
-                        if (!avatarFile && !user.avatar) {
-                          setAvatarPreview(getGenderAppropriateAvatar(e.target.value, user.email));
-                        }
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { plainWords } from '../../../utils/plainErrors';
 import { supabase } from '../../../lib/supabase';
 import { withTimeout } from '../../../services/financialKpiService';
 import { readAllPages } from '../../../lib/pagedRows';
@@ -96,7 +97,7 @@ export async function fetchByIds<T>(ids: readonly string[], label: string, build
 export const timed = <T>(task: Promise<T>, label: string): Promise<T> =>
   withTimeout(task, TIMEOUT_MS, `Loading ${label} took too long. Check your connection and try again.`);
 
-export const errorText = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? error.message : fallback);
+export const errorText = (error: unknown, fallback: string): string => (error instanceof Error && error.message ? plainWords(error.message) : fallback);
 
 /** One dc_ function call; "not set up" is said in words, every other message is the database's */
 export async function callRpc<T>(name: string, args: Record<string, unknown>, action: string): Promise<T> {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { 
@@ -256,7 +257,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
       console.error('Error fetching financial KPIs:', error);
       if (requestId === kpiRequestIdRef.current) {
         setKpis(null);
-        setKpiError(error instanceof Error ? error.message : 'Failed to load financial data');
+        setKpiError(error instanceof Error ? plainWords(error.message) : 'Failed to load financial data');
       }
     } finally {
       // Ignore superseded requests so a slow older response cannot clear a newer load

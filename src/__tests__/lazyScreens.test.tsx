@@ -71,7 +71,7 @@ const slowPage = vi.hoisted(() => {
   const arrived = new Promise<void>((resolve) => { gate.open = () => resolve(); });
   return { arrived, release: () => gate.open?.() };
 });
-vi.mock('../pages/BillingWorkflow', async (importOriginal) => {
+vi.mock('../pages/admin/PracticesManagement', async (importOriginal) => {
   await slowPage.arrived;
   return importOriginal();
 });
@@ -150,13 +150,13 @@ describe("while a page's code is on its way", () => {
   // whole screen waiting on a slow connection
   it('the layout shows at once, with the spinner where the page will be', async () => {
     signIn('admin', true);
-    open('/billing/workflow');
+    open('/admin/practices');
     expect(await screen.findByRole('button', { name: 'Open menu' }, FOUND)).toBeInTheDocument();
     expect(document.querySelector('main .animate-spin')).not.toBeNull();
-    expect(screen.queryByRole('heading', { name: /^Billing Workflow Visualization$/ })).toBeNull();
+    expect(screen.queryByRole('heading', { name: /^Practice Management$/ })).toBeNull();
 
     slowPage.release();
-    expect(await screen.findByRole('heading', { name: /^Billing Workflow Visualization$/ }, FOUND)).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^Practice Management$/ }, FOUND)).toBeInTheDocument();
   }, 60000);
 });
 
@@ -182,15 +182,13 @@ describe('every staff page still opens at its address now that it loads when fir
   // OneHealth support opens every page, so each shows its own heading (an empty practice: no patient, no practice row)
   const PAGES: Array<[string, RegExp]> = [
     ['/patients', /^Patients$/],
-    ['/patients/patient-1/visit/visit-1', /patient details|patient not found/i],
     ['/encounters', /^Encounters$/],
     ['/communications', /^Communications Center$/],
     ['/finance', /^Finance$/],
     // Stock and Optometry were already loaded when opened
+    // /optometry has no page of its own any more: it opens the same part of Stock (owner, 13 Oct 2026; the redirect is
+    // tested in components/optometry/__tests__/OptometryFollowsStock.test.tsx)
     ['/stock', /^Stock$/],
-    ['/optometry', /^Optometry$/],
-    ['/billing/workflow', /^Billing Workflow Visualization$/],
-    ['/practice-profile', /^Practice Not Found$/],
     ['/admin/practices', /^Practice Management$/],
     ['/admin/tariffs', /^Tariffs$/],
     ['/admin/funds', /^Medical aid funds$/],
@@ -270,4 +268,24 @@ describe('old links', () => {
     expect(await screen.findByRole('heading', { name: /^Patients$/ }, FOUND)).toBeInTheDocument();
     expect(screen.getByLabelText('address')).toHaveTextContent('/patients?patientId=patient-1&visitId=visit-1&action=edit-visit');
   }, 60000);
+
+  // The old patient page (/patients/<id>/visit/<id>) was removed on the owner's say-so (13 Oct 2026: nothing linked to
+  // it); a bookmark of it still opens that patient's visit, on the Patients page, rather than "page not found"
+  it('an old patient-page address opens the patient and the visit on the Patients page', async () => {
+    signIn('doctor');
+    open('/patients/patient-1/visit/visit-1');
+    expect(await screen.findByRole('heading', { name: /^Patients$/ }, FOUND)).toBeInTheDocument();
+    expect(screen.getByLabelText('address')).toHaveTextContent('/patients?patientId=patient-1&visitId=visit-1&action=edit-visit');
+  }, 60000);
+
+  // The billing-workflow and practice-profile pages were removed too (nothing linked to them): their addresses are the
+  // ordinary "page not found", with the menu still there
+  for (const path of ['/billing/workflow', '/practice-profile']) {
+    it(`${path} is "Page not found"`, async () => {
+      signIn('admin');
+      open(path);
+      expect(await screen.findByRole('heading', { name: 'Page not found' }, FOUND)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
+    }, 60000);
+  }
 });

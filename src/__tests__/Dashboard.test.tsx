@@ -94,8 +94,6 @@ vi.mock('framer-motion', () => {
 });
 // The diary, the tiles beside it and the modals: not what this tests
 vi.mock('../components/icons/SearchDuotone', () => ({ default: mocks.Nothing }));
-vi.mock('../components/forms/AddScheduledVisitForm', () => ({ default: mocks.Nothing }));
-vi.mock('../components/modals/DetailedReportModal', () => ({ default: mocks.Nothing }));
 vi.mock('../components/modals/EnhancedFinancialModal', () => ({ default: mocks.Nothing }));
 vi.mock('../components/dashboard/PracticeOverviewTile', () => ({ default: mocks.Nothing }));
 // The panel itself is tested on its own (NotificationsPanel.test.tsx): here only what the page hands it
@@ -113,11 +111,6 @@ vi.mock('../components/PremiumAppointmentScheduler', () => ({
 }));
 vi.mock('../components/modals/FormModal', () => ({ default: mocks.Nothing }));
 vi.mock('../components/forms/PremiumAddAppointmentForm', () => ({ default: mocks.Nothing }));
-vi.mock('../components/modals/AppointmentDetailsModal', () => ({ default: mocks.Nothing }));
-vi.mock('../components/modals/RescheduleAppointmentModal', () => ({ default: mocks.Nothing }));
-vi.mock('../components/modals/AppointmentActionModal', () => ({ default: mocks.Nothing }));
-vi.mock('../components/modals/AppointmentApprovalModal', () => ({ default: mocks.Nothing }));
-vi.mock('../components/appointments/AppointmentGridView', () => ({ default: mocks.Nothing }));
 vi.mock('../components/visits/FullScreenEditVisitModal', () => ({
   default: ({ isOpen, visitId }: { isOpen: boolean; visitId: string }) => (isOpen ? <p>The visit screen for {visitId}</p> : null)
 }));
@@ -199,4 +192,24 @@ describe('the notifications panel', () => {
     renderDashboard();
     expect(screen.getAllByText('New Booking Request').length).toBeGreaterThan(0);
   });
+
+  // It was rendered twice (one copy hidden per screen size), each loading every notification and subscribing to them
+  // (owner, 13 Oct 2026: speed). One panel, in the place that suits the screen
+  for (const [screenSize, large] of [['a phone or tablet', false], ['a large screen', true]] as const) {
+    it(`is on the page once on ${screenSize}`, () => {
+      const original = window.matchMedia;
+      window.matchMedia = ((query: string) => ({
+        matches: large, media: query, onchange: null,
+        addEventListener: () => undefined, removeEventListener: () => undefined,
+        addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false
+      })) as unknown as typeof window.matchMedia;
+      try {
+        mocks.visits = [];
+        renderDashboard();
+        expect(screen.getAllByRole('list', { name: 'Notifications' })).toHaveLength(1);
+      } finally {
+        window.matchMedia = original;
+      }
+    });
+  }
 });

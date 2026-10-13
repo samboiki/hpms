@@ -1,4 +1,5 @@
 import React, { useId, useRef, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { MAX_ALERT_NOTE, saveAlertNote, type ClinicalProfileRecord } from '../../../services/patientSafetyService';
@@ -36,7 +37,7 @@ export const AlertNotePanel: React.FC<AlertNotePanelProps> = ({ practiceId, pati
       toast.success(value.trim() ? 'Alert saved.' : 'Alert removed.');
       setEditing(false);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Could not save the alert.');
+      toast.error(error instanceof Error ? plainWords(error.message) : 'Could not save the alert.');
     } finally {
       setSaving(false);
     }

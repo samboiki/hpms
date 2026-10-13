@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { claimRejectionsLink } from '../../billing/invoiceLinks';
 import { summarizeOpenRejections, type PatientRejectionSummary } from '../../../utils/remittance/patientRejections';
@@ -28,7 +29,7 @@ export const PatientClaimsNotice: React.FC<PatientClaimsNoticeProps> = ({ practi
       })
       .catch(error => {
         // A notice that cannot load must not get in the way of the billing tab; the queue itself still shows the items
-        console.warn('[PatientClaimsNotice]', error instanceof Error ? error.message : error);
+        console.warn('[PatientClaimsNotice]', error instanceof Error ? plainWords(error.message) : error);
       });
     return () => {
       cancelled = true;

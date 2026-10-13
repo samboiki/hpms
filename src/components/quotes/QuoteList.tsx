@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { useSearchParams } from 'react-router-dom';
 import { todayKey } from '../../utils/billing/dates';
@@ -55,7 +56,7 @@ const QuoteList: React.FC<QuoteListProps> = ({ practiceId, patient = null, onCha
         setState(
           isQuotesNotEnabledError(error)
             ? { status: 'not_enabled' }
-            : { status: 'error', message: error instanceof Error ? error.message : 'Could not load the quotes.' }
+            : { status: 'error', message: error instanceof Error ? plainWords(error.message) : 'Could not load the quotes.' }
         );
       });
     return () => {

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import type { ServiceSelection } from '../../types/billing';
@@ -147,7 +148,7 @@ const LabWorkBillingCard: React.FC<LabWorkBillingCardProps> = props => {
       toast.success(`Lab order ${order.orderNo} billed under ${LAB_FEE_CODE}: ${nad(labSlipTotalCents(order.slipLines))}. Save the visit to keep it.`);
       reload();
     } catch (failure) {
-      toast.error(isDentalLabNotSetUp(failure) ? 'Lab work is not set up yet.' : failure instanceof Error ? failure.message : 'Could not bill the lab work.');
+      toast.error(isDentalLabNotSetUp(failure) ? 'Lab work is not set up yet.' : failure instanceof Error ? plainWords(failure.message) : 'Could not bill the lab work.');
     } finally {
       setBusy(null);
     }
@@ -165,7 +166,7 @@ const LabWorkBillingCard: React.FC<LabWorkBillingCardProps> = props => {
       await billLabOrder(order.id, null);
       reload();
     } catch (failure) {
-      toast.error(failure instanceof Error ? failure.message : 'Could not change where the order is billed.');
+      toast.error(failure instanceof Error ? plainWords(failure.message) : 'Could not change where the order is billed.');
     } finally {
       setBusy(null);
     }

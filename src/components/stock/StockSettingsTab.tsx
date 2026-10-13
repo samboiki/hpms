@@ -54,7 +54,7 @@ export const StockSettingsTab: React.FC<{ context: StockContext }> = ({ context 
 
   const tryCents = parseAmountText(tryCost);
   const example = rule && vat !== null && tryCents !== null && tryCents > 0
-    ? priceStockLine({ quantity: 1, lineCostCents: toCents(tryCents), vatRate: vat, rule, fixedUnitPriceCents: null })
+    ? priceStockLine({ quantity: 1, lineCostCents: toCents(tryCents), vatRate: settings.vatRegistered ? vat : 0, rule, fixedUnitPriceCents: null })
     : null;
 
   const setBand = (index: number, patch: Partial<PriceBandDraft>) =>
@@ -172,7 +172,9 @@ export const StockSettingsTab: React.FC<{ context: StockContext }> = ({ context 
             onChange={event => setDraft(current => ({ ...current, vatRate: event.target.value }))}
           />
           <p id="stock-vat-help" className={`mt-1 text-xs ${vatError ? 'text-red-600' : 'text-gray-500'}`}>
-            {vatError ?? 'For items without their own VAT rate, on prices and on supplier invoices. 0 if the practice is not VAT registered.'}
+            {vatError ?? (settings.vatRegistered
+              ? 'For VAT-able items without their own rate, on prices and on supplier invoices.'
+              : 'On supplier invoices. Prices carry no VAT: the practice is not VAT registered (Settings > Practice).')}
           </p>
         </div>
 
@@ -254,7 +256,7 @@ export const StockSettingsTab: React.FC<{ context: StockContext }> = ({ context 
         </div>
       </SectionCard>
 
-      <PricingRulesCards form={pricing} canEdit={canEdit} dispensing={draft.dispensingEnabled} vatRate={vatError ? null : vat} />
+      <PricingRulesCards form={pricing} canEdit={canEdit} dispensing={draft.dispensingEnabled} vatRate={vatError ? null : settings.vatRegistered ? vat : 0} />
 
       {canEdit && (
         <div className="flex justify-end">

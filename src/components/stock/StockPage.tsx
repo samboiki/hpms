@@ -20,8 +20,15 @@ import { TransfersTab } from './TransfersTab';
 import { useStockStores } from './useStockStores';
 import { usesStores } from '../../utils/stock/stores';
 import { practiceInventoryLink } from '../billing/invoiceLinks';
+import { CARD } from './stockUi';
+import { todayKey } from '../../utils/billing/dates';
+import { useOptometryPractice } from '../optometry/useOptometryPractice';
+import PracticeLabOrders from '../optometry/PracticeLabOrders';
+import FramesPanel from '../optometry/FramesPanel';
+import OptometryReport from '../optometry/OptometryReport';
+import FundNotesPanel from '../optometry/FundNotesPanel';
 
-type StockTab = 'items' | 'deliveries' | 'transfers' | 'count' | 'reports' | 'suppliers' | 'settings';
+type StockTab = 'items' | 'deliveries' | 'transfers' | 'count' | 'reports' | 'suppliers' | 'settings' | 'frames' | 'lenses';
 
 const TABS: readonly PageTab<StockTab>[] = [
   { key: 'items', label: 'Items', icon: 'solar:box-bold-duotone' },
@@ -29,6 +36,10 @@ const TABS: readonly PageTab<StockTab>[] = [
   // Only for a practice with more than one store (L10)
   { key: 'transfers', label: 'Transfers', icon: 'solar:transfer-horizontal-bold-duotone' },
   { key: 'count', label: 'Stock take', icon: 'solar:checklist-minimalistic-bold-duotone' },
+  // Optometry practices only (the Optometry page merged into Stock, owner 13 Oct 2026): frames with their barcodes and
+  // consignment, and lens orders to the lab for a patient (ordered, back from the lab, collected)
+  { key: 'frames', label: 'Frames', icon: 'solar:glasses-bold-duotone' },
+  { key: 'lenses', label: 'Lens orders', icon: 'solar:eye-bold-duotone' },
   { key: 'reports', label: 'Reports', icon: 'solar:chart-2-bold-duotone' },
   { key: 'suppliers', label: 'Suppliers', icon: 'solar:shop-2-bold-duotone' },
   { key: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone' }
@@ -56,8 +67,9 @@ export const StockPage: React.FC = () => {
   const data = useStockData(practiceId);
   const stores = useStockStores(practiceId, user?.id);
   const hasStores = usesStores(stores.stores);
-  const tabs = hasStores ? TABS : TABS.filter(entry => entry.key !== 'transfers');
-  const shown: StockTab = tab === 'transfers' && !hasStores ? 'items' : tab;
+  const optometry = useOptometryPractice(practiceId) === true;
+  const tabs = TABS.filter(entry => (entry.key !== 'transfers' || hasStores) && ((entry.key !== 'frames' && entry.key !== 'lenses') || optometry));
+  const shown: StockTab = tabs.some(entry => entry.key === tab) ? tab : 'items';
 
   const changeTab = (next: StockTab) => {
     setTab(next);
@@ -69,6 +81,7 @@ export const StockPage: React.FC = () => {
     params.delete('transfer');
     params.delete('store');
     params.delete('count');
+    params.delete('report');
     setSearchParams(params, { replace: true });
   };
 
@@ -131,7 +144,35 @@ export const StockPage: React.FC = () => {
             {shown === 'deliveries' && <DeliveriesTab context={context} openDeliveryId={searchParams.get('delivery')} />}
             {shown === 'transfers' && <TransfersTab context={context} openTransfer={searchParams.get('transfer')} storeFilter={searchParams.get('store')} />}
             {shown === 'count' && <StockTakeTab context={context} openCountId={searchParams.get('count')} />}
-            {shown === 'reports' && <StockReportsTab context={context} />}
+            {shown === 'reports' && (
+              optometry ? (
+                <div className="space-y-6">
+                  <StockReportsTab context={context} />
+                  <section className={`${CARD} p-3 sm:p-5`} aria-label="Optometry reports">
+                    <OptometryReport practiceId={context.practiceId} today={todayKey()} initialView={searchParams.get('report')} />
+                  </section>
+                </div>
+              ) : <StockReportsTab context={context} />
+            )}
+            {shown === 'frames' && (
+              <section className={`${CARD} p-3 sm:p-5`}>
+                <FramesPanel practiceId={context.practiceId} />
+              </section>
+            )}
+            {shown === 'lenses' && (
+              <div className="space-y-6">
+                <section className={`${CARD} p-3 sm:p-5`} aria-label="Lens orders">
+                  <p className="mb-3 text-sm text-gray-600">
+                    Lenses ordered from the lab for a patient, until the patient collects them. A new order is made in the patient&apos;s file
+                    (Eyes tab) from their prescription; the lab is one of your suppliers.
+                  </p>
+                  <PracticeLabOrders practiceId={context.practiceId} today={todayKey()} />
+                </section>
+                <section className={`${CARD} p-3 sm:p-5`} aria-label="Optical benefit notes">
+                  <FundNotesPanel practiceId={context.practiceId} />
+                </section>
+              </div>
+            )}
             {shown === 'suppliers' && <SuppliersTab context={context} openSupplierId={searchParams.get('supplier')} />}
             {shown === 'settings' && <StockSettingsTab context={context} />}
           </div>

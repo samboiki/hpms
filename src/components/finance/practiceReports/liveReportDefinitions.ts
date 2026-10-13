@@ -209,6 +209,7 @@ export const LIVE_EXPORT_NAMES: Readonly<Record<string, string>> = {
   demographics_town: 'Patients by town',
   demographics_region: 'Patients by region',
   demographics_source: 'Patients by how they came to us',
+  demographics_heard: 'How new patients heard about us, per month',
   demographics_patients: 'Demographics: patient list',
   spend_by_town: 'Spend and patients by town',
   spend_per_patient: 'Spend per patient',

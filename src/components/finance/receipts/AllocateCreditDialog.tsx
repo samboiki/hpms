@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../../utils/plainErrors';
 import { formatNad, fromCents } from '../../../utils/billing/money';
 import {
   PORTION_LABELS,
@@ -86,7 +87,7 @@ export const AllocateCreditDialog: React.FC<{
     };
     load()
       .then(result => { if (!cancelled) setItems(sortOldestFirst(result, portions)); })
-      .catch(error => { if (!cancelled) setLoadError(error instanceof Error ? error.message : 'Could not load the open invoices'); });
+      .catch(error => { if (!cancelled) setLoadError(error instanceof Error ? plainWords(error.message) : 'Could not load the open invoices'); });
     return () => { cancelled = true; };
   }, [practiceId, receipt, portions]);
 
@@ -116,7 +117,7 @@ export const AllocateCreditDialog: React.FC<{
       await allocateReceipt(receipt.id, lines.map(({ invoiceId, portion, amountCents }) => ({ invoiceId, portion, amountCents })));
       onSaved();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'The credit could not be allocated');
+      setSaveError(error instanceof Error ? plainWords(error.message) : 'The credit could not be allocated');
       setSaving(false);
     }
   };

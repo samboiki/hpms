@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { plainWords } from '../../utils/plainErrors';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
@@ -83,13 +84,13 @@ export const DrawingSheet: React.FC<DrawingSheetProps> = ({ practiceId, patientI
       const png = await drawingToPng(art, template.aspect, strokes);
       const result = await saveVisitDrawing({ practiceId, patientId, visitId, png, templateId, caption });
       if (!result.ok) {
-        setError(result.message);
+        setError(plainWords(result.message));
         return;
       }
       toast.success('Drawing saved with the visit');
       onSaved();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'The drawing could not be saved.');
+      setError(saveError instanceof Error ? plainWords(saveError.message) : 'The drawing could not be saved.');
     } finally {
       setSaving(false);
     }
