@@ -2,6 +2,7 @@ import React from 'react';
 import { format } from 'date-fns';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
+import { formatNad } from '../../../utils/billing/money';
 
 interface PayslipData {
   employeeName: string;
@@ -15,7 +16,10 @@ interface PayslipData {
   deductions: Array<{ name: string; amount: number }>;
   currency: string;
   companyName?: string;
-  companyAddress?: string;
+  /** The practice's address, or nothing ("Not provided" is printed: never an invented address) */
+  companyAddress?: string | null;
+  /** The staff member's own address from their staff record, or nothing */
+  employeeAddress?: string | null;
   employeeCode?: string;
   bankName?: string;
   accountNumber?: string;
@@ -56,6 +60,8 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
   const taxPaid = payslipData.deductions.find(d => d.name.toLowerCase().includes('tax'))?.amount || 0;
 
   const formatCurrency = (amount: number) => {
+    // Intl's en-NA format shows the Namibian dollar as a bare "$"; payslips say N$
+    if (!payslipData.currency || payslipData.currency === 'NAD') return formatNad(amount);
     return new Intl.NumberFormat('en-NA', {
       style: 'currency',
       currency: payslipData.currency,
@@ -91,7 +97,7 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
           </div>
           <div className="text-center">
             <p className="font-bold text-sm">Co. Address</p>
-            <p className="text-sm">{payslipData.companyAddress || 'P.O Box 51454 Windhoek, Namibia'}</p>
+            <p className="text-sm">{payslipData.companyAddress || 'Not provided'}</p>
           </div>
           <div className="text-right">
             <p className="font-bold text-sm">Payment Dt</p>
@@ -111,7 +117,7 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
             <p className="font-bold text-sm mt-2">Emp Name</p>
             <p className="text-sm">{payslipData.employeeName}</p>
             <p className="font-bold text-sm mt-2">Emp Address</p>
-            <p className="text-sm">Windhoek, Namibia</p>
+            <p className="text-sm">{payslipData.employeeAddress || 'Not provided'}</p>
           </div>
           <div>
             <p className="font-bold text-sm">Department</p>
@@ -329,7 +335,7 @@ export const PayslipPreview: React.FC<PayslipPreviewProps> = ({ payslipData, onD
         </table>
         {(!payslipData.leaveBalances || Object.keys(payslipData.leaveBalances).length === 0) && (
           <div className="text-center py-4 text-gray-500 text-sm">
-            No leave balances found. Please refresh to load leave data.
+            No leave balances are recorded for this employee.
           </div>
         )}
       </div>

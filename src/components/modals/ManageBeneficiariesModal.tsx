@@ -32,6 +32,17 @@ import {
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
+import { FORMER_MAIN_MEMBER_RELATIONSHIPS, isMainMemberRelationship, type FamilyMemberRecord } from '../../utils/patients/medicalAidMember';
+import { swapMainMember } from '../../services/medicalAidFamilyService';
+import { familyAccounts } from '../../services/ledgerService';
+import { loadOpenAccountLinks, moveAccountHolder } from '../finance/debtors/debtorsService';
+import {
+  MAIN_MEMBER_CHANGE_REASON_MAX,
+  MAIN_MEMBER_CHANGE_REASON_MIN,
+  accountRelationshipForFormerMain,
+  planAccountMove,
+  type AccountMovePlan
+} from '../../utils/patients/accountMove';
 import '../../styles/scrollbar.css';
 
 interface Patient {
@@ -98,9 +109,14 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
   const [relationship, setRelationship] = useState('');
   // const [dependentCode, setDependentCode] = useState(''); // Not supported in current schema
   const [editingMember, setEditingMember] = useState<MedicalAidMember | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // "Make main member": the member being promoted and what the current main member becomes
+  const [swapTarget, setSwapTarget] = useState<MedicalAidMember | null>(null);
+  const [formerMainRelationship, setFormerMainRelationship] = useState('spouse');
+  const [isSwapping, setIsSwapping] = useState(false);
+  // The family's billing account moves with the main member (parity A3): worked out when "Make main member" opens
+  const [accountMove, setAccountMove] = useState<{ plan: AccountMovePlan; formerMainName: string } | null>(null);
+  const [accountMoveReason, setAccountMoveReason] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'relationship' | 'date'>('name');
-  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive' | 'suspended'>('all');
   const [draggedPatient, setDraggedPatient] = useState<Patient | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [totalPatientsInPractice, setTotalPatientsInPractice] = useState<number>(0);
@@ -191,7 +207,8 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
         relationship: item.relationship_to_main,
         member_number: item.membership_number,
         dependent_code: undefined, // Not available in current schema
-        is_main_member: item.relationship_to_main === 'Main Member',
+        // "self" (registration), "Main Member" (this screen) and other spellings all mean the main member
+        is_main_member: isMainMemberRelationship(item.relationship_to_main),
         status: 'active' as const, // Default to active, could be enhanced
         created_at: item.created_at,
         updated_at: item.updated_at,
@@ -357,7 +374,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
       if (error) throw error;
 
       toast.success('Member removed successfully');
-      setDeleteConfirm(null);
       fetchMembers();
       fetchAvailablePatients();
       onRefresh?.();
@@ -369,6 +385,72 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
     }
   };
 
+  // Whether the family's billing account moves with the main member: only an account the current main member holds
+  const swapTargetPatientId = swapTarget?.patient_id ?? null;
+  useEffect(() => {
+    setAccountMove(null);
+    setAccountMoveReason('');
+    const formerMain = members.find(member => member.is_main_member && member.patient_id !== swapTargetPatientId);
+    const practiceId = user?.practice_id;
+    if (!swapTargetPatientId || !formerMain || !practiceId) return;
+    let cancelled = false;
+    loadOpenAccountLinks(practiceId, [formerMain.patient_id, swapTargetPatientId])
+      .then(links => {
+        if (cancelled) return;
+        const accounts = familyAccounts(links);
+        const linksOf = (id: string) => ({ holderId: accounts.holderOf(id), memberIds: accounts.membersOf(id).map(link => link.patientId) });
+        setAccountMove({
+          plan: planAccountMove({
+            formerMainId: formerMain.patient_id,
+            formerMain: linksOf(formerMain.patient_id),
+            newMainId: swapTargetPatientId,
+            newMain: linksOf(swapTargetPatientId)
+          }),
+          formerMainName: formerMain.patient ? `${formerMain.patient.first_name} ${formerMain.patient.last_name}` : 'the current main member'
+        });
+      })
+      // The medical aid can still change; the account just is not shown as moving
+      .catch(() => { if (!cancelled) setAccountMove(null); });
+    return () => { cancelled = true; };
+  }, [swapTargetPatientId, members, user?.practice_id]);
+
+  // Makes swapTarget the main member: every family record gets their name and ID, they become "self"
+  // and the current main member takes the relationship chosen. The family account moves first (one step in the
+  // database, and run again it changes nothing), so a swap that stops half-way is finished by the same button.
+  const confirmSwap = async () => {
+    if (!swapTarget) return;
+    const name = swapTarget.patient ? `${swapTarget.patient.first_name} ${swapTarget.patient.last_name}` : 'This member';
+    const plan = accountMove?.plan;
+    if (plan?.kind === 'move' && accountMoveReason.trim().length < MAIN_MEMBER_CHANGE_REASON_MIN) {
+      toast.error('Say why the main member is changing: it is kept with the family account.');
+      return;
+    }
+    setIsSwapping(true);
+    try {
+      if (plan?.kind === 'move' && user?.practice_id) {
+        await moveAccountHolder(user.practice_id, plan.fromHolderId, swapTarget.patient_id, accountRelationshipForFormerMain(formerMainRelationship), accountMoveReason);
+      }
+      const family: FamilyMemberRecord[] = members.map(member => ({
+        medicalAidId: member.id,
+        patientId: member.patient_id,
+        firstName: member.patient?.first_name ?? null,
+        lastName: member.patient?.last_name ?? null,
+        idNumber: member.patient?.id_number ?? null,
+        relationship: member.relationship
+      }));
+      await swapMainMember(family, swapTarget.patient_id, formerMainRelationship);
+      const account = plan?.kind === 'move' ? ' and pays for the family' : '';
+      toast.success(`${name} is now the main member${account}. Check the new card: the membership number and dependant codes may change too.`, { duration: 6000 });
+      setSwapTarget(null);
+      await fetchMembers();
+      onRefresh?.();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not change the main member.');
+    } finally {
+      setIsSwapping(false);
+    }
+  };
+
   const filteredPatients = availablePatients.filter(patient =>
     `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -376,11 +458,9 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
     patient.id_number?.includes(searchTerm)
   );
 
-  const filteredAndSortedMembers = members
-    .filter(member => {
-      if (filterStatus === 'all') return true;
-      return member.status === filterStatus;
-    })
+  // Copy before sorting so the members state is never mutated. There is no member status in the
+  // schema (every member is mapped to 'active'), so there is no status filter or badge.
+  const filteredAndSortedMembers = [...members]
     .sort((a, b) => {
       switch (sortBy) {
         case 'name':
@@ -508,6 +588,8 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
             <button
               onClick={onClose}
               className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
+              title="Close"
+              aria-label="Close"
             >
               <X className="w-5 h-5" />
             </button>
@@ -557,20 +639,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-4">
                     <div className="relative">
-                      <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                      <select
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value as any)}
-                        className="pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
-                      >
-                        <option value="all">All Members</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="suspended">Suspended</option>
-                      </select>
-                    </div>
-                    
-                    <div className="relative">
                       <SortAsc className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                       <select
                         value={sortBy}
@@ -587,7 +655,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                   {!isMainMember && (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-600" />
-                      <span className="text-sm text-amber-700">Only main member can manage beneficiaries</span>
+                      <span className="text-sm text-amber-700">To add or remove beneficiaries, open the main member's profile</span>
                     </div>
                   )}
                 </div>
@@ -662,15 +730,6 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                                     Main Member
                                   </span>
                                 )}
-                                <span className={`text-xs font-medium px-3 py-1 rounded-full ${
-                                  member.status === 'active'
-                                    ? 'bg-green-100 text-green-800 border border-green-200'
-                                    : member.status === 'suspended'
-                                    ? 'bg-red-100 text-red-800 border border-red-200'
-                                    : 'bg-gray-100 text-gray-800 border border-gray-200'
-                                }`}>
-                                  {member.status}
-                                </span>
                               </div>
                               
                               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
@@ -714,6 +773,23 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                               <Eye className="w-4 h-4" />
                             </motion.button>
 
+                            {/* The main member changed (death, divorce, a spouse taking over the membership) */}
+                            {!member.is_main_member && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setFormerMainRelationship('spouse');
+                                  setSwapTarget(swapTarget?.id === member.id ? null : member);
+                                }}
+                                aria-expanded={swapTarget?.id === member.id}
+                                className="px-3 py-2 bg-yellow-50 text-yellow-800 rounded-lg hover:bg-yellow-100 transition-colors text-xs font-medium flex items-center gap-1"
+                                title="Make this person the main member"
+                              >
+                                <Crown className="w-4 h-4" aria-hidden="true" />
+                                Make main member
+                              </button>
+                            )}
+
                             {/* Edit and Delete buttons - Only for main member and non-main members */}
                             {isMainMember && !member.is_main_member && (
                               <>
@@ -729,33 +805,95 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                                 <motion.button
                                   whileHover={{ scale: 1.05 }}
                                   whileTap={{ scale: 0.95 }}
-                                  onClick={() => setDeleteConfirm(member.id)}
-                                  className={`p-2 rounded-lg transition-colors ${
-                                    deleteConfirm === member.id
-                                      ? 'bg-red-500 text-white'
-                                      : 'bg-red-100 text-red-600 hover:bg-red-200'
-                                  }`}
+                                  onClick={() => {
+                                    const name = member.patient
+                                      ? `${member.patient.first_name} ${member.patient.last_name}`
+                                      : 'this member';
+                                    if (!window.confirm(`Remove ${name} from this medical aid? Their medical aid details will be deleted. This cannot be undone.`)) return;
+                                    deleteMember(member.id);
+                                  }}
+                                  disabled={isLoading}
+                                  className="p-2 rounded-lg transition-colors bg-red-100 text-red-600 hover:bg-red-200 disabled:opacity-50"
                                   title="Remove Member"
+                                  aria-label="Remove member"
                                 >
-                                  {deleteConfirm === member.id ? (
-                                    <motion.div
-                                      initial={{ scale: 0 }}
-                                      animate={{ scale: 1 }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteMember(member.id);
-                                      }}
-                                    >
-                                      <Check className="w-4 h-4" />
-                                    </motion.div>
-                                  ) : (
-                                    <Trash2 className="w-4 h-4" />
-                                  )}
+                                  <Trash2 className="w-4 h-4" />
                                 </motion.button>
                               </>
                             )}
                           </div>
                         </div>
+
+                        {swapTarget?.id === member.id && (
+                          <div className="mt-4 rounded-lg border border-yellow-200 bg-yellow-50 p-4 text-sm text-gray-800">
+                            <p className="font-semibold">
+                              Make {member.patient ? `${member.patient.first_name} ${member.patient.last_name}` : 'this person'} the main member?
+                            </p>
+                            <p className="mt-1 text-gray-700">
+                              Every family record gets their name and ID number as the main member's, so claims go out under them.
+                            </p>
+                            <label className="mt-3 flex flex-wrap items-center gap-2">
+                              <span>The current main member becomes</span>
+                              <select
+                                value={formerMainRelationship}
+                                onChange={(e) => setFormerMainRelationship(e.target.value)}
+                                className="rounded-lg border border-gray-300 bg-white px-2 py-1"
+                              >
+                                {FORMER_MAIN_MEMBER_RELATIONSHIPS.map(option => (
+                                  <option key={option.value} value={option.value}>{option.label}</option>
+                                ))}
+                              </select>
+                            </label>
+                            {/* The family's billing account follows the main member (parity A3) */}
+                            {accountMove?.plan.kind === 'move' && (
+                              <>
+                                <p className="mt-3 text-gray-700">
+                                  The family account moves to {member.patient ? member.patient.first_name : 'them'} too: they pay for {accountMove.formerMainName}
+                                  {accountMove.plan.followers.length > 0
+                                    ? ` and ${accountMove.plan.followers.length} other family member${accountMove.plan.followers.length === 1 ? '' : 's'}`
+                                    : ''}
+                                  , and statements and reminders go to them.
+                                </p>
+                                <label className="mt-2 flex flex-col gap-1">
+                                  <span>Why is the main member changing?</span>
+                                  <input
+                                    value={accountMoveReason}
+                                    onChange={(e) => setAccountMoveReason(e.target.value)}
+                                    maxLength={MAIN_MEMBER_CHANGE_REASON_MAX}
+                                    placeholder="e.g. The main member passed away"
+                                    className="rounded-lg border border-gray-300 bg-white px-2 py-1"
+                                  />
+                                </label>
+                              </>
+                            )}
+                            {accountMove?.plan.kind === 'none' && accountMove.plan.why === 'paid_by_other' && (
+                              <p className="mt-3 text-gray-700">Someone else pays for this family, so the account stays with them.</p>
+                            )}
+                            {accountMove?.plan.kind === 'blocked' && (
+                              <p className="mt-3 text-gray-700">
+                                {member.patient ? member.patient.first_name : 'This person'} is on another family&apos;s account, so the account is not moved. Change it on the patient&apos;s Billing tab, under Account, Family.
+                              </p>
+                            )}
+                            <div className="mt-3 flex flex-wrap justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setSwapTarget(null)}
+                                disabled={isSwapping}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void confirmSwap()}
+                                disabled={isSwapping}
+                                className="rounded-lg bg-yellow-500 px-3 py-2 font-semibold text-white hover:bg-yellow-600 disabled:opacity-50"
+                              >
+                                {isSwapping ? 'Changing...' : 'Make main member'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </motion.div>
                     ))}
                   </div>
@@ -819,7 +957,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                               ? `No patients match "${searchTerm}" in your practice`
                               : totalPatientsInPractice === 0
                               ? `No patients found in your practice. Please add patients first.`
-                              : `All ${totalPatientsInPractice} patients in your practice are already linked to medical aids`
+                              : `All ${totalPatientsInPractice} patients in your practice are already on this medical aid`
                             }
                           </p>
                           {searchTerm && (

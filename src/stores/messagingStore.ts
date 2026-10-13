@@ -214,7 +214,9 @@ export const useMessagingStore = create<MessagingStore>()(subscribeWithSelector(
       );
       
       set(state => ({
-        notifications: pagination?.page === 1 ? response.data : [...state.notifications, ...response.data],
+        // A load without paging is a fresh list (each panel and list loads on opening): appending it again showed every
+        // notification twice, three times... Only a later page adds to the list
+        notifications: !pagination || pagination.page === 1 ? response.data : [...state.notifications, ...response.data],
         isLoadingNotifications: false
       }));
       
@@ -834,8 +836,9 @@ export const useFilteredNotifications = () => {
     // Sort notifications
     const sortField = uiState.sortBy;
     const sortOrder = uiState.sortOrder;
-    
-    filtered.sort((a, b) => {
+
+    // Sort a copy: with no filters active, `filtered` is the store's own array
+    return [...filtered].sort((a, b) => {
       let aValue, bValue;
       
       switch (sortField) {
@@ -861,8 +864,6 @@ export const useFilteredNotifications = () => {
       if (aValue > bValue) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
-    
-    return filtered;
   });
 };
 

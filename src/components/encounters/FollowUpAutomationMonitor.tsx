@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
+import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 
@@ -52,11 +53,18 @@ export default function FollowUpAutomationMonitor() {
   const processQueue = async () => {
     setIsProcessing(true);
     try {
-      await supabase.functions.invoke('follow-up-queue-processor');
+      // invoke() reports a refusal in `error` and never throws: the queue is run by OneHealth's scheduler (the function
+      // takes only its service key), so a press from here was refused and nothing said so
+      const { error } = await supabase.functions.invoke('process-automation-queue');
+      if (error) {
+        console.error('Error processing queue:', error);
+        toast.error('The queue is sent by OneHealth\'s scheduler every few minutes and cannot be started from here. If nothing moves, OneHealth support must start the scheduler.', { duration: 8000 });
+      }
       await fetchQueueStatus();
       await fetchRecentJobs();
     } catch (error) {
       console.error('Error processing queue:', error);
+      toast.error('The queue could not be reached. Please try again.');
     } finally {
       setIsProcessing(false);
     }
@@ -186,7 +194,7 @@ export default function FollowUpAutomationMonitor() {
                   <div>
                     <p className="text-sm font-medium">Visit: {job.visit_id.slice(0, 8)}...</p>
                     <p className="text-xs text-gray-500">
-                      {format(new Date(job.created_at), 'MMM d, HH:mm:ss')}
+                      {format(new Date(job.created_at), 'd MMM, HH:mm:ss')}
                     </p>
                   </div>
                 </div>
@@ -211,7 +219,7 @@ export default function FollowUpAutomationMonitor() {
       {/* Real-time Indicator */}
       <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4">
         <div className="flex items-center gap-2 text-sm text-purple-700">
-          <Icon icon="solar:wifi-router-bold-duotone" className="w-5 h-5" />
+          <Icon icon="solar:wi-fi-router-bold-duotone" className="w-5 h-5" />
           <span>Real-time monitoring active - Queue updates automatically</span>
         </div>
       </div>

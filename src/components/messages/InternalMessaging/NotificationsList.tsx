@@ -30,6 +30,7 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
     notificationError,
     unreadNotificationCount,
     updateNotificationUIState,
+    updateNotificationFilters,
     notificationUIState
   } = useMessagingStore();
   
@@ -48,7 +49,12 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
         ? { priorities: ['urgent', 'critical', 'high'] }
         : {}
     });
-  }, [selectedTab, updateNotificationUIState]);
+    // The list is filtered by notificationFilters (activeFilters above is read by nothing): Urgent showed everything
+    updateNotificationFilters({ priorities: selectedTab === 'urgent' ? ['urgent', 'critical', 'high'] : undefined });
+  }, [selectedTab, updateNotificationUIState, updateNotificationFilters]);
+
+  // Other screens show every notification: the Urgent filter ends with this list
+  useEffect(() => () => updateNotificationFilters({ priorities: undefined }), [updateNotificationFilters]);
 
   const getNotificationIcon = (type: SystemNotification['notification_type']) => {
     const iconMap: Record<string, string> = {
@@ -91,7 +97,7 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
     } else if (isYesterday(notificationDate)) {
       return 'Yesterday';
     } else {
-      return format(notificationDate, 'MMM d');
+      return format(notificationDate, 'd MMM');
     }
   };
 
@@ -146,6 +152,8 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
             {onClose && (
               <button
                 onClick={onClose}
+                aria-label="Close notifications"
+                title="Close"
                 className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
@@ -210,8 +218,9 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
           <AnimatePresence mode="popLayout">
             {filteredNotifications.map((notification, index) => {
               const isUnread = notification.status === 'pending' || notification.status === 'delivered';
-              const Icon = getNotificationIcon;
-              
+              // Not named `Icon`: that would shadow the Iconify component used below
+              const iconName = getNotificationIcon(notification.notification_type);
+
               return (
                 <motion.div
                   key={notification.id}
@@ -242,7 +251,7 @@ export const NotificationsList: React.FC<NotificationsListProps> = ({
                         "p-2 rounded-lg bg-gradient-to-br shadow-sm flex-shrink-0",
                         getNotificationColor(notification.priority)
                       )}>
-                        <Icon icon={Icon(notification.notification_type)} className="w-4 h-4 text-white" />
+                        <Icon icon={iconName} className="w-4 h-4 text-white" />
                       </div>
 
                       {/* Content */}

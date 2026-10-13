@@ -5,6 +5,11 @@ import { usePractice } from '../../contexts/PracticeContext';
 import Button from '../ui/Button';
 import { motion, AnimatePresence } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
+import { loadGmailConnection, startGmailConnect } from '../../services/gmailConnectService';
+import { useAuthStore } from '../../stores/authStore';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
 
 interface GmailSettingsModalProps {
   isOpen: boolean;
@@ -24,7 +29,7 @@ interface ConfirmModalProps {
 
 interface GmailCredentials {
   email: string;
-  connected_at: string;
+  connected_at: string | null;
   last_used_at: string | null;
   metadata: {
     name?: string;
@@ -42,6 +47,8 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel'
 }) => {
+  // Escape cancels, as Cancel does (only this confirmation, not the Gmail window under it)
+  useEscapeToClose(isOpen, onClose);
   return (
     <AnimatePresence>
       {isOpen && (
@@ -60,6 +67,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 flex items-center justify-center z-[61] p-4"
+            onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
           >
             <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -109,6 +117,11 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
   const [disconnecting, setDisconnecting] = useState(false);
   const [testingSend, setTestingSend] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  // The connection is the practice's: administrators and doctors may remove it (the database refuses anyone else)
+  const role = useAuthStore((state) => state.user?.role);
+  const canDisconnect = role === 'admin' || role === 'doctor';
+  // Escape closes the window, as its X does
+  useEscapeToClose(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen) {
@@ -130,17 +143,19 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
 
       setHasOAuthApp(!!oauthApp);
 
-      // Check Gmail credentials
-      const { data: creds } = await supabase
-        .from('practice_oauth_credentials')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .eq('provider', 'google')
-        .single();
-
-      setCredentials(creds);
+      // The connected account: its address, dates and profile, never its tokens
+      const connection = await loadGmailConnection(practiceId);
+      setCredentials(connection
+        ? {
+            email: connection.email,
+            connected_at: connection.connectedAt,
+            last_used_at: connection.lastUsedAt,
+            metadata: { name: connection.name ?? undefined, picture: connection.picture ?? undefined }
+          }
+        : null);
     } catch (error) {
       console.error('Error checking Gmail status:', error);
+      toast.error('Could not check the Gmail connection. Please close this window and try again.');
     } finally {
       setLoading(false);
     }
@@ -152,151 +167,30 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
       return;
     }
 
-    // Check if we have an OAuth code in the URL - if so, process it
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    
-    if (code) {
-      // Process the OAuth code
-      try {
-        // Get OAuth app credentials first
-        const { data: oauthApp, error: appError } = await supabase
-          .from('practice_oauth_apps')
-          .select('client_id, client_secret')
-          .eq('practice_id', practiceId)
-          .eq('provider', 'google')
-          .single();
-
-        if (appError || !oauthApp) {
-          toast.error('OAuth credentials not found');
-          return;
-        }
-
-        // Exchange code for tokens
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            code,
-            client_id: oauthApp.client_id,
-            client_secret: oauthApp.client_secret,
-            redirect_uri: 'http://localhost:5000/settings',
-            grant_type: 'authorization_code',
-          }),
-        });
-
-        if (!tokenResponse.ok) {
-          const error = await tokenResponse.text();
-          throw new Error(`Token exchange failed: ${error}`);
-        }
-
-        const tokens = await tokenResponse.json();
-
-        // Get user info
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-          },
-        });
-
-        const userInfo = await userInfoResponse.json();
-
-        // Save credentials
-        const credentialData = {
-          practice_id: practiceId,
-          provider: 'google',
-          email: userInfo.email,
-          refresh_token: tokens.refresh_token,
-          access_token: tokens.access_token,
-          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          scopes: tokens.scope?.split(' ') || [],
-          metadata: {
-            name: userInfo.name,
-            picture: userInfo.picture,
-            verified_email: userInfo.verified_email,
-          },
-          connected_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const { error: saveError } = await supabase
-          .from('practice_oauth_credentials')
-          .insert(credentialData);
-
-        if (!saveError) {
-          toast.success('Gmail connected successfully!');
-          // Clear URL and refresh
-          window.history.replaceState({}, document.title, window.location.pathname + '?tab=social');
-          await checkGmailStatus();
-          if (onConnectionChange) {
-            onConnectionChange();
-          }
-        } else {
-          console.error('Save error:', saveError);
-          toast.error('Failed to save credentials');
-        }
-      } catch (err: any) {
-        console.error('OAuth processing error:', err);
-        toast.error(err.message);
-      }
+    // The server signs the sign-in for this practice and person. Google then sends the browser back to Settings,
+    // which hands the code to the server: the browser never sees the client secret or the tokens.
+    const start = await startGmailConnect(practiceId);
+    if (!start.ok) {
+      toast.error(start.message);
       return;
     }
-
-    // No code present, initiate OAuth flow
-    try {
-      // Get OAuth app credentials
-      const { data: oauthApp, error } = await supabase
-        .from('practice_oauth_apps')
-        .select('client_id')
-        .eq('practice_id', practiceId)
-        .eq('provider', 'google')
-        .single();
-
-      if (error || !oauthApp) {
-        toast.error('OAuth credentials not found');
-        return;
-      }
-
-      // Create OAuth URL and redirect
-      const stateData = {
-        practice_id: practiceId,
-        redirect_origin: window.location.origin
-      };
-      const state = btoa(JSON.stringify(stateData));
-
-      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-      authUrl.searchParams.append('client_id', oauthApp.client_id);
-      authUrl.searchParams.append('redirect_uri', 'http://localhost:5000/settings');
-      authUrl.searchParams.append('response_type', 'code');
-      authUrl.searchParams.append('scope', [
-        'https://www.googleapis.com/auth/gmail.send',
-        'https://www.googleapis.com/auth/gmail.compose',
-        'https://www.googleapis.com/auth/userinfo.email'
-      ].join(' '));
-      authUrl.searchParams.append('access_type', 'offline');
-      authUrl.searchParams.append('prompt', 'consent');
-      authUrl.searchParams.append('state', state);
-
-      window.location.href = authUrl.toString();
-    } catch (error) {
-      console.error('Error initiating OAuth:', error);
-      toast.error('Failed to initiate OAuth connection');
-    }
+    window.location.assign(start.url);
   };
 
   const handleDisconnect = async () => {
     try {
       setDisconnecting(true);
       
-      const { error } = await supabase
+      const { data: removed, error } = await supabase
         .from('practice_oauth_credentials')
         .delete()
         .eq('practice_id', practiceId)
-        .eq('provider', 'google');
+        .eq('provider', 'google')
+        .select('id');
 
       if (error) throw error;
+      // A refused delete removes nothing and reports no error: never say "disconnected" then
+      ensureRowsUpdated(removed, 'The Gmail connection');
 
       // Show success toast once
       toast.success('Gmail disconnected successfully');
@@ -311,7 +205,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
       }
     } catch (error) {
       console.error('Error disconnecting Gmail:', error);
-      toast.error('Failed to disconnect Gmail');
+      toast.error(describeDbError(error, 'Gmail could not be disconnected'));
     } finally {
       setDisconnecting(false);
     }
@@ -329,16 +223,16 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
       }
 
       // Call the centralized email gateway
-      const { error } = await supabase.functions.invoke('centralized-email-gateway', {
+      const { data, error } = await supabase.functions.invoke('centralized-email-gateway', {
         body: {
           practiceId,
           recipientEmail: user.email,
           subject: 'Test Email from OneHealth',
           htmlContent: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2>Test Email Successful!</h2>
+              <h2>Test email</h2>
               <p>This is a test email from your OneHealth practice management system.</p>
-              <p>Gmail integration is working correctly for <strong>${credentials?.email}</strong>.</p>
+              <p>It checks the practice's Gmail connection for <strong>${credentials?.email}</strong>.</p>
               <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
               <p style="color: #666; font-size: 12px;">
                 Sent from OneHealth Practice Management System
@@ -351,7 +245,12 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
 
       if (error) throw error;
 
-      toast.success(`Test email sent to ${user.email}`);
+      // When Gmail fails the gateway still sends, through OneHealth's own email: then Gmail is not working
+      if ((data as { provider?: string } | null)?.provider !== 'gmail') {
+        toast.error(`Gmail could not send it: the test email went to ${user.email} through OneHealth's own email instead. Reconnect Gmail and try again.`);
+        return;
+      }
+      toast.success(`Test email sent to ${user.email} through Gmail`);
     } catch (error) {
       console.error('Error sending test email:', error);
       toast.error('Failed to send test email');
@@ -381,6 +280,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 flex items-center justify-center z-50 p-4"
+            onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}
           >
             <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
               {/* Header */}
@@ -394,9 +294,11 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                   </div>
                   <button
                     onClick={onClose}
+                    aria-label="Close Gmail settings"
+                    title="Close"
                     className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
                   >
-                    <Icon icon="solar:close-bold" className="w-5 h-5" />
+                    <Icon icon="solar:close-circle-bold" className="w-5 h-5" />
                   </button>
                 </div>
               </div>
@@ -418,7 +320,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                           
                           <div className="space-y-2">
                             <div className="flex items-center gap-2">
-                              <Icon icon="solar:mail-bold" className="w-4 h-4 text-green-600" />
+                              <Icon icon="solar:letter-bold" className="w-4 h-4 text-green-600" />
                               <span className="text-sm text-green-800">{credentials.email}</span>
                             </div>
                             
@@ -432,7 +334,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                             <div className="flex items-center gap-2">
                               <Icon icon="solar:calendar-bold" className="w-4 h-4 text-green-600" />
                               <span className="text-sm text-green-800">
-                                Connected {new Date(credentials.connected_at).toLocaleDateString()}
+                                Connected{credentials.connected_at ? ` ${format(new Date(credentials.connected_at), 'dd MMM yyyy')}` : ''}
                               </span>
                             </div>
                             
@@ -440,7 +342,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                               <div className="flex items-center gap-2">
                                 <Icon icon="solar:history-bold" className="w-4 h-4 text-green-600" />
                                 <span className="text-sm text-green-800">
-                                  Last used {new Date(credentials.last_used_at).toLocaleDateString()}
+                                  Last used {format(new Date(credentials.last_used_at), 'dd MMM yyyy')}
                                 </span>
                               </div>
                             )}
@@ -479,7 +381,8 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                       
                       <Button
                         onClick={() => setShowConfirmModal(true)}
-                        disabled={disconnecting}
+                        disabled={disconnecting || !canDisconnect}
+                        title={canDisconnect ? undefined : 'Only administrators and doctors can disconnect Gmail'}
                         variant="outline"
                         className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
                       >
@@ -490,7 +393,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                           </>
                         ) : (
                           <>
-                            <Icon icon="solar:unlink-bold" className="w-5 h-5 mr-2" />
+                            <Icon icon="solar:link-broken-bold" className="w-5 h-5 mr-2" />
                             Disconnect Gmail
                           </>
                         )}
@@ -502,19 +405,19 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                       <h4 className="font-medium text-blue-900 mb-2">How Gmail Integration Works</h4>
                       <ul className="space-y-1 text-sm text-blue-800">
                         <li className="flex items-start gap-2">
-                          <Icon icon="solar:check-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <Icon icon="solar:check-circle-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <span>Automated emails are sent from your Gmail account</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <Icon icon="solar:check-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <Icon icon="solar:check-circle-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <span>Perfect for automated emails and workflows</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <Icon icon="solar:check-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <Icon icon="solar:check-circle-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <span>Secure OAuth 2.0 authentication</span>
                         </li>
                         <li className="flex items-start gap-2">
-                          <Icon icon="solar:check-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <Icon icon="solar:check-circle-bold" className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <span>No password storage - uses secure tokens</span>
                         </li>
                       </ul>
@@ -542,20 +445,23 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 max-w-md mx-auto">
                           <Icon icon="solar:info-circle-bold-duotone" className="w-6 h-6 text-amber-600 mx-auto mb-2" />
                           <p className="text-sm text-amber-800 mb-3">
-                            OAuth credentials required to connect Gmail
+                            Gmail needs your practice's Google sign-in details first. Close this window, click
+                            "Add Account" on this page, choose Gmail and enter your Google OAuth Client ID and
+                            Client Secret.
                           </p>
+                          {/* This button only closes the window: the 'navigate-to-oauth' listener in Settings.tsx
+                              looks for a tab element that does not exist, so the steps above say where to go */}
                           <Button
                             variant="outline"
                             onClick={() => {
                               onClose();
-                              // Navigate to OAuth Applications tab
                               const event = new CustomEvent('navigate-to-oauth');
                               window.dispatchEvent(event);
                             }}
                             className="text-amber-700 border-amber-300 hover:bg-amber-50"
                           >
                             <Icon icon="solar:settings-bold" className="w-4 h-4 mr-2" />
-                            Configure OAuth App
+                            Close and add Gmail details
                           </Button>
                         </div>
                       )}
@@ -564,7 +470,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
                     {/* Benefits */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-gray-50 rounded-lg p-4">
-                        <Icon icon="solar:automation-bold-duotone" className="w-8 h-8 text-purple-600 mb-2" />
+                        <Icon icon="solar:magic-stick-3-bold-duotone" className="w-8 h-8 text-purple-600 mb-2" />
                         <h4 className="font-medium text-gray-900 mb-1">Automated Emails</h4>
                         <p className="text-sm text-gray-600">
                           Perfect for automated workflows and patient communications
@@ -593,7 +499,7 @@ export const GmailSettingsModal: React.FC<GmailSettingsModalProps> = ({
         onClose={() => setShowConfirmModal(false)}
         onConfirm={handleDisconnect}
         title="Disconnect Gmail?"
-        message="Are you sure you want to disconnect your Gmail account? Automated emails will stop working until you reconnect."
+        message="Are you sure you want to disconnect your Gmail account? Emails then go out through OneHealth's own email until you reconnect."
         confirmText="Disconnect"
         cancelText="Cancel"
       />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Calendar, Building2, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 interface EditLabRequestProps {
   request: {
@@ -49,7 +50,7 @@ export default function EditLabRequest({
       onClose();
     } catch (error) {
       console.error('Error updating lab request:', error);
-      alert('Failed to update lab request. Please try again.');
+      toast.error('Failed to update lab request. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

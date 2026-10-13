@@ -15,12 +15,13 @@ import {
   AlertCircle,
   Printer
 } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter, subQuarters } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear, startOfQuarter, endOfQuarter, subQuarters, endOfDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import html2canvas from 'html2canvas';
 import { useAuthStore } from '../../stores/authStore';
+import { practiceWebsiteText } from '../../utils/practiceWebsite';
 
 interface Invoice {
   id: string;
@@ -59,7 +60,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
   invoices
 }) => {
   const { currentTheme } = useTheme();
-  const { user } = useAuthStore();
+  const { user, selectedPracticeId } = useAuthStore();
   const [selectedPeriod, setSelectedPeriod] = useState<string>('current_month');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
@@ -131,8 +132,9 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       case 'custom':
         return {
           start: customStartDate ? parseISO(customStartDate) : startOfMonth(now),
-          end: customEndDate ? parseISO(customEndDate) : endOfMonth(now),
-          label: `${customStartDate || 'Start'} to ${customEndDate || 'End'}`
+          // parseISO('yyyy-MM-dd') is midnight; include invoices created during the end date
+          end: customEndDate ? endOfDay(parseISO(customEndDate)) : endOfMonth(now),
+          label: `${customStartDate ? format(parseISO(customStartDate), 'd MMM yyyy') : 'Start'} to ${customEndDate ? format(parseISO(customEndDate), 'd MMM yyyy') : 'End'}`
         };
       default:
         return {
@@ -180,10 +182,8 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
       }
 
       // Fetch practice details
-      let userPracticeId = user?.practice_id;
-      if (!userPracticeId && user?.user_metadata?.practice_id) {
-        userPracticeId = user.user_metadata.practice_id;
-      }
+      // authStore user has no user_metadata; use the selected practice (multi-practice users) first
+      const userPracticeId = selectedPracticeId || user?.practice_id;
 
       if (!userPracticeId) {
         throw new Error('No practice associated with user');
@@ -191,17 +191,32 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
 
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
-        .select(`
-          id, name, slug, domain, logo_url, primary_color, secondary_color,
-          contact_email, contact_phone, address, city, country, postal_code,
-          tax_number, license_number, practice_number, hero_subtitle
-        `)
+        // Every column: the website the practice typed (website_url) is read when it is there, and naming a column
+        // the database lacks would fail the whole statement header
+        .select('*')
         .eq('id', userPracticeId)
         .single();
 
       if (practiceError) {
         throw new Error('Failed to fetch practice details');
       }
+
+      // Only this practice's own details: missing values are left out (no "null", and no
+      // hard-coded bank account, which used to be printed on every practice's statements)
+      const practiceLocation = [
+        [practiceData.city, practiceData.country].filter(Boolean).join(', '),
+        practiceData.postal_code
+      ].filter(Boolean).join(' ');
+      const practiceContact = [practiceData.contact_phone, practiceData.contact_email].filter(Boolean).join(' • ');
+      const bankDetailsHTML = practiceData.account_number ? `
+            <div style="margin: 30px 40px 40px 40px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
+              <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Banking Details</h3>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px; color: #4b5563;">
+                ${practiceData.bank_name ? `<div><span style="font-weight: 600;">Bank:</span> ${practiceData.bank_name}</div>` : ''}
+                <div><span style="font-weight: 600;">Account:</span> ${practiceData.account_number}</div>
+                ${practiceData.branch_code ? `<div><span style="font-weight: 600;">Branch:</span> ${practiceData.branch_code}</div>` : ''}
+              </div>
+            </div>` : '';
 
       // Import required libraries
       // html2canvas is already imported at the top
@@ -278,10 +293,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
               <div style="text-align: right; max-width: 300px;">
                 <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
                   ${practiceData.address ? `<div style="margin-bottom: 2px;">${practiceData.address}</div>` : ''}
-                  <div style="margin-bottom: 2px;">${practiceData.city}, ${practiceData.country} ${practiceData.postal_code || ''}</div>
+                  ${practiceLocation ? `<div style="margin-bottom: 2px;">${practiceLocation}</div>` : ''}
                   ${practiceData.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceData.contact_phone}</div>` : ''}
                   ${practiceData.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceData.contact_email}</div>` : ''}
-                  ${practiceData.domain ? `<div>www.${practiceData.domain}</div>` : ''}
+                  ${practiceWebsiteText(practiceData) ? `<div>${practiceWebsiteText(practiceData)}</div>` : ''}
                 </div>
               </div>
             </div>
@@ -326,7 +341,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                   <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 0 ? 'background: white;' : 'background: #fafbfc;'}">
                     <td style="padding: 14px 12px; font-size: 14px; font-weight: 600; color: #1f2937;">${service.code}</td>
                     <td style="padding: 14px 12px; font-size: 13px; color: #4b5563; line-height: 1.4;">${service.description}</td>
-                    <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity}</td>
+                    <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity ?? ''}</td>
                     <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${service.total_price.toFixed(2)}</td>
                     <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
                     <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.total_price - (service.medical_aid_covered || 0)).toFixed(2)}</td>
@@ -345,29 +360,21 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                   <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #ea580c;">N$ ${(totalAmount - filteredInvoices.reduce((sum, inv) => sum + (inv.medical_aid_covered || 0), 0)).toFixed(2)}</td>
                 </tr>
                 
-                <!-- Total Amount Due Row -->
+                <!-- Total Invoiced Row (sum of all listed invoices, including paid ones: not an amount due) -->
                 <tr style="background: #5f6578;">
-                  <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Amount Due:</td>
+                  <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Invoiced:</td>
                   <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 18px; color: white;">N$ ${totalAmount.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <!-- Banking Details Section - EXACT style from screenshot -->
-          <div style="margin: 30px 40px 40px 40px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
-            <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Banking Details</h3>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px; color: #4b5563;">
-              <div><span style="font-weight: 600;">Bank:</span> Bank Windhoek</div>
-              <div><span style="font-weight: 600;">Account:</span> 4433221009</div>
-              <div><span style="font-weight: 600;">Branch:</span> 484519</div>
-            </div>
-          </div>
+          ${bankDetailsHTML}
 
           <!-- Footer Section - EXACT style from screenshot -->
           <div style="padding: 30px 40px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center;">
             <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">
-              Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong> For inquiries: ${practiceData.contact_phone} • ${practiceData.contact_email}
+              Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong>.${practiceContact ? ` For inquiries: ${practiceContact}` : ''}
             </p>
             <div style="margin-top: 15px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 12px;">
               Statement generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
@@ -442,10 +449,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                 <div style="text-align: right; max-width: 300px;">
                   <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
                     ${practiceData.address ? `<div style="margin-bottom: 2px;">${practiceData.address}</div>` : ''}
-                    <div style="margin-bottom: 2px;">${practiceData.city}, ${practiceData.country} ${practiceData.postal_code || ''}</div>
+                    ${practiceLocation ? `<div style="margin-bottom: 2px;">${practiceLocation}</div>` : ''}
                     ${practiceData.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceData.contact_phone}</div>` : ''}
                     ${practiceData.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceData.contact_email}</div>` : ''}
-                    ${practiceData.domain ? `<div>www.${practiceData.domain}</div>` : ''}
+                    ${practiceWebsiteText(practiceData) ? `<div>${practiceWebsiteText(practiceData)}</div>` : ''}
                   </div>
                 </div>
               </div>
@@ -496,7 +503,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                     <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 0 ? 'background: white;' : 'background: #fafbfc;'}">
                       <td style="padding: 14px 12px; font-size: 14px; font-weight: 600; color: #1f2937;">${service.code}</td>
                       <td style="padding: 14px 12px; font-size: 13px; color: #4b5563; line-height: 1.4;">${service.description}</td>
-                      <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity}</td>
+                      <td style="padding: 14px 12px; text-align: center; font-size: 14px; font-weight: 500; color: #1f2937;">${service.quantity ?? ''}</td>
                       <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${service.total_price.toFixed(2)}</td>
                       <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
                       <td style="padding: 14px 12px; text-align: right; font-size: 14px; font-weight: 600; color: #1f2937;">N$ ${(service.total_price - (service.medical_aid_covered || 0)).toFixed(2)}</td>
@@ -514,7 +521,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                     <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 16px; color: #ea580c;">N$ ${(totalAmount - filteredInvoices.reduce((sum, inv) => sum + (inv.medical_aid_covered || 0), 0)).toFixed(2)}</td>
                   </tr>
                   <tr style="background: #5f6578;">
-                    <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Amount Due:</td>
+                    <td colspan="5" style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 14px; color: white; text-transform: uppercase;">Total Invoiced:</td>
                     <td style="padding: 16px 12px; text-align: right; font-weight: 700; font-size: 18px; color: white;">N$ ${totalAmount.toFixed(2)}</td>
                   </tr>
                   ` : ''}
@@ -524,17 +531,10 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
 
             ${isLastPage ? `
             <!-- Banking Details and Footer (only on last page) -->
-            <div style="margin: 30px 40px 40px 40px; padding: 20px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.5px;">Banking Details</h3>
-              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; font-size: 13px; color: #4b5563;">
-                <div><span style="font-weight: 600;">Bank:</span> Bank Windhoek</div>
-                <div><span style="font-weight: 600;">Account:</span> 4433221009</div>
-                <div><span style="font-weight: 600;">Branch:</span> 484519</div>
-              </div>
-            </div>
+            ${bankDetailsHTML}
             <div style="padding: 30px 40px; background: #f8fafc; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 8px 0; font-size: 12px; color: #6b7280;">
-                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong> For inquiries: ${practiceData.contact_phone} • ${practiceData.contact_email}
+                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceData.name}</strong>.${practiceContact ? ` For inquiries: ${practiceContact}` : ''}
               </p>
               <div style="margin-top: 15px; font-size: 11px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 12px;">
                 Statement generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
@@ -655,6 +655,8 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                 }}
                 className="p-1 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors"
                 disabled={isGenerating}
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -754,6 +756,7 @@ const PrintStatementModal: React.FC<PrintStatementModalProps> = ({
                 generateStatementPDF();
               }}
               disabled={isGenerating || filteredInvoices.length === 0}
+              title={filteredInvoices.length === 0 ? 'No invoices in the selected period' : undefined}
               className={`flex-1 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
                 isGenerating || filteredInvoices.length === 0
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'

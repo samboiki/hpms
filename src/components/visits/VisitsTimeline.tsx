@@ -7,10 +7,10 @@ import { supabase } from '../../lib/supabase';
 import FormModal from '../modals/FormModal';
 import VisitCard from './VisitCard';
 import VisitModal from './VisitModal';
-import PremiumEditVisitForm from '../forms/PremiumEditVisitForm';
 import FullScreenEditVisitModal from './FullScreenEditVisitModal';
 import CompactVisitCard from './CompactVisitCard';
 import DuotoneIcon from '../icons/DuotoneIcon';
+import { EXCLUDE_CARRIER_VISITS } from '../../utils/carrierVisits';
 
 interface Visit {
   id: string;
@@ -108,29 +108,21 @@ const VisitsTimeline: React.FC<VisitsTimelineProps> = ({ patientId }) => {
             full_name,
             role
           ),
-          vitals (
-            id,
-            blood_pressure_systolic,
-            blood_pressure_diastolic,
-            heart_rate,
-            temperature,
-            respiratory_rate,
-            oxygen_saturation,
-            weight,
-            height,
-            bmi
-          ),
+          vitals!fk_vitals_visit_id (*),
           lab_requests (
             id,
-            test_name,
             status
           ),
-          prescriptions:medical_records (
+          prescriptions:medications (
             id,
-            prescriptions
+            medication_name,
+            dosage,
+            frequency
           )
         `)
         .eq('patient_id', patientId)
+        // A row that only carries a payment plan's, package's or opening balance's invoices is not a visit
+        .or(EXCLUDE_CARRIER_VISITS)
         .order('visit_date', { ascending: false })
         .order('visit_time', { ascending: false });
 

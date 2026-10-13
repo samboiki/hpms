@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import { format, parseISO, isWeekend, eachDayOfInterval } from 'date-fns';
 import { supabase } from '../../../lib/supabase';
 import { useAuthStore } from '../../../stores/authStore';
+import { RECORDS_BUCKET, recordPath } from '../../../services/recordFiles';
 import toast from 'react-hot-toast';
 import { Icon } from '@iconify/react';
 import TimesheetPDFGeneratorOptimized from './TimesheetPDFGeneratorOptimized';
@@ -221,11 +222,11 @@ const TimesheetPDFGeneratorFixed: React.FC<TimesheetPDFGeneratorFixedProps> = ({
       // Generate PDF blob
       const pdfBlob = pdf.output('blob');
       
-      // Upload to Supabase storage
-      const fileName = `timesheets/${timesheet.user_id}/${timesheet.id}_${format(parseISO(timesheet.period_start), 'yyyy-MM')}.pdf`;
-      
+      // Upload to the private bucket, in the practice's folder (a timesheet is a staff record)
+      const fileName = recordPath(practice.id, 'timesheets', timesheet.user_id, `${timesheet.id}_${format(parseISO(timesheet.period_start), 'yyyy-MM')}.pdf`);
+
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from(RECORDS_BUCKET)
         .upload(fileName, pdfBlob, {
           contentType: 'application/pdf',
           cacheControl: '3600',
@@ -236,15 +237,10 @@ const TimesheetPDFGeneratorFixed: React.FC<TimesheetPDFGeneratorFixedProps> = ({
         throw new Error(`Failed to upload PDF: ${uploadError.message}`);
       }
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(fileName);
-
-      // Update timesheet with PDF URL
+      // Keep the path on the timesheet (pdf_url), never a link: one is made when the PDF is opened
       const { error: updateError } = await supabase
         .from('timesheets')
-        .update({ pdf_url: publicUrl })
+        .update({ pdf_url: fileName })
         .eq('id', timesheet.id);
 
       if (updateError) {
@@ -709,7 +705,7 @@ const TimesheetPDFGeneratorFixed: React.FC<TimesheetPDFGeneratorFixedProps> = ({
               textAlign: 'center'
             }}
           >
-            Generated on {format(new Date(), 'MMM dd, yyyy HH:mm')}
+            Generated on {format(new Date(), 'd MMM yyyy HH:mm')}
             {practice.license_number && ` • License: ${practice.license_number}`}
             {practice.tax_number && ` • Tax No: ${practice.tax_number}`}
           </div>

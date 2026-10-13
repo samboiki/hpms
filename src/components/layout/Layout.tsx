@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import Sidebar from './Sidebar';
 import { cn } from '../../utils/cn';
+import { useAuthStore } from '../../stores/authStore';
+import { useTheme } from '../../stores/themeStore';
 
 const Layout: React.FC = () => {
+  const practiceName = useAuthStore((state) => state.user?.practices?.name);
+  const { currentTheme } = useTheme();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -40,7 +45,7 @@ const Layout: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
+    <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] overflow-hidden bg-gray-100">
       {/* Sidebar - Desktop Only */}
       <div className="hidden lg:block">
         <Sidebar
@@ -49,7 +54,6 @@ const Layout: React.FC = () => {
           isMobile={false}
           isFullscreen={isFullscreen}
           onToggleFullscreen={toggleFullscreen}
-          onOpenPatients={() => setIsPatientModalOpen(true)}
         />
       </div>
       
@@ -70,24 +74,50 @@ const Layout: React.FC = () => {
             onMobileClose={() => setIsMobileSidebarOpen(false)}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
-            onOpenPatients={() => setIsPatientModalOpen(true)}
           />
         </>
       )}
 
-      {/* Main Content */}
-      <main
+      {/* Main column */}
+      <div
         className={cn(
-          'flex-1 overflow-y-auto transition-all duration-300 bg-gray-100',
-          !isMobile && (sidebarCollapsed ? 'ml-[72px]' : 'ml-[240px]'),
-          isMobile && 'ml-0'
+          'flex-1 min-w-0 flex flex-col transition-all duration-300',
+          !isMobile && (sidebarCollapsed ? 'ml-[72px]' : 'ml-[240px]')
         )}
       >
-        <Outlet context={{ 
-          toggleMobileSidebar: () => setIsMobileSidebarOpen(!isMobileSidebarOpen),
-          isMobileSidebarOpen
-        }} />
-      </main>
+        {/* Below lg the sidebar is hidden: this bar gives every page the menu */}
+        <header className="lg:hidden flex-none flex items-center justify-between gap-3 h-14 px-4 bg-white/95 backdrop-blur border-b border-gray-200">
+          <NavLink
+            to="/"
+            className="flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+            title="Dashboard"
+          >
+            <span className={cn('flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', currentTheme.gradients.sidebar)}>
+              <Icon icon="solar:widget-bold-duotone" className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="truncate text-sm font-semibold text-gray-800">{practiceName || 'Dashboard'}</span>
+          </NavLink>
+          <div className="flex flex-none items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-gray-700 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+              aria-label="Open menu"
+              title="Menu"
+            >
+              <Icon icon="solar:hamburger-menu-bold-duotone" className="h-6 w-6" aria-hidden="true" />
+            </button>
+          </div>
+        </header>
+
+        {/* Reserve the scrollbar's space so pages don't shift sideways when content gets shorter or longer */}
+        <main className="flex-1 min-h-0 overflow-y-auto [scrollbar-gutter:stable] bg-gray-100">
+          <Outlet context={{
+            toggleMobileSidebar: () => setIsMobileSidebarOpen(!isMobileSidebarOpen),
+            isMobileSidebarOpen
+          }} />
+        </main>
+      </div>
 
     </div>
   );

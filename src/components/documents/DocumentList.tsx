@@ -18,6 +18,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { bucketOf, openRecord } from '../../services/recordFiles';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 
@@ -146,9 +147,10 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
   const downloadDocument = async (document: Document) => {
     try {
       console.log('📥 Downloading document:', document.original_name);
-      
+
+      // New uploads are in the private bucket "records", older ones still in "documents" until moved
       const { data, error } = await supabase.storage
-        .from('documents')
+        .from(bucketOf(document.storage_path))
         .download(document.storage_path);
 
       if (error) {
@@ -179,21 +181,8 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
 
   const previewDocument = async (document: Document) => {
     try {
-      console.log('👁️ Creating preview for document:', document.original_name);
-      
-      const { data, error } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(document.storage_path, 3600); // 1 hour expiry
-
-      if (error) {
-        console.error('❌ Preview failed:', error);
-        toast.error('Failed to preview document: ' + error.message);
-        return;
-      }
-
-      console.log('✅ Signed URL created, opening preview');
-      // Open in new tab
-      window.open(data.signedUrl, '_blank');
+      // Opens a new tab with a link that works for a few minutes, made now
+      await openRecord(document.storage_path);
     } catch (error) {
       console.error('❌ Preview error:', error);
       toast.error('Failed to preview document');
@@ -212,7 +201,7 @@ const DocumentList: React.FC<DocumentListProps> = ({ patientId, refreshTrigger }
       // Delete from storage
       console.log('1️⃣ Deleting from storage...');
       const { error: storageError } = await supabase.storage
-        .from('documents')
+        .from(bucketOf(document.storage_path))
         .remove([document.storage_path]);
 
       if (storageError) {

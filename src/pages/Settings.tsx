@@ -5,6 +5,7 @@ import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
+import { RECORDS_BUCKET, openRecord, recordPath } from '../services/recordFiles';
 import { useTheme } from '../stores/themeStore';
 import { motion } from 'framer-motion';
 import BranchManagement from '../components/settings/BranchManagement';
@@ -18,6 +19,19 @@ import TimePickerModal from '../components/ui/TimePickerModal';
 import { platformSettings, getPlatformDefaults } from '../config/socialPlatformSettings';
 import { GmailSettingsModal } from '../components/settings/GmailSettingsModal';
 import { GmailOAuthSettings } from '../components/settings/GmailOAuthSettings';
+import { loadGmailConnection, saveGoogleOAuthApp, startGmailConnect } from '../services/gmailConnectService';
+import { createClient } from '@supabase/supabase-js';
+import toast from 'react-hot-toast';
+import { describeDbError, ensureRowsUpdated, formatRole, isStaffAdmin } from '../components/settings/UserManagement/staffUtils';
+import { PageTabs } from '../components/ui/PageTabs';
+import { EminanceImportPage } from '../components/import/EminanceImportPage';
+import { PracticeTypeSection } from '../components/settings/PracticeTypeSection';
+import { ScreenAccessSettings } from '../components/settings/ScreenAccessSettings';
+import { FinanceFiguresGate } from '../components/access/FinanceFiguresGate';
+import { UserAvatar } from '../components/layout/ProfileMenu';
+import { PRACTICE_SECTIONS, sectionFromAddress } from '../utils/settingsSection';
+import { dayClosingBeforeOpening } from '../components/settings/businessHours';
+import { useEscapeToClose } from '../hooks/useEscapeToClose';
 
 // Iconify is now handled by @iconify/react package
 
@@ -36,20 +50,26 @@ const Settings: React.FC = () => {
   const getInitialTab = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const tabParam = urlParams.get('tab');
-    if (tabParam && ['account', 'users', 'practice', 'documents', 'social', 'system'].includes(tabParam)) {
+    if (tabParam && ['account', 'users', 'practice', 'documents', 'social', 'system', 'import'].includes(tabParam)) {
       return tabParam as any;
     }
-    // If we have OAuth code, default to social tab
-    if (urlParams.get('code')) {
+    // A Google sign-in coming back (with its code, or cancelled) finishes on the social tab
+    if (urlParams.get('code') || (urlParams.get('error') && urlParams.get('state'))) {
       return 'social';
     }
     return 'account';
   };
   
-  const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system'>(getInitialTab());
+  const [activeTab, setActiveTab] = useState<'account' | 'users' | 'practice' | 'documents' | 'social' | 'system' | 'import'>(getInitialTab());
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   const { practiceId } = usePractice();
+
+  // The profile card closes with Escape, as the profile menu on every other page does
+  useEscapeToClose(isAvatarDropdownOpen, () => {
+    setIsAvatarDropdownOpen(false);
+    avatarButtonRef.current?.focus();
+  });
 
   const tabIcons = {
     account: SolarIcons.user,
@@ -57,50 +77,46 @@ const Settings: React.FC = () => {
     practice: SolarIcons.building,
     documents: SolarIcons.document,
     social: SolarIcons.globe,
-    system: SolarIcons.settings
+    system: SolarIcons.settings,
+    import: 'solar:transfer-horizontal-bold-duotone'
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
 
-        {/* Header Section */}
-        <div className="rounded-xl">
-          <div className="p-4 md:p-5">
-            <div className="flex items-center justify-between">
+        {/* Header Section (aligned with the content below; stacks cleanly on phones) */}
+        <div>
+          <div className="py-1 md:py-2">
+            <div className="flex items-center justify-between gap-3">
               {/* Page Title and Icon */}
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
-                  <Icon icon="solar:settings-bold-duotone" className="w-8 h-8 text-white" />
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex-none p-2.5 md:p-3 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl shadow-lg">
+                  <Icon icon="solar:settings-bold-duotone" className="w-6 h-6 md:w-8 md:h-8 text-white" />
                 </div>
-                <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">Settings</h1>
+                <div className="min-w-0">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">Settings</h1>
                   <p className="text-sm text-gray-500 mt-0.5">Manage your practice and account settings</p>
                 </div>
               </div>
 
               {/* User Avatar with Dropdown */}
               {user && (
-                <div className="relative">
+                <div className="relative flex-none">
                   <button
                     ref={avatarButtonRef}
                     onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
-                    className="relative group focus:outline-none"
+                    className="relative group rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                    aria-label="Open profile menu"
                   >
                     {/* Pulsating outer ring */}
                     <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
                     <div className={`absolute -inset-1 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full opacity-50`}></div>
-                    
+
                     {/* Avatar circle */}
-                    <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                      <img 
-                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                        alt={user.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                        }}
-                      />
+                    <div className="relative h-12 w-12 md:h-16 md:w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                      {/* The user's photo, or their initials: never a stranger's stock photo standing in for them */}
+                      <UserAvatar avatar={user.avatar} name={user.name} />
                     </div>
                   </button>
 
@@ -129,6 +145,8 @@ const Settings: React.FC = () => {
                           <button 
                             onClick={() => setIsAvatarDropdownOpen(false)}
                             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            aria-label="Close"
+                            title="Close"
                           >
                             <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                           </button>
@@ -139,11 +157,7 @@ const Settings: React.FC = () => {
                           <div className="flex items-start gap-3">
                             <div className="relative flex-shrink-0">
                               <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                                <img 
-                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                  alt={user.name}
-                                  className="h-full w-full object-cover"
-                                />
+                                <UserAvatar avatar={user.avatar} name={user.name} />
                               </div>
                               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
@@ -151,7 +165,7 @@ const Settings: React.FC = () => {
                               <p className="text-base font-semibold text-gray-900 truncate">{user.name}</p>
                               <p className="text-sm text-gray-500 break-words" style={{ wordBreak: 'break-word' }}>{user.email}</p>
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-indigo-600 text-white mt-1">
-                                {user.role}
+                                {formatRole(user.role)}
                               </span>
                             </div>
                           </div>
@@ -178,30 +192,30 @@ const Settings: React.FC = () => {
           </div>
         </div>
 
-        {/* Premium Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-6 gap-0 w-full">
-            {(['account', 'users', 'practice', 'documents', 'social', 'system'] as const).map((tab, index) => {
-              const iconName = tabIcons[tab];
-              const isActive = activeTab === tab;
-              const tabLabel = tab;
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
-                    isActive
-                      ? `bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg`
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon icon={iconName} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="truncate text-center sm:text-left">{tabLabel}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* Premium Navigation Tabs (scroll sideways on narrow screens instead of cutting labels off) */}
+        <PageTabs
+          tabs={[
+            ...(['account', 'users', 'practice', 'documents', 'social', 'system'] as const).map((tab) => ({
+              key: tab,
+              // Staff/HR/payroll management is for administrators; everyone else gets their own HR self-service
+              label: tab === 'users' && !isStaffAdmin(user) ? 'My HR' : tab.charAt(0).toUpperCase() + tab.slice(1),
+              icon: tabIcons[tab]
+            })),
+            // Practice administrators only (the database checks the role too)
+            ...(user?.role === 'admin' ? [{ key: 'import' as const, label: 'Move over from Eminance', icon: tabIcons.import }] : [])
+          ]}
+          active={activeTab}
+          onChange={(tab) => {
+            setActiveTab(tab);
+            // The address names the open tab, so a reload or a copied link opens the same tab (?section= belongs to the old one)
+            const address = new URL(window.location.href);
+            address.searchParams.set('tab', tab);
+            address.searchParams.delete('section');
+            window.history.replaceState(window.history.state, '', `${address.pathname}${address.search}${address.hash}`);
+          }}
+          label="Settings sections"
+          activeClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
+        />
 
         {/* Main Content Area */}
         <div>
@@ -379,86 +393,6 @@ const Settings: React.FC = () => {
           
           {activeTab === 'system' && (
             <div className="space-y-4">
-              {/* System Information Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Icon icon={SolarIcons.server} className="w-5 h-5 text-purple-600" />
-                    System Information
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
-                      <Icon icon={SolarIcons.checkCircle} className="w-3 h-3" />
-                      All Systems Operational
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">System Version</label>
-                      <div className="flex items-center gap-2">
-                        <p className="text-gray-900 font-medium">HealthCare 2.5.0</p>
-                        <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded">Latest</span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Updated</label>
-                      <p className="text-gray-900">{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Environment</label>
-                      <p className="text-gray-900">Production</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Database Status</label>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <p className="text-gray-900">Connected - PostgreSQL 15.3</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Storage Usage</label>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Used: 1.2 GB</span>
-                          <span className="text-gray-600">Total: 10 GB</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div className="bg-gradient-to-r from-purple-500 to-indigo-600 h-2 rounded-full" style={{ width: '12%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">API Status</label>
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <p className="text-gray-900">Active - 99.9% Uptime</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex gap-3">
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4" />
-                    Check for Updates
-                  </Button>
-                  <Button variant="outline" className="flex items-center gap-2">
-                    <Icon icon="solar:chart-bold-duotone" className="w-4 h-4" />
-                    System Diagnostics
-                  </Button>
-                </div>
-              </div>
-              
               {/* Company Information Section */}
               <div className="bg-gray-50 rounded-lg p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -509,126 +443,30 @@ const Settings: React.FC = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Headquarters</label>
                       <p className="text-gray-900">South Africa</p>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">License</label>
-                      <div className="flex items-center gap-2">
-                        <p className="text-gray-900">Enterprise License</p>
-                        <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Active</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-gray-200">
                   <h4 className="text-sm font-medium text-gray-700 mb-3">Support Resources</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:chat-line-bold-duotone" className="w-4 h-4" />
-                      Live Chat
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:book-bold-duotone" className="w-4 h-4" />
-                      Documentation
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
-                      <Icon icon="solar:ticket-bold-duotone" className="w-4 h-4" />
-                      Support Ticket
-                    </Button>
-                    <Button variant="outline" size="sm" className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => { window.location.href = 'tel:081222331'; }}
+                    >
                       <Icon icon="solar:phone-calling-bold-duotone" className="w-4 h-4" />
                       Call Support
                     </Button>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Security & Compliance Section */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                    <Icon icon={SolarIcons.shield} className="w-5 h-5 text-purple-600" />
-                    Security & Compliance
-                  </h3>
-                  <Button size="sm" className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                    <Icon icon={SolarIcons.save} className="w-4 h-4 mr-1" />
-                    Save Settings
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">HIPAA Audit Logging</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Log all data access and modifications for compliance</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Data Encryption</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">End-to-end encryption for all patient data</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" defaultChecked />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Require 2FA for all user accounts</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" className="sr-only peer" />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Session Timeout</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Auto-logout after inactivity period</p>
-                      </div>
-                      <select className="px-3 py-2 rounded-lg bg-white border border-gray-300 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm">
-                        <option value="5">5 minutes</option>
-                        <option value="15" selected>15 minutes</option>
-                        <option value="30">30 minutes</option>
-                        <option value="60">60 minutes</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="bg-white p-4 rounded-lg border border-gray-200">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h4 className="text-sm font-medium text-gray-900">Password Policy</h4>
-                        <p className="text-sm text-gray-500 mt-0.5">Enforce strong password requirements</p>
-                      </div>
-                      <span className="text-sm text-gray-700">Min. 12 characters</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="flex items-start gap-3">
-                    <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-blue-900">Compliance Status</p>
-                      <p className="text-sm text-blue-700 mt-1">Your practice meets all HIPAA compliance requirements. Last audit: October 2023</p>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-2"
+                      onClick={() => { window.location.href = 'mailto:support@onehealthsystems.com'; }}
+                    >
+                      <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
+                      Email Support
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -648,7 +486,7 @@ const Settings: React.FC = () => {
                 <div className="space-y-6">
                   <div>
                     <p className="text-sm text-gray-600 mb-6">
-                      Select a color theme to personalize the appearance of your dashboard and sidebar. 
+                      Select a color theme for the dashboard and sidebar of everyone in your practice.
                       Changes are applied immediately and saved automatically.
                     </p>
                   </div>
@@ -667,7 +505,12 @@ const Settings: React.FC = () => {
                             ? 'border-purple-500 bg-gradient-to-br from-purple-50 to-white shadow-2xl ring-4 ring-purple-100'
                             : 'border-gray-200 hover:border-gray-300 hover:shadow-xl bg-gradient-to-br from-white to-gray-50'
                         }`}
-                        onClick={() => setTheme(theme.id, practiceId || undefined)}
+                        onClick={() => {
+                          // Saved for the whole practice: if that fails, say so (the colours would go back on reload)
+                          void Promise.resolve(setTheme(theme.id, practiceId || undefined)).then((saved) => {
+                            if (saved === false) toast.error('The colour theme could not be saved for the practice. Please try again.');
+                          });
+                        }}
                       >
                         {/* Theme Preview */}
                         <div className="space-y-3">
@@ -728,7 +571,7 @@ const Settings: React.FC = () => {
                             transition={{ type: "spring", duration: 0.6 }}
                             className="absolute -top-2 -right-2 w-7 h-7 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-xl ring-4 ring-white"
                           >
-                            <Icon icon="solar:check-bold-duotone" className="w-4 h-4 text-white" />
+                            <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4 text-white" />
                           </motion.div>
                         )}
                         
@@ -774,7 +617,11 @@ const Settings: React.FC = () => {
           )}
           
           {activeTab === 'users' && (
-            <EnhancedUserManagement />
+            <div className="space-y-6">
+              <EnhancedUserManagement />
+              {/* Administrators choose which roles open Finance and Stock (shows nothing to anyone else) */}
+              <ScreenAccessSettings />
+            </div>
           )}
           
           {activeTab === 'practice' && (
@@ -787,6 +634,10 @@ const Settings: React.FC = () => {
           
           {activeTab === 'social' && (
             <PracticeSocialAccountsContent />
+          )}
+
+          {activeTab === 'import' && (
+            <EminanceImportPage />
           )}
             </div>
           </div>
@@ -869,8 +720,11 @@ const convertBusinessHoursObjectToArray = (hoursObj: BusinessHoursData | Busines
 // Practice Profile Component
 const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> = () => {
   const { user } = useAuthStore();
+  const { practiceId: contextPracticeId } = usePractice();
+  const effectivePracticeId = user?.practice_id || contextPracticeId;
   const { currentTheme } = useTheme();
-  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'inventory'>('profile');
+  // A link names the section to open (?section=expenses: "Settings > Practice > Practice Overhead"), else the profile
+  const [practiceTab, setPracticeTab] = useState<'profile' | 'hours' | 'branches' | 'expenses' | 'departments' | 'inventory'>(() => sectionFromAddress(PRACTICE_SECTIONS, 'profile'));
   const [practiceData, setPracticeData] = useState({
     id: '',
     name: '',
@@ -929,22 +783,24 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   // Load practice data from database
   useEffect(() => {
     const loadPracticeData = async () => {
-      if (!user?.practice_id) {
+      if (!effectivePracticeId) {
         setLoading(false);
         return;
       }
 
       try {
-        console.log('📊 Loading practice data for ID:', user.practice_id);
-        
+        console.log('📊 Loading practice data for ID:', effectivePracticeId);
+
         const { data: practice, error } = await supabase
           .from('practices')
           .select('*')
-          .eq('id', user.practice_id)
+          .eq('id', effectivePracticeId)
           .single();
 
         if (error) {
           console.error('❌ Error loading practice data:', error);
+          // Without this the profile shows "Not set" everywhere, as if the practice had no details
+          toast.error('The practice profile could not be loaded. Please refresh the page before editing it.');
           return;
         }
 
@@ -982,13 +838,14 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       } catch (error) {
         console.error('❌ Error loading practice data:', error);
+        toast.error('The practice profile could not be loaded. Please refresh the page before editing it.');
       } finally {
         setLoading(false);
       }
     };
 
     loadPracticeData();
-  }, [user?.practice_id]);
+  }, [effectivePracticeId]);
 
   // Helper function to convert array format to object format for practices table
   const convertBusinessHoursArrayToObject = (hoursArray: BusinessHours[]) => {
@@ -1022,7 +879,11 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
   // Save practice data to database
   const savePracticeData = async (updates: Partial<typeof practiceData>) => {
-    if (!user?.practice_id || saving) return;
+    if (saving) return;
+    if (!user?.practice_id) {
+      toast.error('Your account is not linked to a practice, so these changes cannot be saved.');
+      return;
+    }
 
     try {
       setSaving(true);
@@ -1034,17 +895,24 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
         processedUpdates.business_hours = convertBusinessHoursArrayToObject(updates.business_hours);
       }
       
-      const { error } = await supabase
+      const { data: savedRows, error } = await supabase
         .from('practices')
         .update({
           ...processedUpdates,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.practice_id);
+        .eq('id', user.practice_id)
+        .select('id');
 
       if (error) {
         console.error('❌ Error saving practice data:', error);
-        alert('Failed to save changes. Please try again.');
+        // Bank details, numbers and the name are for administrators (proposals/2026-10-07-practice-protected-columns.sql): say so
+        toast.error(error.hint === 'practice_protected_columns' ? error.message : 'Failed to save changes. Please try again.');
+        return;
+      }
+      // An update the access rules refuse changes no row and returns no error
+      if (!savedRows || savedRows.length === 0) {
+        toast.error('These changes were not saved: your account is not permitted to change the practice profile.');
         return;
       }
 
@@ -1055,19 +923,10 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       setEditMode(false);
       
       console.log('✅ Practice data saved successfully');
-      
-      // Show success message
-      const successDiv = document.createElement('div');
-      successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      successDiv.textContent = 'Changes saved successfully!';
-      document.body.appendChild(successDiv);
-      setTimeout(() => {
-        document.body.removeChild(successDiv);
-      }, 3000);
-      
+      toast.success('Changes saved successfully!');
     } catch (error) {
       console.error('❌ Error saving practice data:', error);
-      alert('Failed to save changes. Please try again.');
+      toast.error('Failed to save changes. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1093,6 +952,12 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       hasUpdates: Object.keys(updates).length > 0
     });
     
+    const badDay = Array.isArray(updates.business_hours) ? dayClosingBeforeOpening(updates.business_hours) : null;
+    if (badDay) {
+      toast.error(`${badDay}: the closing time must be after the opening time.`);
+      return;
+    }
+
     if (Object.keys(updates).length > 0) {
       savePracticeData(updates);
     } else {
@@ -1113,13 +978,13 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
     // Validate file size (10MB limit)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB');
+      toast.error('File size must be less than 10MB');
       return;
     }
 
@@ -1141,7 +1006,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
       if (uploadError) {
         console.error('❌ Upload error:', uploadError);
-        alert('Failed to upload logo. Please try again.');
+        toast.error('Failed to upload logo. Please try again.');
         return;
       }
 
@@ -1158,7 +1023,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
     } catch (error) {
       console.error('❌ Error uploading logo:', error);
-      alert('Failed to upload logo. Please try again.');
+      toast.error('Failed to upload logo. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -1185,10 +1050,10 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
   ];
 
   return (
-    <div className="flex gap-6">
+    <div className="flex flex-col gap-6 lg:flex-row">
       {/* Left Sidebar - Practice Navigation */}
-      <div className="w-80 shrink-0">
-        <Card className="bg-white border border-gray-200 shadow-sm sticky top-4">
+      <div className="w-full lg:w-80 lg:shrink-0">
+        <Card className="bg-white border border-gray-200 shadow-sm lg:sticky lg:top-4">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-lg">
@@ -1231,7 +1096,12 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                   <Button
                     variant="outline"
                     className="w-full justify-start hover:bg-gray-50"
-                    onClick={() => window.open(`https://${practiceData.website_url}`, '_blank')}
+                    onClick={() => {
+                      const site = practiceData.website_url.trim();
+                      window.open(/^https?:\/\//i.test(site) ? site : `https://${site}`, '_blank', 'noopener,noreferrer');
+                    }}
+                    disabled={!practiceData.website_url.trim()}
+                    title={practiceData.website_url.trim() ? undefined : 'Add your website address under Basic Information first'}
                   >
                     <Icon icon={SolarIcons.globe} className="w-4 h-4 mr-2" />
                     Preview Website
@@ -1244,7 +1114,7 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
       </div>
 
       {/* Middle Column - Main Content */}
-      <div className="flex-1 space-y-4">
+      <div className="min-w-0 flex-1 space-y-4">
         {/* Header with Tabs */}
         <Card className="bg-white border border-gray-200 shadow-sm">
           <CardContent className="p-4">
@@ -1278,12 +1148,12 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
             </div>
             
             {/* Compact Tabs */}
-            <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
+            <div className="flex gap-1 overflow-x-auto bg-gray-100 p-1 rounded-lg">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setPracticeTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+                  className={`flex-1 shrink-0 whitespace-nowrap flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all ${
                     practiceTab === tab.id
                       ? 'bg-white text-purple-600 shadow-sm'
                       : 'text-gray-600 hover:text-gray-900'
@@ -1469,6 +1339,9 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
                     </div>
                   </div>
                 </div>
+
+                {/* Practice type: decides the tariff list and the discipline's records (administrators only) */}
+                <PracticeTypeSection practiceId={effectivePracticeId} canChange={isStaffAdmin(user)} />
 
                 {/* Address Information Section */}
                 <div className="bg-gray-50 rounded-lg p-6">
@@ -1747,7 +1620,10 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
             {/* Expenses Tab */}
             {practiceTab === 'expenses' && (
-              <PracticeExpenses />
+              // The practice's costs: only for roles the practice lets into Finance (Settings > Users > Screen access)
+              <FinanceFiguresGate what="The practice's overheads">
+                <PracticeExpenses />
+              </FinanceFiguresGate>
             )}
 
             {/* Departments Tab */}
@@ -1807,16 +1683,79 @@ const PracticeProfileContent: React.FC<{ onTabChange?: (tab: string) => void }> 
 
 // Account Tab Content Component with Security Integration
 const AccountTabContent: React.FC = () => {
-  const { user, updateUser } = useAuthStore();
-  const [accountTab, setAccountTab] = useState<'profile' | 'preferences' | 'security'>('profile');
+  const { user, updateUser, logout } = useAuthStore();
+  const [accountTab, setAccountTab] = useState<'profile' | 'security'>('profile');
   const [isUploading, setIsUploading] = useState(false);
   const [isUploadingSignature, setIsUploadingSignature] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const signatureInputRef = useRef<HTMLInputElement>(null);
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' });
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Staff change their own password here (administrators cannot set passwords from the browser)
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    if (!user?.email) {
+      setPasswordError('Your account email could not be found. Please sign in again.');
+      return;
+    }
+    if (!passwordForm.current) {
+      setPasswordError('Enter your current password.');
+      return;
+    }
+    if (passwordForm.next.length < 8) {
+      setPasswordError('Your new password must be at least 8 characters.');
+      return;
+    }
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordError('The new passwords do not match.');
+      return;
+    }
+    if (passwordForm.next === passwordForm.current) {
+      setPasswordError('Choose a password that is different from your current one.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      // Check the current password on a throwaway client so the signed-in session is untouched
+      const verifier = createClient(import.meta.env.VITE_SUPABASE_URL, import.meta.env.VITE_SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'hpms-password-check' }
+      });
+      const { error: verifyError } = await verifier.auth.signInWithPassword({
+        email: user.email,
+        password: passwordForm.current
+      });
+      if (verifyError) {
+        // Only refused credentials mean a wrong password; a lost connection or too many tries must not say so
+        setPasswordError(/invalid login credentials/i.test(verifyError.message)
+          ? 'Your current password is incorrect.'
+          : 'Your current password could not be checked just now. Please try again in a minute.');
+        return;
+      }
+      // Revoke only the verification session
+      await verifier.auth.signOut({ scope: 'local' });
+
+      const { error } = await supabase.auth.updateUser({ password: passwordForm.next });
+      if (error) throw error;
+
+      setPasswordForm({ current: '', next: '', confirm: '' });
+      toast.success('Your password has been updated');
+    } catch (error) {
+      console.error('Error changing password:', error);
+      // The sign-in service explains a weak or reused password in plain words; anything else gets a plain message
+      const code = typeof error === 'object' && error !== null ? (error as { code?: unknown }).code : undefined;
+      setPasswordError((code === 'weak_password' || code === 'same_password') && error instanceof Error
+        ? error.message
+        : 'Your password could not be updated. Please try again.');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const accountTabs = [
     { id: 'profile' as const, label: 'Profile', icon: SolarIcons.userCircle },
-    { id: 'preferences' as const, label: 'Preferences', icon: SolarIcons.settingsMinimalistic },
     { id: 'security' as const, label: 'Security', icon: SolarIcons.lock }
   ];
 
@@ -1826,13 +1765,13 @@ const AccountTabContent: React.FC = () => {
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      toast.error('File size must be less than 5MB');
       return;
     }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      toast.error('Please select an image file');
       return;
     }
 
@@ -1876,7 +1815,7 @@ const AccountTabContent: React.FC = () => {
       }
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      alert('Failed to upload avatar. Please try again.');
+      toast.error('Failed to upload avatar. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -1888,51 +1827,13 @@ const AccountTabContent: React.FC = () => {
 
     // Validate file size (max 2MB for signatures)
     if (file.size > 2 * 1024 * 1024) {
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">File Too Large</h3>
-            <p class="text-gray-600 text-center mb-6">Signature file size must be less than 2MB. Please choose a smaller image.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Signature file size must be less than 2MB. Please choose a smaller image.');
       return;
     }
 
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Invalid File Type</h3>
-            <p class="text-gray-600 text-center mb-6">Please select an image file (PNG, JPG, or JPEG) for your signature.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Please select an image file (PNG, JPG, or JPEG) for your signature.');
       return;
     }
 
@@ -1975,55 +1876,10 @@ const AccountTabContent: React.FC = () => {
         signatureInputRef.current.value = '';
       }
 
-      // Show success modal
-      const successModal = document.createElement('div');
-      successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      successModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Uploaded Successfully!</h3>
-            <p class="text-gray-600 text-center mb-6">Your digital signature has been saved and will be automatically included in generated documents.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
-              Done
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(successModal);
-      
-      // Auto-close after 5 seconds
-      setTimeout(() => {
-        if (document.body.contains(successModal)) {
-          successModal.remove();
-        }
-      }, 5000);
+      toast.success('Signature uploaded. It will be included in generated documents.');
     } catch (error) {
       console.error('Error uploading signature:', error);
-      // Show error modal
-      const errorModal = document.createElement('div');
-      errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-      errorModal.innerHTML = `
-        <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-          <div class="p-6">
-            <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-              <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-            </div>
-            <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Upload Failed</h3>
-            <p class="text-gray-600 text-center mb-6">Failed to upload signature. Please try again.</p>
-            <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-              OK
-            </button>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(errorModal);
+      toast.error('Failed to upload signature. Please try again.');
     } finally {
       setIsUploadingSignature(false);
     }
@@ -2085,7 +1941,7 @@ const AccountTabContent: React.FC = () => {
               <div>
                 <h3 className="text-lg font-medium text-gray-900">{user?.name}</h3>
                 <p className="text-gray-500">{user?.email}</p>
-                <p className="text-sm text-gray-500 capitalize">{user?.role}</p>
+                <p className="text-sm text-gray-500 capitalize">{formatRole(user?.role)}</p>
                 <div className="mt-2">
                   <input
                     ref={fileInputRef}
@@ -2120,6 +1976,7 @@ const AccountTabContent: React.FC = () => {
                     transition-all duration-200 text-gray-700
                     hover:bg-gray-200"
                   defaultValue={user?.name}
+                  readOnly
                 />
               </div>
               <div>
@@ -2134,6 +1991,7 @@ const AccountTabContent: React.FC = () => {
                     transition-all duration-200 text-gray-700
                     hover:bg-gray-200"
                   defaultValue={user?.email}
+                  readOnly
                 />
               </div>
               <div>
@@ -2154,7 +2012,10 @@ const AccountTabContent: React.FC = () => {
                 </select>
               </div>
             </div>
-            
+            <p className="mt-3 text-xs text-gray-500">
+              To change your name or role, ask a practice administrator (Settings &gt; Users). Your email address is your sign-in and cannot be changed here.
+            </p>
+
             {/* E-Signature Section */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
@@ -2198,53 +2059,10 @@ const AccountTabContent: React.FC = () => {
                               
                               if (error) throw error;
                               updateUser({ signature_url: null });
-                              // Show success modal
-                              const successModal = document.createElement('div');
-                              successModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-                              successModal.innerHTML = `
-                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-                                  <div class="p-6">
-                                    <div class="flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mx-auto mb-4">
-                                      <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                      </svg>
-                                    </div>
-                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Signature Removed</h3>
-                                    <p class="text-gray-600 text-center mb-6">Your digital signature has been removed successfully.</p>
-                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all font-medium">
-                                      Done
-                                    </button>
-                                  </div>
-                                </div>
-                              `;
-                              document.body.appendChild(successModal);
-                              setTimeout(() => {
-                                if (document.body.contains(successModal)) {
-                                  successModal.remove();
-                                }
-                              }, 3000);
+                              toast.success('Your digital signature has been removed.');
                             } catch (error) {
                               console.error('Error removing signature:', error);
-                              // Show error modal
-                              const errorModal = document.createElement('div');
-                              errorModal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm';
-                              errorModal.innerHTML = `
-                                <div class="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 transform transition-all">
-                                  <div class="p-6">
-                                    <div class="flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mx-auto mb-4">
-                                      <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                      </svg>
-                                    </div>
-                                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">Failed to Remove Signature</h3>
-                                    <p class="text-gray-600 text-center mb-6">Could not remove your signature. Please try again.</p>
-                                    <button onclick="this.closest('.fixed').remove()" class="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all font-medium">
-                                      OK
-                                    </button>
-                                  </div>
-                                </div>
-                              `;
-                              document.body.appendChild(errorModal);
+                              toast.error('Could not remove your signature. Please try again.');
                             }
                           }
                         }}
@@ -2286,73 +2104,6 @@ const AccountTabContent: React.FC = () => {
                 </div>
               </div>
             </div>
-            
-            <div className="mt-6">
-              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                Save Changes
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Preferences Tab */}
-      {accountTab === 'preferences' && (
-        <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center gap-3 -ml-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Icon icon={SolarIcons.settingsMinimalistic} className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg font-semibold text-gray-900">Preferences</CardTitle>
-                <p className="text-sm text-gray-500">Manage your app settings</p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Dark Mode</h4>
-                  <p className="text-xs text-gray-500">Switch between light and dark mode</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Show Online Status</h4>
-                  <p className="text-xs text-gray-500">Allow others to see when you're online</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">Appointment Notification Sounds</h4>
-                  <p className="text-xs text-gray-500">Play sounds for appointment notifications</p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" defaultChecked />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-purple-500 peer-checked:to-indigo-600"></div>
-                </label>
-              </div>
-            </div>
-            
-            <div className="mt-6">
-              <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                <Icon icon={SolarIcons.save} className="w-5 h-5 mr-2" />
-                Save Preferences
-              </Button>
-            </div>
           </CardContent>
         </Card>
       )}
@@ -2383,6 +2134,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="current-password"
+                      autoComplete="current-password"
+                      value={passwordForm.current}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, current: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2399,6 +2153,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="new-password"
+                      autoComplete="new-password"
+                      value={passwordForm.next}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, next: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2415,6 +2172,9 @@ const AccountTabContent: React.FC = () => {
                     <input
                       type="password"
                       id="confirm-password"
+                      autoComplete="new-password"
+                      value={passwordForm.confirm}
+                      onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg 
                         focus:outline-none focus:ring-2 focus:ring-purple-500 
                         transition-all duration-200 text-gray-700
@@ -2424,45 +2184,21 @@ const AccountTabContent: React.FC = () => {
                 </div>
               </div>
               
+              {passwordError && (
+                <p className="mt-4 text-sm text-red-600" role="alert">{passwordError}</p>
+              )}
+              <p className="mt-4 text-xs text-gray-500">Use at least 8 characters. You stay signed in after changing it.</p>
+
               <div className="mt-6">
-                <Button className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white">
-                  <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />
-                  Update Password
+                <Button
+                  onClick={handleChangePassword}
+                  isLoading={isChangingPassword}
+                  disabled={!passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
+                >
+                  {!isChangingPassword && <Icon icon={SolarIcons.shield} className="w-5 h-5 mr-2" />}
+                  {isChangingPassword ? 'Updating...' : 'Update Password'}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
-            <CardHeader>
-              <div className="flex items-center gap-3 -ml-2">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <Icon icon={SolarIcons.shield} className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-semibold text-gray-900">Two-Factor Authentication</CardTitle>
-                  <p className="text-sm text-gray-500">Add an extra layer of security</p>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-start">
-                <div className="flex-shrink-0 mt-0.5">
-                  <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-gray-900">Two-factor authentication is enabled</h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Two-factor authentication adds an extra layer of security to your account.
-                    In addition to your password, you'll need to enter a code that we text to your phone.
-                  </p>
-                  <div className="mt-3">
-                    <Button variant="outline" size="sm">
-                      <Icon icon={SolarIcons.settings} className="w-4 h-4 mr-2" />
-                      Manage 2FA Settings
-                    </Button>
-                  </div>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -2475,46 +2211,27 @@ const AccountTabContent: React.FC = () => {
                 </div>
                 <div>
                   <CardTitle className="text-lg font-semibold text-gray-900">Login Sessions</CardTitle>
-                  <p className="text-sm text-gray-500">Manage your active sessions</p>
+                  <p className="text-sm text-gray-500">Sign out on every device where you use OneHealth</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 px-4 bg-green-50 border border-green-100 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-green-100 rounded-full">
-                      <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">Current Session</p>
-                      <p className="text-xs text-gray-500">This device • 42.122.144.55 • San Francisco, USA</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" disabled>
-                    Active
-                  </Button>
-                </div>
-                
-                <div className="flex justify-between items-center py-3 px-4 border border-gray-200 rounded-lg">
-                  <div className="flex items-center">
-                    <div className="p-2 bg-gray-100 rounded-full">
-                      <Icon icon={SolarIcons.hardDrive} className="w-4 h-4 text-gray-600" />
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-900">Mac OS • Chrome</p>
-                      <p className="text-xs text-gray-500">34.232.123.55 • New York, USA • 3 days ago</p>
-                    </div>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    End Session
-                  </Button>
-                </div>
-              </div>
-              
+              <p className="text-sm text-gray-600">
+                If you signed in on a shared or lost computer or phone, sign out everywhere.
+                This also signs you out here, so you will need to sign in again.
+              </p>
+
               <div className="mt-6">
-                <Button variant="outline" className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50">
-                  Log Out of All Sessions
+                <Button
+                  variant="outline"
+                  className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
+                  onClick={async () => {
+                    if (!window.confirm('Sign out of OneHealth on all devices, including this one?')) return;
+                    // Supabase signOut() defaults to the global scope, so this ends every session of this user
+                    await logout();
+                  }}
+                >
+                  Sign Out on All Devices
                 </Button>
               </div>
             </CardContent>
@@ -2530,11 +2247,13 @@ const PracticeDocumentsContent: React.FC = () => {
   const [documents, setDocuments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'table'>('table');
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [loadFailed, setLoadFailed] = useState(false);
   const { user } = useAuthStore();
   const { practiceId } = usePractice();
+  // The database lets administrators and doctors add and remove practice documents; everyone else can read them
+  const canManageDocuments = user?.role === 'admin' || user?.role === 'doctor';
   const dropzoneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -2553,6 +2272,7 @@ const PracticeDocumentsContent: React.FC = () => {
     
     try {
       setLoading(true);
+      setLoadFailed(false);
       const { data, error } = await supabase
         .from('practice_documents')
         .select(`
@@ -2570,6 +2290,8 @@ const PracticeDocumentsContent: React.FC = () => {
       setDocuments(data || []);
     } catch (error) {
       console.error('Error loading documents:', error);
+      // Said on the page: an empty list would read as "no documents"
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -2580,25 +2302,31 @@ const PracticeDocumentsContent: React.FC = () => {
   }, [practiceId]);
 
   const handleFileUpload = async (files: FileList) => {
-    if (!practiceId || !files.length) return;
+    if (!practiceId || !files.length || !canManageDocuments) return;
 
+    // Each file on its own: one that fails is named, and the ones saved before and after it still show
+    const failed: string[] = [];
     try {
       setUploading(true);
-      
+
       for (const file of Array.from(files)) {
         // Validate file
         if (file.size > 50 * 1024 * 1024) {
-          alert(`File ${file.name} is too large. Maximum size is 50MB.`);
+          toast.error(`File ${file.name} is too large. Maximum size is 50MB.`);
           continue;
         }
 
-        // Upload to storage
-        const fileName = `${practiceId}/documents/${Date.now()}_${file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('documents')
+        // Upload to the private bucket, in the practice's folder (opened later through a short-lived link)
+        const fileName = recordPath(practiceId, 'practice-documents', `${Date.now()}_${file.name}`);
+        const { error: uploadError } = await supabase.storage
+          .from(RECORDS_BUCKET)
           .upload(fileName, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error('Error uploading file:', uploadError);
+          failed.push(file.name);
+          continue;
+        }
 
         // Save to database
         const { error: dbError } = await supabase
@@ -2614,22 +2342,43 @@ const PracticeDocumentsContent: React.FC = () => {
             uploaded_by: user?.id
           });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          console.error('Error saving document:', dbError);
+          failed.push(file.name);
+          // No stored file without its record
+          await supabase.storage.from(RECORDS_BUCKET).remove([fileName]);
+        }
       }
-
-      await loadDocuments();
-    } catch (error) {
-      console.error('Error uploading files:', error);
-      alert('Failed to upload some files. Please try again.');
     } finally {
       setUploading(false);
+      if (failed.length > 0) toast.error(`Could not upload ${failed.join(', ')}. Please try again.`);
+      await loadDocuments();
+    }
+  };
+
+  // Removed documents leave the list (the file and its record are kept, marked inactive)
+  const removeDocument = async (doc: { id: string; name: string }) => {
+    if (!canManageDocuments || !window.confirm(`Remove "${doc.name}" from the practice documents?`)) return;
+    try {
+      const { data, error } = await supabase
+        .from('practice_documents')
+        .update({ is_active: false })
+        .eq('id', doc.id)
+        .select('id');
+      if (error) throw error;
+      ensureRowsUpdated(data, 'The document');
+      toast.success(`"${doc.name}" was removed`);
+      await loadDocuments();
+    } catch (error) {
+      console.error('Error removing document:', error);
+      toast.error(describeDbError(error, 'The document could not be removed'));
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     const files = e.dataTransfer.files;
-    if (files.length) {
+    if (files.length && canManageDocuments) {
       handleFileUpload(files);
     }
   };
@@ -2655,18 +2404,11 @@ const PracticeDocumentsContent: React.FC = () => {
 
   const downloadDocument = async (doc: any) => {
     try {
-      const { data } = supabase.storage
-        .from('documents')
-        .getPublicUrl(doc.file_path);
-      
-      const link = document.createElement('a');
-      link.href = data.publicUrl;
-      link.download = doc.file_name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // A new tab with a link that works for a few minutes, made now (older files still open from "documents")
+      await openRecord(doc.file_path);
     } catch (error) {
       console.error('Error downloading document:', error);
+      toast.error('The document could not be opened. Please try again.');
     }
   };
 
@@ -2687,16 +2429,9 @@ const PracticeDocumentsContent: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
               <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setViewMode(viewMode === 'grid' ? 'table' : 'grid')}
-              >
-                <Icon icon={viewMode === 'grid' ? SolarIcons.list : SolarIcons.grid} className="w-4 h-4 mr-2" />
-                {viewMode === 'grid' ? 'Table' : 'Grid'}
-              </Button>
-              <Button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || !canManageDocuments}
+                title={canManageDocuments ? undefined : 'Only administrators and doctors can add practice documents'}
                 className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white"
               >
                 <Icon icon={SolarIcons.upload} className="w-4 h-4 mr-2" />
@@ -2715,10 +2450,10 @@ const PracticeDocumentsContent: React.FC = () => {
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => { if (canManageDocuments) fileInputRef.current?.click(); }}
           >
             <Icon icon={SolarIcons.cloudUpload} className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Drop files here or click to upload</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">{canManageDocuments ? 'Drop files here or click to upload' : 'Only administrators and doctors can add practice documents'}</h3>
             <p className="text-gray-500">Support for PDFs, images, and documents up to 50MB</p>
             <input
               ref={fileInputRef}
@@ -2742,6 +2477,7 @@ const PracticeDocumentsContent: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search documents..."
+                  aria-label="Search documents"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2750,6 +2486,7 @@ const PracticeDocumentsContent: React.FC = () => {
             </div>
             <div className="w-full sm:w-48">
               <select
+                aria-label="Category"
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -2775,7 +2512,13 @@ const PracticeDocumentsContent: React.FC = () => {
       ) : (
         <Card className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <CardContent className="p-0">
-            {filteredDocuments.length === 0 ? (
+            {loadFailed ? (
+              <div className="p-8 text-center" role="alert">
+                <Icon icon={SolarIcons.documentText} className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">The documents could not be loaded</h3>
+                <Button variant="outline" size="sm" onClick={() => void loadDocuments()}>Try again</Button>
+              </div>
+            ) : filteredDocuments.length === 0 ? (
               <div className="p-8 text-center">
                 <Icon icon={SolarIcons.documentEmpty} className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No documents found</h3>
@@ -2818,7 +2561,7 @@ const PracticeDocumentsContent: React.FC = () => {
                             {formatFileSize(doc.file_size)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(doc.created_at).toLocaleDateString()}
+                            {new Date(doc.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex items-center gap-2">
@@ -2826,6 +2569,8 @@ const PracticeDocumentsContent: React.FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => downloadDocument(doc)}
+                                aria-label={`Download ${doc.name}`}
+                                title="Download"
                               >
                                 <Icon icon={SolarIcons.download} className="w-4 h-4" />
                               </Button>
@@ -2833,6 +2578,10 @@ const PracticeDocumentsContent: React.FC = () => {
                                 variant="ghost"
                                 size="sm"
                                 className="text-red-600 hover:text-red-700"
+                                disabled={!canManageDocuments}
+                                onClick={() => void removeDocument(doc)}
+                                aria-label={`Remove ${doc.name}`}
+                                title={canManageDocuments ? 'Remove' : 'Only administrators and doctors can remove practice documents'}
                               >
                                 <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                               </Button>
@@ -2862,6 +2611,9 @@ const PracticeSocialAccountsContent: React.FC = () => {
   const [editingAccount, setEditingAccount] = useState<any>(null);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [showGmailModal, setShowGmailModal] = useState(false);
+  // Escape closes the add-account window and the Gmail "saved" window, as their buttons do
+  useEscapeToClose(showAddModal, () => setShowAddModal(false));
+  useEscapeToClose(showSuccessModal, () => setShowSuccessModal(false));
   
   // Listen for navigate-to-oauth event
   useEffect(() => {
@@ -2966,50 +2718,47 @@ const PracticeSocialAccountsContent: React.FC = () => {
     try {
       setLoading(true);
       
-      // Load social accounts, OAuth apps, and check Gmail connection
-      const [socialAccountsResponse, oauthAppsResponse, oauthCredsResponse] = await Promise.all([
+      // Load social accounts, OAuth apps, and check Gmail connection. Named columns only: the rows also hold client
+      // secrets and access tokens, which the browser never reads (proposals/2026-10-08-oauth-secrets-columns.sql)
+      const [socialAccountsResponse, oauthAppsResponse, gmailConnection] = await Promise.all([
         supabase
           .from('practice_social_accounts')
-          .select('*')
+          .select('id, practice_id, platform, account_name, profile_url, username, is_active, created_at')
           .eq('practice_id', practiceId)
           .order('created_at', { ascending: false }),
         supabase
           .from('practice_oauth_apps')
-          .select('*')
+          .select('id, provider')
           .eq('practice_id', practiceId),
-        supabase
-          .from('practice_oauth_credentials')
-          .select('*')
-          .eq('practice_id', practiceId)
-          .eq('provider', 'google')
-          .single()
+        // A failed read means no Gmail connection is shown, as before
+        loadGmailConnection(practiceId).catch(() => null)
       ]);
 
       if (socialAccountsResponse.error) throw socialAccountsResponse.error;
       if (oauthAppsResponse.error) throw oauthAppsResponse.error;
-      // oauthCredsResponse error is ok - it just means no credentials yet
-      
+
       setSocialAccounts(socialAccountsResponse.data || []);
       setOauthApps(oauthAppsResponse.data || []);
-      setGmailConnected(!!oauthCredsResponse.data);
-      
+      setGmailConnected(!!gmailConnection);
+
       // If Gmail is connected, add it to social accounts with email
-      if (oauthCredsResponse.data) {
+      if (gmailConnection) {
+        const gmailAddress = gmailConnection.email;
         setSocialAccounts(prev => {
           const hasGmail = prev.some(acc => acc.platform === 'gmail');
           if (!hasGmail) {
             return [...prev, {
               id: `gmail-oauth-${practiceId}`, // Use consistent ID based on practice
               platform: 'gmail',
-              account_name: oauthCredsResponse.data.email,
-              username: oauthCredsResponse.data.email,
+              account_name: gmailAddress,
+              username: gmailAddress,
               profile_url: '',
               is_connected: true
             }];
           }
-          return prev.map(acc => 
-            acc.platform === 'gmail' 
-              ? { ...acc, account_name: oauthCredsResponse.data.email, username: oauthCredsResponse.data.email }
+          return prev.map(acc =>
+            acc.platform === 'gmail'
+              ? { ...acc, account_name: gmailAddress, username: gmailAddress }
               : acc
           );
         });
@@ -3023,16 +2772,9 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
   useEffect(() => {
     loadSocialAccounts();
-    
-    // Check for Gmail OAuth callback
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    
-    if (code && (state === 'gmail_oauth_social' || state === 'gmail_oauth_connect')) {
-      handleGmailOAuthCallback(code, state);
-    }
-    
+
+    // Google's return to Settings (one-time code and signed state) is finished by GmailOAuthSettings, rendered below
+
     // Listen for Gmail connection success
     const handleGmailConnected = (event: CustomEvent) => {
       setGmailConnected(true);
@@ -3095,56 +2837,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
     };
   }, [practiceId]);
   
-  const handleGmailOAuthCallback = async (code: string, state: string) => {
-    try {
-      // Call edge function to exchange code for tokens
-      const { data, error } = await supabase.functions.invoke('gmail-oauth-callback', {
-        body: {
-          code,
-          redirect_uri: `${window.location.origin}/settings`,
-          practice_id: practiceId
-        }
-      });
-      
-      if (error) throw error;
-      
-      if (state === 'gmail_oauth_social') {
-        // Creating new social account - retrieve stored form data
-        const storedData = sessionStorage.getItem('gmailOAuthFormData');
-        if (!storedData) {
-          console.error('No stored form data found');
-          return;
-        }
-        
-        const savedFormData = JSON.parse(storedData);
-        sessionStorage.removeItem('gmailOAuthFormData');
-        
-        // Update form data with OAuth info
-        setFormData({
-          ...savedFormData,
-          username: data.email,
-          access_token: 'connected', // We don't expose the actual token
-          client_id: data.email, // Store email as client_id for reference
-          auth_scope: 'gmail.send gmail.compose'
-        });
-        
-        // Open the modal with updated data
-        setShowAddModal(true);
-      } else if (state === 'gmail_oauth_connect' || state === 'gmail_oauth_setup') {
-        // OAuth connected successfully
-        // Show success notification
-        alert(`Gmail connected successfully! Email: ${data.email}`);
-        
-        // Reload OAuth apps to show updated status
-        await loadSocialAccounts();
-      }
-      
-      // Clear URL parameters
-      window.history.replaceState({}, document.title, '/settings');
-    } catch (error) {
-      console.error('OAuth callback error:', error);
-      alert('Failed to connect Gmail account. Please try again.');
+  // Starts connecting the practice Gmail: the server signs the sign-in for this practice and person, Google sends the
+  // browser back to Settings, and GmailOAuthSettings (below) hands the code to the server
+  const connectGmail = async () => {
+    const start = await startGmailConnect(practiceId);
+    if (!start.ok) {
+      toast.error(start.message);
+      return;
     }
+    window.location.assign(start.url);
   };
 
   const handleAddAccount = async (accountData: any) => {
@@ -3153,34 +2854,16 @@ const PracticeSocialAccountsContent: React.FC = () => {
     try {
       // For Gmail, ONLY save OAuth credentials to practice_oauth_apps
       if (accountData.platform === 'gmail' && accountData.client_id && accountData.client_secret) {
-        // Save OAuth credentials to practice_oauth_apps table
-        const { error: oauthError } = await supabase
-          .from('practice_oauth_apps')
-          .upsert({
-            practice_id: practiceId,
-            provider: 'google',
-            client_id: accountData.client_id,
-            client_secret: accountData.client_secret,
-            redirect_uri: `${window.location.origin}/settings,https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/gmail-oauth-callback`
-          });
+        // Save OAuth credentials to practice_oauth_apps table (insert or update: the secret is written, never read back)
+        await saveGoogleOAuthApp(practiceId, {
+          clientId: accountData.client_id,
+          clientSecret: accountData.client_secret,
+          redirectUri: `${window.location.origin}/settings,https://jjxlfunlbyayxwvlpgwt.supabase.co/functions/v1/gmail-oauth-callback`
+        });
 
-        if (oauthError) throw oauthError;
-        
-        // For Gmail, store the OAuth app ID for the connect flow
-        const savedApp = await supabase
-          .from('practice_oauth_apps')
-          .select('id')
-          .eq('practice_id', practiceId)
-          .eq('provider', 'google')
-          .single();
-        
         // For Gmail, we're done - don't save to practice_social_accounts
         setShowAddModal(false);
         setShowSuccessModal(true);
-        // Store the app ID for the connect button
-        if (savedApp.data) {
-          sessionStorage.setItem('gmailOAuthAppId', savedApp.data.id);
-        }
         return;
       }
 
@@ -3256,7 +2939,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       });
     } catch (error) {
       console.error('Error adding social account:', error);
-      alert('Failed to add social account. Please try again.');
+      toast.error('Failed to add social account. Please try again.');
     }
   };
 
@@ -3275,7 +2958,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
       setEditingAccount(null);
     } catch (error) {
       console.error('Error updating social account:', error);
-      alert('Failed to update social account. Please try again.');
+      toast.error('Failed to update social account. Please try again.');
     }
   };
 
@@ -3283,16 +2966,19 @@ const PracticeSocialAccountsContent: React.FC = () => {
     if (!confirm('Are you sure you want to delete this social media account?')) return;
 
     try {
-      const { error } = await supabase
+      const { data: removed, error } = await supabase
         .from('practice_social_accounts')
         .delete()
-        .eq('id', accountId);
+        .eq('id', accountId)
+        .select('id');
 
       if (error) throw error;
+      // A refused delete removes nothing and reports no error: say so instead of silently keeping the account
+      ensureRowsUpdated(removed, 'The account');
       await loadSocialAccounts();
     } catch (error) {
       console.error('Error deleting social account:', error);
-      alert('Failed to delete social account. Please try again.');
+      toast.error(describeDbError(error, 'The account could not be removed'));
     }
   };
 
@@ -3491,7 +3177,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <p className="text-xs text-gray-600 flex items-center gap-1">
-                                  <Icon icon="solar:mail-bold" className="w-3 h-3 text-green-500" />
+                                  <Icon icon="solar:letter-bold" className="w-3 h-3 text-green-500" />
                                   {connectedAccount?.account_name || connectedAccount?.username || 'Gmail account'}
                                 </p>
                                 <div className="flex items-center gap-1 bg-green-50 px-2 py-0.5 rounded-full">
@@ -3571,48 +3257,26 @@ const PracticeSocialAccountsContent: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          {/* The connected-Gmail row is built from OAuth credentials: it has is_connected, not is_active or created_at */}
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            account.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                            account.is_active || account.is_connected ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                           }`}>
-                            {account.is_active ? 'Active' : 'Inactive'}
+                            {account.is_active || account.is_connected ? 'Active' : 'Inactive'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(account.created_at).toLocaleDateString()}
+                          {account.created_at
+                            ? new Date(account.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                            : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center gap-2">
-                            {account.platform === 'gmail' && !account.access_token && (
+                            {/* Whether Gmail is connected comes from its connection, never from a token read here */}
+                            {account.platform === 'gmail' && !gmailConnected && !account.is_connected && (
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={async () => {
-                                  // Get OAuth credentials from practice_oauth_apps
-                                  const { data: oauthApp } = await supabase
-                                    .from('practice_oauth_apps')
-                                    .select('client_id')
-                                    .eq('practice_id', practiceId)
-                                    .eq('provider', 'google')
-                                    .single();
-
-                                  if (oauthApp) {
-                                    // Store the social account ID to update after OAuth
-                                    sessionStorage.setItem('gmailOAuthSocialAccountId', account.id);
-                                    
-                                    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-                                    authUrl.searchParams.append('client_id', oauthApp.client_id);
-                                    authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
-                                    authUrl.searchParams.append('response_type', 'code');
-                                    authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
-                                    authUrl.searchParams.append('access_type', 'offline');
-                                    authUrl.searchParams.append('prompt', 'consent');
-                                    authUrl.searchParams.append('state', 'gmail_oauth_connect');
-                                    
-                                    window.location.href = authUrl.toString();
-                                  } else {
-                                    alert('OAuth credentials not found. Please check the OAuth Apps Management section.');
-                                  }
-                                }}
+                                onClick={() => void connectGmail()}
                               >
                                 <Icon icon="logos:google-icon" className="w-4 h-4 mr-1" />
                                 Connect
@@ -3621,15 +3285,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => setEditingAccount(account)}
-                            >
-                              <Icon icon={SolarIcons.edit} className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
                               className="text-red-600 hover:text-red-700"
-                              onClick={() => handleDeleteAccount(account.id)}
+                              onClick={() => (
+                                // The connected-Gmail row has no database row to delete: Gmail is disconnected in its settings
+                                String(account.id).startsWith('gmail-oauth-')
+                                  ? setShowGmailModal(true)
+                                  : handleDeleteAccount(account.id)
+                              )}
+                              aria-label={`Remove ${platform?.label || account.platform} account`}
+                              title="Remove account"
                             >
                               <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                             </Button>
@@ -3700,6 +3364,8 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     });
                   }}
                   className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <Icon icon={SolarIcons.close} className="w-6 h-6 text-white" />
                 </button>
@@ -3913,34 +3579,15 @@ const PracticeSocialAccountsContent: React.FC = () => {
 
                               if (error) throw error;
 
+                              // Plain-text toasts: the edge function's message must never be rendered as HTML
                               if (data.success) {
-                                // Show success toast
-                                const successDiv = document.createElement('div');
-                                successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2';
-                                successDiv.innerHTML = `
-                                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                  </svg>
-                                  ${data.message}
-                                `;
-                                document.body.appendChild(successDiv);
-                                setTimeout(() => document.body.removeChild(successDiv), 5000);
+                                toast.success(typeof data.message === 'string' && data.message ? data.message : 'Connection test passed');
                               } else {
-                                // Show error toast
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                                errorDiv.textContent = data.error || 'Connection test failed';
-                                document.body.appendChild(errorDiv);
-                                setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                                toast.error(typeof data.error === 'string' && data.error ? data.error : 'Connection test failed');
                               }
                             } catch (error) {
                               console.error('Test connection error:', error);
-                              // Show error toast
-                              const errorDiv = document.createElement('div');
-                              errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-                              errorDiv.textContent = 'Failed to test connection';
-                              document.body.appendChild(errorDiv);
-                              setTimeout(() => document.body.removeChild(errorDiv), 5000);
+                              toast.error('Failed to test connection');
                             }
                           }}
                           className="flex items-center gap-2"
@@ -4600,7 +4247,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
                     <div>
                       {formData.platform === 'gmail' ? (
                         <>
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">📧 Gmail Integration for Automations</h4>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">Gmail Integration for Automations</h4>
                           <p className="text-sm text-gray-700 mb-3">
                             Once connected, your Gmail account will be used to send automated emails for:
                           </p>
@@ -4629,55 +4276,11 @@ const PracticeSocialAccountsContent: React.FC = () => {
                         </>
                       ) : (
                         <>
-                          <h4 className="text-sm font-medium text-gray-900 mb-2">🔧 What's Needed for Concurrent Broadcasting</h4>
-                          <p className="text-sm text-gray-700 mb-3">
-                            With these comprehensive settings, you'll be able to broadcast to multiple platforms simultaneously. 
-                            <strong>Next steps for full implementation:</strong>
+                          <h4 className="text-sm font-medium text-gray-900 mb-2">Posting is not available yet</h4>
+                          <p className="text-sm text-gray-700">
+                            Adding this account saves its details for the practice. OneHealth cannot post to social media yet,
+                            so these settings are kept for when broadcasting becomes available.
                           </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
-                            <div>
-                              <p className="font-medium mb-2">✅ Field Alignment for Broadcasting:</p>
-                              <ul className="space-y-1">
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Rate limits ensure no API violations
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Content limits auto-adapt posts per platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Feature flags enable/disable per platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                  Content templates ensure brand consistency
-                                </li>
-                              </ul>
-                            </div>
-                            <div>
-                              <p className="font-medium mb-2">🚀 Implementation Requirements:</p>
-                              <ul className="space-y-1">
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  OAuth flow for each platform
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Token refresh automation
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Broadcasting service/API
-                                </li>
-                                <li className="flex items-center gap-2">
-                                  <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
-                                  Queue management for rate limiting
-                                </li>
-                              </ul>
-                            </div>
-                          </div>
                         </>
                       )}
                     </div>
@@ -4781,7 +4384,7 @@ const PracticeSocialAccountsContent: React.FC = () => {
             <div className="p-6">
               <div className="text-center mb-6">
                 <p className="text-gray-700 mb-4">
-                  Gmail OAuth credentials saved successfully! You can now use Gmail for automated emails.
+                  The Gmail sign-in details are saved. Connect the practice's Gmail account next, and these emails go out from it:
                 </p>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-left">
                   <h3 className="font-semibold text-green-900 mb-2">What's Next?</h3>
@@ -4815,28 +4418,9 @@ const PracticeSocialAccountsContent: React.FC = () => {
                   Connect Later
                 </Button>
                 <Button
-                  onClick={async () => {
+                  onClick={() => {
                     setShowSuccessModal(false);
-                    // Get OAuth credentials from practice_oauth_apps
-                    const { data: oauthApp } = await supabase
-                      .from('practice_oauth_apps')
-                      .select('client_id')
-                      .eq('practice_id', practiceId)
-                      .eq('provider', 'google')
-                      .single();
-
-                    if (oauthApp) {
-                      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-                      authUrl.searchParams.append('client_id', oauthApp.client_id);
-                      authUrl.searchParams.append('redirect_uri', `${window.location.origin}/settings`);
-                      authUrl.searchParams.append('response_type', 'code');
-                      authUrl.searchParams.append('scope', 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/userinfo.email');
-                      authUrl.searchParams.append('access_type', 'offline');
-                      authUrl.searchParams.append('prompt', 'consent');
-                      authUrl.searchParams.append('state', 'gmail_oauth_setup');
-                      
-                      window.location.href = authUrl.toString();
-                    }
+                    void connectGmail();
                   }}
                   className="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:from-green-600 hover:to-emerald-700"
                 >

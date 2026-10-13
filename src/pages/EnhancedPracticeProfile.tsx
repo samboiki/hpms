@@ -5,30 +5,32 @@ import {
   Phone, 
   Mail, 
   Globe, 
-  Clock, 
-  Calendar, 
-  Users,
+  Clock,
+  Calendar,
   Edit3,
   Image,
   User,
-  Settings,
   DollarSign,
   TrendingUp,
   Save,
   Plus,
   X
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
 import Button from '../components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Tabs } from '../components/ui/Tabs';
+import { PageTabs, type PageTab } from '../components/ui/PageTabs';
+import { practiceWebsiteText, practiceWebsiteUrl } from '../utils/practiceWebsite';
 
 interface Practice {
   id: string;
   slug: string;
   name: string;
   domain?: string;
+  website_url?: string | null;
   logo_url?: string;
   primary_color: string;
   secondary_color: string;
@@ -75,12 +77,18 @@ const EnhancedPracticeProfile: React.FC = () => {
   const [editingSettings, setEditingSettings] = useState(false);
 
   const practiceId = selectedPracticeId || user?.practice_id;
+  const navigate = useNavigate();
+  // Same rule as the admin/tariffs route guard in App.tsx
+  const canManageTariffs = !!user && (user.is_super_admin === true || user.role === 'admin');
 
   useEffect(() => {
     if (practiceId) {
       fetchPracticeData();
       fetchStaff();
       fetchSettings();
+    } else {
+      // Nothing to load: show "Practice Not Found" instead of an endless spinner
+      setLoading(false);
     }
   }, [practiceId]);
 
@@ -153,16 +161,22 @@ const EnhancedPracticeProfile: React.FC = () => {
           }, { onConflict: 'practice_id,setting_key' })
       );
 
-      await Promise.all(promises);
+      // Supabase reports failures in each result instead of throwing
+      const results = await Promise.all(promises);
+      const failed = results.find((result) => result.error);
+      if (failed) throw failed.error;
       setEditingSettings(false);
+      toast.success('Practice settings saved');
     } catch (error) {
       console.error('Error saving settings:', error);
+      toast.error('Practice settings could not be saved. Please try again.');
     }
   };
 
-  const formatBusinessHours = (hours: any) => {
-    if (!hours) return 'Not set';
-    
+  const formatBusinessHours = (hours: any): { day: string; hours: string }[] => {
+    // Always an array: the Business Hours card maps over it and shows "Not set" when it is empty
+    if (!hours) return [];
+
     return Object.entries(hours).map(([day, schedule]: [string, any]) => {
       if (schedule.closed) {
         return { day: day.charAt(0).toUpperCase() + day.slice(1), hours: 'Closed' };
@@ -184,11 +198,11 @@ const EnhancedPracticeProfile: React.FC = () => {
     return colors[role as keyof typeof colors] || 'bg-gray-100 text-gray-800';
   };
 
-  const tabs = [
-    { id: 'profile', label: 'Practice Info', icon: Building2 },
-    { id: 'staff', label: 'Staff Management', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings },
-    { id: 'billing', label: 'Billing & Tariffs', icon: DollarSign }
+  const tabs: PageTab<string>[] = [
+    { key: 'profile', label: 'Practice Info', icon: 'solar:buildings-2-bold-duotone' },
+    { key: 'staff', label: 'Staff Management', icon: 'solar:users-group-rounded-bold-duotone' },
+    { key: 'settings', label: 'Settings', icon: 'solar:settings-bold-duotone' },
+    { key: 'billing', label: 'Billing & Tariffs', icon: 'solar:bill-list-bold-duotone' }
   ];
 
   if (loading) {
@@ -212,50 +226,54 @@ const EnhancedPracticeProfile: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center space-x-4">
-              {practice.logo_url ? (
-                <img 
-                  src={practice.logo_url} 
-                  alt={practice.name}
-                  className="w-12 h-12 rounded-lg object-cover"
-                />
-              ) : (
-                <div className="w-12 h-12 bg-[#01b9d4] rounded-lg flex items-center justify-center">
-                  <Building2 className="w-6 h-6 text-white" />
-                </div>
-              )}
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">{practice.name}</h1>
-                <p className="text-gray-600">{practice.city}, {practice.country}</p>
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
+        {/* Header: same pattern as the other pages; the actions move under the title on phones */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-1 md:py-2">
+          <div className="flex min-w-0 items-center gap-3">
+            {practice.logo_url ? (
+              <img
+                src={practice.logo_url}
+                alt={practice.name}
+                className="w-11 h-11 md:w-14 md:h-14 flex-none rounded-xl object-cover shadow-lg"
+              />
+            ) : (
+              <div className="flex-none p-2.5 md:p-3 bg-[#01b9d4] rounded-xl shadow-lg">
+                <Building2 className="w-6 h-6 md:w-8 md:h-8 text-white" />
               </div>
-            </div>
-            <div className="flex space-x-3">
-              {practice.domain && (
-                <Button variant="outline">
-                  <Globe className="w-4 h-4 mr-2" />
-                  Visit Website
-                </Button>
-              )}
-              <Button className="bg-[#01b9d4] hover:bg-[#0196be] text-white">
-                <Edit3 className="w-4 h-4 mr-2" />
-                Edit Practice
-              </Button>
+            )}
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-semibold text-gray-800 break-words">{practice.name}</h1>
+              <p className="text-sm text-gray-500 mt-0.5">{practice.city}, {practice.country}</p>
             </div>
           </div>
+          <div className="flex flex-wrap gap-3">
+            {practiceWebsiteUrl(practice) && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(practiceWebsiteUrl(practice) ?? '', '_blank', 'noopener,noreferrer')}
+              >
+                <Globe className="w-4 h-4 mr-2" />
+                Visit Website
+              </Button>
+            )}
+            {/* Practice details are edited in Settings > Practice */}
+            <Button
+              className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+              onClick={() => navigate('/settings?tab=practice')}
+            >
+              <Edit3 className="w-4 h-4 mr-2" />
+              Edit Practice
+            </Button>
+          </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Tabs */}
-        <Tabs
+        {/* Tabs (scroll sideways on narrow screens instead of widening the page) */}
+        <PageTabs
           tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          className="mb-8"
+          active={activeTab}
+          onChange={setActiveTab}
+          label="Practice profile sections"
+          activeClassName="bg-[#01b9d4]"
         />
 
         {/* Tab Content */}
@@ -294,16 +312,16 @@ const EnhancedPracticeProfile: React.FC = () => {
                       <Mail className="w-4 h-4 text-gray-400 mr-3" />
                       <span className="text-sm text-gray-700">{practice.contact_email}</span>
                     </div>
-                    {practice.domain && (
+                    {practiceWebsiteUrl(practice) && (
                       <div className="flex items-center">
                         <Globe className="w-4 h-4 text-gray-400 mr-3" />
                         <a 
-                          href={`https://${practice.domain}`} 
+                          href={practiceWebsiteUrl(practice) ?? undefined} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-sm text-[#01b9d4] hover:underline"
                         >
-                          {practice.domain}
+                          {practiceWebsiteText(practice)}
                         </a>
                       </div>
                     )}
@@ -320,6 +338,9 @@ const EnhancedPracticeProfile: React.FC = () => {
                       <span className="text-gray-600">{day.hours}</span>
                     </div>
                   ))}
+                  {formatBusinessHours(practice.business_hours).length === 0 && (
+                    <p className="text-sm text-gray-500">Not set</p>
+                  )}
                 </div>
               </Card>
             </div>
@@ -354,7 +375,7 @@ const EnhancedPracticeProfile: React.FC = () => {
                   {practice.features && Object.entries(practice.features).map(([feature, enabled]: [string, any]) => (
                     <div key={feature} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                       <span className="text-sm font-medium">
-                        {feature.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                        {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
                       <div className={`w-3 h-3 rounded-full ${enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
                     </div>
@@ -369,12 +390,19 @@ const EnhancedPracticeProfile: React.FC = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Staff Management</h2>
-              <Button className="bg-[#01b9d4] hover:bg-[#0196be] text-white">
+              {/* Staff are added, edited and deactivated in Settings > Users */}
+              <Button
+                className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+                onClick={() => navigate('/settings?tab=users')}
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Invite Staff Member
               </Button>
             </div>
             
+            {staff.length === 0 && (
+              <p className="text-gray-500">No staff members found. Use Invite Staff Member to add your team.</p>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {staff.map((member: any) => (
                 <Card key={member.id} className="p-6">
@@ -396,14 +424,19 @@ const EnhancedPracticeProfile: React.FC = () => {
                     </div>
                     <p className="text-sm text-gray-600 mt-2">{member.email}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Last active: {member.last_active_at ? new Date(member.last_active_at).toLocaleDateString() : 'Never'}
+                      Last active: {member.last_active_at
+                        ? new Date(member.last_active_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : 'Never'}
                     </p>
+                    {/* Editing and deactivating staff (with confirmation) happens in Settings > Users */}
                     <div className="flex space-x-2 mt-4">
-                      <Button variant="outline" size="sm" className="flex-1">
-                        Edit
-                      </Button>
-                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                        Remove
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => navigate('/settings?tab=users')}
+                      >
+                        Edit in Settings
                       </Button>
                     </div>
                   </div>
@@ -437,6 +470,10 @@ const EnhancedPracticeProfile: React.FC = () => {
             </div>
 
             <div className="grid gap-6">
+              {/* Nothing else in the app reads these practice_settings keys yet */}
+              <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                These settings are saved for the practice, but the appointment book does not use them yet.
+              </p>
               <Card className="p-6">
                 <h3 className="text-lg font-semibold mb-4">Appointment Settings</h3>
                 <div className="space-y-4">
@@ -519,9 +556,11 @@ const EnhancedPracticeProfile: React.FC = () => {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Billing & Tariffs</h2>
-              <Button 
-                onClick={() => window.location.href = '/admin/tariffs'}
+              <Button
+                onClick={() => navigate('/admin/tariffs')}
                 className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+                disabled={!canManageTariffs}
+                title={canManageTariffs ? undefined : 'Only practice administrators can manage tariffs'}
               >
                 <DollarSign className="w-4 h-4 mr-2" />
                 Manage Tariffs
@@ -533,9 +572,11 @@ const EnhancedPracticeProfile: React.FC = () => {
                 <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">Tariff Management</h3>
                 <p className="text-gray-600 mb-6">Configure service pricing and medical aid tariffs for your practice.</p>
-                <Button 
-                  onClick={() => window.location.href = '/admin/tariffs'}
+                <Button
+                  onClick={() => navigate('/admin/tariffs')}
                   className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+                  disabled={!canManageTariffs}
+                  title={canManageTariffs ? undefined : 'Only practice administrators can manage tariffs'}
                 >
                   Open Tariff Manager
                 </Button>

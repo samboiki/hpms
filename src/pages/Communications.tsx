@@ -1,39 +1,63 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import Icon from '../components/ui/Icon';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
 import { usePracticeSettings } from '../hooks/usePracticeSettings';
+import { usePractice } from '../contexts/PracticeContext';
 import { format, startOfDay, endOfDay } from 'date-fns';
-import { 
-  MoreVertical
-} from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 // Import existing components
 import SmartAutomations from '../components/messages/SmartAutomations';
 import { CommunicationsDashboard } from '../components/communications/CommunicationsDashboard';
+import { SmsRepliesInbox } from '../components/communications/SmsRepliesInbox';
+import { PatientListsPage } from '../components/patientLists/PatientListsPage';
+import { countSmsRepliesNeedingReply } from '../components/communications/smsRepliesService';
+import { PortalRequestsInbox } from '../components/communications/PortalRequestsInbox';
+import { countPendingPortalRequests } from '../components/communications/portalRequestsService';
+import { MessageLogPanel } from '../components/communications/MessageLogPanel';
+import { TemplatesPanel } from '../components/templates/TemplatesPanel';
 import { EnhancedMessagingV2 } from '../components/messages/InternalMessaging/EnhancedMessagingV2';
 import FloatingVisitTracker from '../components/dashboard/FloatingVisitTracker';
 import { NotificationBadge } from '../components/ui/NotificationBadge';
+import { UserAvatar } from '../components/layout/ProfileMenu';
 import { DeliveryStatsDashboard } from '../components/communications/DeliveryStatsDashboard';
-import { TelemedicineRoom } from '../components/telemedicine/TelemedicineRoom';
+import VideoConsultModal from '../components/telemedicine/VideoConsultModal';
+import { getClinicianDisplayName } from '../components/telemedicine/telemedicineLinks';
+import { formatDoctorName } from '../utils/formatDoctorName';
 import { toast } from 'react-hot-toast';
-import { communicationService } from '../services/communicationService';
 import { unreadMessagesService } from '../services/unreadMessagesService';
 import FormModal from '../components/modals/FormModal';
 import PremiumAddAppointmentForm from '../components/forms/PremiumAddAppointmentForm';
+import { opensInApp, storedVideoLink } from '../utils/diary/videoBookings';
 
-type TabType = 'dashboard' | 'messaging' | 'automations' | 'telemedicine';
+type TabType = 'dashboard' | 'messaging' | 'replies' | 'app_requests' | 'lists' | 'automations' | 'templates' | 'log' | 'telemedicine';
+
+const TAB_IDS: readonly TabType[] = ['dashboard', 'messaging', 'replies', 'app_requests', 'lists', 'automations', 'templates', 'log', 'telemedicine'];
+const isTabType = (value: string | null): value is TabType => value !== null && (TAB_IDS as readonly string[]).includes(value);
 
 
 
 
 const Communications: React.FC = () => {
   const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
   const { settings: practiceSettings, loading: settingsLoading } = usePracticeSettings();
-  const [activeTab, setActiveTab] = useState<TabType>('dashboard');
+  // Other screens open a tab straight from a link: /communications?tab=log&patient=<id> (a patient's messages)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
+  const logPatientId = searchParams.get('patient');
+  const [activeTab, setActiveTab] = useState<TabType>(() => (isTabType(tabParam) ? tabParam : 'dashboard'));
+  useEffect(() => {
+    if (isTabType(tabParam)) setActiveTab(tabParam);
+  }, [tabParam]);
   const [unreadCount, setUnreadCount] = useState(0);
+  // Patient SMS replies waiting for reception (stays 0 until two-way SMS is switched on)
+  const [repliesWaiting, setRepliesWaiting] = useState(0);
+  // Patient app requests waiting for reception (stays 0 until the patient app is switched on)
+  const [appRequestsWaiting, setAppRequestsWaiting] = useState(0);
   const [showDeliveryStats, setShowDeliveryStats] = useState(false);
   
   const [currentPracticeData, setCurrentPracticeData] = useState<{
@@ -48,13 +72,6 @@ const Communications: React.FC = () => {
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
   
   // Telemedicine state
-  const [showTelemedicineRoom, setShowTelemedicineRoom] = useState(false);
-  const [currentTelemedicineSession, setCurrentTelemedicineSession] = useState<{
-    roomUrl: string;
-    patientName: string;
-    doctorName: string;
-    appointmentId: string;
-  } | null>(null);
   interface TelemedicineVisit {
     id: string;
     practice_id: string;
@@ -65,26 +82,30 @@ const Communications: React.FC = () => {
     visit_type?: string;
     status?: string;
     is_checked_in?: boolean;
+    /** A video booking's room (visits.video_link): the patient waits there, from their confirmation SMS */
+    video_link?: string | null;
     patient?: {
       id: string;
       first_name: string;
       last_name: string;
-      mobile_phone?: string;
+      cell_number?: string; // patients has cell_number (mobile_phone does not exist)
       email?: string;
     };
     doctor?: {
       id: string;
-      first_name: string;
-      last_name: string;
+      full_name: string; // users has full_name (first_name/last_name do not exist)
       email?: string;
     };
   }
   
   const [upcomingTelemedicineVisits, setUpcomingTelemedicineVisits] = useState<TelemedicineVisit[]>([]);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  // Visit whose video consult dialog is open (same flow as Video consult on the patient file)
+  const [videoConsultVisit, setVideoConsultVisit] = useState<TelemedicineVisit | null>(null);
 
   // Get practice ID from logged-in user
-  const practiceId = user?.practice_id;
+  const { practiceId: contextPracticeId } = usePractice();
+  const practiceId = user?.practice_id || contextPracticeId;
 
   // Subscribe to unread messages
   useEffect(() => {
@@ -93,6 +114,19 @@ const Communications: React.FC = () => {
       return () => unsubscribe();
     }
   }, [user?.id, practiceId]);
+
+  // How many patient SMS replies wait for reception, for the tab badge (the inbox keeps it current once opened)
+  useEffect(() => {
+    if (!practiceId) return;
+    let cancelled = false;
+    countSmsRepliesNeedingReply(practiceId).then(count => {
+      if (!cancelled) setRepliesWaiting(count ?? 0);
+    });
+    countPendingPortalRequests(practiceId).then(count => {
+      if (!cancelled) setAppRequestsWaiting(count ?? 0);
+    });
+    return () => { cancelled = true; };
+  }, [practiceId]);
 
   // Load current practice data
   useEffect(() => {
@@ -128,47 +162,47 @@ const Communications: React.FC = () => {
   }, [practiceId, practiceSettings, settingsLoading]);
 
 
-  // Fetch telemedicine visits
+  // Today's active visits for the telemedicine tab. One shared query, used on tab open and after
+  // a session ends or a booking is made. The old copies required status to be both 'checked_in' and
+  // 'scheduled/confirmed' at once and used ambiguous joins, so the list was always empty.
+  const loadTelemedicineVisits = useCallback(async () => {
+    if (!practiceId) return;
+    try {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const { data, error } = await supabase
+        .from('visits')
+        .select(`
+          *,
+          patient:patients!visits_patient_id_fkey(
+            id,
+            first_name,
+            last_name,
+            cell_number,
+            email
+          ),
+          doctor:users!visits_doctor_id_fkey(
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('practice_id', practiceId)
+        .or(`scheduled_date.eq.${today},visit_date.eq.${today}`)
+        .not('status', 'in', '(completed,cancelled,no-show)')
+        .or('is_cancelled.is.null,is_cancelled.eq.false')
+        .order('scheduled_time', { ascending: true });
+
+      if (error) throw error;
+      setUpcomingTelemedicineVisits(data || []);
+    } catch (error) {
+      console.error('Error fetching telemedicine visits:', error);
+      toast.error('Could not load today\'s visits');
+    }
+  }, [practiceId]);
+
   useEffect(() => {
-    const fetchTelemedicineVisits = async () => {
-      if (!practiceId || activeTab !== 'telemedicine') return;
-      
-      try {
-        const today = format(new Date(), 'yyyy-MM-dd');
-        const { data, error } = await supabase
-          .from('visits')
-          .select(`
-            *,
-            patient:patients(
-              id,
-              first_name,
-              last_name,
-              mobile_phone,
-              email
-            ),
-            doctor:users(
-              id,
-              first_name,
-              last_name,
-              email
-            )
-          `)
-          .eq('practice_id', practiceId)
-          .eq('visit_date', today)
-          .eq('status', 'checked_in')
-          .or('status.eq.scheduled,status.eq.confirmed')
-          .order('scheduled_time', { ascending: true });
-        
-        if (error) throw error;
-        
-        setUpcomingTelemedicineVisits(data || []);
-      } catch (error) {
-        console.error('Error fetching telemedicine visits:', error);
-      }
-    };
-    
-    fetchTelemedicineVisits();
-  }, [practiceId, activeTab]);
+    if (activeTab === 'telemedicine') loadTelemedicineVisits();
+  }, [activeTab, loadTelemedicineVisits]);
 
   const loadCommunicationStats = async () => {
     try {
@@ -250,15 +284,32 @@ const Communications: React.FC = () => {
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: 'solar:chart-bold-duotone', description: 'Overview & Stats' },
     { id: 'messaging', label: 'Messaging', icon: 'solar:chat-round-dots-bold-duotone', description: 'All Messages', badge: unreadCount > 0 ? unreadCount : undefined },
+    { id: 'replies', label: 'SMS Replies', icon: 'solar:inbox-bold-duotone', description: 'Patient replies', badge: repliesWaiting > 0 ? repliesWaiting : undefined },
+    { id: 'app_requests', label: 'App Requests', icon: 'solar:smartphone-2-bold-duotone', description: 'From the patient app', badge: appRequestsWaiting > 0 ? appRequestsWaiting : undefined },
+    { id: 'lists', label: 'Lists', icon: 'solar:checklist-minimalistic-bold-duotone', description: 'Birthdays, recalls and more' },
     { id: 'automations', label: 'Automations', icon: 'solar:widget-add-bold-duotone', description: 'Smart Workflows' },
+    { id: 'templates', label: 'Templates', icon: 'solar:document-add-bold-duotone', description: 'Letters, SMS and email' },
+    { id: 'log', label: 'Message log', icon: 'solar:history-bold-duotone', description: 'Every SMS and email sent' },
     { id: 'telemedicine', label: 'Telemedicine', icon: 'solar:videocamera-bold-duotone', description: 'Virtual Care' }
   ];
 
   const tabIcons: { [key in TabType]: string } = {
     dashboard: 'solar:chart-bold-duotone',
     messaging: 'solar:chat-round-dots-bold-duotone',
+    replies: 'solar:inbox-bold-duotone',
+    app_requests: 'solar:smartphone-2-bold-duotone',
+    lists: 'solar:checklist-minimalistic-bold-duotone',
     automations: 'solar:widget-add-bold-duotone',
+    templates: 'solar:document-add-bold-duotone',
+    log: 'solar:history-bold-duotone',
     telemedicine: 'solar:videocamera-bold-duotone'
+  };
+
+  // A tab chosen on the page drops the link's patient (the log then shows every patient again) and is kept in the
+  // address, so Back from a patient file opened here (a list, a reply, the log) returns to this tab, not the Dashboard
+  const chooseTab = (tab: TabType) => {
+    setActiveTab(tab);
+    setSearchParams({ tab }, { replace: true });
   };
 
   return (
@@ -287,6 +338,7 @@ const Communications: React.FC = () => {
                     ref={avatarButtonRef}
                     onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
                     className="relative group focus:outline-none"
+                    aria-label="Open profile menu"
                   >
                     {/* Pulsating outer ring - ORANGE */}
                     <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300"></div>
@@ -294,14 +346,8 @@ const Communications: React.FC = () => {
                     
                     {/* Avatar circle */}
                     <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                      <img 
-                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                        alt={user.name}
-                        className="h-full w-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                        }}
-                      />
+                      {/* The user's photo, or their initials: never a stranger's stock photo standing in for them */}
+                      <UserAvatar avatar={user.avatar} name={user.name} />
                     </div>
                   </button>
 
@@ -327,9 +373,11 @@ const Communications: React.FC = () => {
                         {/* Header */}
                         <div className="flex items-center justify-between mb-6">
                           <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
-                          <button 
+                          <button
                             onClick={() => setIsAvatarDropdownOpen(false)}
                             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                            title="Close"
+                            aria-label="Close"
                           >
                             <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                           </button>
@@ -340,11 +388,7 @@ const Communications: React.FC = () => {
                           <div className="flex items-center gap-4">
                             <div className="relative">
                               <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                                <img 
-                                  src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                  alt={user.name}
-                                  className="h-full w-full object-cover"
-                                />
+                                <UserAvatar avatar={user.avatar} name={user.name} />
                               </div>
                               <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                             </div>
@@ -381,14 +425,17 @@ const Communications: React.FC = () => {
 
         {/* Premium Navigation Tabs */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-          <div className="grid grid-cols-4 gap-0 w-full">
+          <div role="tablist" aria-label="Messages sections" className="grid grid-cols-4 gap-0 w-full">
             {(tabs).map((tab) => {
               const iconName = tabIcons[tab.id as TabType];
               const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabType)}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => chooseTab(tab.id as TabType)}
                   className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-4 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize min-h-[60px] ${
                     isActive
                       ? `bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg`
@@ -447,7 +494,7 @@ const Communications: React.FC = () => {
                       className="px-6 pb-6"
                     />
                   ) : (
-                    <CommunicationsDashboard />
+                    <CommunicationsDashboard onOpenTab={chooseTab} />
                   )}
                 </div>
               )}
@@ -460,10 +507,45 @@ const Communications: React.FC = () => {
               )}
 
 
+              {/* SMS Replies Tab - patients' replies to practice SMS (two-way SMS) */}
+              {activeTab === 'replies' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <SmsRepliesInbox practiceId={practiceId} onNeedsReplyCountChange={setRepliesWaiting} />
+                </div>
+              )}
+
+              {/* App Requests Tab - bookings, new times and changes asked for in the patient app */}
+              {activeTab === 'app_requests' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <PortalRequestsInbox practiceId={practiceId} onPendingCountChange={setAppRequestsWaiting} />
+                </div>
+              )}
+
+              {/* Lists Tab - automation lists (birthdays, recalls, hand-picked patients) */}
+              {activeTab === 'lists' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <PatientListsPage practiceId={practiceId ?? undefined} />
+                </div>
+              )}
+
               {/* Automations Tab */}
               {activeTab === 'automations' && (
                 <div className="h-full">
-                  <SmartAutomations />
+                  <SmartAutomations onOpenLists={() => chooseTab('lists')} />
+                </div>
+              )}
+
+              {/* Templates Tab - letter, SMS and email templates with merge fields; automatic messages marked */}
+              {activeTab === 'templates' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <TemplatesPanel practiceId={practiceId} onOpenAutomations={() => chooseTab('automations')} />
+                </div>
+              )}
+
+              {/* Message log Tab - every SMS and email the practice sent (one patient's from a patient file) */}
+              {activeTab === 'log' && (
+                <div className="px-4 md:px-6 py-4 md:py-6">
+                  <MessageLogPanel practiceId={practiceId} patientId={logPatientId} onClearPatient={() => setSearchParams({ tab: 'log' }, { replace: true })} />
                 </div>
               )}
 
@@ -484,7 +566,7 @@ const Communications: React.FC = () => {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={() => {
-                        toast('Select a patient from the upcoming appointments to start a consultation', {
+                        toast('Press Start Call next to a checked-in patient in Today\'s Visits below', {
                           icon: 'ℹ️',
                         });
                       }}
@@ -508,17 +590,17 @@ const Communications: React.FC = () => {
                       <p className="text-sm opacity-90">Book a telemedicine visit</p>
                     </motion.button>
 
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-xl text-white shadow-lg hover:shadow-xl transition-all"
-                    >
+                    {/* A count, not an action: the checked-in patients are listed below with Start Call */}
+                    <div className="p-6 bg-gradient-to-r from-green-500 to-green-600 rounded-xl text-white shadow-lg">
                       <Icon icon="solar:users-group-rounded-bold-duotone" className="w-12 h-12 mb-3" />
                       <h3 className="text-lg font-semibold mb-1">Virtual Waiting Room</h3>
                       <p className="text-sm opacity-90">
-                        {upcomingTelemedicineVisits.filter(v => v.status === 'checked_in').length} patients waiting
+                        {(() => {
+                          const waiting = upcomingTelemedicineVisits.filter(v => v.status === 'checked_in').length;
+                          return `${waiting} ${waiting === 1 ? 'patient' : 'patients'} checked in`;
+                        })()}
                       </p>
-                    </motion.button>
+                    </div>
                   </div>
 
                     {/* Upcoming Consultations */}
@@ -526,10 +608,11 @@ const Communications: React.FC = () => {
                     <div className="flex items-center justify-between mb-4">
                       <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                         <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6 text-amber-500" />
-                        Today's Telemedicine Appointments
+                        {/* The list holds all of today's open visits (visits have no telemedicine flag) */}
+                        Today's Visits
                       </h3>
                       <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                        {format(new Date(), 'EEEE, MMM d')}
+                        {format(new Date(), 'EEEE, d MMM')}
                       </span>
                     </div>
                     
@@ -537,7 +620,8 @@ const Communications: React.FC = () => {
                       {upcomingTelemedicineVisits.length === 0 ? (
                         <div className="text-center py-8">
                           <Icon icon="solar:video-frame-cut-bold-duotone" className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                          <p className="text-gray-500">No telemedicine appointments scheduled for today</p>
+                          <p className="text-gray-500">No open visits today</p>
+                          <p className="text-sm text-gray-400 mt-1">Use Schedule Appointment above to book one</p>
                         </div>
                       ) : (
                         upcomingTelemedicineVisits.map((visit) => {
@@ -545,9 +629,15 @@ const Communications: React.FC = () => {
                             `${visit.patient.first_name?.[0] || ''}${visit.patient.last_name?.[0] || ''}` : 
                             'P';
                           const bgColors = ['bg-blue-500', 'bg-purple-500', 'bg-green-500', 'bg-pink-500'];
-                          const bgColor = bgColors[Math.floor(Math.random() * bgColors.length)];
+                          // Same colour for the same patient on every render (Math.random() made it flicker)
+                          const colorKey = visit.patient_id || visit.id;
+                          const colorHash = Array.from(colorKey).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+                          const bgColor = bgColors[colorHash % bgColors.length];
                           
                           const isCheckedIn = visit.status === 'checked_in';
+                          // A video booking is joined in its own room whenever it is time, as from the diary: the
+                          // patient is not checked in at a desk
+                          const videoLink = storedVideoLink(visit.video_link);
                           return (
                             <div 
                               key={visit.id} 
@@ -564,7 +654,7 @@ const Communications: React.FC = () => {
                                     {visit.patient?.first_name} {visit.patient?.last_name}
                                   </p>
                                   <p className="text-sm text-gray-600">
-                                    {visit.visit_type || 'Telemedicine Consultation'} • {visit.scheduled_time || visit.visit_time}
+                                    {visit.visit_type ? visit.visit_type.replace(/_/g, ' ') : 'Visit'} • {(visit.scheduled_time || visit.visit_time)?.slice(0, 5)}
                                   </p>
                                   {isCheckedIn && (
                                     <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
@@ -575,42 +665,24 @@ const Communications: React.FC = () => {
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                {isCheckedIn ? (
-                                  <button 
-                                    onClick={async () => {
-                                      const roomName = `hpms-${user?.practice_id}-${visit.id}`;
-                                      const roomUrl = `https://meet.jit.si/${roomName}`;
-                                      
-                                      // Set up the session
-                                      setCurrentTelemedicineSession({
-                                        roomUrl,
-                                        patientName: `${visit.patient?.first_name} ${visit.patient?.last_name}`,
-                                        doctorName: user?.first_name + ' ' + user?.last_name || 'Doctor',
-                                        appointmentId: visit.id
-                                      });
-                                      
-                                      // Send SMS to patient with room link
-                                      if (visit.patient?.mobile_phone) {
-                                        try {
-                                          await communicationService.sendSMS({
-                                            practiceId: user?.practice_id || '',
-                                            recipientPhone: visit.patient.mobile_phone,
-                                            messageContent: `Your telemedicine appointment is starting now. Join here: ${roomUrl}`,
-                                            messageType: 'telemedicine_invite',
-                                            patientId: visit.patient_id,
-                                            appointmentId: visit.id
-                                          });
-                                          toast.success('Patient has been notified');
-                                        } catch (error) {
-                                          console.error('Failed to send SMS:', error);
-                                        }
+                                {isCheckedIn || videoLink ? (
+                                  // Opens the shared video consult flow: private room link, copy, call in HPMS,
+                                  // and an SMS to the patient only after the number and text are confirmed. A video
+                                  // booking opens the room its confirmation sent (another service's link in a new tab)
+                                  <button
+                                    type="button"
+                                    disabled={!visit.patient}
+                                    title={visit.patient ? undefined : 'Patient details could not be loaded for this visit'}
+                                    onClick={() => {
+                                      if (videoLink && !opensInApp(videoLink)) {
+                                        window.open(videoLink, '_blank', 'noopener,noreferrer');
+                                        return;
                                       }
-                                      
-                                      setShowTelemedicineRoom(true);
+                                      setVideoConsultVisit(visit);
                                     }}
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+                                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                   >
-                                    <Icon icon="solar:video-camera-bold" className="w-4 h-4" />
+                                    <Icon icon="solar:videocamera-bold" className="w-4 h-4" />
                                     Start Call
                                   </button>
                                 ) : (
@@ -618,9 +690,6 @@ const Communications: React.FC = () => {
                                     Waiting for check-in
                                   </span>
                                 )}
-                                <button className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
-                                  <MoreVertical className="w-4 h-4" />
-                                </button>
                               </div>
                             </div>
                           );
@@ -629,57 +698,17 @@ const Communications: React.FC = () => {
                     </div>
 
                     <div className="mt-4 text-center">
-                      <button 
-                        onClick={() => window.location.href = '/appointments?type=telemedicine'}
+                      {/* There is no /appointments page (it showed "Not found"); visits are listed under Encounters */}
+                      <button
+                        onClick={() => navigate('/encounters')}
                         className="text-amber-600 hover:text-amber-700 font-medium text-sm"
                       >
-                        View All Telemedicine Appointments →
+                        View all visits →
                       </button>
                     </div>
                   </div>
-
-                  {/* Meeting Settings */}
-                  <div className="bg-white rounded-xl shadow-lg p-6">
-                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                      <Icon icon="solar:settings-bold-duotone" className="w-6 h-6 text-gray-600" />
-                      Telemedicine Settings
-                    </h3>
-                    
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">Auto-record sessions</p>
-                          <p className="text-sm text-gray-500">Save telemedicine recordings for medical records</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">Send reminders</p>
-                          <p className="text-sm text-gray-500">Notify patients 15 minutes before appointment</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900">Waiting room</p>
-                          <p className="text-sm text-gray-500">Patients wait for approval before joining</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input type="checkbox" defaultChecked className="sr-only peer" />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
+                  {/* A "Telemedicine Settings" card (auto-record, reminders, waiting room) was removed:
+                      its switches were not saved or used anywhere, and showed reminders as switched on */}
                   </div>
                 </div>
               )}
@@ -693,57 +722,31 @@ const Communications: React.FC = () => {
         <FloatingVisitTracker practiceId={practiceId} />
       )}
 
-      {/* Telemedicine Room Modal */}
-      {showTelemedicineRoom && currentTelemedicineSession && (
-        <TelemedicineRoom
-          roomUrl={currentTelemedicineSession.roomUrl}
-          patientName={currentTelemedicineSession.patientName}
-          doctorName={currentTelemedicineSession.doctorName}
-          appointmentId={currentTelemedicineSession.appointmentId}
-          onEnd={() => {
-            setShowTelemedicineRoom(false);
-            setCurrentTelemedicineSession(null);
-            
+      {/* Video consult (same component as the patient file's Video consult) */}
+      {videoConsultVisit?.patient && (
+        <VideoConsultModal
+          isOpen
+          onClose={() => setVideoConsultVisit(null)}
+          patient={{
+            id: videoConsultVisit.patient.id || videoConsultVisit.patient_id,
+            firstName: videoConsultVisit.patient.first_name,
+            lastName: videoConsultVisit.patient.last_name,
+            cellNumber: videoConsultVisit.patient.cell_number
+          }}
+          practiceId={videoConsultVisit.practice_id || practiceId}
+          practiceName={currentPracticeData?.name}
+          // The visit's doctor is who the patient expects; fall back to whoever starts the call
+          clinicianName={
+            videoConsultVisit.doctor?.full_name
+              ? formatDoctorName(videoConsultVisit.doctor.full_name)
+              : getClinicianDisplayName(user)
+          }
+          visitId={videoConsultVisit.id}
+          // The booking's own room, where the patient waits; none for a visit without one (a new private room)
+          roomUrl={storedVideoLink(videoConsultVisit.video_link)}
+          onCallEnded={() => {
             // Refresh the visits list
-            if (practiceId && activeTab === 'telemedicine') {
-              const fetchTelemedicineVisits = async () => {
-                try {
-                  const today = format(new Date(), 'yyyy-MM-dd');
-                  const { data, error } = await supabase
-                    .from('visits')
-                    .select(`
-                      *,
-                      patient:patients(
-                        id,
-                        first_name,
-                        last_name,
-                        mobile_phone,
-                        email
-                      ),
-                      doctor:users(
-                        id,
-                        first_name,
-                        last_name,
-                        email
-                      )
-                    `)
-                    .eq('practice_id', practiceId)
-                    .eq('visit_date', today)
-                    .eq('status', 'checked_in')
-          .or('status.eq.scheduled,status.eq.confirmed')
-                    .order('scheduled_time', { ascending: true });
-                  
-                  if (error) throw error;
-                  
-                  setUpcomingTelemedicineVisits(data || []);
-                } catch (error) {
-                  console.error('Error fetching telemedicine visits:', error);
-                }
-              };
-              
-              fetchTelemedicineVisits();
-            }
-            
+            if (activeTab === 'telemedicine') loadTelemedicineVisits();
             toast.success('Telemedicine session ended');
           }}
         />
@@ -758,38 +761,7 @@ const Communications: React.FC = () => {
           onSuccess={() => {
             setIsScheduleModalOpen(false);
             // Refresh telemedicine visits
-            if (practiceId && activeTab === 'telemedicine') {
-              const today = format(new Date(), 'yyyy-MM-dd');
-              supabase
-                .from('visits')
-                .select(`
-                  *,
-                  patient:patients(
-                    id,
-                    first_name,
-                    last_name,
-                    mobile_phone,
-                    email
-                  ),
-                  doctor:users(
-                    id,
-                    first_name,
-                    last_name,
-                    email
-                  )
-                `)
-                .eq('practice_id', practiceId)
-                .eq('visit_date', today)
-                .eq('status', 'checked_in')
-                .or('status.eq.scheduled,status.eq.confirmed')
-                .order('scheduled_time', { ascending: true })
-                .then(({ data, error }) => {
-                  if (!error) {
-                    setUpcomingTelemedicineVisits(data || []);
-                  }
-                });
-            }
-            toast.success('Appointment scheduled successfully');
+            if (activeTab === 'telemedicine') loadTelemedicineVisits();
           }}
           onCancel={() => setIsScheduleModalOpen(false)}
         />

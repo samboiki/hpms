@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from './authStore';
 import { practiceDataService } from '../lib/practiceDataService';
@@ -40,6 +41,8 @@ export interface Patient {
   updated_at?: string;
   practice_id?: string;
   branch_id?: string;
+  /** The account number in Eminance, for patients brought over from it (proposals/2026-10-07-eminance-import.sql) */
+  legacy_account_number?: string | null;
   medical_aid_details?: {
     id?: string;
     provider: string;
@@ -56,6 +59,7 @@ export interface Patient {
     };
   }[];
   // Added fields for enhanced data
+  visits?: { id: string; visit_date: string | null; status: string | null; branch_id: string | null }[];
   last_visit_date?: string;
   total_visits?: number;
   practice?: {
@@ -105,13 +109,7 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       }
       
       set({ patients, isLoading: false });
-      
-      // Pre-warm visit counts for visible patients
-      setTimeout(() => {
-        patients.slice(0, 10).forEach(patient => {
-          lightning.getVisitCount(patient.id).catch(() => {});
-        });
-      }, 100);
+      // (No visit-count "pre-warm" here: lib/lightningCache.ts keeps nothing, so those 10 requests were thrown away)
     } catch (error) {
       console.error('❌ [PatientsStore] Error fetching patients:', error);
       set({ error: 'Failed to fetch patients', isLoading: false });
@@ -160,43 +158,63 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
 
       console.log('📊 Fetched patients:', patientsWithData?.length);
 
-      // APPROACH 2: Fetch visits separately for each patient
-      const patientsWithVisits = await Promise.all(
-        (patientsWithData || []).map(async (patient) => {
-          try {
-            // Get visits for this specific patient
-            const { data: visits, error: visitsError } = await supabase
-              .from('visits')
-              .select('id, visit_date, status')
-              .eq('patient_id', patient.id)
-              .order('visit_date', { ascending: false });
+      // Fetch visits in batches of 100 patients (paged by 1000 rows) instead of one query per patient
+      type VisitSummary = { id: string; patient_id: string; visit_date: string | null; status: string | null; branch_id: string | null };
+      const PATIENTS_PER_QUERY = 100;
+      const ROWS_PER_PAGE = 1000;
+      const fetchVisitsFor = async (ids: string[]): Promise<VisitSummary[]> => {
+        const rows: VisitSummary[] = [];
+        for (let from = 0; ; from += ROWS_PER_PAGE) {
+          const { data, error: visitsError } = await supabase
+            .from('visits')
+            .select('id, patient_id, visit_date, status, branch_id')
+            .in('patient_id', ids)
+            .order('visit_date', { ascending: false })
+            .range(from, from + ROWS_PER_PAGE - 1);
+          if (visitsError) throw visitsError;
+          rows.push(...((data || []) as VisitSummary[]));
+          if (!data || data.length < ROWS_PER_PAGE) return rows;
+        }
+      };
 
-            if (visitsError) {
-              console.error(`❌ Error fetching visits for ${patient.first_name}:`, visitsError);
-              return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
-            }
-
-            // Calculate visit statistics
-            const completedVisits = (visits || []).filter(v => v.status === 'completed');
-            const lastVisit = completedVisits[0];
-
-            // Debug specific patients
-            if (patient.first_name === 'Mirjam' || patient.first_name === 'Imms') {
-              console.log(`🔍 ${patient.first_name} ${patient.last_name} visits:`, visits);
-            }
-
-            return {
-              ...patient,
-              visits: visits || [],
-              last_visit_date: lastVisit?.visit_date || null,
-              total_visits: completedVisits.length
-            };
-          } catch (err) {
-            console.error(`Error processing patient ${patient.id}:`, err);
-            return { ...patient, visits: [], last_visit_date: null, total_visits: 0 };
-          }
-        })
+      const patientIds = (patientsWithData || []).map((patient) => patient.id);
+      const idChunks: string[][] = [];
+      for (let i = 0; i < patientIds.length; i += PATIENTS_PER_QUERY) {
+        idChunks.push(patientIds.slice(i, i + PATIENTS_PER_QUERY));
+      }
+      const visitPages = await Promise.all(
+        idChunks.map((ids) =>
+          fetchVisitsFor(ids).catch((err) => {
+            console.error('❌ Error fetching visits for a batch of patients:', err);
+            return [] as VisitSummary[];
+          })
+        )
       );
+
+      const visitsByPatient = new Map<string, VisitSummary[]>();
+      visitPages.flat().forEach((visit) => {
+        const list = visitsByPatient.get(visit.patient_id) || [];
+        list.push(visit);
+        visitsByPatient.set(visit.patient_id, list);
+      });
+
+      // A visit counts once it has taken place: dated today or earlier and not cancelled or a no-show.
+      // (Counting only 'completed' showed "0 visits" because visits were never marked complete.)
+      // Local calendar date (toISOString is UTC, still yesterday before 02:00 in Namibia)
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const NOT_ATTENDED = ['cancelled', 'no-show', 'no_show'];
+      const patientsWithVisits = (patientsWithData || []).map((patient) => {
+        const visits = visitsByPatient.get(patient.id) || [];
+        const attended = visits.filter(
+          (v) => !!v.visit_date && v.visit_date.slice(0, 10) <= today && !NOT_ATTENDED.includes(v.status || '')
+        );
+        return {
+          ...patient,
+          visits,
+          last_visit_date: attended[0]?.visit_date || null,
+          total_visits: attended.length
+        };
+      });
       
       console.log('✅ [PatientsStore] Successfully processed all patients with visits');
       console.log('📊 Patients with visits:', patientsWithVisits.filter(p => p.total_visits > 0).length);
@@ -207,11 +225,20 @@ export const usePatientsStoreNew = create<PatientsState>((set, get) => ({
       
       // FALLBACK: Just get patients without visits
       try {
-        const { data: fallbackPatients } = await supabase
+        // Keep the practice filter on the fallback too, so a failure never widens which patients are listed
+        const fallbackContext = await practiceDataService.getAuthContext();
+        if (!fallbackContext?.practiceId) {
+          set({ patients: [], isLoading: false, error: 'Failed to fetch patients' });
+          return;
+        }
+        const { data: fallbackPatients, error: fallbackError } = await supabase
           .from('patients')
           .select('*')
+          .eq('practice_id', fallbackContext.practiceId)
           .order('last_name', { ascending: true });
-          
+        // An unread error here showed "No patients found" instead of saying the list failed to load
+        if (fallbackError) throw fallbackError;
+
         set({ patients: fallbackPatients || [], isLoading: false });
       } catch (fallbackError) {
         console.error('❌ Even fallback failed:', fallbackError);

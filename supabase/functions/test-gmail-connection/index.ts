@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { decidePracticeAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,7 +20,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') as string;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { practiceId, clientId, clientSecret } = await req.json();
+    const { practiceId: requestedPracticeId, clientId, clientSecret } = await req.json();
+
+    // The settings page uses this to check a practice's Gmail setup (read with the service role): signed-in,
+    // active staff of that practice only (with none named, their own)
+    const caller = await loadCaller(supabase, req.headers.get('Authorization'), supabaseServiceKey);
+    const access = decidePracticeAccess(caller, requestedPracticeId);
+    if (!access.allowed) return deniedResponse(access, corsHeaders);
+    const practiceId = access.practiceId;
 
     console.log('Testing Gmail OAuth connection for practice:', practiceId);
 

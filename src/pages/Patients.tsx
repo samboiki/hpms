@@ -9,21 +9,24 @@ import PatientAnalytics from '../components/patients/PatientAnalytics';
 import { usePatientsStoreNew } from '../stores/patientsStoreNew';
 import { motion, AnimatePresence } from 'framer-motion';
 import { usePatientSettings } from '../hooks/usePatientSettings';
-import { useOutletContext } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { useTheme } from '../stores/themeStore';
 import { usePracticeData } from '../hooks/usePracticeData';
+import { toast } from 'react-hot-toast';
+import { PageTabs, type PageTab } from '../components/ui/PageTabs';
+import { UserAvatar } from '../components/layout/ProfileMenu';
 
-interface LayoutContext {
-  toggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean;
-}
+const PATIENT_PAGE_TABS: readonly PageTab<'patients' | 'analytics' | 'settings'>[] = [
+  { key: 'patients', label: 'Patients', icon: 'solar:users-group-two-rounded-bold-duotone' },
+  { key: 'analytics', label: 'Analytics', icon: 'solar:chart-square-bold-duotone' },
+  { key: 'settings', label: 'Settings', icon: 'solar:settings-minimalistic-bold-duotone' }
+];
 
 // Main Patients Page Component
 const Patients: React.FC = () => {
   const { practiceId } = usePractice();
   const { user, logout } = useAuthStore();
   const { patients } = usePatientsStoreNew();
-  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
   const { practiceData, colors } = usePracticeData();
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
@@ -34,6 +37,13 @@ const Patients: React.FC = () => {
   const [hasChanges, setHasChanges] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
+  const [searchParams] = useSearchParams();
+  const deepLinkPatientId = searchParams.get('patientId');
+
+  // A patient deep link (handled in PatientManagementView) needs the Patients tab mounted
+  useEffect(() => {
+    if (deepLinkPatientId) setActiveTab('patients');
+  }, [deepLinkPatientId]);
 
   // Update local settings when loaded from database
   React.useEffect(() => {
@@ -65,9 +75,9 @@ const Patients: React.FC = () => {
       backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
       backgroundSize: '20px 20px'
     }}>
-      <div className="px-0 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header - Same style as Dashboard */}
-        <div className="mx-0 sm:mx-0 backdrop-blur-md rounded-none sm:rounded-xl shadow-sm border border-gray-100/50 border-x-0 sm:border-x">
+        <div className="backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex items-center justify-between w-full">
               {/* Left Side - Mobile: User Avatar, Desktop: Page title */}
@@ -79,6 +89,7 @@ const Patients: React.FC = () => {
                       ref={avatarButtonRef}
                       onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
                       className="relative group focus:outline-none"
+                      aria-label="Open profile menu"
                     >
                       {/* Pulsating outer ring */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
@@ -86,14 +97,8 @@ const Patients: React.FC = () => {
                       
                       {/* Avatar circle */}
                       <div className="relative h-12 w-12 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        {/* The user's photo, or their initials: never a stranger's stock photo standing in for them */}
+                        <UserAvatar avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -106,7 +111,7 @@ const Patients: React.FC = () => {
                 
                 {/* Title - Always visible */}
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
                     Patients
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5 hidden lg:block">Manage your patient database</p>
@@ -115,24 +120,14 @@ const Patients: React.FC = () => {
               
               {/* Right Side */}
               <div className="flex items-center gap-3">
-                {/* Mobile Menu Button - Right side on mobile/tablet */}
-                <div className="lg:hidden">
-                  <button 
-                    onClick={toggleMobileSidebar}
-                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
-                    <span className="text-sm font-medium hidden sm:block">Menu</span>
-                  </button>
-                </div>
-                
-                {/* User Avatar - Desktop only (right side) */}
+                {/* User Avatar - Desktop only (right side). Below lg the menu button is in the app bar (Layout) */}
                 {user && (
                   <div className="relative hidden lg:block">
                     <button
                       ref={avatarButtonRef}
                       onClick={() => setIsAvatarDropdownOpen(!isAvatarDropdownOpen)}
                       className="relative group focus:outline-none"
+                      aria-label="Open profile menu"
                     >
                       {/* Pulsating outer ring */}
                       <div className={`absolute inset-0 bg-gradient-to-br ${currentTheme.gradients.sidebar} rounded-full blur-lg opacity-30 group-hover:opacity-50 transition-opacity duration-300`}></div>
@@ -140,14 +135,8 @@ const Patients: React.FC = () => {
                       
                       {/* Avatar circle */}
                       <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        {/* The user's photo, or their initials: never a stranger's stock photo standing in for them */}
+                        <UserAvatar avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -182,6 +171,8 @@ const Patients: React.FC = () => {
                 <button 
                   onClick={() => setIsAvatarDropdownOpen(false)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
@@ -192,11 +183,7 @@ const Patients: React.FC = () => {
                 <div className="flex items-start gap-4">
                   <div className="relative flex-shrink-0">
                     <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                      <img 
-                        src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                        alt={user.name}
-                        className="h-full w-full object-cover"
-                      />
+                      <UserAvatar avatar={user.avatar} name={user.name} />
                     </div>
                     <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                   </div>
@@ -227,42 +214,13 @@ const Patients: React.FC = () => {
         )}
 
         {/* Main Tab Navigation - Professional Style */}
-        <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden mx-0 sm:mx-0">
-          <div className="grid grid-cols-3 gap-0 w-full">
-            {(['patients', 'analytics', 'settings'] as const).map((tab, index) => {
-              const tabConfig = {
-                patients: { icon: 'solar:users-group-two-rounded-bold-duotone', label: 'Patients' },
-                analytics: { icon: 'solar:chart-square-bold-duotone', label: 'Analytics' },
-                settings: { icon: 'solar:settings-minimalistic-bold-duotone', label: 'Settings' }
-              };
-              const { icon, label } = tabConfig[tab];
-              const isActive = activeTab === tab;
-              const isFirst = index === 0;
-              const isLast = index === 2;
-              
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`relative flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm font-medium transition-all duration-200 capitalize ${
-                    isFirst ? 'rounded-l-xl' : ''
-                  } ${
-                    isLast ? 'rounded-r-xl' : ''
-                  } ${
-                    !isFirst ? '-ml-px' : ''
-                  } flex-1 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg z-10'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <Icon icon={icon} className={`w-5 h-5 ${isActive ? 'text-white' : ''} flex-shrink-0`} />
-                  <span className="text-[10px] sm:text-sm">{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <PageTabs
+          tabs={PATIENT_PAGE_TABS}
+          active={activeTab}
+          onChange={setActiveTab}
+          label="Patients sections"
+          activeClassName="bg-gradient-to-r from-purple-500 to-indigo-600"
+        />
 
         {/* Tab Content */}
         <div className="min-h-[600px]">
@@ -318,6 +276,15 @@ const Patients: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Only inactiveThresholdDays is read anywhere (PatientManagementView); the rest is stored only */}
+                <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+                  <span>
+                    Only the Inactive Patient Threshold is applied in HPMS today. The other options are saved,
+                    but nothing uses them yet (for example, records are not anonymised automatically).
+                  </span>
+                </div>
+
                 {/* Default Values Section */}
                 <div className="border-b border-gray-200 pb-6">
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Default Values</h3>
@@ -400,39 +367,16 @@ const Patients: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Patient ID Format */}
+                {/* Patient numbers. The "Patient ID Format" (a prefix and a numbering style) used to be here: it was
+                    saved but nothing used it, and a format could not change the OneHealth reference that claims and
+                    statements already carry, so it was removed (parity A4, October 2026). */}
                 <div className="border-b border-gray-200 pb-6">
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Patient ID Format</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">ID Prefix</label>
-                      <input 
-                        type="text" 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500" 
-                        placeholder="e.g., PAT" 
-                        value={localSettings.idPrefix}
-                        onChange={(e) => {
-                          setLocalSettings({ ...localSettings, idPrefix: e.target.value });
-                          setHasChanges(true);
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">ID Format</label>
-                      <select 
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                        value={localSettings.idFormat}
-                        onChange={(e) => {
-                          setLocalSettings({ ...localSettings, idFormat: e.target.value as 'sequential' | 'year_number' | 'random_alphanumeric' });
-                          setHasChanges(true);
-                        }}
-                      >
-                        <option value="sequential">Sequential Numbers (PAT001, PAT002...)</option>
-                        <option value="year_number">Year + Number (PAT2024001, PAT2024002...)</option>
-                        <option value="random_alphanumeric">Random Alphanumeric (PATX7K9M2...)</option>
-                      </select>
-                    </div>
-                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Patient numbers</h3>
+                  <p className="text-sm text-gray-600">
+                    OneHealth gives every patient a reference number. It shows on the patient file and in the patient list,
+                    and claims and statements carry it. A patient who had a paper file or an account in your previous system
+                    keeps that number as their old file number. Patients are found by either number.
+                  </p>
                 </div>
                 
                 {/* Activity Threshold Settings */}
@@ -482,11 +426,15 @@ const Patients: React.FC = () => {
                       Cancel
                     </button>
                   )}
-                  <button 
+                  <button
                     onClick={async () => {
                       const success = await saveSettings(localSettings);
                       if (success) {
                         setHasChanges(false);
+                        toast.success('Patient settings saved');
+                      } else {
+                        // usePatientSettings only records the failure in its error state, which this page does not show
+                        toast.error('Patient settings could not be saved. Please try again.');
                       }
                     }}
                     disabled={!hasChanges || saving}

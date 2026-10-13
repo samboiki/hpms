@@ -12,7 +12,7 @@ export default function FollowUpAutomationTab() {
       <div className="border-b border-gray-200">
         <div className="px-6 py-4">
           <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <Icon icon="solar:automation-bold-duotone" className="w-7 h-7 text-purple-600" />
+            <Icon icon="solar:magic-stick-3-bold-duotone" className="w-7 h-7 text-purple-600" />
             Follow-up Automation System
           </h2>
           <p className="text-sm text-gray-600 mt-1">

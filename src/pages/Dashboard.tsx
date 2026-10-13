@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { createPortal } from 'react-dom';
 import SearchDuotone from '../components/icons/SearchDuotone';
 import { Icon } from '@iconify/react';
 import { supabase } from '../lib/supabase';
-import { useNavigate, useOutletContext } from 'react-router-dom';
-import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { format, eachDayOfInterval, isToday, isSameDay, isSameMonth, startOfMonth, endOfMonth, addMonths, subMonths, isValid, getDay } from 'date-fns';
 import { usePractice } from '../contexts/PracticeContext';
 import AddScheduledVisitForm from '../components/forms/AddScheduledVisitForm';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,8 +12,8 @@ import { useVisitsStore } from '../stores/visitsStore';
 import { useTheme } from '../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import PremiumStatCard from '../components/dashboard/PremiumStatCard';
+import { useSeesFinanceFigures } from '../hooks/useScreenAccess';
 import DetailedReportModal from '../components/modals/DetailedReportModal';
-import EnhancedFinancialModal from '../components/modals/EnhancedFinancialModal';
 import PracticeOverviewTile from '../components/dashboard/PracticeOverviewTile';
 import { dashboardStatsService, DashboardStats } from '../services/dashboardStatsService';
 import { useAuthStore } from '../stores/authStore';
@@ -31,15 +31,33 @@ import RescheduleAppointmentModal from '../components/modals/RescheduleAppointme
 import AppointmentActionModal from '../components/modals/AppointmentActionModal';
 import AppointmentApprovalModal from '../components/modals/AppointmentApprovalModal';
 import AppointmentGridView from '../components/appointments/AppointmentGridView';
-import FullScreenEditVisitModal from '../components/visits/FullScreenEditVisitModal';
 import { usePracticeData } from '../hooks/usePracticeData';
 
 // Using Visit type from enhanced-visit.types
 import { Visit } from '../types/enhanced-visit.types';
+import { diaryRangeFor } from '../utils/diary/diaryRange';
+import { useDiaryRangeVisits } from '../hooks/useDiaryRangeVisits';
+import { parseDateKey } from '../utils/diary/diaryTime';
+import { readDiaryLayout, saveDiaryLayout, type DiaryLayout } from '../utils/diary/diaryViewChoice';
+import { bookingReason } from '../utils/diary/bookingCopy';
+import { safeEncountersReturn } from '../utils/encounters/encounterLinks';
+import { formatNad } from '../utils/billing/money';
+import { readDiaryDayFocus, withoutDiaryDayLink, type DiaryDayFocus } from '../utils/diary/diaryDayFocus';
+import { freedSlotOf, type DiarySlot } from '../utils/diary/waitingList';
+import { lazyWindow } from '../components/layout/lazyScreen';
+import { useEscapeToClose } from '../hooks/useEscapeToClose';
 
-interface Doctor {
+// Opened from the Dashboard on demand, so their code (the charts; the whole visit screen) loads when first opened
+// instead of before the Dashboard can show (and says so if it cannot load: lazyScreen.tsx)
+const EnhancedFinancialModal = lazyWindow(() => import('../components/modals/EnhancedFinancialModal'));
+const FullScreenEditVisitModal = lazyWindow(() => import('../components/visits/FullScreenEditVisitModal'));
+
+// A member of the practice's staff, any role: the diary works out who gets a column
+// (src/utils/diary/diaryPractitioners.ts)
+interface StaffMember {
   id: string;
   email: string;
+  is_active?: boolean | null;
   user_metadata?: {
     full_name?: string;
     role?: string;
@@ -58,17 +76,33 @@ interface ActivityItem {
   color: string;
 }
 
-interface LayoutContext {
-  toggleMobileSidebar: () => void;
-  isMobileSidebarOpen: boolean;
+// The user's photo, or their initials when there is none. A stock photo of a stranger (loaded from a
+// third-party site) used to stand in for the signed-in user
+function UserAvatarImage({ avatar, name }: { avatar?: string | null; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (avatar && !failed) {
+    return <img src={avatar} alt={name} className="h-full w-full object-cover" onError={() => setFailed(true)} />;
+  }
+  const initials = (name || '').split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
+  return (
+    <div role="img" aria-label={name} className="h-full w-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-indigo-600 text-white font-semibold">
+      {initials}
+    </div>
+  );
+}
+
+// date-fns format() throws on an invalid date, so a visit saved without a date or time shows the
+// fallback instead of breaking the dashboard
+function formatVisitStart(visit: Pick<Visit, 'scheduled_date' | 'scheduled_time'>, pattern: string, fallback: string): string {
+  const start = new Date(`${visit.scheduled_date}T${visit.scheduled_time}`);
+  return isValid(start) ? format(start, pattern) : fallback;
 }
 
 function Dashboard() {
   const { user, logout } = useAuthStore();
-  const { toggleMobileSidebar } = useOutletContext<LayoutContext>();
   const { currentTheme } = useTheme();
   const { practiceData, colors } = usePracticeData();
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
   const [patientsData, setPatientsData] = useState<any[]>([]);
   const [isAddVisitModalOpen, setIsAddVisitModalOpen] = useState(false);
   const [isAddAppointmentModalOpen, setIsAddAppointmentModalOpen] = useState(false);
@@ -83,11 +117,15 @@ function Dashboard() {
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [isConfirmationModalOpen, setIsConfirmationModalOpen] = useState(false);
+  // Escape closes the visit confirmation and the visit details, as Cancel and the X do
+  useEscapeToClose(isDetailsModalOpen && !!selectedVisit, () => { setIsDetailsModalOpen(false); setSelectedVisit(null); });
+  useEscapeToClose(isConfirmationModalOpen && !!selectedVisit, () => { setIsConfirmationModalOpen(false); setSelectedVisit(null); });
   const [currentUserRole, setCurrentUserRole] = useState<'admin' | 'doctor' | 'nurse' | 'receptionist'>('admin');
   const [currentUserId, setCurrentUserId] = useState('');
   const [currentPracticeId, setCurrentPracticeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
-  const [internalViewMode, setInternalViewMode] = useState<'timeline' | 'grid'>('grid');
+  // Time slots (practitioners side by side) unless this user last chose the cards
+  const [internalViewMode, setInternalViewMode] = useState<DiaryLayout>(() => readDiaryLayout(user?.id));
   const [recentActivities, setRecentActivities] = useState<ActivityItem[]>([]);
   const [showGridView, setShowGridView] = useState(false);
   const [gridViewStatus, setGridViewStatus] = useState<'pending' | 'scheduled' | 'completed' | 'cancelled' | 'no-show' | 'in-progress' | 'ready'>('pending');
@@ -105,6 +143,8 @@ function Dashboard() {
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  // Set when the consultation screen closes because the visit was completed (patient is leaving)
+  const visitCompletedOnCloseRef = useRef(false);
   const [isEditVisitModalOpen, setIsEditVisitModalOpen] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [editingVisitData, setEditingVisitData] = useState<{ id: string; patient_id: string } | null>(null);
@@ -113,10 +153,17 @@ function Dashboard() {
   const calendarScrollRef = useRef<HTMLDivElement>(null);
   
   // Fetch all dashboard stats using optimized hook
-  const { data: dashboardData, isLoading: isDashboardLoading } = useOptimizedDashboardStats();
+  const {
+    data: dashboardData,
+    isLoading: isDashboardLoading,
+    isError: isDashboardError,
+    refetch: refetchDashboardStats
+  } = useOptimizedDashboardStats();
   
   // Fetch communication stats separately for PremiumStatCard
   const { data: realCommunicationStats, isLoading: isCommunicationLoading } = useCommunicationStats();
+  // A role the practice keeps out of Finance sees no revenue here either (Settings > Users > Screen access)
+  const seesFinanceFigures = useSeesFinanceFigures();
   
   // Use shared appointments data
   const { data: todayAppointments = [], isLoading: isAppointmentsLoading } = useTodayAppointments();
@@ -228,17 +275,66 @@ function Dashboard() {
     };
   }, [currentPracticeId, fetchTodayVisits, subscribeToVisitChanges, unsubscribeFromVisitChanges]);
 
-  // Fetch visits when selected date changes
+  // A booking link from the patient file opens its day in the diary: /?diaryDate=2026-10-08
+  const [searchParams, setSearchParams] = useSearchParams();
+  const linkedDiaryDate = searchParams.get('diaryDate');
+  // A day opened from Encounters > Analytics (&returnTo=/encounters?...) offers the way back to its figures
+  const [backToEncounters, setBackToEncounters] = useState<string | null>(null);
+  // The booking the link was made for, kept in view: its practitioner's column, its cancelled bookings (diaryDayFocus.ts)
+  const [diaryFocus, setDiaryFocus] = useState<DiaryDayFocus | null>(null);
+  // The time a booking cancelled in the Reschedule form freed: the diary offers it to the waiting list
+  const [freedSlot, setFreedSlot] = useState<DiarySlot | null>(null);
   useEffect(() => {
-    if (currentPracticeId && selectedDate) {
-      const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-      console.log('📅 Dashboard: Selected date changed to:', formattedDate);
-      fetchVisits({ 
-        date: formattedDate, 
-        practiceId: currentPracticeId 
-      });
+    const day = parseDateKey(linkedDiaryDate);
+    if (!day) return;
+    setSelectedDate(day);
+    setViewMode('day');
+    setBackToEncounters(safeEncountersReturn(searchParams.get('returnTo')));
+    setDiaryFocus(readDiaryDayFocus(searchParams));
+    // Dropped once read (replace), so Back or a refresh does not jump there again
+    const next = withoutDiaryDayLink(searchParams);
+    next.delete('returnTo');
+    setSearchParams(next, { replace: true });
+  }, [linkedDiaryDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The days the diary shows: the selected day, its week or its month (src/utils/diary/diaryRange.ts)
+  const diaryRange = useMemo(() => diaryRangeFor(viewMode, selectedDate), [viewMode, selectedDate]);
+
+  // The week and month views load all of their days into their own list (the week and month used to
+  // show only the selected day's bookings). The day stays in the visits store, which the visit
+  // tracker shares, so a month never replaces the tracker's day or the other way round.
+  const rangeVisits = useDiaryRangeVisits(currentPracticeId, diaryRange, viewMode !== 'day');
+  const reloadRange = rangeVisits.reload;
+  const diaryVisits = viewMode === 'day' ? visits : rangeVisits.visits;
+
+  // Fetch visits when the selected day changes (day view)
+  useEffect(() => {
+    if (viewMode === 'day' && currentPracticeId) {
+      fetchVisits({ date: diaryRange.from, practiceId: currentPracticeId });
     }
-  }, [selectedDate, currentPracticeId, fetchVisits]);
+  }, [viewMode, diaryRange.from, currentPracticeId, fetchVisits]);
+
+  // Reload whatever the diary shows (after a save or "Refresh")
+  const loadDiaryVisits = useCallback(() => {
+    if (!currentPracticeId) return;
+    if (viewMode === 'day') fetchVisits({ date: diaryRange.from, practiceId: currentPracticeId });
+    else reloadRange();
+  }, [currentPracticeId, viewMode, diaryRange.from, fetchVisits, reloadRange]);
+
+  // Reload the days the schedule is showing after a save. fetchTodayVisits replaced the list with
+  // today's visits, so saving while another date was open left that day's schedule blank
+  const refreshSelectedDayVisits = () => {
+    loadDiaryVisits();
+  };
+
+  // Time slots or cards: each user's last choice, remembered in this browser
+  useEffect(() => {
+    setInternalViewMode(readDiaryLayout(user?.id));
+  }, [user?.id]);
+  const chooseDiaryLayout = useCallback((layout: DiaryLayout) => {
+    setInternalViewMode(layout);
+    saveDiaryLayout(user?.id, layout);
+  }, [user?.id]);
 
   // Auto-scroll to center today's date only on initial load
   useEffect(() => {
@@ -290,33 +386,34 @@ function Dashboard() {
     try {
       setIsLoading(true);
       
-      // Fetch doctors for the practice
-      const { data: practiceDoctors, error: doctorsError } = await supabase
-        .from('users')
-        .select('id, email, full_name, role')
-        .eq('practice_id', practiceId)
-        .eq('role', 'doctor');
+      // Everyone in the practice, any role: the diary gives a column to doctors, to anyone with
+      // working hours and to whoever has a booking (a nurse or an administrator who treats too)
+      // Staff and recent patients are independent: asked for together (one round-trip instead of two)
+      const [{ data: practiceStaff, error: staffError }, { data: practicePatients, error: patientsError }] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, email, full_name, role, is_active')
+          .eq('practice_id', practiceId),
+        // Fetch patients for activities (limit to recent for performance)
+        supabase
+          .from('patients')
+          .select('id, first_name, last_name, gender, date_of_birth, created_at')
+          .eq('practice_id', practiceId)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      ]);
 
-      if (doctorsError) throw doctorsError;
+      if (staffError) throw staffError;
 
-      // Format doctors for dropdown
-      const formattedDoctors = (practiceDoctors || []).map(doctor => ({
-        id: doctor.id,
-        email: doctor.email,
+      setStaff((practiceStaff || []).map(member => ({
+        id: member.id,
+        email: member.email,
+        is_active: member.is_active,
         user_metadata: {
-          full_name: doctor.full_name,
-          role: doctor.role
+          full_name: member.full_name,
+          role: member.role
         }
-      }));
-      setDoctors(formattedDoctors);
-
-      // Fetch patients for activities (limit to recent for performance)
-      const { data: practicePatients, error: patientsError } = await supabase
-        .from('patients')
-        .select('id, first_name, last_name, gender, date_of_birth, created_at')
-        .eq('practice_id', practiceId)
-        .order('created_at', { ascending: false })
-        .limit(100);
+      })));
 
       if (patientsError) throw patientsError;
       setPatientsData(practicePatients || []);
@@ -341,84 +438,6 @@ function Dashboard() {
       setRecentActivities(activities);
 
       // Dashboard stats are fetched by useOptimizedDashboardStats hook
-
-      // Generate real-time notifications based on visits data
-      const newNotifications: Notification[] = [];
-
-      // Unconfirmed bookings that need confirmation - specifically from website
-      const unconfirmedVisits = visits.filter(v => 
-        v.status === 'scheduled' && 
-        !v.is_confirmed && 
-        v.is_from_website && 
-        !v.is_cancelled
-      );
-      unconfirmedVisits.forEach((visit) => {
-        newNotifications.push({
-          id: `booking-${visit.id}`,
-          type: 'booking',
-          priority: 'high',
-          title: 'New Booking Request',
-          description: `${visit.patient?.first_name} ${visit.patient?.last_name} requested a ${visit.visit_type} visit for ${format(new Date(visit.scheduled_date + 'T' + visit.scheduled_time), 'MMM d, h:mm a')}`,
-          time: new Date(visit.created_at || new Date()),
-          actionRequired: true,
-          read: false,
-          data: visit,
-          actions: {
-            primary: {
-              label: 'Confirm',
-              variant: 'approve',
-              onClick: () => {
-                setSelectedVisit(visit);
-                setIsConfirmationModalOpen(true);
-              }
-            },
-            secondary: {
-              label: 'View Details',
-              onClick: () => {
-                setSelectedVisit(visit);
-                setIsDetailsModalOpen(true);
-              }
-            }
-          }
-        });
-      });
-
-      // Upcoming follow-ups for today
-      const todayFollowUps = visits.filter(visit => 
-        visit.visit_type === 'follow-up' && 
-        visit.is_confirmed &&
-        visit.scheduled_date === format(new Date(), 'yyyy-MM-dd')
-      );
-      todayFollowUps.forEach((visit) => {
-        newNotifications.push({
-          id: `followup-${visit.id}`,
-          type: 'follow-up',
-          priority: 'normal',
-          title: 'Follow-up Reminder',
-          description: `${visit.patient?.first_name} ${visit.patient?.last_name} has a follow-up visit at ${visit.scheduled_time || 'TBD'}`,
-          time: new Date(visit.scheduled_date + 'T' + visit.scheduled_time),
-          actionRequired: false,
-          read: false,
-          data: visit,
-          actions: {
-            primary: {
-              label: 'Start Visit',
-              onClick: () => handleStartVisit(visit.id)
-            }
-          }
-        });
-      });
-
-      // Sort notifications by priority and time
-      newNotifications.sort((a, b) => {
-        const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
-        if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
-          return priorityOrder[a.priority] - priorityOrder[b.priority];
-        }
-        return b.time.getTime() - a.time.getTime();
-      });
-
-      setNotifications(newNotifications);
 
       
       const totalTime = performance.now() - startTime;
@@ -520,16 +539,105 @@ function Dashboard() {
         { duration: 3000, icon: '🏥' }
       );
       
-      // Navigate to patient detail page after a short delay
-      setTimeout(() => {
-        navigate(`/patients/${visit.patient_id}`);
-      }, 500);
+      // Open the consultation screen on the dashboard (same as the scheduler's onEditVisit)
+      if (visit.patient_id) {
+        setEditingVisitId(visit.id);
+        setEditingVisitData({ id: visit.id, patient_id: visit.patient_id });
+        setIsEditVisitModalOpen(true);
+      }
       
     } catch (error) {
       console.error('Error starting visit:', error);
       toast.error('Failed to start visit');
     }
   };
+
+  // The panel's booking requests and today's follow-ups follow the visits as they load and change. Built once when the
+  // page opened, they came from the still-empty visit list (so the panel said "You're all caught up") and a request
+  // confirmed or rejected stayed listed. What was marked read stays read.
+  useEffect(() => {
+    const newNotifications: Notification[] = [];
+
+    // Unconfirmed bookings that need confirmation - specifically from website
+    const unconfirmedVisits = visits.filter(v =>
+      v.status === 'scheduled' &&
+      !v.is_confirmed &&
+      v.is_from_website &&
+      !v.is_cancelled
+    );
+    unconfirmedVisits.forEach((visit) => {
+      newNotifications.push({
+        id: `booking-${visit.id}`,
+        type: 'booking',
+        priority: 'high',
+        title: 'New Booking Request',
+        description: `${visit.patient?.first_name} ${visit.patient?.last_name} requested a ${visit.visit_type} visit for ${formatVisitStart(visit, 'd MMM, h:mm a', 'a time not yet set')}`,
+        time: new Date(visit.created_at || new Date()),
+        actionRequired: true,
+        read: false,
+        data: visit,
+        actions: {
+          primary: {
+            label: 'Confirm',
+            variant: 'approve',
+            onClick: () => {
+              setSelectedVisit(visit);
+              setIsConfirmationModalOpen(true);
+            }
+          },
+          secondary: {
+            label: 'View Details',
+            onClick: () => {
+              setSelectedVisit(visit);
+              setIsDetailsModalOpen(true);
+            }
+          }
+        }
+      });
+    });
+
+    // Upcoming follow-ups for today
+    const todayFollowUps = visits.filter(visit =>
+      visit.visit_type === 'follow-up' &&
+      visit.is_confirmed &&
+      visit.scheduled_date === format(new Date(), 'yyyy-MM-dd')
+    );
+    todayFollowUps.forEach((visit) => {
+      newNotifications.push({
+        id: `followup-${visit.id}`,
+        type: 'follow-up',
+        priority: 'normal',
+        title: 'Follow-up Reminder',
+        description: `${visit.patient?.first_name} ${visit.patient?.last_name} has a follow-up visit at ${formatVisitStart(visit, 'HH:mm', 'a time not yet set')}`,
+        time: new Date(visit.scheduled_date + 'T' + visit.scheduled_time),
+        actionRequired: false,
+        read: false,
+        data: visit,
+        actions: {
+          primary: {
+            label: 'Start Visit',
+            onClick: () => handleStartVisit(visit.id)
+          }
+        }
+      });
+    });
+
+    // Sort notifications by priority and time
+    newNotifications.sort((a, b) => {
+      const priorityOrder = { urgent: 0, high: 1, normal: 2, low: 3 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) {
+        return priorityOrder[a.priority] - priorityOrder[b.priority];
+      }
+      return b.time.getTime() - a.time.getTime();
+    });
+
+    setNotifications((previous) => {
+      const read = new Set(previous.filter((item) => item.read).map((item) => item.id));
+      return newNotifications.map((item) => (read.has(item.id) ? { ...item, read: true } : item));
+    });
+    // Rebuilt when the visits change; the actions read that render's handlers
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visits]);
 
   const handleCompleteVisit = async (visitId: string) => {
     try {
@@ -575,9 +683,9 @@ function Dashboard() {
       backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(0,0,0,0.1) 1px, transparent 0)',
       backgroundSize: '20px 20px'
     }}>
-      <div className="px-0 sm:px-4 md:px-6 py-4 md:py-6 space-y-4 md:space-y-6">
+      <div className="px-4 md:px-6 xl:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
         {/* Compact Professional Header */}
-        <div className="mx-0 sm:mx-0 backdrop-blur-md rounded-none sm:rounded-xl shadow-sm border border-gray-100/50 border-x-0 sm:border-x">
+        <div className="backdrop-blur-md rounded-xl shadow-sm border border-gray-100/50">
           <div className="p-4 md:p-5">
             <div className="flex items-center justify-between w-full">
               {/* Left Side - Mobile: User Avatar, Desktop: Practice logo + title */}
@@ -596,14 +704,7 @@ function Dashboard() {
                       
                       {/* Avatar circle */}
                       <div className="relative h-12 w-12 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        <UserAvatarImage avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -616,7 +717,7 @@ function Dashboard() {
                 
                 {/* Dashboard Title */}
                 <div>
-                  <h1 className="text-2xl font-semibold text-gray-800">
+                  <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
                     Dashboard
                   </h1>
                   <p className="text-sm text-gray-500 mt-0.5 hidden lg:block">Welcome back! Here's your practice dashboard</p>
@@ -637,30 +738,20 @@ function Dashboard() {
                           secondaryColor="#37415180"
                         />
                       </div>
+                      {/* Typing here never searched anything (console only); patient search lives on the Patients page */}
                       <input
                         type="text"
-                        placeholder="Search patients, appointments..."
-                        className="relative w-full pl-12 pr-4 py-3 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
-                        onChange={(e) => {
-                          console.log('Search:', e.target.value);
-                        }}
+                        placeholder="Search patients on the Patients page"
+                        disabled
+                        title="Not available here yet: search for patients on the Patients page"
+                        aria-label="Search (not available here yet)"
+                        className="relative w-full pl-12 pr-4 py-3 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>
                 </div>
 
-                {/* Mobile Menu Button - Right side on mobile/tablet */}
-                <div className="lg:hidden">
-                  <button 
-                    onClick={toggleMobileSidebar}
-                    className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
-                  >
-                    <Icon icon="solar:hamburger-menu-bold-duotone" className="w-5 h-5" />
-                    <span className="text-sm font-medium hidden sm:block">Menu</span>
-                  </button>
-                </div>
-
-                {/* User Avatar - Desktop only (right side) */}
+                {/* User Avatar - Desktop only (right side). Below lg the menu button is in the app bar (Layout) */}
                 {user && (
                   <div className="relative hidden lg:block">
                     <button
@@ -674,14 +765,7 @@ function Dashboard() {
                       
                       {/* Avatar circle */}
                       <div className="relative h-16 w-16 rounded-full overflow-hidden border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-300">
-                        <img 
-                          src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                          alt={user.name}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`;
-                          }}
-                        />
+                        <UserAvatarImage avatar={user.avatar} name={user.name} />
                       </div>
                     </button>
                   </div>
@@ -689,7 +773,7 @@ function Dashboard() {
 
                 {/* User dropdown - shared for both mobile and desktop */}
                 {user && isAvatarDropdownOpen && createPortal(
-                  <>
+                  <div>
                     <div 
                       className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[99998] animate-in fade-in duration-200" 
                       onClick={() => setIsAvatarDropdownOpen(false)}
@@ -707,9 +791,11 @@ function Dashboard() {
                     >
                       <div className="flex items-center justify-between mb-6">
                         <h3 className="text-xl font-bold text-gray-900">User Profile</h3>
-                        <button 
+                        <button
                           onClick={() => setIsAvatarDropdownOpen(false)}
                           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                          title="Close"
+                          aria-label="Close"
                         >
                           <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                         </button>
@@ -719,11 +805,7 @@ function Dashboard() {
                         <div className="flex items-start gap-3">
                           <div className="relative flex-shrink-0">
                             <div className="h-14 w-14 rounded-full overflow-hidden border-3 border-white shadow-lg">
-                              <img 
-                                src={user.avatar || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=64&h=64&fit=crop&crop=face`}
-                                alt={user.name}
-                                className="h-full w-full object-cover"
-                              />
+                              <UserAvatarImage avatar={user.avatar} name={user.name} />
                             </div>
                             <div className="absolute -bottom-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white"></div>
                           </div>
@@ -759,15 +841,51 @@ function Dashboard() {
                         Logout
                       </button>
                     </div>
-                  </>,
+                  </div>,
                   document.body
                 )}
               </div>
             </div>
 
+            {/* A day opened from Encounters > Analytics: the way back to the figures */}
+            {backToEncounters && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  onClick={() => navigate(backToEncounters)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+                >
+                  <Icon icon="solar:alt-arrow-left-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+                  Back to Encounters analytics
+                </button>
+              </div>
+            )}
 
-            {/* Premium Dashboard Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+            {/* A failed stats load used to show silent zeros (e.g. N$0 revenue); say so instead */}
+            {isDashboardError && (
+              <div
+                role="alert"
+                className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                <span className="flex items-center gap-2">
+                  <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+                  {dashboardData
+                    ? 'Dashboard figures could not be refreshed. Showing the last loaded numbers.'
+                    : 'Dashboard figures could not be loaded, so the cards below may show zeros.'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { void refetchDashboardStats(); }}
+                  className="flex-shrink-0 rounded-lg bg-white px-3 py-1.5 font-medium text-red-700 border border-red-200 hover:bg-red-100"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {/* Premium Dashboard Stats: four across only from xl, where each tile has room for its figure (three across
+                for a role without the Finance card) */}
+            <div className={`grid grid-cols-1 sm:grid-cols-2 ${seesFinanceFigures ? 'xl:grid-cols-4' : 'xl:grid-cols-3'} gap-4 mt-4`}>
               {true ? [
                 // Patients Card - Now using real database stats by practice
                 <PremiumStatCard
@@ -805,21 +923,21 @@ function Dashboard() {
                 <PremiumStatCard
                   key="communication"
                   title="Communication"
-                  mainValue={realCommunicationStats?.overall_percentage_available ? `${realCommunicationStats.overall_percentage_available}%` : '88%'}
+                  mainValue={realCommunicationStats ? `${realCommunicationStats.overall_percentage_available ?? 0}%` : '-'}
                   subtitle="Service usage"
                   icon={null}
                   iconName="solar:monitor-smartphone-bold-duotone"
                   gradient="from-amber-500 to-orange-600"
                   cardType="communication"
                   stats={[
-                    { label: 'SMS Available', value: realCommunicationStats?.sms?.available || 850, color: '#EF4444' },
-                    { label: 'Email Available', value: realCommunicationStats?.email?.available || 460, color: '#F59E0B' }
+                    { label: 'SMS Available', value: realCommunicationStats?.sms?.available ?? '-', color: '#EF4444' },
+                    { label: 'Email Available', value: realCommunicationStats?.email?.available ?? '-', color: '#F59E0B' }
                   ]}
                   comparison={{
                     label1: 'SMS Available',
-                    value1: realCommunicationStats?.sms?.available || 850,
-                    label2: 'Email Available', 
-                    value2: realCommunicationStats?.email?.available || 460,
+                    value1: realCommunicationStats?.sms?.available ?? 0,
+                    label2: 'Email Available',
+                    value2: realCommunicationStats?.email?.available ?? 0,
                     color1: '#EF4444',
                     color2: '#F97316'
                   }}
@@ -862,11 +980,13 @@ function Dashboard() {
                   encounterStats={encounterStats}
                 />,
                 
-                // Finance Card - Now using real quarterly invoice data
+                // Finance Card - Now using real quarterly invoice data. Only for roles the practice lets into Finance
+                // (Settings > Users > Screen access): hiding Finance is pointless if the revenue shows here
+                ...(seesFinanceFigures ? [
                 <PremiumStatCard
                   key="finance"
                   title="Finance"
-                  mainValue={`N$${invoiceStats.quarterlyRevenue.toLocaleString()}`}
+                  mainValue={formatNad(Number(invoiceStats.quarterlyRevenue) || 0)}
                   subtitle={`Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} revenue`}
                   icon={null}
                   iconName="solar:wallet-money-bold-duotone"
@@ -891,8 +1011,10 @@ function Dashboard() {
                   onClick={() => {
                     navigate('/finance');
                   }}
+                  onDetails={() => setIsEnhancedFinancialModalOpen(true)}
                   invoiceStats={invoiceStats}
                 />
+                ] : [])
               ] : (
                 // Loading skeleton
                 Array.from({ length: 4 }, (_, index) => (
@@ -937,30 +1059,36 @@ function Dashboard() {
                     <div className="mb-4">
                       {/* Desktop Layout - 3-column grid */}
                       <div className="hidden lg:grid lg:grid-cols-3 lg:items-center lg:gap-4">
-                        {/* Grid/Timeline Filters on left */}
+                        {/* Time slots (practitioners side by side, the default) or cards, on the left */}
                         <div className="flex items-center gap-3">
-                          <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
+                          <div role="group" aria-label="Diary layout" className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
-                              onClick={() => setInternalViewMode('grid')}
-                              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                                internalViewMode === 'grid'
-                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                              }`}
-                            >
-                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" />
-                              Grid
-                            </button>
-                            <button
-                              onClick={() => setInternalViewMode('timeline')}
+                              type="button"
+                              onClick={() => chooseDiaryLayout('timeline')}
+                              aria-pressed={internalViewMode === 'timeline'}
+                              title="Time slots: practitioners side by side"
                               className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'timeline'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                               }`}
                             >
-                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" />
-                              Timeline
+                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" aria-hidden="true" />
+                              Time slots
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => chooseDiaryLayout('grid')}
+                              aria-pressed={internalViewMode === 'grid'}
+                              title="Cards: one card per booking"
+                              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                                internalViewMode === 'grid'
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+                              Cards
                             </button>
                           </div>
                         </div>
@@ -970,6 +1098,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Previous month"
+                            aria-label="Previous month"
                           >
                             <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -983,6 +1113,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Next month"
+                            aria-label="Next month"
                           >
                             <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1018,30 +1150,38 @@ function Dashboard() {
 
                       {/* Mobile Layout - Stacked rows for better spacing */}
                       <div className="lg:hidden space-y-3">
-                        {/* First Row: Grid/Timeline + Today Button */}
+                        {/* First Row: time slots or cards + Today Button */}
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
+                          <div role="group" aria-label="Diary layout" className="flex items-center bg-white/30 backdrop-blur-sm rounded-lg p-1 shadow-sm border border-white/20">
                             <button
-                              onClick={() => setInternalViewMode('grid')}
-                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
-                                internalViewMode === 'grid'
-                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                              }`}
-                            >
-                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" />
-                              <span className="hidden sm:inline">Grid</span>
-                            </button>
-                            <button
-                              onClick={() => setInternalViewMode('timeline')}
+                              type="button"
+                              onClick={() => chooseDiaryLayout('timeline')}
+                              aria-pressed={internalViewMode === 'timeline'}
+                              title="Time slots: practitioners side by side"
+                              aria-label="Time slots"
                               className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
                                 internalViewMode === 'timeline'
                                   ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
                                   : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
                               }`}
                             >
-                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" />
-                              <span className="hidden sm:inline">Timeline</span>
+                              <Icon icon="solar:calendar-line-duotone" className="h-4 w-4" aria-hidden="true" />
+                              <span className="hidden sm:inline">Time slots</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => chooseDiaryLayout('grid')}
+                              aria-pressed={internalViewMode === 'grid'}
+                              title="Cards: one card per booking"
+                              aria-label="Cards"
+                              className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-2 ${
+                                internalViewMode === 'grid'
+                                  ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                              }`}
+                            >
+                              <Icon icon="solar:widget-2-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+                              <span className="hidden sm:inline">Cards</span>
                             </button>
                           </div>
                           
@@ -1064,6 +1204,8 @@ function Dashboard() {
                             }
                           }}
                           className={`px-3 py-2 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-xl flex items-center gap-2 hover:shadow-lg transition-colors duration-200 font-medium text-sm`}
+                          title="Go to today"
+                          aria-label="Go to today"
                         >
                             <Icon icon="solar:calendar-mark-bold-duotone" className="w-4 h-4" />
                             <span className="hidden sm:inline">Today</span>
@@ -1075,6 +1217,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Previous month"
+                            aria-label="Previous month"
                           >
                             <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1088,6 +1232,8 @@ function Dashboard() {
                           <button
                             onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                             className="p-2 hover:bg-white/30 rounded-full transition-colors duration-200 backdrop-blur-sm"
+                            title="Next month"
+                            aria-label="Next month"
                           >
                             <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-600" />
                           </button>
@@ -1210,7 +1356,7 @@ function Dashboard() {
                             setEditingVisitData({ id: visit.id, patient_id: visit.patient_id });
                             setIsEditVisitModalOpen(true);
                           }}
-                          appointments={visits.map(v => {
+                          appointments={diaryVisits.map(v => {
                             // Debug logging for website bookings
                             if (v.is_from_website) {
                               console.log('Dashboard: Website booking visit:', {
@@ -1233,23 +1379,34 @@ function Dashboard() {
                             doctor_id: v.doctor_id || '',
                             date: v.scheduled_date || v.visit_date || format(new Date(), 'yyyy-MM-dd'),
                             time: v.scheduled_time || v.visit_time || '09:00',
+                            // The scheduler resolves the length: this one, else the practice's default for the type
                             duration: 30,
+                            duration_minutes: v.duration_minutes ?? null,
                             type: (v.visit_type || 'consultation') as any,
                             status: v.is_cancelled ? 'cancelled' : 
+                                   v.status === 'no-show' ? 'no-show' :
                                    v.status === 'completed' ? 'completed' :
                                    v.status === 'in-progress' ? 'in-progress' :
                                    v.is_ready ? 'ready' :
                                    v.is_checked_in ? 'ready' :
                                    v.status === 'scheduled' ? 'scheduled' : 'pending',
-                            notes: v.chief_complaint || v.notes,
+                            notes: v.chief_complaint || v.notes || undefined,
+                            // What reception typed, which "Book again", "Copy" and rescheduling carry over
+                            // (notes also holds the form's automatic "Appointment scheduled for ..." line)
+                            reason: v.chief_complaint ?? null,
                             is_checked_in: v.is_checked_in || false,
                             is_ready: v.is_ready || false,
                             is_confirmed: v.is_confirmed || false,
                             is_cancelled: v.is_cancelled || false,
                             is_handoff: v.is_handoff || false,
-                            is_from_website: v.is_from_website || false
+                            is_from_website: v.is_from_website || false,
+                            // The practice's own status and appointment type (diary cards, visit actions, limits)
+                            diary_status_id: v.diary_status_id ?? null,
+                            appointment_type_id: v.appointment_type_id ?? null,
+                            // A video consultation's room link (diary cards, the booking's window)
+                            video_link: v.video_link ?? null
                           };})} // Transform visits to appointments format
-                          visits={visits.map(v => ({
+                          visits={diaryVisits.map(v => ({
                             id: v.id,
                             patient_id: v.patient_id,
                             doctor_id: v.doctor_id || '',
@@ -1259,16 +1416,16 @@ function Dashboard() {
                             visit_time: v.visit_time,
                             is_cancelled: v.is_cancelled || false
                           }))} // Pass raw visits for time slot blocking
-                          doctors={doctors}
+                          staff={staff}
                           blockedTimes={[]}
                           isLoading={isLoading}
-                          error={error}
+                          error={error ?? (viewMode !== 'day' && rangeVisits.error ? new Error(rangeVisits.error) : null)}
                           selectedDate={selectedDate}
                           onDateChange={setSelectedDate}
                           onAppointmentClick={(apt) => {
                             // Navigate to patient page on encounters tab
                             if (apt.patient_id) {
-                              navigate(`/patients/${apt.patient_id}?tab=encounters`);
+                              navigate(`/patients?patientId=${encodeURIComponent(apt.patient_id)}&tab=encounters`);
                             }
                           }}
                           onEditAppointment={async (appointment) => {
@@ -1293,6 +1450,7 @@ function Dashboard() {
                             return appointmentData; // Return appointment data for compatibility
                           }}
                           viewMode={viewMode}
+                          onViewModeChange={setViewMode}
                           onBlockTime={(doctorId, startTime, endTime, reason) => {
                           }}
                           onDeleteAppointment={async (appointmentId) => {
@@ -1301,17 +1459,12 @@ function Dashboard() {
                           }}
                           currentUserRole={currentUserRole}
                           currentUserId={currentUserId}
-                          onRefresh={() => {
-                            if (currentPracticeId) {
-                              const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-                              fetchVisits({ 
-                                date: formattedDate, 
-                                practiceId: currentPracticeId 
-                              });
-                            }
-                          }}
+                          onRefresh={loadDiaryVisits}
                           internalViewMode={internalViewMode}
-                          onInternalViewModeChange={setInternalViewMode}
+                          onInternalViewModeChange={chooseDiaryLayout}
+                          practiceId={currentPracticeId}
+                          diaryFocus={diaryFocus}
+                          freedSlot={freedSlot}
                         />
                       </div>
                     </div>
@@ -1348,6 +1501,7 @@ function Dashboard() {
                     pendingAppointments={pendingAppointments.length}
                     completedToday={completedToday}
                     practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
+                    financeOpen={seesFinanceFigures}
                   />
                 </div>
               </div>
@@ -1384,6 +1538,7 @@ function Dashboard() {
                   pendingAppointments={pendingAppointments.length}
                   completedToday={completedToday}
                   practiceStatus={pendingAppointments.length > 5 ? 'busy' : todayAppointments.length === 0 ? 'quiet' : 'operational'}
+                  financeOpen={seesFinanceFigures}
                 />
               </div>
             </div>
@@ -1413,8 +1568,8 @@ function Dashboard() {
             
             // The form already creates a visit in the visits table
             // So we just need to refresh the visits list
-            if (newVisit && currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
+            if (newVisit) {
+              refreshSelectedDayVisits();
             }
           }}
           onCancel={() => {
@@ -1449,7 +1604,7 @@ function Dashboard() {
               id: selectedAppointment.id,
               patient_name: `${selectedAppointment.patient?.first_name} ${selectedAppointment.patient?.last_name}`,
               doctor_id: selectedAppointment.doctor_id,
-              doctor_name: doctors.find(d => d.id === selectedAppointment.doctor_id)?.user_metadata?.full_name || 'Unknown Doctor',
+              doctor_name: staff.find(d => d.id === selectedAppointment.doctor_id)?.user_metadata?.full_name || 'Unknown Doctor',
               date: selectedAppointment.date,
               time: selectedAppointment.time,
               type: selectedAppointment.type
@@ -1527,18 +1682,21 @@ function Dashboard() {
 
       {/* Add Visit Modal (keeping for direct visit creation) */}
       {isAddVisitModalOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Schedule New Visit</h2>
-                <button
-                  onClick={() => setIsAddVisitModalOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
+        // Bottom sheet on phones (up to full height), centred dialog from sm; the title row stays in view
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4">
+          <div role="dialog" aria-modal="true" aria-labelledby="schedule-visit-title" className="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-2xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="flex-none flex items-center justify-between gap-3 px-4 sm:px-6 py-4 border-b border-gray-100">
+              <h2 id="schedule-visit-title" className="text-lg sm:text-xl font-bold text-gray-900">Schedule New Visit</h2>
+              <button
+                onClick={() => setIsAddVisitModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Close"
+                aria-label="Close"
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6">
               <AddScheduledVisitForm
                 practiceId={currentPracticeId || ''}
                 onSuccess={() => {
@@ -1560,7 +1718,7 @@ function Dashboard() {
               <h3 className="text-lg font-bold text-gray-900 mb-4">Confirm Visit</h3>
               <p className="text-gray-600 mb-6">
                 Confirm visit for {selectedVisit.patient?.first_name} {selectedVisit.patient?.last_name} 
-                on {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMM d, h:mm a')}?
+                on {formatVisitStart(selectedVisit, 'd MMM, h:mm a', 'a date not yet set')}?
               </p>
               <div className="flex gap-3 justify-end">
                 <button
@@ -1579,7 +1737,10 @@ function Dashboard() {
                   Confirm
                 </button>
                 <button
-                  onClick={() => handleRejectVisit(selectedVisit.id, 'Rejected by practice')}
+                  onClick={() => {
+                    if (!window.confirm('Reject this booking request? The appointment will be cancelled.')) return;
+                    handleRejectVisit(selectedVisit.id, 'Rejected by practice');
+                  }}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
                   Reject
@@ -1603,6 +1764,8 @@ function Dashboard() {
                     setSelectedVisit(null);
                   }}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
                 </button>
@@ -1616,7 +1779,7 @@ function Dashboard() {
                 <div>
                   <h4 className="font-medium text-gray-700">Date & Time</h4>
                   <p className="text-gray-900">
-                    {format(new Date(selectedVisit.scheduled_date + 'T' + selectedVisit.scheduled_time), 'MMMM d, yyyy h:mm a')}
+                    {formatVisitStart(selectedVisit, 'd MMMM yyyy h:mm a', 'Not set')}
                   </p>
                 </div>
                 <div>
@@ -1669,23 +1832,25 @@ function Dashboard() {
 
       {/* Enhanced Financial Modal */}
       {isEnhancedFinancialModalOpen && (
-        <EnhancedFinancialModal
-          isOpen={isEnhancedFinancialModalOpen}
-          onClose={() => {
-            setIsEnhancedFinancialModalOpen(false);
-          }}
-          data={dashboardStats ? generateFinancialReportData(dashboardStats) : {
-            type: 'finance' as const,
-            title: 'Financial Overview',
-            subtitle: 'Loading financial data...',
-            overview: { total: 0, change: 'Loading...', isPositive: true, period: 'N/A' },
-            breakdown: [],
-            chartData: { labels: [], datasets: [] },
-            timeSeriesData: { labels: [], datasets: [] },
-            insights: ['Loading financial data...'],
-            actionItems: ['Please wait...']
-          }}
-        />
+        <Suspense fallback={null}>
+          <EnhancedFinancialModal
+            isOpen={isEnhancedFinancialModalOpen}
+            onClose={() => {
+              setIsEnhancedFinancialModalOpen(false);
+            }}
+            data={dashboardStats ? generateFinancialReportData(dashboardStats) : {
+              type: 'finance' as const,
+              title: 'Financial Overview',
+              subtitle: 'Loading financial data...',
+              overview: { total: 0, change: 'Loading...', isPositive: true, period: 'N/A' },
+              breakdown: [],
+              chartData: { labels: [], datasets: [] },
+              timeSeriesData: { labels: [], datasets: [] },
+              insights: ['Loading financial data...'],
+              actionItems: ['Please wait...']
+            }}
+          />
+        </Suspense>
       )}
 
 
@@ -1725,6 +1890,8 @@ function Dashboard() {
                   setShowMonthDropdown(false);
                 }}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-gray-500" />
               </button>
@@ -1733,10 +1900,13 @@ function Dashboard() {
             {/* View Mode Toggles */}
             <div className="flex items-center justify-center mb-4">
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                {['day', 'week', 'month'].map((mode) => (
+                {/* The diary loads the whole week or month for these views (src/utils/diary/diaryRange.ts) */}
+                {(['day', 'week', 'month'] as const).map((mode) => (
                   <button
                     key={mode}
-                    onClick={() => setViewMode(mode as any)}
+                    type="button"
+                    onClick={() => setViewMode(mode)}
+                    aria-pressed={viewMode === mode}
                     className={`px-4 py-2 text-sm font-medium rounded-md transition-colors capitalize ${
                       viewMode === mode
                         ? `bg-gradient-to-r ${currentTheme.gradients.sidebar} text-white shadow-md`
@@ -1754,6 +1924,8 @@ function Dashboard() {
               <button
                 onClick={() => setSelectedDate(subMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                title="Previous month"
+                aria-label="Previous month"
               >
                 <Icon icon="solar:map-arrow-left-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
@@ -1836,6 +2008,8 @@ function Dashboard() {
               <button
                 onClick={() => setSelectedDate(addMonths(selectedDate, 1))}
                 className="p-3 hover:bg-gray-100 rounded-full transition-colors"
+                title="Next month"
+                aria-label="Next month"
               >
                 <Icon icon="solar:map-arrow-right-bold-duotone" className="w-5 h-5 text-gray-700" />
               </button>
@@ -1847,6 +2021,10 @@ function Dashboard() {
                 <div key={day} className="text-sm font-semibold text-gray-500 text-center py-3">
                   {day}
                 </div>
+              ))}
+              {/* Empty cells so the 1st sits under its own weekday (it was always drawn under "Su") */}
+              {Array.from({ length: getDay(startOfMonth(selectedDate)) }, (_, i) => (
+                <div key={`blank-${i}`} aria-hidden="true" />
               ))}
               {eachDayOfInterval({
                 start: startOfMonth(selectedDate),
@@ -1926,32 +2104,39 @@ function Dashboard() {
           disablePatientModal={true}
           onOpenPatientModal={(patientId, defaultTab) => {
             // Navigate to patient page with optional tab parameter
-            navigate(`/patients/${patientId}?tab=${defaultTab || 'overview'}`);
+            navigate(`/patients?patientId=${encodeURIComponent(patientId)}&tab=${defaultTab || 'overview'}`);
           }}
         />
       )}
 
       {/* Full Screen Edit Visit Modal */}
       {editingVisitData && (
-        <FullScreenEditVisitModal
-          isOpen={isEditVisitModalOpen}
-          onClose={() => {
-            setIsEditVisitModalOpen(false);
-            setEditingVisitId(null);
-            setEditingVisitData(null);
-          }}
-          visitId={editingVisitData.id}
-          patientId={editingVisitData.patient_id}
-          onSuccess={() => {
-            setIsEditVisitModalOpen(false);
-            setEditingVisitId(null);
-            setEditingVisitData(null);
-            // Refresh visits
-            if (currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <FullScreenEditVisitModal
+            isOpen={isEditVisitModalOpen}
+            onClose={() => {
+              const patientId = editingVisitData.patient_id;
+              const completed = visitCompletedOnCloseRef.current;
+              visitCompletedOnCloseRef.current = false;
+              setIsEditVisitModalOpen(false);
+              setEditingVisitId(null);
+              setEditingVisitData(null);
+              // Like a real consult room: while the patient is still with the doctor, closing the visit
+              // goes to that patient's encounter history (with a way back to the dashboard). Completing
+              // the visit means the patient is leaving, so the doctor stays on the dashboard for the next one.
+              if (!completed && patientId) {
+                navigate(`/patients?${new URLSearchParams({ patientId, tab: 'encounters', returnTo: 'dashboard' }).toString()}`);
+              }
+            }}
+            visitId={editingVisitData.id}
+            patientId={editingVisitData.patient_id}
+            onSuccess={(result) => {
+              visitCompletedOnCloseRef.current = !!result?.completed;
+              // Refresh visits
+              refreshSelectedDayVisits();
+            }}
+          />
+        </Suspense>
       )}
 
       {/* Edit Appointment Modal */}
@@ -1970,20 +2155,24 @@ function Dashboard() {
           initialDoctorId={editingAppointment?.doctor_id}
           initialType={editingAppointment?.type}
           initialDuration={editingAppointment?.duration}
-          initialNotes={editingAppointment?.notes}
+          // A booking made as one of the practice's appointment types keeps it (and its daily limit) when moved
+          initialAppointmentTypeId={editingAppointment?.appointment_type_id ?? undefined}
+          // The reason only: the automatic "Appointment scheduled for <old date>" line was saved into it before
+          initialNotes={editingAppointment ? bookingReason(editingAppointment.reason) : undefined}
           editingAppointmentId={editingAppointment?.id}
           onSuccess={() => {
             setIsEditAppointmentModalOpen(false);
             setEditingAppointment(null);
             // Refresh visits
-            if (currentPracticeId) {
-              fetchTodayVisits(currentPracticeId);
-            }
+            refreshSelectedDayVisits();
           }}
           onCancel={() => {
             setIsEditAppointmentModalOpen(false);
             setEditingAppointment(null);
           }}
+          // Cancel Appointment freed the booking's time (as it was before any change in the form): the diary offers it
+          // to the waiting list, as Cancel Visit and Delete Booking do
+          onCancelled={() => setFreedSlot(editingAppointment ? freedSlotOf(editingAppointment) : null)}
         />
       </FormModal>
       

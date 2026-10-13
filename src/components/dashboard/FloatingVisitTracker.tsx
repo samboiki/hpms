@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
 // Removed framer-motion for stable, premium experience
 import { format, isSameDay } from 'date-fns';
 import { useTheme } from '../../stores/themeStore';
 import { useVisitsStore } from '../../stores/visitsStore';
 import { useNavigate } from 'react-router-dom';
-import ComprehensivePatientModal from '../patients/ComprehensivePatientModal';
-import FullScreenEditVisitModal from '../visits/FullScreenEditVisitModal';
 import VisitActionModal from '../modals/VisitActionModal';
 import EnhancedSmsModal from '../messages/EnhancedSmsModal';
 import { 
@@ -30,6 +28,15 @@ import { cn } from '../../utils/cn';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
 import { HandoffCardPrintButtons } from './HandoffCardPrintButtons';
+import { toast } from 'react-hot-toast';
+import { formatDoctorName } from '../../utils/formatDoctorName';
+import { lazyWindow } from '../layout/lazyScreen';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+
+// The tracker is on the Dashboard, so the patient file and the visit screen it can open load when first opened
+// instead of with the first screen (and say so if they cannot load: lazyScreen.tsx)
+const ComprehensivePatientModal = lazyWindow(() => import('../patients/ComprehensivePatientModal'));
+const FullScreenEditVisitModal = lazyWindow(() => import('../visits/FullScreenEditVisitModal'));
 
 interface Visit {
   id: string;
@@ -57,11 +64,43 @@ interface FloatingVisitTrackerProps {
   onOpenPatientModal?: (patientId: string, defaultTab?: 'overview' | 'encounters') => void;
 }
 
-const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex = 50, onOpenPatientModal }) => {
+/** Donut showing the share of the day's visits that are completed */
+const ProgressRing: React.FC<{ size: number; stroke: number; percentage: number; trackClassName: string; barClassName: string }> = ({
+  size,
+  stroke,
+  percentage,
+  trackClassName,
+  barClassName
+}) => {
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90" aria-hidden="true">
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" strokeWidth={stroke} className={trackClassName} />
+      {percentage > 0 && (
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={`${(percentage / 100) * circumference} ${circumference}`}
+          className={barClassName}
+        />
+      )}
+    </svg>
+  );
+};
+
+const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId, selectedDate, disablePatientModal = false, zIndex: zIndexProp, onOpenPatientModal }) => {
+  const zIndex = zIndexProp ?? 50;
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
+  // Escape closes the visit tracker panel, as its X does
+  useEscapeToClose(isOpen, () => setIsOpen(false));
   const [activeTab, setActiveTab] = useState<'visits' | 'messages'>('visits');
   const [showTopShadow, setShowTopShadow] = useState(false);
   const [showBottomShadow, setShowBottomShadow] = useState(true);
@@ -133,14 +172,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
   
   // Calculate visit statistics using the enhanced visits structure
   const safeVisits = visits || [];
-  const totalCount = safeVisits.length;
   const scheduledCount = safeVisits.filter(v => v?.is_confirmed && !v?.is_cancelled).length;
   const readyCount = safeVisits.filter(v => v?.is_ready && !v?.is_cancelled).length;
   const inProgressCount = safeVisits.filter(v => v?.status === 'in-progress' && !v?.is_cancelled && !v?.is_handoff).length;
   const handedOffCount = safeVisits.filter(v => v?.is_handoff && v?.status !== 'completed').length;
   const completedCount = safeVisits.filter(v => v?.status === 'completed').length;
   const cancelledCount = safeVisits.filter(v => v?.is_cancelled || v?.status === 'cancelled').length;
-  const noShowCount = safeVisits.filter(v => v?.status === 'no_show').length;
+  // The store writes 'no-show' (hyphen); counting 'no_show' always gave 0
+  const noShowCount = safeVisits.filter(v => v?.status === 'no-show' || v?.status === 'no_show').length;
   
   // Calculate percentage: completed vs all other statuses (excluding cancelled)
   const nonCancelledVisits = safeVisits.filter(v => !v?.is_cancelled && v?.status !== 'cancelled');
@@ -150,18 +189,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
 
   // The data is now fetched via the useTodayAppointments hook
 
-  // SVG path for donut chart
-  const createPath = (percentage: number) => {
-    const radius = 30; // Match the actual circle radius
-    const circumference = radius * 2 * Math.PI;
-    const strokeLength = (percentage / 100) * circumference;
-    const strokeDasharray = `${strokeLength} ${circumference}`;
-    
-    return {
-      strokeDasharray,
-      strokeDashoffset: 0
-    };
-  };
+  // The tracker floats in the bottom-right corner on every page (the owner's choice, 2026-10-09). Above a
+  // full-screen window (callers pass a z-index) it sits higher, clear of that window's Save and Complete buttons.
+  const isOverWindow = zIndexProp !== undefined;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -225,6 +255,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
       console.log('❌ [FloatingVisitTracker] Modal disabled and no callback provided');
     }
   }, [disablePatientModal, onOpenPatientModal]);
+  // A row opens the patient when the page gives a way to (the Dashboard opens the patient file) or the tracker's own
+  // window is allowed; the Dashboard turns its own window off, which left every row there doing nothing
+  const canOpenPatient = !!onOpenPatientModal || !disablePatientModal;
 
   const handleStartVisit = useCallback(async (visit: any) => {
     // Update visit status to in-progress first
@@ -236,81 +269,52 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
         setIsEditVisitModalOpen(true);
       } catch (error) {
         console.error('Error starting visit:', error);
+        toast.error('Could not start the visit. Please try again.');
       }
     }
   }, [startVisit]);
 
+  // Tracker buttons report back like the same actions in the scheduler (they used to fail silently)
+  const runVisitAction = async (action: () => Promise<void>, success: string, failure: string) => {
+    try {
+      await action();
+      toast.success(success);
+    } catch (error) {
+      console.error(failure, error);
+      toast.error(failure);
+    }
+  };
+
+  const visitWord = nonCancelledCount === 1 ? 'visit' : 'visits';
+  const openLabel = `Open the visit tracker: ${nonCancelledCount} ${visitWord}, ${completedCount} completed${
+    unreadCount > 0 ? `, ${unreadCount} unread messages` : ''
+  }`;
+  const unreadBadge = unreadCount > 0 && (
+    <span className="absolute -right-1 -top-1 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold leading-none text-white tabular-nums ring-2 ring-white">
+      {unreadCount > 99 ? '99+' : unreadCount}
+    </span>
+  );
+
   return (
     <>
-      {/* Floating Button */}
-      <div className="fixed bottom-6 right-6 float-animation" style={{ zIndex }}>
+      {/* Visit tracker: a round button floating in the bottom-right corner, the day's progress around the count */}
+      <div className={cn('fixed right-6 float-animation', isOverWindow ? 'bottom-24' : 'bottom-6')} style={{ zIndex }}>
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
-          className="relative w-20 h-20 bg-white rounded-full shadow-2xl backdrop-blur-xl group hover:shadow-3xl"
-          style={{ 
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(20px)',
-            overflow: 'visible'
-          }}
+          title={openLabel}
+          aria-label={openLabel}
+          className="relative flex h-20 w-20 items-center justify-center rounded-full bg-white/90 shadow-2xl backdrop-blur-xl transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
         >
-          {/* Donut Chart */}
-          <svg className="absolute inset-1 w-[72px] h-[72px]" viewBox="0 0 72 72">
-            {/* Full background circle in light grey */}
-            <circle
-              cx="36"
-              cy="36"
-              r="30"
-              fill="none"
-              stroke="#D1D5DB"
-              strokeWidth="6"
-              style={{
-                transformOrigin: '50% 50%',
-                transform: 'rotate(-90deg)'
-              }}
-            />
-            
-            {/* Completed segment - darker grey, overlays on top */}
-            {completionPercentage > 0 && (
-              <circle
-                cx="36"
-                cy="36"
-                r="30"
-                fill="none"
-                stroke="#6B7280"
-                strokeWidth="6"
-                strokeLinecap="round"
-                style={{
-                  strokeDasharray: createPath(completionPercentage).strokeDasharray,
-                  strokeDashoffset: createPath(completionPercentage).strokeDashoffset,
-                  transition: 'none',
-                  transformOrigin: '50% 50%',
-                  transform: 'rotate(-90deg)'
-                }}
-              />
-            )}
-          </svg>
-
-          {/* Center content */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-gray-800">{nonCancelledCount}</p>
-              <p className="text-xs text-gray-500 -mt-1">Visits</p>
-            </div>
-          </div>
-
+          <span className="absolute inset-1">
+            <ProgressRing size={72} stroke={6} percentage={completionPercentage} trackClassName="stroke-gray-300" barClassName="stroke-gray-500" />
+          </span>
+          <span className="relative text-center leading-none">
+            <span className="block text-2xl font-bold tabular-nums text-gray-800">{nonCancelledCount}</span>
+            <span className="block text-xs text-gray-500">{nonCancelledCount === 1 ? 'Visit' : 'Visits'}</span>
+          </span>
+          {unreadBadge}
         </button>
-        
-        {/* Notification Badge - Outside button to avoid clipping */}
-        {unreadCount > 0 && (
-          <div className="absolute -top-1 -right-1">
-            <div className="relative">
-              <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-75"></div>
-              <div className="relative bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold rounded-full min-w-[24px] h-[24px] flex items-center justify-center px-1.5 shadow-lg">
-                {unreadCount > 99 ? '99+' : unreadCount}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Modal */}
@@ -324,16 +328,20 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
             />
 
             {/* Modal Content */}
+            {/* Full-height sheet on phones, right-hand panel from md */}
             <div
-              className="fixed inset-x-4 bottom-20 md:right-6 md:left-auto md:w-[580px] bg-white rounded-2xl shadow-2xl max-h-[85vh] h-[85vh] overflow-hidden flex flex-col"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="visit-tracker-title"
+              className="fixed inset-0 md:inset-y-4 md:right-4 md:left-auto md:w-[560px] bg-white md:rounded-2xl shadow-2xl overflow-hidden flex flex-col"
               style={{ zIndex: zIndex + 20 }}
             >
               {/* Fixed Header */}
               <div className="flex-shrink-0 border-b border-gray-100 bg-white">
-                <div className="p-6 pb-0">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-gray-800">
+                <div className="p-4 pb-0 sm:p-6 sm:pb-0">
+                  <div className="flex items-start justify-between gap-3 mb-4">
+                    <div className="min-w-0">
+                      <h2 id="visit-tracker-title" className="text-xl sm:text-2xl font-bold text-gray-800">
                         {activeTab === 'visits' 
                           ? (selectedDate && !isSameDay(selectedDate, new Date()) ? 'Visits' : "Today's Visits")
                           : 'Messages & Notifications'
@@ -341,7 +349,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                       </h2>
                       <p className="text-sm text-gray-500 mt-1">
                         {activeTab === 'visits' 
-                          ? format(selectedDate || new Date(), 'EEEE, MMMM d, yyyy')
+                          ? format(selectedDate || new Date(), 'EEEE, d MMMM yyyy')
                           : `${unreadNotificationCount} unread notifications`
                         }
                       </p>
@@ -349,6 +357,8 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     <button
                       onClick={() => setIsOpen(false)}
                       className="p-2 hover:bg-gray-100 rounded-xl"
+                      title="Close"
+                      aria-label="Close"
                     >
                       <X className="w-6 h-6 text-gray-400" />
                     </button>
@@ -415,14 +425,14 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                         willChange: 'scroll-position'
                       }}
                     >
-                      <div className="p-6 space-y-6">
+                      <div className="p-4 sm:p-6 space-y-6">
                     {/* Full Width Progress Bar */}
                     <div className="w-full">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                           <span className="text-sm font-semibold text-gray-700">Daily Progress</span>
                           <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                            {completedCount} of {totalCount} visits completed
+                            {completedCount} of {nonCancelledCount} visits completed
                           </span>
                         </div>
                         <span className="text-lg font-bold text-gray-800">{completionPercentage}%</span>
@@ -450,9 +460,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             <div
                               key={visit.id}
                               className={`relative flex items-center gap-3 p-2 pl-12 bg-white/80 backdrop-blur rounded-lg border border-emerald-200 ${
-                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                                canOpenPatient ? 'cursor-pointer hover:bg-white' : ''
                               }`}
-                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
+                              onClick={canOpenPatient ? () => handlePatientClick(visit.patient_id, true) : undefined}
                             >
                               {/* Ready Number Badge */}
                               <div className="absolute left-2 top-1/2 -translate-y-1/2 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
@@ -467,7 +477,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   {visit.patient?.first_name} {visit.patient?.last_name}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  Dr. {visit.doctor?.full_name || 'Unassigned'} • Ready since {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                  {formatDoctorName(visit.doctor?.full_name, 'Unassigned')} • Booked for {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-1">
@@ -495,9 +505,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                             <div
                               key={visit.id}
                               className={`relative flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:pl-12 bg-white/80 backdrop-blur rounded-lg border border-orange-100 ${
-                                disablePatientModal ? '' : 'cursor-pointer hover:bg-white'
+                                canOpenPatient ? 'cursor-pointer hover:bg-white' : ''
                               }`}
-                              onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
+                              onClick={canOpenPatient ? () => handlePatientClick(visit.patient_id, true) : undefined}
                             >
                               {/* Progress Number Badge - inline on mobile, absolute on desktop */}
                               <div className="sm:absolute sm:left-2 sm:top-1/2 sm:-translate-y-1/2 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
@@ -514,7 +524,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                     {visit.patient?.first_name} {visit.patient?.last_name}
                                   </p>
                                   <p className="text-xs text-gray-500">
-                                    Dr. {visit.doctor?.full_name || 'Unassigned'} • Started {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
+                                    {formatDoctorName(visit.doctor?.full_name, 'Unassigned')} • Booked for {visit.scheduled_time ? format(new Date(`2000-01-01T${visit.scheduled_time}`), 'HH:mm') : '--:--'}
                                   </p>
                                 </div>
                               </div>
@@ -524,8 +534,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const { handoffVisit } = useVisitsStore.getState();
-                                    handoffVisit(visit.id);
+                                    runVisitAction(
+                                      () => useVisitsStore.getState().handoffVisit(visit.id),
+                                      'Handed off to nurse',
+                                      'Could not hand off the visit. Please try again.'
+                                    );
                                   }}
                                   className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-md"
                                 >
@@ -534,8 +547,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const { completeVisit } = useVisitsStore.getState();
-                                    completeVisit(visit.id);
+                                    runVisitAction(
+                                      () => useVisitsStore.getState().completeVisit(visit.id),
+                                      'Visit completed',
+                                      'Could not complete the visit. Please try again.'
+                                    );
                                   }}
                                   className="px-3 py-1.5 bg-[#01b9d4] hover:bg-[#00a5be] text-white text-sm font-medium rounded-md"
                                 >
@@ -557,7 +573,10 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                     ) : safeVisits.length === 0 ? (
                       <div className="text-center py-8">
                         <Calendar className="w-12 h-12 text-gray-300 mx-auto" />
-                        <p className="text-sm text-gray-500 mt-2">No visits scheduled for today</p>
+                        <p className="text-sm text-gray-500 mt-2">
+                          {selectedDate && !isSameDay(selectedDate, new Date()) ? 'No visits scheduled for this day' : 'No visits scheduled for today'}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">Book one with Schedule on the dashboard.</p>
                       </div>
                     ) : (
                       // Group visits by status and render each category
@@ -663,9 +682,9 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                   <div
                                     key={visit.id}
                                     className={`relative bg-white/80 backdrop-blur-xl rounded-xl border border-white/50 shadow-lg group overflow-hidden ${
-                                      disablePatientModal ? '' : 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] cursor-pointer transition-all duration-200'
+                                      canOpenPatient ? 'hover:shadow-xl hover:bg-white/90 hover:scale-[1.02] cursor-pointer transition-all duration-200' : ''
                                     }`}
-                                    onClick={disablePatientModal ? undefined : () => handlePatientClick(visit.patient_id, true)}
+                                    onClick={canOpenPatient ? () => handlePatientClick(visit.patient_id, true) : undefined}
                                   >
                                     {/* Main card content */}
                                     <div className="flex">
@@ -715,7 +734,7 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                         
                                         {/* Visit type and Doctor */}
                                         <div className="text-xs text-gray-500 mb-2">
-                                          {visit.visit_type || 'Consultation'} • Dr. {visit.doctor?.full_name || 'Unassigned'}
+                                          {visit.visit_type || 'Consultation'} • {formatDoctorName(visit.doctor?.full_name, 'Unassigned')}
                                         </div>
                                         
                                         {/* Status and actions for non-handoff cards */}
@@ -742,21 +761,28 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                                 </button>
                                               </>
                                             )}
-                                            {category.key === 'scheduled' && !visit.is_checked_in && (
+                                            {/* A no-show is said so: checking them in would leave the booking a no-show in the diary */}
+                                            {category.key === 'scheduled' && !visit.is_checked_in && (visit.status === 'no-show' || visit.status === 'no_show') && (
+                                              <div className="flex items-center gap-1">
+                                                <div className="w-2 h-2 bg-gray-400 rounded-full" />
+                                                <span className="text-xs font-medium text-gray-600">No-show</span>
+                                              </div>
+                                            )}
+                                            {category.key === 'scheduled' && !visit.is_checked_in && visit.status !== 'no-show' && visit.status !== 'no_show' && (
                                               <>
                                                 <div className="flex items-center gap-1">
                                                   <div className="w-2 h-2 bg-blue-500 rounded-full" />
                                                   <span className="text-xs font-medium text-blue-600">Scheduled</span>
                                                 </div>
                                                 <button
-                                                  onClick={async (e) => {
+                                                  onClick={(e) => {
                                                     e.stopPropagation();
                                                     e.preventDefault();
-                                                    try {
-                                                      await checkInPatient(visit.id);
-                                                    } catch (error) {
-                                                      console.error('Error checking in patient:', error);
-                                                    }
+                                                    runVisitAction(
+                                                      () => checkInPatient(visit.id),
+                                                      'Patient checked in',
+                                                      'Could not check in the patient. Please try again.'
+                                                    );
                                                   }}
                                                   className="ml-auto px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-xs font-medium rounded-md shadow-sm"
                                                 >
@@ -806,8 +832,11 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              const { completeVisit } = useVisitsStore.getState();
-                                              completeVisit(visit.id);
+                                              runVisitAction(
+                                                () => useVisitsStore.getState().completeVisit(visit.id),
+                                                'Visit completed',
+                                                'Could not complete the visit. Please try again.'
+                                              );
                                             }}
                                             className="px-3 py-1 bg-gradient-to-r from-[#01b9d4] to-[#00a5be] hover:from-[#00a5be] hover:to-[#0096b7] text-white text-xs font-medium rounded-md shadow-sm"
                                           >
@@ -829,12 +858,26 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
                 </div>
               </>
             ) : (
-              /* Messages Tab */
-              <NotificationsList
-                practiceId={practiceId}
-                userId={user?.id || ''}
-                className="h-full"
-              />
+              /* Messages Tab: the person's notifications. The red count on the tracker button is staff chat: it opens from here */
+              <>
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsOpen(false);
+                      navigate('/communications?tab=messaging');
+                    }}
+                    className="block w-full px-4 pt-3 text-left text-sm font-medium text-cyan-700 hover:underline"
+                  >
+                    Staff messages: {unreadCount} unread
+                  </button>
+                )}
+                <NotificationsList
+                  practiceId={practiceId}
+                  userId={user?.id || ''}
+                  className="h-full"
+                />
+              </>
             )}
           </div>
         </div>
@@ -850,46 +893,50 @@ const FloatingVisitTracker: React.FC<FloatingVisitTrackerProps> = ({ practiceId,
         shouldRenderModal: !disablePatientModal && selectedPatientId
       })}
       {!disablePatientModal && selectedPatientId && (
-        <ComprehensivePatientModal
-          isOpen={isPatientModalOpen}
-          onClose={() => {
-            console.log('🚪 [FloatingVisitTracker] Modal closing');
-            setIsPatientModalOpen(false);
-            setSelectedPatientId(null);
-            setDefaultDetailTab('overview');
-          }}
-          patientId={selectedPatientId}
-          defaultDetailTab={defaultDetailTab}
-        />
+        <Suspense fallback={null}>
+          <ComprehensivePatientModal
+            isOpen={isPatientModalOpen}
+            onClose={() => {
+              console.log('🚪 [FloatingVisitTracker] Modal closing');
+              setIsPatientModalOpen(false);
+              setSelectedPatientId(null);
+              setDefaultDetailTab('overview');
+            }}
+            patientId={selectedPatientId}
+            defaultDetailTab={defaultDetailTab}
+          />
+        </Suspense>
       )}
 
       {/* Edit Visit Modal */}
       {selectedVisitForEdit && (
-        <FullScreenEditVisitModal
-          isOpen={isEditVisitModalOpen}
-          onClose={() => {
-            setIsEditVisitModalOpen(false);
-            setSelectedVisitForEdit(null);
-          }}
-          visitId={selectedVisitForEdit.id}
-          patientId={selectedVisitForEdit.patient_id}
-          onSuccess={() => {
-            setIsEditVisitModalOpen(false);
-            setSelectedVisitForEdit(null);
-            // Refresh visits after editing
-            if (practiceId) {
-              if (selectedDate) {
-                const formattedDate = format(selectedDate, 'yyyy-MM-dd');
-                fetchVisits({ 
-                  date: formattedDate, 
-                  practiceId 
-                });
-              } else {
-                fetchTodayVisits(practiceId);
+        <Suspense fallback={null}>
+          <FullScreenEditVisitModal
+            isOpen={isEditVisitModalOpen}
+            onClose={() => {
+              setIsEditVisitModalOpen(false);
+              setSelectedVisitForEdit(null);
+            }}
+            visitId={selectedVisitForEdit.id}
+            patientId={selectedVisitForEdit.patient_id}
+            onSuccess={() => {
+              setIsEditVisitModalOpen(false);
+              setSelectedVisitForEdit(null);
+              // Refresh visits after editing
+              if (practiceId) {
+                if (selectedDate) {
+                  const formattedDate = format(selectedDate, 'yyyy-MM-dd');
+                  fetchVisits({
+                    date: formattedDate,
+                    practiceId
+                  });
+                } else {
+                  fetchTodayVisits(practiceId);
+                }
               }
-            }
-          }}
-        />
+            }}
+          />
+        </Suspense>
       )}
     </>
   );

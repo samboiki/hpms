@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { format, subDays } from 'date-fns';
+import { endOfDay, startOfDay, subDays } from 'date-fns';
 import { notificationDeliveryService } from '../../services/notificationDeliveryService';
 import { useAuthStore } from '../../stores/authStore';
 import { cn } from '../../utils/cn';
@@ -14,8 +14,9 @@ interface DeliveryStatsDashboardProps {
 export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
   practiceId,
   dateRange = {
-    from: format(subDays(new Date(), 7), 'yyyy-MM-dd'),
-    to: format(new Date(), 'yyyy-MM-dd')
+    // created_at is a timestamp: a bare 'yyyy-MM-dd' as "to" left out everything sent today
+    from: startOfDay(subDays(new Date(), 7)).toISOString(),
+    to: endOfDay(new Date()).toISOString()
   },
   className
 }) => {
@@ -23,13 +24,16 @@ export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Depend on the date strings: the default dateRange is a new object on every render, which
+  // reloaded the statistics in an endless loop
   useEffect(() => {
     loadStatistics();
-  }, [practiceId, dateRange]);
+  }, [practiceId, dateRange.from, dateRange.to]);
 
   const loadStatistics = async () => {
     try {
       setLoading(true);
+      setError(null);
       const statistics = await notificationDeliveryService.getDeliveryStatistics(
         practiceId,
         dateRange
@@ -45,11 +49,11 @@ export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
 
   const getChannelIcon = (channel: string) => {
     switch (channel) {
-      case 'inApp': return 'solar:notification-bold-duotone';
+      case 'inApp': return 'solar:bell-bold-duotone';
       case 'email': return 'solar:letter-bold-duotone';
       case 'sms': return 'solar:smartphone-bold-duotone';
       case 'push': return 'solar:bell-bing-bold-duotone';
-      default: return 'solar:notification-bold-duotone';
+      default: return 'solar:bell-bold-duotone';
     }
   };
 
@@ -127,6 +131,9 @@ export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
         </h3>
 
         <div className="space-y-4">
+          {stats.total === 0 && (
+            <p className="text-sm text-gray-500">No notifications were sent in this period.</p>
+          )}
           {Object.entries(stats.byChannel).map(([channel, channelStats]: [string, any]) => {
             if (channelStats.sent === 0) return null;
             
@@ -148,8 +155,8 @@ export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
                       <Icon icon={getChannelIcon(channel)} className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h4 className="font-medium text-gray-900 capitalize">
-                        {channel === 'inApp' ? 'In-App' : channel}
+                      <h4 className="font-medium text-gray-900">
+                        {channel === 'inApp' ? 'In-App' : channel === 'sms' ? 'SMS' : channel.charAt(0).toUpperCase() + channel.slice(1)}
                       </h4>
                       <p className="text-sm text-gray-500">
                         {channelStats.sent} sent
@@ -243,15 +250,14 @@ export const DeliveryStatsDashboard: React.FC<DeliveryStatsDashboardProps> = ({
         </h3>
         
         <div className="space-y-2 text-sm text-gray-700">
-          {stats.byChannel.email.sent > 0 && stats.byChannel.email.opened > 0 && (
+          {/* Just the measured rate: the "above industry average" verdict came from a made-up 25% benchmark */}
+          {stats.byChannel.email.delivered > 0 && stats.byChannel.email.opened > 0 && (
             <p className="flex items-start gap-2">
               <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-green-600 mt-0.5" />
               <span>
                 Email open rate is{' '}
                 <strong>{Math.round((stats.byChannel.email.opened / stats.byChannel.email.delivered) * 100)}%</strong>
-                {(stats.byChannel.email.opened / stats.byChannel.email.delivered) > 0.25 
-                  ? ' - Above industry average!' 
-                  : ' - Consider improving subject lines'}
+                {' '}of delivered emails.
               </span>
             </p>
           )}

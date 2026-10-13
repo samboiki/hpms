@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { useAuthStore } from '../../../stores/authStore';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { describeDbError, ensureRowsUpdated } from './staffUtils';
 
 interface Department {
   id: string;
@@ -28,6 +30,8 @@ export const DepartmentSelectionModal: React.FC<DepartmentSelectionModalProps> =
   onClose,
   onSuccess
 }) => {
+  // Escape closes this window, as its X does
+  useEscapeToClose(true, onClose);
   const { user } = useAuthStore();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>(currentDepartment || '');
@@ -72,18 +76,21 @@ export const DepartmentSelectionModal: React.FC<DepartmentSelectionModalProps> =
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .update({ department: selectedDepartment })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id');
 
       if (error) throw error;
+      // The access rules skip another person's row without an error; never say "updated" then
+      ensureRowsUpdated(data, 'The department');
 
       toast.success('Department updated successfully');
       onSuccess(selectedDepartment);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating department:', error);
-      toast.error(error.message || 'Failed to update department');
+      toast.error(describeDbError(error, 'Failed to update department'));
     } finally {
       setSaving(false);
     }
@@ -98,18 +105,20 @@ export const DepartmentSelectionModal: React.FC<DepartmentSelectionModalProps> =
 
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .update({ department: null })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The department');
 
       toast.success('Department cleared successfully');
       onSuccess('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error clearing department:', error);
-      toast.error(error.message || 'Failed to clear department');
+      toast.error(describeDbError(error, 'Failed to clear department'));
     } finally {
       setSaving(false);
     }
@@ -132,7 +141,7 @@ export const DepartmentSelectionModal: React.FC<DepartmentSelectionModalProps> =
                 </div>
                 <CardTitle>Select Department</CardTitle>
               </div>
-              <Button variant="ghost" size="sm" onClick={onClose}>
+              <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close">
                 <Icon icon={SolarIcons.close} className="w-5 h-5" />
               </Button>
             </div>
@@ -146,7 +155,7 @@ export const DepartmentSelectionModal: React.FC<DepartmentSelectionModalProps> =
               <div className="text-center py-8">
                 <Icon icon={SolarIcons.building} className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-gray-600">No departments available</p>
-                <p className="text-sm text-gray-500 mt-1">Ask your administrator to create departments</p>
+                <p className="text-sm text-gray-500 mt-1">Departments are added in Settings &gt; Practice &gt; Departments</p>
               </div>
             ) : (
               <div className="space-y-3">

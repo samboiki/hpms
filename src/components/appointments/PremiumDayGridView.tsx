@@ -19,7 +19,26 @@ import {
 } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { supabase } from '../../lib/supabase';
-import { toast } from 'react-hot-toast';
+import { Icon } from '@iconify/react';
+import { blocksOverlapping, describeDiaryBlock, type DiaryBlock } from '../../utils/diary/blockedTime';
+import { localMoveReasons } from '../../utils/diary/bookingMove';
+import { timeToMinutes, toDateKey } from '../../utils/diary/diaryTime';
+import { layoutLanes, type LanePlacement } from '../../utils/diary/laneLayout';
+import type { ReminderStatus } from '../../utils/diary/reminderStatus';
+import { NO_PRACTITIONER_ID } from '../../utils/diary/diaryPractitioners';
+import { columnCells, describeOffHourSpan, type OffHourSpan } from '../../utils/diary/gridHours';
+import type { DiaryStatus } from '../../utils/diary/diaryStatuses';
+import { ReminderStatusIcon } from './diary/ReminderStatusIcon';
+import { VideoBookingIcon } from './diary/VideoBookingIcon';
+import { DiaryStatusLabel } from './diary/DiaryStatusLabel';
+import { DiaryBillingBadge } from './diary/DiaryBillingBadge';
+import type { BillingBadge } from '../../utils/diary/billingBadge';
+import { AccountFlagIcon } from '../finance/debtors/AccountFlagBadges';
+import { OffHoursShade } from './diary/OffHoursShade';
+import { useBookingMove } from './diary/useBookingMove';
+
+// Blocked slots are striped so they read as "not available" even without colour
+const BLOCKED_STRIPES = 'repeating-linear-gradient(135deg, rgba(156,163,175,0.16) 0, rgba(156,163,175,0.16) 6px, transparent 6px, transparent 12px)';
 
 interface Appointment {
   id: string;
@@ -31,6 +50,8 @@ interface Appointment {
   type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
   status: 'pending' | 'scheduled' | 'in-progress' | 'completed' | 'cancelled' | 'no-show';
   notes?: string;
+  /** A video consultation's room link; null = seen in the rooms */
+  video_link?: string | null;
   patient?: {
     first_name: string;
     last_name: string;
@@ -65,6 +86,8 @@ interface Visit {
   visit_time?: string;
   status: string;
   is_cancelled: boolean;
+  /** Minutes the visit takes (its booked length, else its type's default); 30 when unknown */
+  duration?: number;
 }
 
 interface PremiumDayGridViewProps {
@@ -78,6 +101,38 @@ interface PremiumDayGridViewProps {
   onMarkReady?: (appointmentId: string) => void;
   businessHours?: { start: string; end: string };
   slotDuration?: number;
+  /** Blocked time (leave, lunch, practice closed): greyed per practitioner; booking into it asks first */
+  blocks?: DiaryBlock[];
+  /** Reminder / SMS confirmation status per visit id */
+  reminderStatuses?: Map<string, ReminderStatus>;
+  /** Per patient id: the account flags that matter for billing, as words ("Account: Cash only"); one icon on the card */
+  accountFlags?: Map<string, string>;
+  /**
+   * What reception must confirm before a moved booking lands there (clashes, blocked time, holidays,
+   * working hours). Without it only blocked time and holidays are checked here.
+   */
+  onCheckMove?: (appointmentId: string, time: Date, doctorId: string) => Promise<string[]>;
+  /**
+   * Per column: the time its practitioner is not working (outside their hours, breaks, a day off),
+   * shaded. Booking there still works, with the booking form's warning.
+   */
+  offHours?: Map<string, OffHourSpan[]>;
+  /** Per column: the practitioner's hours that day, under their name ("08:00-17:00, break 13:00-14:00") */
+  hoursSummaries?: Map<string, string>;
+  /** Per visit id: the practice's own status shown on the card ("Waiting for X-ray") */
+  bookingStatuses?: Map<string, DiaryStatus>;
+  /**
+   * Per column: the practitioner's own slot when it is longer than the rows (slotDuration is the shortest slot
+   * shown): that column's free slots are drawn at its own length (src/utils/diary/slotLength.ts)
+   */
+  columnSlotMinutes?: Map<string, number>;
+  /** Per visit id: "Invoiced" or "Paid" on the card (useVisitBillingBadges: one read for every card) */
+  billingBadges?: Map<string, BillingBadge>;
+  /**
+   * Draw cancelled bookings too: the diary's "Cancelled" filter, or a link to a cancelled booking. Otherwise they are
+   * left out, as their time is free again.
+   */
+  showCancelled?: boolean;
 }
 
 export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
@@ -90,16 +145,23 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   onAppointmentDrop,
   onMarkReady,
   businessHours = { start: '08:00', end: '17:00' },
-  slotDuration = 30
+  slotDuration = 30,
+  blocks = [],
+  reminderStatuses,
+  accountFlags,
+  onCheckMove,
+  offHours,
+  hoursSummaries,
+  bookingStatuses,
+  columnSlotMinutes,
+  billingBadges,
+  showCancelled = false
 }) => {
-  const [draggedAppointment, setDraggedAppointment] = useState<Appointment | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ time: Date; doctorId: string } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   const [expandedAppointment, setExpandedAppointment] = useState<string | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Generate time slots
-  const timeSlots = [];
+  const timeSlots: Date[] = [];
   const [startHour, startMinute] = businessHours.start.split(':').map(Number);
   const [endHour, endMinute] = businessHours.end.split(':').map(Number);
   const startTime = new Date(selectedDate);
@@ -136,78 +198,45 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
     return (minutesFromStart / slotDuration) * 60;
   };
 
-  // Handle drag start
-  const handleDragStart = (e: React.DragEvent, appointment: Appointment) => {
-    setDraggedAppointment(appointment);
-    setIsDragging(true);
-    e.dataTransfer.effectAllowed = 'move';
-    
-    // Create custom drag image
-    const dragImage = document.createElement('div');
-    dragImage.className = 'bg-white shadow-lg rounded-lg p-3 border-2 border-[#01b9d5]';
-    dragImage.innerHTML = `
-      <div class="font-medium text-sm">${appointment.patient?.first_name} ${appointment.patient?.last_name}</div>
-      <div class="text-xs text-gray-500">${appointment.type}</div>
-    `;
-    dragImage.style.position = 'absolute';
-    dragImage.style.top = '-1000px';
-    document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 0, 0);
-    setTimeout(() => document.body.removeChild(dragImage), 0);
+  const doctorNameOf = (doctorId: string | null) =>
+    doctorId ? doctors.find(doctor => doctor.id === doctorId)?.user_metadata?.full_name ?? null : null;
+
+  // The practitioner's blocked time at a slot (whole-day blocks first), if any
+  const dayKey = toDateKey(selectedDate);
+  const blockForSlot = (time: Date, doctorId: string, minutes = slotDuration): DiaryBlock | undefined => {
+    const start = time.getHours() * 60 + time.getMinutes();
+    return blocksOverlapping(blocks, dayKey, start, start + minutes, doctorId)[0];
   };
 
-  // Handle drag over
-  const handleDragOver = (e: React.DragEvent, time: Date, doctorId: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    setDropTarget({ time, doctorId });
+  // Shaded time of a column, placed by the minute from the top of the grid
+  const gridStartMinutes = startHour * 60 + startMinute;
+  const offHourAt = (time: Date, doctorId: string, minutes = slotDuration): OffHourSpan | undefined => {
+    const start = time.getHours() * 60 + time.getMinutes();
+    return offHours?.get(doctorId)?.find((span) => span.start < start + minutes && span.end > start);
   };
 
-  // Handle drop
-  const handleDrop = async (e: React.DragEvent, time: Date, doctorId: string) => {
-    e.preventDefault();
-    if (!draggedAppointment || !onAppointmentDrop) return;
-
-    // Check if dropping on the same slot
-    const originalTime = new Date(`${draggedAppointment.date}T${draggedAppointment.time}`);
-    if (
-      isSameDay(originalTime, time) &&
-      originalTime.getHours() === time.getHours() &&
-      originalTime.getMinutes() === time.getMinutes() &&
-      draggedAppointment.doctor_id === doctorId
-    ) {
-      setDraggedAppointment(null);
-      setDropTarget(null);
-      setIsDragging(false);
-      return;
-    }
-
-    // Show loading toast
-    const toastId = toast.loading('Moving appointment...');
-
-    try {
-      const success = await onAppointmentDrop(draggedAppointment.id, time, doctorId);
-      if (success) {
-        toast.success('Appointment rescheduled successfully', { id: toastId });
-      } else {
-        toast.error('Failed to move appointment', { id: toastId });
-      }
-    } catch (error) {
-      toast.error('Error moving appointment', { id: toastId });
-      console.error('Error dropping appointment:', error);
-    }
-
-    setDraggedAppointment(null);
-    setDropTarget(null);
-    setIsDragging(false);
+  // A column's free slots: the rows, or its practitioner's own longer slots (each starting on its length since
+  // midnight, so a 20-minute practitioner's slots meet the hour beside a 15-minute colleague's)
+  const dayStart = startOfDay(selectedDate);
+  const cellsFor = (doctorId: string): Array<{ time: Date; minutes: number; filler: boolean }> => {
+    const own = columnSlotMinutes?.get(doctorId) ?? slotDuration;
+    if (own === slotDuration) return timeSlots.map((time) => ({ time, minutes: slotDuration, filler: false }));
+    return columnCells({ start: gridStartMinutes, end: endHour * 60 + endMinute }, own).map((cell) => ({
+      time: addMinutes(dayStart, cell.start),
+      minutes: cell.minutes,
+      filler: cell.filler
+    }));
   };
 
-  // Handle drag end
-  const handleDragEnd = () => {
-    setDraggedAppointment(null);
-    setDropTarget(null);
-    setIsDragging(false);
-  };
+  // Dragging a booking to another time or practitioner (shared with the week grid): a started visit
+  // stays, and a clash, blocked time, a public holiday or time outside the practitioner's hours is
+  // confirmed first (the full booking checks when the diary passes them in)
+  const move = useBookingMove<Appointment>({
+    onDrop: onAppointmentDrop,
+    onCheckMove,
+    localReasons: (booking, time, practitionerId) =>
+      localMoveReasons({ blocks, time, minutes: booking.duration || slotDuration, practitionerId, practitionerName: doctorNameOf })
+  });
 
   // Get status color
   const getStatusColor = (status: string) => {
@@ -233,8 +262,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
   };
 
   // Check if slot is available
-  const isSlotAvailable = (time: Date, doctorId: string) => {
-    const slotEnd = addMinutes(time, slotDuration);
+  const isSlotAvailable = (time: Date, doctorId: string, minutes = slotDuration) => {
+    const slotEnd = addMinutes(time, minutes);
     
     // Only check visits table
     const hasVisit = visits.some(visit => {
@@ -243,8 +272,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
       // Check scheduled time
       if (visit.scheduled_date && visit.scheduled_time) {
         const visitStart = new Date(`${visit.scheduled_date}T${visit.scheduled_time}`);
-        // Assuming 30 minute default duration for visits
-        const visitEnd = addMinutes(visitStart, 30);
+        // Each visit takes its own length (booked, else its type's default)
+        const visitEnd = addMinutes(visitStart, visit.duration ?? 30);
         
         if (isSameDay(visitStart, time)) {
           return (
@@ -260,6 +289,23 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
     
     return !hasVisit;
   };
+
+  // The block greyed on an empty slot (slots holding a booking show the booking instead)
+  const displayedBlock = (time: Date, doctorId: string, minutes = slotDuration): DiaryBlock | undefined =>
+    !getAppointmentForSlot(time, doctorId) && isSlotAvailable(time, doctorId, minutes) ? blockForSlot(time, doctorId, minutes) : undefined;
+
+  // A double booking ("Book anyway") sits side by side in the practitioner's column, so neither
+  // patient is hidden behind the other
+  const placements = new Map<string, LanePlacement>();
+  for (const doctor of doctors) {
+    const own = appointments.filter((apt) => apt.doctor_id === doctor.id && (showCancelled || apt.status !== 'cancelled'));
+    layoutLanes(
+      own.map((apt) => {
+        const start = timeToMinutes(apt.time) ?? 0;
+        return { id: apt.id, start, end: start + (apt.duration || slotDuration) };
+      })
+    ).forEach((placement, id) => placements.set(id, placement));
+  }
 
   return (
     <div className="h-full flex flex-col bg-white/40 backdrop-blur-lg rounded-xl shadow-sm border border-white/20">
@@ -299,45 +345,77 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
 
           {/* Doctor Columns */}
           <div className="flex-1 flex bg-white/20 backdrop-blur-md">
-            {doctors.map((doctor) => (
-              <div key={doctor.id} className="flex-1 min-w-[200px] border-r border-dotted border-gray-400/30 last:border-r-0">
+            {doctors.map((doctor) => {
+              // Bookings without a practitioner: shown here so none is hidden, but nothing new is booked
+              // into this column (open a booking to assign it, or drag it onto a practitioner)
+              const bookable = doctor.id !== NO_PRACTITIONER_ID;
+              const summary = bookable ? hoursSummaries?.get(doctor.id) : 'Open a booking to assign it';
+              return (
+              <div key={doctor.id || 'no-practitioner'} className="flex-1 min-w-[200px] border-r border-dotted border-gray-400/30 last:border-r-0">
                 {/* Doctor Header */}
                 <div className="sticky top-0 bg-white/60 backdrop-blur-lg z-20 h-12 border-b border-dotted border-gray-400/40 px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-gradient-to-br from-[#01b9d5] to-[#0197a4] rounded-full flex items-center justify-center">
+                    <div className={cn('w-8 h-8 flex-none rounded-full flex items-center justify-center', bookable ? 'bg-gradient-to-br from-[#01b9d5] to-[#0197a4]' : 'bg-gray-400')}>
                       <User className="w-4 h-4 text-white" />
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-800 truncate">
+                    <div className="min-w-0">
+                      <p className="text-sm leading-tight font-medium text-gray-800 truncate">
                         {doctor.user_metadata.full_name}
                       </p>
+                      {summary && (
+                        <p className="text-[11px] leading-tight text-gray-500 truncate" title={summary}>
+                          {summary}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Time Slots */}
+                {/* Time Slots: the rows, or this practitioner's own longer slots */}
                 <div className="relative">
-                  {timeSlots.map((time, index) => {
+                  {cellsFor(doctor.id).map((cell, index, cells) => {
+                    const { time, minutes } = cell;
+                    const height = (minutes / slotDuration) * 60;
+                    // Before this practitioner's first slot (the grid starts earlier for a colleague): nothing to book
+                    if (cell.filler) {
+                      return <div key={index} className="border-b border-dotted border-gray-400/30" style={{ height: `${height}px` }} aria-hidden="true" />;
+                    }
                     const appointment = getAppointmentForSlot(time, doctor.id);
-                    const isAvailable = isSlotAvailable(time, doctor.id);
-                    const isDropTarget = dropTarget?.doctorId === doctor.id && 
-                                       dropTarget.time.getTime() === time.getTime();
+                    const isAvailable = isSlotAvailable(time, doctor.id, minutes);
+                    const isDropTarget = move.dropTarget?.practitionerId === doctor.id &&
+                                       move.dropTarget.time.getTime() === time.getTime();
+                    // Blocked time stays clickable: the booking form names the block and asks first
+                    const block = displayedBlock(time, doctor.id, minutes);
+                    const previous = index > 0 && !cells[index - 1].filler ? cells[index - 1] : null;
+                    const showBlockLabel = !!block && (!previous || displayedBlock(previous.time, doctor.id, previous.minutes)?.id !== block.id);
+                    const offHour = block ? undefined : offHourAt(time, doctor.id, minutes);
 
                     return (
                       <div
                         key={index}
                         className={cn(
-                          "h-[60px] border-b border-dotted border-gray-400/30 relative transition-all duration-200",
-                          isDropTarget && isDragging && "bg-[#01b9d5]/20 border-[#01b9d5] backdrop-blur-sm",
-                          !appointment && isAvailable && "hover:bg-white/30 backdrop-blur-sm cursor-pointer",
+                          minutes === slotDuration && "h-[60px]",
+                          "border-b border-dotted border-gray-400/30 relative transition-all duration-200",
+                          isDropTarget && move.isDragging && "bg-[#01b9d5]/20 border-[#01b9d5] backdrop-blur-sm",
+                          bookable && !appointment && isAvailable && "hover:bg-white/30 backdrop-blur-sm cursor-pointer",
+                          block && "bg-gray-100/70",
                           !appointment && !isAvailable && "bg-gray-100/50 opacity-40"
                         )}
-                        onDragOver={(e) => isAvailable && handleDragOver(e, time, doctor.id)}
-                        onDrop={(e) => isAvailable && handleDrop(e, time, doctor.id)}
-                        onClick={() => !appointment && isAvailable && onTimeSlotClick?.(time, doctor.id)}
+                        style={{ height: `${height}px`, ...(block ? { backgroundImage: BLOCKED_STRIPES } : {}) }}
+                        title={block ? `${describeDiaryBlock(block, doctorNameOf(block.doctorId))}. Booking here asks first.` : offHour ? describeOffHourSpan(offHour) : undefined}
+                        onDragOver={bookable ? (e) => isAvailable && move.dragOver(e, time, doctor.id) : undefined}
+                        onDrop={bookable ? (e) => isAvailable && move.drop(e, time, doctor.id) : undefined}
+                        onClick={() => bookable && !appointment && isAvailable && onTimeSlotClick?.(time, doctor.id)}
                       >
+                        {/* Blocked time: the reason, once at the top of each blocked stretch */}
+                        {showBlockLabel && block && (
+                          <div className="absolute inset-x-1 top-1 flex items-center gap-1 text-[11px] font-medium text-gray-500 pointer-events-none">
+                            <Icon icon="solar:forbidden-circle-bold-duotone" className="h-3.5 w-3.5 flex-none" aria-hidden="true" />
+                            <span className="truncate">{block.reason}</span>
+                          </div>
+                        )}
                         {/* Add slot indicator */}
-                        {!appointment && isAvailable && (
+                        {bookable && !appointment && isAvailable && !block && (
                           <motion.div
                             className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
                             whileHover={{ scale: 1.1 }}
@@ -357,31 +435,49 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                     );
                   })}
 
+                  {/* Not working: shaded by the minute; clicks reach the slot below */}
+                  {(offHours?.get(doctor.id) ?? []).map((span) => (
+                    <OffHoursShade
+                      key={`off-${span.start}`}
+                      span={span}
+                      top={((span.start - gridStartMinutes) / slotDuration) * 60}
+                      height={((span.end - span.start) / slotDuration) * 60}
+                    />
+                  ))}
+
                   {/* Appointments */}
                   {appointments
-                    .filter(apt => apt.doctor_id === doctor.id && apt.status !== 'cancelled')
+                    .filter(apt => apt.doctor_id === doctor.id && (showCancelled || apt.status !== 'cancelled'))
                     .map((appointment) => {
                       const TypeIcon = getTypeIcon(appointment.type);
                       const isExpanded = expandedAppointment === appointment.id;
                       const height = getAppointmentHeight(appointment.duration);
                       const top = getAppointmentTop(appointment);
+                      const placement = placements.get(appointment.id) ?? { lane: 0, lanes: 1 };
+                      const sideBySide = placement.lanes > 1;
+                      // A short booking (15 minutes) keeps a thinner margin so its name still shows
+                      const inset = height < 40 ? 2 : 4;
 
                       return (
                         <motion.div
                           key={appointment.id}
                           className={cn(
-                            "absolute left-1 right-1 bg-white/60 backdrop-blur-lg rounded-lg shadow-sm border border-white/40 cursor-move overflow-hidden",
+                            "absolute bg-white/60 backdrop-blur-lg rounded-lg shadow-sm border border-white/40 cursor-move overflow-hidden",
+                            !sideBySide && "left-1 right-1",
                             "hover:shadow-lg hover:z-30 hover:bg-white/70 transition-all duration-200",
-                            draggedAppointment?.id === appointment.id && "opacity-50"
+                            move.dragged?.id === appointment.id && "opacity-50"
                           )}
                           style={{
-                            height: isExpanded ? 'auto' : `${height - 8}px`,
-                            minHeight: `${height - 8}px`,
-                            top: `${top + 4}px`
+                            ...(sideBySide
+                              ? { left: `calc(${(placement.lane / placement.lanes) * 100}% + 2px)`, width: `calc(${100 / placement.lanes}% - 4px)` }
+                              : {}),
+                            height: isExpanded ? 'auto' : `${height - inset * 2}px`,
+                            minHeight: `${height - inset * 2}px`,
+                            top: `${top + inset}px`
                           }}
                           draggable
-                          onDragStart={(e) => handleDragStart(e, appointment)}
-                          onDragEnd={handleDragEnd}
+                          onDragStart={(e) => move.dragStart(e, appointment)}
+                          onDragEnd={move.dragEnd}
                           onClick={() => onAppointmentClick?.(appointment)}
                           whileHover={{ scale: 1.02 }}
                           layout
@@ -406,8 +502,14 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     {appointment.duration}min
                                   </span>
                                 </div>
+                                {/* Invoiced or paid (parity B13), then the practice's own status ("Waiting for X-ray"), in words and colour */}
+                                <DiaryBillingBadge badge={billingBadges?.get(appointment.id)} className="mt-0.5 mr-1" />
+                                <DiaryStatusLabel status={bookingStatuses?.get(appointment.id)} className="mt-0.5" />
                               </div>
                               <div className="flex items-center gap-1">
+                                <AccountFlagIcon summary={accountFlags?.get(appointment.patient_id)} />
+                                <VideoBookingIcon link={appointment.video_link} />
+                                <ReminderStatusIcon status={reminderStatuses?.get(appointment.id)} />
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -415,6 +517,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                   }}
                                   className="p-1 hover:bg-[#01b9d5]/20 rounded transition-all group"
                                   title="View details"
+                                  aria-label="View details"
                                 >
                                   <Eye className="w-3 h-3 text-gray-300 group-hover:text-[#01b9d5]" />
                                 </button>
@@ -424,6 +527,9 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                                     setExpandedAppointment(isExpanded ? null : appointment.id);
                                   }}
                                   className="p-1 hover:bg-gray-200 rounded transition-colors"
+                                  title={isExpanded ? 'Show less' : 'Show more'}
+                                  aria-label={isExpanded ? 'Show less' : 'Show more'}
+                                  aria-expanded={isExpanded}
                                 >
                                   <ChevronDown className={cn(
                                     "w-3 h-3 text-gray-600 transition-transform",
@@ -490,7 +596,7 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
 
                           {/* Loading indicator for pending */}
                           {appointment.status === 'pending' && (
-                            <div className="absolute top-1 right-1">
+                            <div className="absolute top-1 right-1" title="Not confirmed yet">
                               <Loader2 className="w-3 h-3 text-purple-500 animate-spin" />
                             </div>
                           )}
@@ -499,7 +605,8 @@ export const PremiumDayGridView: React.FC<PremiumDayGridViewProps> = ({
                     })}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

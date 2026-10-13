@@ -9,6 +9,10 @@ import toast from 'react-hot-toast';
 import { PremiumInput, PremiumTextarea } from '../ui/PremiumInput';
 import ModernDatePicker from '../ui/ModernDatePicker';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import { LetterActions } from '../letters/LetterActions';
+import { VisitLettersPanel } from '../letters/VisitLettersPanel';
+import { PatientConsentsPanel } from '../consents/PatientConsentsPanel';
+import { buildSickNoteDocument } from '../letters/sickNoteDocument';
 
 interface LeaveFormData {
   from_date: string;
@@ -34,6 +38,8 @@ interface LeaveForm {
   diagnosis?: string;
   diagnosis_code?: string;
   days_off?: number;
+  /** The practitioner who signs the printed note */
+  doctor_id?: string | null;
   created_at: string;
 }
 
@@ -64,6 +70,23 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
 
   const fromDate = watch('from_date');
   const toDate = watch('to_date');
+  // Offered when a sick note or letter is emailed to the patient
+  const [patientEmail, setPatientEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from('patients')
+      .select('email')
+      .eq('id', patientId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setPatientEmail((data as { email?: string | null } | null)?.email ?? null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [patientId]);
 
   const daysOff = fromDate && toDate 
     ? differenceInDays(new Date(toDate), new Date(fromDate)) + 1 
@@ -339,7 +362,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Icon icon="solar:spinner-bold-duotone" className="w-8 h-8 animate-spin text-[#01b9d4]" />
+        <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin text-[#01b9d4]" />
       </div>
     );
   }
@@ -354,7 +377,7 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Icon icon="solar:document-medicine-bold-duotone" className="w-6 h-6 text-[#01b9d4]" />
-          <h3 className="text-lg font-semibold text-gray-800">Medical Leave Certificates</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Sick notes</h3>
         </div>
         <button
           onClick={() => {
@@ -545,6 +568,35 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                         <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                       </button>
                     </div>
+                    {/* An issued note prints on the letterhead or goes to the patient (or employer) by email */}
+                    {(form.status === 'issued' || form.status === 'sent') && (
+                      <div className="mt-2">
+                        <LetterActions
+                          compact
+                          getDocument={() =>
+                            buildSickNoteDocument({
+                              practiceId,
+                              patientId,
+                              visitId,
+                              signedInUserId: user?.id ?? '',
+                              note: {
+                                formNumber: form.form_number || null,
+                                fromDate: String(form.from_date).slice(0, 10),
+                                toDate: String(form.to_date).slice(0, 10),
+                                diagnosis: form.diagnosis || null,
+                                diagnosisCode: form.diagnosis_code || null,
+                                doctorId: form.doctor_id ?? doctorId ?? null,
+                                issueDate: form.issue_date ?? null
+                              }
+                            })
+                          }
+                          practiceId={practiceId}
+                          patientId={patientId}
+                          visitId={visitId}
+                          defaultEmail={patientEmail}
+                        />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
@@ -552,6 +604,12 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
           </tbody>
         </table>
       </div>
+
+      {/* Referral letters and other letters from this visit */}
+      <VisitLettersPanel practiceId={practiceId} patientId={patientId} visitId={visitId} patientEmail={patientEmail} />
+
+      {/* Consent forms signed on the screen for this visit (also listed on the patient file) */}
+      <PatientConsentsPanel practiceId={practiceId} patientId={patientId} visitId={visitId} title="Consent forms for this visit" />
     </motion.div>
   );
 };

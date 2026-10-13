@@ -42,11 +42,14 @@ export const PremiumDatePickerModal: React.FC<PremiumDatePickerModalProps> = ({
   const [showMonthDropdown, setShowMonthDropdown] = useState(false);
   const [showYearDropdown, setShowYearDropdown] = useState(false);
 
-  const selectedDate = typeof value === 'string' ? new Date(value) : value;
+  // An empty value ('') is no date yet: it shows "Select date" (new Date('') is an invalid date that format() rejects)
+  const selectedDate = typeof value === 'string' ? (value ? new Date(value) : null) : value;
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isOpen) {
+        // Closes the calendar only, not the booking form around it (useEscapeToClose leaves a handled key alone)
+        event.preventDefault();
         setIsOpen(false);
       }
     };
@@ -111,7 +114,7 @@ export const PremiumDatePickerModal: React.FC<PremiumDatePickerModalProps> = ({
                 onClick={() => setIsOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               >
-                <Icon icon="solar:close-bold" className="w-6 h-6 text-gray-500" />
+                <Icon icon="solar:close-circle-bold" className="w-6 h-6 text-gray-500" />
               </motion.button>
             </div>
 

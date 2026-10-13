@@ -5,11 +5,17 @@ import { Icon } from '@iconify/react';
 import Button from '../../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
 import { useAuthStore } from '../../../stores/authStore';
+import { openRecord } from '../../../services/recordFiles';
 import toast from 'react-hot-toast';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO, getYear } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isWeekend, parseISO } from 'date-fns';
+import { classifyWorkedHours } from '../../../utils/hr/labourAct';
+import { getNamibiaHolidayName, isNamibiaPublicHoliday } from '../../../utils/hr/namibiaHolidays';
 import TimesheetPDFGeneratorFixed from './TimesheetPDFGeneratorFixed';
 import MonthInput from '../../ui/MonthInput';
 import TimeInput from '../../ui/TimeInput';
+import { ConfirmDialog } from './ConfirmDialog';
+import { describeDbError, ensureRowsUpdated, isStaffAdmin, parseMonthValue } from './staffUtils';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 
 interface TimesheetEntry {
   id: string;
@@ -35,6 +41,8 @@ interface Timesheet {
   overtime_hours: number;
   status: 'draft' | 'submitted' | 'approved' | 'rejected';
   pdf_url?: string;
+  approver_comments?: string | null;
+  submitted_at?: string | null;
   user?: {
     full_name: string;
     email: string;
@@ -45,7 +53,17 @@ interface Timesheet {
 interface ExcelTimesheetManagementProps {
   selectedUserId?: string;
   isTeamView: boolean;
+  /** Practice resolved by the parent (falls back to the signed-in user's practice). */
+  practiceId?: string | null;
 }
+
+type TimesheetAction =
+  | { type: 'approve' | 'return'; timesheet: Timesheet }
+  | { type: 'delete'; timesheet: Timesheet };
+
+// Older rows were saved with period_start one day early (UTC conversion); period_end is reliable
+const timesheetMonthLabel = (timesheet: Pick<Timesheet, 'period_end'>) =>
+  format(parseISO(timesheet.period_end), 'MMMM yyyy');
 
 interface DayEntry {
   date: string;
@@ -56,124 +74,17 @@ interface DayEntry {
   scheduledHours: number; // Practice operating hours for this day
 }
 
-// Namibia Public Holidays
-const getNamibiaPublicHolidays = (year: number): string[] => {
-  const baseHolidays = [
-    `${year}-01-01`, // New Year's Day
-    `${year}-03-21`, // Independence Day
-    `${year}-05-01`, // Workers' Day
-    `${year}-05-04`, // Cassinga Day
-    `${year}-05-25`, // Africa Day
-    `${year}-08-26`, // Heroes' Day
-    `${year}-09-10`, // Day of the Namibian Child
-    `${year}-12-10`, // International Human Rights Day
-    `${year}-12-25`, // Christmas Day
-    `${year}-12-26`, // Family Day
-  ];
-  
-  // Add Good Friday and Easter Monday (these move each year)
-  // Easter dates for different years
-  const easterDates: Record<number, { goodFriday: string; easterMonday: string }> = {
-    2024: { goodFriday: `${year}-03-29`, easterMonday: `${year}-04-01` },
-    2025: { goodFriday: `${year}-04-18`, easterMonday: `${year}-04-21` },
-    2026: { goodFriday: `${year}-04-03`, easterMonday: `${year}-04-06` },
-    2027: { goodFriday: `${year}-03-26`, easterMonday: `${year}-03-29` },
-    2028: { goodFriday: `${year}-04-14`, easterMonday: `${year}-04-17` },
-  };
-  
-  if (easterDates[year]) {
-    baseHolidays.push(easterDates[year].goodFriday);
-    baseHolidays.push(easterDates[year].easterMonday);
-  }
-  
-  // Add Ascension Day (39 days after Easter)
-  const ascensionDates: Record<number, string> = {
-    2024: `${year}-05-09`,
-    2025: `${year}-05-29`,
-    2026: `${year}-05-14`,
-    2027: `${year}-05-06`,
-    2028: `${year}-05-25`,
-  };
-  
-  if (ascensionDates[year]) {
-    baseHolidays.push(ascensionDates[year]);
-  }
-  
-  // Process holidays and add Monday if holiday falls on Sunday
-  const allHolidays = [...baseHolidays];
-  
-  baseHolidays.forEach(holiday => {
-    const holidayDate = parseISO(holiday);
-    // If holiday falls on Sunday (day 0), add the following Monday
-    if (holidayDate.getDay() === 0) {
-      const monday = new Date(holidayDate);
-      monday.setDate(monday.getDate() + 1);
-      const mondayStr = format(monday, 'yyyy-MM-dd');
-      if (!allHolidays.includes(mondayStr)) {
-        allHolidays.push(mondayStr);
-      }
-    }
-  });
-  
-  return allHolidays;
-};
-
-const getHolidayName = (date: string): string | null => {
-  const monthDay = date.substring(5);
-  const year = parseInt(date.substring(0, 4));
-  
-  const holidayMap: Record<string, string> = {
-    '01-01': "New Year's Day",
-    '03-21': 'Independence Day',
-    '05-01': "Workers' Day",
-    '05-04': 'Cassinga Day',
-    '05-25': 'Africa Day',
-    '08-26': "Heroes' Day",
-    '09-10': 'Day of the Namibian Child',
-    '12-10': 'International Human Rights Day',
-    '12-25': 'Christmas Day',
-    '12-26': 'Family Day',
-  };
-  
-  // Handle moveable holidays
-  const moveableHolidays: Record<number, Record<string, string>> = {
-    2024: { '03-29': 'Good Friday', '04-01': 'Easter Monday', '05-09': 'Ascension Day' },
-    2025: { '04-18': 'Good Friday', '04-21': 'Easter Monday', '05-29': 'Ascension Day' },
-    2026: { '04-03': 'Good Friday', '04-06': 'Easter Monday', '05-14': 'Ascension Day' },
-    2027: { '03-26': 'Good Friday', '03-29': 'Easter Monday', '05-06': 'Ascension Day' },
-    2028: { '04-14': 'Good Friday', '04-17': 'Easter Monday', '05-25': 'Ascension Day' },
-  };
-  
-  if (moveableHolidays[year] && moveableHolidays[year][monthDay]) {
-    return moveableHolidays[year][monthDay];
-  }
-  
-  // Check if this is a Monday following a Sunday holiday
-  const currentDate = parseISO(date);
-  if (currentDate.getDay() === 1) { // Monday
-    const sunday = new Date(currentDate);
-    sunday.setDate(sunday.getDate() - 1);
-    const sundayStr = format(sunday, 'yyyy-MM-dd');
-    const sundayMonthDay = sundayStr.substring(5);
-    
-    // Check if Sunday was a holiday
-    if (holidayMap[sundayMonthDay]) {
-      return holidayMap[sundayMonthDay] + ' (Observed)';
-    }
-    if (moveableHolidays[year] && moveableHolidays[year][sundayMonthDay]) {
-      return moveableHolidays[year][sundayMonthDay] + ' (Observed)';
-    }
-  }
-  
-  return holidayMap[monthDay] || null;
-};
-
-export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> = ({ 
-  selectedUserId, 
-  isTeamView 
+export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> = ({
+  selectedUserId,
+  isTeamView,
+  practiceId: practiceIdProp
 }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const practiceId = practiceIdProp || user?.practice_id;
+  const isAdmin = isStaffAdmin(user);
+  const isViewingOtherStaff = !!selectedUserId && selectedUserId !== user?.id;
+  const [timesheetAction, setTimesheetAction] = useState<TimesheetAction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [activeTab, setActiveTab] = useState<'timesheet' | 'list'>('list');
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
@@ -183,14 +94,9 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   const [practiceBusinessHours, setPracticeBusinessHours] = useState<Record<string, { open?: string; close?: string; closed?: boolean }> | null>(null);
   const [showPDFGenerator, setShowPDFGenerator] = useState(false);
   const [selectedTimesheet, setSelectedTimesheet] = useState<Timesheet | null>(null);
+  // Escape closes the timesheet PDF window, as its X does
+  useEscapeToClose(showPDFGenerator && !!selectedTimesheet, () => { setShowPDFGenerator(false); setSelectedTimesheet(null); });
   const [isSaving, setIsSaving] = useState(false);
-  
-  // Enhanced logging for debugging
-  console.log('🚀 ExcelTimesheetManagement mounted', {
-    user: user?.email,
-    selectedUserId,
-    currentMonth: format(selectedMonth, 'yyyy-MM')
-  });
 
   // Set up real-time subscription for timesheets
   useEffect(() => {
@@ -226,6 +132,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
   const monthStart = startOfMonth(selectedMonth);
   const monthEnd = endOfMonth(selectedMonth);
+  // A timesheet records hours worked, so practice hours are only filled in up to today
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
 
   // Get all days in month
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
@@ -326,7 +234,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       
       console.log(`${isOpen ? '✅' : '❌'} DEBUG: Day ${dayName} is ${isOpen ? 'OPEN' : 'CLOSED'} (isClosed: ${isClosed})`);
       
-      if (isOpen && dayHours?.open && dayHours?.close) {
+      if (isOpen && dayHours?.open && dayHours?.close && format(day, 'yyyy-MM-dd') <= todayKey) {
         const start = dayHours.open;
         const end = dayHours.close;
         const totalHours = calculateTotalHours(start, end);
@@ -353,15 +261,15 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     console.log('📊 DEBUG: Total entries created:', entries.length);
     console.log('📊 DEBUG: Entries with hours:', entries.filter(e => e.totalHours > 0).length);
     setDayEntries(entries);
-  }, [selectedMonth, practiceBusinessHours]);
+  }, [selectedMonth, practiceBusinessHours, todayKey]);
 
   // Fetch current timesheet with enhanced logging
   const { data: timesheet } = useQuery<Timesheet>({
     queryKey: ['current-timesheet', user?.id, selectedUserId, format(selectedMonth, 'yyyy-MM')],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
-      const periodStart = monthStart.toISOString().split('T')[0];
-      const periodEnd = monthEnd.toISOString().split('T')[0];
+      const periodStart = format(monthStart, 'yyyy-MM-dd');
+      const periodEnd = format(monthEnd, 'yyyy-MM-dd');
       
       console.log('📊 Fetching timesheet for:', {
         userId: targetUserId,
@@ -381,7 +289,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           entries:timesheet_entries (*)
         `)
         .eq('user_id', targetUserId)
-        .eq('period_start', periodStart)
+        // Matched on the month end only: older timesheets were saved with period_start one day early
+        // (a UTC conversion of local midnight), while period_end was always right
         .eq('period_end', periodEnd)
         .single();
 
@@ -427,7 +336,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           };
         }
         
-        if (isOpen && dayHours?.open && dayHours?.close) {
+        if (isOpen && dayHours?.open && dayHours?.close && dateStr <= todayKey) {
           return {
             date: dateStr,
             timeIn: dayHours.open,
@@ -453,7 +362,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       // No timesheet exists for this month, reset to default entries
       setCurrentTimesheet(null);
     }
-  }, [timesheet, selectedMonth, practiceBusinessHours]);
+  }, [timesheet, selectedMonth, practiceBusinessHours, todayKey]);
 
   // Create/Update timesheet mutation
   const saveTimesheetMutation = useMutation({
@@ -464,7 +373,15 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       
       try {
       const targetUserId = selectedUserId || user?.id;
-      
+
+      // Checked before anything is written, so a refused save leaves no empty timesheet behind
+      const futureDays = dayEntries.filter(entry => entry.date > todayKey && entry.timeIn && entry.timeOut);
+      if (futureDays.length > 0) {
+        throw new Error(
+          `Hours can't be recorded for days that haven't happened yet (${futureDays.length} day(s) from ${format(parseISO(futureDays[0].date), 'd MMM')}). Clear them and save again.`
+        );
+      }
+
       // Check for existing timesheet for this month
       let timesheetId = currentTimesheet?.id;
       
@@ -474,8 +391,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           .from('timesheets')
           .select('id')
           .eq('user_id', targetUserId)
-          .eq('period_start', monthStart.toISOString().split('T')[0])
-          .eq('period_end', monthEnd.toISOString().split('T')[0])
+          .eq('period_end', format(monthEnd, 'yyyy-MM-dd'))
           .single();
         
         if (existingTimesheet) {
@@ -486,8 +402,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
             .from('timesheets')
             .insert({
               user_id: targetUserId,
-              period_start: monthStart.toISOString().split('T')[0],
-              period_end: monthEnd.toISOString().split('T')[0],
+              period_start: format(monthStart, 'yyyy-MM-dd'),
+              period_end: format(monthEnd, 'yyyy-MM-dd'),
               total_hours: 0,
               regular_hours: 0,
               overtime_hours: 0,
@@ -501,26 +417,30 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
         }
       }
 
-      // Save entries
-      const entries = dayEntries
-        .filter(entry => entry.timeIn && entry.timeOut)
-        .map(entry => ({
-          timesheet_id: timesheetId,
-          date: entry.date,
-          start_time: entry.timeIn,
-          end_time: entry.timeOut,
-          total_hours: entry.totalHours,
-          task_description: entry.comments || null,
-          is_overtime: entry.totalHours > (entry.scheduledHours || 0),
-          is_holiday: false
-        }));
+      // Save entries, flagged with the same Labour Act split the screen shows
+      const workedDays = dayEntries.filter(entry => entry.timeIn && entry.timeOut);
+      const savedHours = classifyWorkedHours(
+        workedDays.map(entry => ({ date: entry.date, hours: entry.totalHours, timeIn: entry.timeIn, timeOut: entry.timeOut })),
+        isNamibiaPublicHoliday
+      );
+      const savedByDate = new Map(savedHours.days.map(day => [day.date, day]));
+      const entries = workedDays.map(entry => ({
+        timesheet_id: timesheetId,
+        date: entry.date,
+        start_time: entry.timeIn,
+        end_time: entry.timeOut,
+        total_hours: entry.totalHours,
+        task_description: entry.comments || null,
+        is_overtime: (savedByDate.get(entry.date)?.overtimeHours ?? 0) > 0,
+        is_holiday: isNamibiaPublicHoliday(entry.date)
+      }));
 
-      // For team view, check if current user is admin/doctor to handle RLS properly
-      const isAdminOrDoctor = user?.role === 'admin' || user?.role === 'doctor';
-      const isEditingOtherUser = selectedUserId && selectedUserId !== user?.id;
-      
-      if (isEditingOtherUser && !isAdminOrDoctor) {
+      // Only administrators may edit another person's timesheet
+      if (isViewingOtherStaff && !isAdmin) {
         throw new Error('You do not have permission to edit timesheets for other users');
+      }
+      if (currentTimesheet && (currentTimesheet.status === 'submitted' || currentTimesheet.status === 'approved')) {
+        throw new Error(`This timesheet has been ${currentTimesheet.status === 'approved' ? 'approved' : 'submitted for approval'} and can no longer be edited`);
       }
 
       // Get all dates that should have entries
@@ -556,27 +476,17 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
       // Update timesheet totals
       const totalHours = entries.reduce((sum, e) => sum + e.total_hours, 0);
-      // Calculate regular and overtime based on scheduled hours for each day
-      let regularHours = 0;
-      let overtimeHours = 0;
-      
-      dayEntries.forEach((dayEntry) => {
-        const entry = entries.find(e => e.date === dayEntry.date);
-        if (entry) {
-          const scheduled = dayEntry.scheduledHours || 0;
-          regularHours += Math.min(entry.total_hours, scheduled);
-          overtimeHours += Math.max(entry.total_hours - scheduled, 0);
-        }
-      });
 
-      await supabase
+      const { error: totalsError } = await supabase
         .from('timesheets')
         .update({
           total_hours: totalHours,
-          regular_hours: regularHours,
-          overtime_hours: overtimeHours
+          regular_hours: savedHours.ordinaryHours,
+          overtime_hours: savedHours.overtimeHours
         })
         .eq('id', timesheetId);
+
+      if (totalsError) throw totalsError;
 
       return timesheetId;
       } finally {
@@ -587,6 +497,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       // Invalidate both current timesheet and list to ensure immediate updates
       queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
       queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+      queryClient.invalidateQueries({ queryKey: ['user-stats'] });
       toast.success('Timesheet saved successfully');
     },
     onError: (error: Error) => {
@@ -600,7 +511,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       } else if (error.message.includes('row-level security')) {
         toast.error('Access denied. Please check your permissions.');
       } else {
-        toast.error(error.message || 'Failed to save timesheet');
+        toast.error(describeDbError(error, 'Failed to save timesheet'));
       }
     }
   });
@@ -643,7 +554,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       const isClosed = dayHours?.closed === true;
       const isOpen = !isClosed && dayHours?.open && dayHours?.close;
       
-      if (isOpen && dayHours?.open && dayHours?.close) {
+      if (isOpen && dayHours?.open && dayHours?.close && entry.date <= todayKey) {
         return {
           ...entry,
           timeIn: dayHours.open,
@@ -671,18 +582,23 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
   };
 
   const totalHours = dayEntries.reduce((sum, entry) => sum + entry.totalHours, 0);
-  // Regular hours: up to scheduled hours per day, overtime is anything above scheduled
-  const regularHours = dayEntries.reduce((sum, entry) => {
-    const scheduled = entry.scheduledHours || 0;
-    return sum + Math.min(entry.totalHours, scheduled);
-  }, 0);
-  const overtimeHours = dayEntries.reduce((sum, entry) => {
-    const scheduled = entry.scheduledHours || 0;
-    return sum + Math.max(entry.totalHours - scheduled, 0);
-  }, 0);
+  // Ordinary time and overtime follow the Labour Act (9 h a day, 8 h for a 6-day week, 45 h a week),
+  // not the practice's opening hours; Sunday and public holiday hours are counted separately
+  const hoursSummary = classifyWorkedHours(
+    dayEntries.map(entry => ({ date: entry.date, hours: entry.totalHours, timeIn: entry.timeIn, timeOut: entry.timeOut })),
+    isNamibiaPublicHoliday
+  );
+  const hoursByDate = new Map(hoursSummary.days.map(day => [day.date, day]));
+  const regularHours = hoursSummary.ordinaryHours;
+  const overtimeHours = hoursSummary.overtimeHours;
 
   // Fetch all timesheets for list view - always enabled for immediate updates
-  const { data: allTimesheets = [], refetch: refetchTimesheets } = useQuery<Timesheet[]>({
+  const {
+    data: allTimesheets = [],
+    refetch: refetchTimesheets,
+    isLoading: isLoadingTimesheets,
+    isError: timesheetsError
+  } = useQuery<Timesheet[]>({
     queryKey: ['all-timesheets', user?.id, selectedUserId],
     queryFn: async () => {
       const targetUserId = selectedUserId || user?.id;
@@ -722,27 +638,62 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     refetchInterval: false // Temporarily disabled for debugging
   });
 
+  const invalidateTimesheetData = () => {
+    queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
+    queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
+    queryClient.invalidateQueries({ queryKey: ['timesheet-approvals'] });
+    queryClient.invalidateQueries({ queryKey: ['team-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['user-stats'] });
+  };
+
   // Submit timesheet mutation
   const submitTimesheetMutation = useMutation({
     mutationFn: async (timesheetId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('timesheets')
         .update({ status: 'submitted', submitted_at: new Date().toISOString() })
-        .eq('id', timesheetId);
+        .eq('id', timesheetId)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The timesheet');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
+      invalidateTimesheetData();
       toast.success('Timesheet submitted for approval');
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to submit timesheet');
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not submit the timesheet'));
     }
   });
 
-  // Delete timesheet mutation
+  // Administrators approve, or return a timesheet to draft so the employee can correct and resubmit
+  const reviewTimesheetMutation = useMutation({
+    mutationFn: async ({ timesheetId, decision, comment }: { timesheetId: string; decision: 'approve' | 'return'; comment?: string }) => {
+      const updates = decision === 'approve'
+        ? { status: 'approved', approver_id: user?.id, approved_at: new Date().toISOString(), approver_comments: comment || null }
+        : { status: 'draft', approver_id: user?.id, approved_at: null, approver_comments: comment || null };
+
+      const { data, error } = await supabase
+        .from('timesheets')
+        .update(updates)
+        .eq('id', timesheetId)
+        .select('id');
+
+      if (error) throw error;
+      ensureRowsUpdated(data, 'The timesheet');
+    },
+    onSuccess: (_, variables) => {
+      invalidateTimesheetData();
+      toast.success(variables.decision === 'approve' ? 'Timesheet approved' : 'Timesheet returned for correction');
+      setTimesheetAction(null);
+    },
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not update the timesheet'));
+    }
+  });
+
+  // Delete timesheet mutation (drafts only)
   const deleteTimesheetMutation = useMutation({
     mutationFn: async (timesheetId: string) => {
       // First, delete all related timesheet entries
@@ -754,38 +705,70 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       if (entriesError) throw entriesError;
 
       // Then delete the timesheet itself
-      const { error: timesheetError } = await supabase
+      const { data, error: timesheetError } = await supabase
         .from('timesheets')
         .delete()
-        .eq('id', timesheetId);
+        .eq('id', timesheetId)
+        .select('id');
 
       if (timesheetError) throw timesheetError;
+      ensureRowsUpdated(data, 'The timesheet');
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['all-timesheets'] });
-      queryClient.invalidateQueries({ queryKey: ['current-timesheet'] });
-      toast.success('Timesheet deleted successfully');
+      invalidateTimesheetData();
+      toast.success('Timesheet deleted');
+      setTimesheetAction(null);
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to delete timesheet');
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not delete the timesheet'));
     }
   });
 
-  const handleDeleteTimesheet = async (timesheetId: string, period: string) => {
-    const confirmMessage = `Are you sure you want to delete the timesheet for ${period}? This will permanently delete all time entries for this period.`;
-    
-    if (confirm(confirmMessage)) {
-      deleteTimesheetMutation.mutate(timesheetId);
+  // Submitted timesheets across the practice, for the approval queue (administrators, team view)
+  const { data: pendingApprovals = [], isLoading: isLoadingApprovals } = useQuery<Timesheet[]>({
+    queryKey: ['timesheet-approvals', practiceId],
+    queryFn: async () => {
+      if (!practiceId) return [];
+      const { data, error } = await supabase
+        .from('timesheets')
+        .select(`
+          *,
+          user:user_id!inner (
+            full_name,
+            email,
+            practice_id
+          )
+        `)
+        .eq('status', 'submitted')
+        .eq('user.practice_id', practiceId)
+        .order('submitted_at', { ascending: true });
+
+      if (error) throw error;
+      return (data || []) as unknown as Timesheet[];
+    },
+    enabled: !!practiceId && isAdmin && isTeamView
+  });
+
+  const handleConfirmTimesheetAction = (comment: string) => {
+    if (!timesheetAction) return;
+    if (timesheetAction.type === 'delete') {
+      deleteTimesheetMutation.mutate(timesheetAction.timesheet.id);
+      return;
     }
+    reviewTimesheetMutation.mutate({
+      timesheetId: timesheetAction.timesheet.id,
+      decision: timesheetAction.type,
+      comment
+    });
   };
 
   // Handle timesheet card click to navigate to entry
   const handleTimesheetCardClick = (timesheet: Timesheet) => {
     // Show loading toast
     toast.loading('Loading timesheet...', { id: 'loading-timesheet' });
-    
-    // Set the selected month based on the timesheet period
-    const timesheetMonth = parseISO(timesheet.period_start);
+
+    // Select the timesheet's month from period_end (period_start can be a day early on older rows)
+    const timesheetMonth = parseISO(timesheet.period_end);
     setSelectedMonth(timesheetMonth);
     
     // Switch to the timesheet entry tab
@@ -815,21 +798,85 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
     }
   };
 
+  // Submitted and approved timesheets are read-only (return it to draft to change it)
+  const timesheetLocked = !!currentTimesheet && (currentTimesheet.status === 'submitted' || currentTimesheet.status === 'approved');
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-gray-900">
-          {isTeamView ? 'Team Timesheets' : 'My Timesheets'}
+          {isViewingOtherStaff ? 'Staff Timesheets' : 'My Timesheets'}
         </h2>
         <div className="flex items-center gap-3">
           <MonthInput
             value={format(selectedMonth, 'yyyy-MM')}
-            onChange={(value) => setSelectedMonth(new Date(value + '-01'))}
+            onChange={(value) => {
+              const month = parseMonthValue(value);
+              if (month) setSelectedMonth(month);
+            }}
             placeholder="Select month"
           />
         </div>
       </div>
+
+      {/* Approval queue for administrators */}
+      {isTeamView && isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Icon icon="solar:checklist-minimalistic-bold-duotone" className="w-5 h-5 text-blue-600" />
+              Awaiting Approval
+              <span className="ml-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">
+                {isLoadingApprovals ? '…' : pendingApprovals.length}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoadingApprovals ? (
+              <div className="h-16 rounded-lg bg-gray-100 animate-pulse" aria-busy="true" />
+            ) : pendingApprovals.length === 0 ? (
+              <p className="text-sm text-gray-500">No timesheets are waiting for approval.</p>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {pendingApprovals.map(ts => (
+                  <div key={ts.id} className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{ts.user?.full_name ?? 'Staff member'}</p>
+                      <p className="text-sm text-gray-600">
+                        {timesheetMonthLabel(ts)} · {Number(ts.total_hours ?? 0).toFixed(1)}h total ·{' '}
+                        {Number(ts.overtime_hours ?? 0).toFixed(1)}h overtime
+                        {ts.submitted_at ? ` · submitted ${format(new Date(ts.submitted_at), 'dd MMM')}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                        disabled={reviewTimesheetMutation.isPending}
+                        onClick={() => setTimesheetAction({ type: 'approve', timesheet: ts })}
+                      >
+                        <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-amber-700 border-amber-500 hover:bg-amber-50"
+                        disabled={reviewTimesheetMutation.isPending}
+                        onClick={() => setTimesheetAction({ type: 'return', timesheet: ts })}
+                      >
+                        <Icon icon="solar:undo-left-round-bold-duotone" className="w-4 h-4 mr-1" />
+                        Return
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -857,6 +904,23 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
       {/* Tab Content */}
       {activeTab === 'timesheet' && (
         <div className="space-y-6">
+          {timesheetLocked && currentTimesheet && (
+            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+              <Icon icon="solar:lock-keyhole-minimalistic-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+              <p>
+                This timesheet has been {currentTimesheet.status === 'approved' ? 'approved' : 'submitted for approval'} and is read-only.
+                {currentTimesheet.status === 'submitted' && (isAdmin
+                  ? ' Approve it or return it for correction from the Timesheets overview.'
+                  : ' Ask an administrator to return it if something needs to change.')}
+              </p>
+            </div>
+          )}
+          {!timesheetLocked && currentTimesheet?.status === 'draft' && currentTimesheet.approver_comments && (
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <Icon icon="solar:undo-left-round-bold-duotone" className="w-5 h-5 flex-shrink-0" />
+              <p>Returned for correction: {currentTimesheet.approver_comments}</p>
+            </div>
+          )}
           {/* Quick Actions */}
           <Card>
             <CardHeader>
@@ -905,10 +969,8 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                 />
                 <div className="flex items-end">
                   <Button
-                    onClick={() => {
-                      console.log('🔄 DEBUG: Apply to Weekdays clicked');
-                      applyToAllWeekdays();
-                    }}
+                    onClick={applyToAllWeekdays}
+                    disabled={timesheetLocked}
                     className="w-full bg-teal-600 text-white hover:bg-teal-700"
                   >
                     <Icon icon="solar:copy-bold-duotone" className="w-4 h-4 mr-2" />
@@ -918,6 +980,7 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                 <div className="flex items-end">
                   <Button
                     onClick={clearAllEntries}
+                    disabled={timesheetLocked}
                     variant="outline"
                     className="w-full border-red-300 text-red-600 hover:bg-red-50"
                   >
@@ -937,12 +1000,42 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                   <Icon icon="solar:calendar-bold-duotone" className="w-6 h-6 text-teal-600" />
                   {format(selectedMonth, 'MMMM yyyy')} Timesheet
                 </CardTitle>
-                <div className="flex items-center gap-4 text-sm">
+                <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-1 text-sm">
                   <span className="text-gray-600">Total: <span className="font-semibold text-gray-900">{totalHours.toFixed(1)}h</span></span>
-                  <span className="text-gray-600">Regular: <span className="font-semibold text-gray-900">{regularHours.toFixed(1)}h</span></span>
-                  <span className="text-gray-600">Overtime: <span className="font-semibold text-orange-600">{overtimeHours.toFixed(1)}h</span></span>
+                  <span className="text-gray-600" title="Up to 9 h a day (8 h if more than 5 days are worked that week) and 45 h a week, Labour Act s16">
+                    Ordinary: <span className="font-semibold text-gray-900">{regularHours.toFixed(1)}h</span>
+                  </span>
+                  <span className="text-gray-600" title="Paid at least 1.5 times the hourly wage, Labour Act s17">
+                    Overtime: <span className="font-semibold text-orange-600">{overtimeHours.toFixed(1)}h</span>
+                  </span>
+                  {hoursSummary.sundayHours > 0 && (
+                    <span className="text-gray-600" title="Paid at 200% for staff who do not ordinarily work Sundays, Labour Act s21">
+                      Sunday: <span className="font-semibold text-purple-700">{hoursSummary.sundayHours.toFixed(1)}h</span>
+                    </span>
+                  )}
+                  {hoursSummary.publicHolidayHours > 0 && (
+                    <span className="text-gray-600" title="The day's pay plus the hourly wage for each hour worked, Labour Act s22">
+                      Public holiday: <span className="font-semibold text-blue-700">{hoursSummary.publicHolidayHours.toFixed(1)}h</span>
+                    </span>
+                  )}
+                  {hoursSummary.nightHours > 0 && (
+                    <span className="text-gray-600" title="Work between 22:00 and 07:00 earns at least 6% extra, Labour Act s19">
+                      Night: <span className="font-semibold text-indigo-700">{hoursSummary.nightHours.toFixed(1)}h</span>
+                    </span>
+                  )}
                 </div>
               </div>
+              {hoursSummary.warnings.length > 0 && (
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+                  <p className="font-semibold">Overtime above the Labour Act limits</p>
+                  <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                    {hoursSummary.warnings.map(warning => (
+                      <li key={`${warning.date}-${warning.message}`}>{warning.message}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-xs text-amber-800">Overtime also needs a written agreement with the employee.</p>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
@@ -979,8 +1072,11 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                       const date = parseISO(entry.date);
                       const isWeekendDay = isWeekend(date);
                       const isToday = format(date, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                      const holidays = getNamibiaPublicHolidays(getYear(date));
-                      const isHoliday = holidays.includes(entry.date);
+                      const holidayName = getNamibiaHolidayName(entry.date);
+                      const isHoliday = holidayName !== null;
+                      // Hours can be recorded on any day up to today, including Sundays, holidays and call-outs on closed days
+                      const isFutureDay = entry.date > todayKey;
+                      const dayHours = hoursByDate.get(entry.date);
                       
                       return (
                         <div 
@@ -1014,10 +1110,10 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                                   {format(date, 'EEEE')}
                                 </div>
                                 <div className="text-sm text-gray-500">
-                                  {format(date, 'MMM dd, yyyy')}
+                                  {format(date, 'd MMM yyyy')}
                                   {isHoliday && (
                                     <span className="ml-2 text-purple-600 font-medium">
-                                      • {getHolidayName(entry.date)}
+                                      • {holidayName}
                                     </span>
                                   )}
                                 </div>
@@ -1027,30 +1123,30 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
 
                           {/* Time In Column */}
                           <div className="col-span-2 flex items-center">
-                            {entry.timeIn && !isHoliday ? (
+                            {!isFutureDay ? (
                               <TimeInput
                                 value={entry.timeIn}
                                 onChange={(value) => updateDayEntry(index, 'timeIn', value)}
-                                placeholder="Start time"
+                                placeholder={entry.timeIn ? 'Start time' : 'Not worked'}
                                 className="w-full"
                                 size="sm"
+                                disabled={timesheetLocked}
                               />
                             ) : (
-                              <div className="text-gray-400 text-sm font-medium">
-                                {isHoliday ? 'Holiday' : 'Closed'}
-                              </div>
+                              <div className="text-gray-400 text-sm font-medium">Upcoming</div>
                             )}
                           </div>
 
                           {/* Time Out Column */}
                           <div className="col-span-2 flex items-center">
-                            {entry.timeOut && !isHoliday ? (
+                            {!isFutureDay ? (
                               <TimeInput
                                 value={entry.timeOut}
                                 onChange={(value) => updateDayEntry(index, 'timeOut', value)}
-                                placeholder="End time"
+                                placeholder={entry.timeOut ? 'End time' : 'Not worked'}
                                 className="w-full"
                                 size="sm"
+                                disabled={timesheetLocked}
                               />
                             ) : (
                               <div className="text-gray-400 text-sm font-medium">—</div>
@@ -1064,12 +1160,12 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                               value={entry.comments}
                               onChange={(e) => updateDayEntry(index, 'comments', e.target.value)}
                               className={`w-full px-3 py-2 rounded-lg border-2 transition-all duration-200 text-sm ${
-                                isWeekendDay || isHoliday
+                                isFutureDay
                                   ? 'bg-gray-50 border-gray-200 text-gray-400 cursor-not-allowed'
                                   : 'bg-white border-gray-200 hover:border-teal-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-200'
                               }`}
-                              placeholder={isHoliday ? getHolidayName(entry.date) || 'Holiday' : isWeekendDay ? 'Weekend' : 'Add your notes...'}
-                              disabled={isWeekendDay || isHoliday}
+                              placeholder={holidayName || (isWeekendDay ? 'Weekend: note any call-out' : 'Add your notes...')}
+                              disabled={isFutureDay || timesheetLocked}
                             />
                           </div>
 
@@ -1077,25 +1173,35 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                           <div className="col-span-2 flex items-center justify-center">
                             <div className="text-center">
                               <div className={`font-bold ${
-                                entry.totalHours > entry.scheduledHours && entry.scheduledHours > 0
-                                  ? 'text-orange-600' 
-                                  : entry.totalHours > 0 
-                                  ? 'text-teal-600' 
+                                (dayHours?.overtimeHours ?? 0) > 0
+                                  ? 'text-orange-600'
+                                  : entry.totalHours > 0
+                                  ? 'text-teal-600'
                                   : 'text-gray-400'
                               }`}>
                                 <span className="text-xl">{Math.floor(entry.totalHours)}</span>
                                 <span className="text-sm">.{Math.round((entry.totalHours % 1) * 10)}h</span>
                               </div>
-                              {entry.totalHours > entry.scheduledHours && entry.scheduledHours > 0 && (
+                              {dayHours && dayHours.overtimeHours > 0 && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800 mt-1">
                                   <Icon icon="solar:alarm-bold-duotone" className="w-3 h-3 mr-1" />
-                                  {(entry.totalHours - entry.scheduledHours).toFixed(1)}h OT
+                                  {dayHours.overtimeHours.toFixed(1)}h overtime
                                 </span>
                               )}
-                              {entry.totalHours > 0 && entry.totalHours <= entry.scheduledHours && (
+                              {dayHours && dayHours.dayType === 'sunday' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 mt-1">
+                                  Sunday (200%)
+                                </span>
+                              )}
+                              {dayHours && dayHours.dayType === 'public_holiday' && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                                  Public holiday
+                                </span>
+                              )}
+                              {dayHours && dayHours.dayType === 'workday' && dayHours.overtimeHours === 0 && (
                                 <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-teal-100 text-teal-800 mt-1">
                                   <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3 mr-1" />
-                                  Regular
+                                  Ordinary
                                 </span>
                               )}
                             </div>
@@ -1132,11 +1238,12 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                   </div>
                   <button
                     onClick={() => !isSaving && saveTimesheetMutation.mutate()}
-                    disabled={saveTimesheetMutation.isPending || isSaving}
+                    disabled={saveTimesheetMutation.isPending || isSaving || timesheetLocked}
+                    title={timesheetLocked ? 'Submitted and approved timesheets are read-only' : undefined}
                     className="px-6 py-2.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg text-sm transition-all duration-200 hover:shadow-xl"
                   >
                     <Icon 
-                      icon={saveTimesheetMutation.isPending || isSaving ? "solar:refresh-bold-duotone" : "solar:floppy-disk-bold-duotone"} 
+                      icon={saveTimesheetMutation.isPending || isSaving ? "solar:refresh-bold-duotone" : "solar:diskette-bold-duotone"} 
                       className={`w-4 h-4 ${(saveTimesheetMutation.isPending || isSaving) ? 'animate-spin' : ''}`} 
                     />
                     <span>{(saveTimesheetMutation.isPending || isSaving) ? 'Saving...' : 'Save Timesheet'}</span>
@@ -1175,10 +1282,23 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
               </div>
             </CardHeader>
             <CardContent>
-              {allTimesheets.length === 0 ? (
+              {isLoadingTimesheets ? (
+                <div className="space-y-4" aria-busy="true">
+                  {[0, 1, 2].map(index => <div key={index} className="h-28 rounded-lg bg-gray-100 animate-pulse" />)}
+                </div>
+              ) : timesheetsError ? (
+                <div className="text-center py-8">
+                  <Icon icon="solar:danger-circle-bold-duotone" className="w-12 h-12 text-red-300 mx-auto mb-3" />
+                  <p className="text-gray-600">Timesheets could not be loaded.</p>
+                  <Button size="sm" variant="outline" className="mt-3" onClick={() => refetchTimesheets()}>
+                    Try again
+                  </Button>
+                </div>
+              ) : allTimesheets.length === 0 ? (
                 <div className="text-center py-8">
                   <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No timesheets found</p>
+                  <p className="text-gray-500">No timesheets yet</p>
+                  <p className="text-sm text-gray-400 mt-1">Open "Timesheet Entry", record the hours and save to create one.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1191,17 +1311,22 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <h3 className="font-medium text-gray-900 text-lg">
-                            {/* Show month based on majority of entries or period end */}
-                            {format(parseISO(ts.period_end), 'MMMM yyyy')}
+                            {timesheetMonthLabel(ts)}
                             {ts.entries?.length === 0 && ' (Empty)'}
                           </h3>
+                          {ts.status === 'draft' && ts.approver_comments && (
+                            <p className="text-sm text-amber-700 mt-1 flex items-center gap-1">
+                              <Icon icon="solar:undo-left-round-bold-duotone" className="w-4 h-4" />
+                              Returned for correction: {ts.approver_comments}
+                            </p>
+                          )}
                           <p className="text-sm text-gray-600 mt-1">
-                            {format(parseISO(ts.period_start), 'MMM dd')} - {format(parseISO(ts.period_end), 'MMM dd, yyyy')}
+                            {format(parseISO(ts.period_start), 'd MMM')} - {format(parseISO(ts.period_end), 'd MMM yyyy')}
                             {ts.entries?.length > 0 && ` • ${ts.entries.length} entries`}
                           </p>
                           <div className="flex items-center gap-4 mt-3 text-sm">
                             <span className="flex items-center gap-1">
-                              <Icon icon="solar:clock-bold-duotone" className="w-4 h-4 text-gray-400" />
+                              <Icon icon="solar:clock-circle-bold-duotone" className="w-4 h-4 text-gray-400" />
                               <span className="font-medium">{ts.total_hours.toFixed(1)}h</span> total
                             </span>
                             <span className="flex items-center gap-1">
@@ -1220,7 +1345,11 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                           </span>
                           {ts.pdf_url && (
                             <Button
-                              onClick={() => window.open(ts.pdf_url, '_blank')}
+                              onClick={() => {
+                                // A stored path gets a short-lived link now; an older row's link opens as it is
+                                const pdf = ts.pdf_url;
+                                if (pdf) openRecord(pdf).catch(() => toast.error('The PDF could not be opened. Please try again.'));
+                              }}
                               size="sm"
                               variant="ghost"
                               className="text-purple-600 hover:text-purple-700"
@@ -1229,23 +1358,40 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                               <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
                             </Button>
                           )}
-                          {ts.status === 'draft' && (
+                          {ts.status === 'draft' && (!isViewingOtherStaff || isAdmin) && (
                             <Button
                               onClick={() => submitTimesheetMutation.mutate(ts.id)}
+                              disabled={submitTimesheetMutation.isPending}
                               size="sm"
                               className="bg-blue-600 text-white hover:bg-blue-700"
                             >
                               Submit
                             </Button>
                           )}
+                          {ts.status === 'submitted' && isAdmin && isViewingOtherStaff && (
+                            <>
+                              <Button
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                                disabled={reviewTimesheetMutation.isPending}
+                                onClick={() => setTimesheetAction({ type: 'approve', timesheet: ts })}
+                              >
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-amber-700 border-amber-500 hover:bg-amber-50"
+                                disabled={reviewTimesheetMutation.isPending}
+                                onClick={() => setTimesheetAction({ type: 'return', timesheet: ts })}
+                              >
+                                Return
+                              </Button>
+                            </>
+                          )}
                           <button
+                            type="button"
                             onClick={() => {
-                              console.log('🎯 Premium PDF clicked for timesheet:', {
-                                id: ts.id,
-                                period: `${ts.period_start} to ${ts.period_end}`,
-                                entries: ts.entries?.length || 0,
-                                entriesData: ts.entries
-                              });
                               setSelectedTimesheet(ts);
                               setShowPDFGenerator(true);
                             }}
@@ -1254,17 +1400,17 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
                             <Icon icon="solar:document-medicine-bold-duotone" className="w-4 h-4" />
                             Premium PDF
                           </button>
-                          <button
-                            onClick={() => handleDeleteTimesheet(
-                              ts.id,
-                              format(parseISO(ts.period_start), 'MMMM yyyy')
-                            )}
-                            className="inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 border bg-white px-3 py-1.5 text-sm animate-scale-in text-red-600 border-red-600 hover:bg-red-50"
-                            disabled={deleteTimesheetMutation.isPending}
-                          >
-                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-1" />
-                            {deleteTimesheetMutation.isPending ? 'Deleting...' : 'Delete'}
-                          </button>
+                          {ts.status === 'draft' && (
+                            <button
+                              type="button"
+                              onClick={() => setTimesheetAction({ type: 'delete', timesheet: ts })}
+                              className="inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 border bg-white px-3 py-1.5 text-sm animate-scale-in text-red-600 border-red-600 hover:bg-red-50"
+                              disabled={deleteTimesheetMutation.isPending}
+                            >
+                              <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 mr-1" />
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1314,6 +1460,40 @@ export const ExcelTimesheetManagement: React.FC<ExcelTimesheetManagementProps> =
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={!!timesheetAction}
+        tone={timesheetAction?.type === 'approve' ? 'success' : timesheetAction?.type === 'delete' ? 'danger' : 'warning'}
+        title={
+          timesheetAction?.type === 'approve' ? 'Approve timesheet?'
+            : timesheetAction?.type === 'return' ? 'Return timesheet for correction?'
+            : 'Delete timesheet?'
+        }
+        message={timesheetAction ? (
+          <p>
+            {timesheetAction.timesheet.user?.full_name ? <strong>{timesheetAction.timesheet.user.full_name}: </strong> : null}
+            {timesheetMonthLabel(timesheetAction.timesheet)}, {Number(timesheetAction.timesheet.total_hours ?? 0).toFixed(1)} hours
+            ({Number(timesheetAction.timesheet.overtime_hours ?? 0).toFixed(1)}h overtime).
+            {timesheetAction.type === 'approve' && ' Approved timesheets become read-only.'}
+            {timesheetAction.type === 'return' && ' It goes back to draft so the employee can correct and resubmit it.'}
+            {timesheetAction.type === 'delete' && ' All time entries for this month will be permanently deleted.'}
+          </p>
+        ) : null}
+        confirmLabel={
+          timesheetAction?.type === 'approve' ? 'Approve'
+            : timesheetAction?.type === 'return' ? 'Return for correction'
+            : 'Delete timesheet'
+        }
+        commentLabel={
+          timesheetAction?.type === 'return' ? 'What needs to be corrected?'
+            : timesheetAction?.type === 'approve' ? 'Note (optional)'
+            : undefined
+        }
+        commentRequired={timesheetAction?.type === 'return'}
+        isLoading={reviewTimesheetMutation.isPending || deleteTimesheetMutation.isPending}
+        onConfirm={handleConfirmTimesheetAction}
+        onCancel={() => setTimesheetAction(null)}
+      />
     </div>
   );
 };

@@ -1,582 +1,304 @@
+/**
+ * Settings: each person's own account (details, password) and, for administrators, the practice's people and the
+ * move over from Eminance. What a person may change here decides who can do what in the practice, so the role
+ * gates and the password rules are tested; the database and the heavy sections are replaced.
+ */
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { MemoryRouter } from 'react-router-dom';
+
+type TestUser = { id: string; name: string; email: string; role: string; practice_id: string; avatar?: string } | null;
+
+const mocks = vi.hoisted(() => {
+  const theme = (id: string, name: string, description: string) => ({
+    id,
+    name,
+    description,
+    colors: { primary: { from: '#01b9d4', to: '#0891b2' } },
+    gradients: { sidebar: 'from-cyan-500 to-blue-600' }
+  });
+  return {
+    user: null as TestUser,
+    themes: [theme('default', 'Default', 'Clean and professional'), theme('purple', 'Purple', 'Modern and vibrant')],
+    setTheme: vi.fn(),
+    updatePassword: vi.fn(),
+    checkPassword: vi.fn(),
+    endCheckSession: vi.fn(),
+    createClient: vi.fn()
+  };
+});
+
+vi.mock('../stores/authStore', () => ({
+  useAuthStore: (selector?: (state: unknown) => unknown) => {
+    const state = { user: mocks.user, updateUser: vi.fn(), logout: vi.fn() };
+    return selector ? selector(state) : state;
+  }
+}));
+vi.mock('../stores/themeStore', () => ({
+  useTheme: () => ({ currentTheme: mocks.themes[0], themes: mocks.themes, setTheme: mocks.setTheme, loadThemeFromDatabase: vi.fn() })
+}));
+vi.mock('../contexts/PracticeContext', () => ({ usePractice: () => ({ practiceId: 'practice-1' }) }));
+vi.mock('../lib/supabase', () => {
+  const builder = (): Record<string, unknown> => {
+    const chain: Record<string, unknown> = {};
+    const self = () => chain;
+    for (const name of ['select', 'insert', 'update', 'delete', 'eq', 'neq', 'in', 'or', 'is', 'order', 'limit']) chain[name] = self;
+    chain.single = () => Promise.resolve({ data: null, error: null });
+    chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
+    chain.then = (resolve: (value: unknown) => unknown, reject?: (reason: unknown) => unknown) =>
+      Promise.resolve({ data: [], error: null }).then(resolve, reject);
+    return chain;
+  };
+  return { supabase: { from: () => builder(), rpc: () => builder(), auth: { updateUser: mocks.updatePassword } } };
+});
+// The throwaway client that checks the current password
+vi.mock('@supabase/supabase-js', () => ({ createClient: mocks.createClient }));
+vi.mock('../components/dashboard/FloatingVisitTracker', () => ({ default: () => null }));
+// The practice's sections are tested on their own; here only which one opens
+vi.mock('../components/settings/PracticeInventory', () => ({ default: () => <p>The practice inventory list</p> }));
+// Icons are decorative here; a real icon fetches its shape on a timer that can outlive the test
+vi.mock('@iconify/react', async (importOriginal) => ({ ...(await importOriginal<typeof import('@iconify/react')>()), Icon: () => null }));
+vi.mock('react-hot-toast', () => {
+  const toast = Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() });
+  return { toast, default: toast };
+});
+vi.mock('framer-motion', () => {
+  const Plain = ({ children, ...props }: React.PropsWithChildren<Record<string, unknown>>) => {
+    const { initial, animate, exit, transition, whileHover, whileTap, layout, ...rest } = props;
+    void initial; void animate; void exit; void transition; void whileHover; void whileTap; void layout;
+    return <div {...(rest as React.HTMLAttributes<HTMLDivElement>)}>{children}</div>;
+  };
+  return { motion: new Proxy({}, { get: () => Plain }), AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</> };
+});
+
+import toast from 'react-hot-toast';
 import Settings from '../pages/Settings';
-import { useAuthStore } from '../stores/authStore';
-import { useTheme } from '../stores/themeStore';
+import { practiceInventoryLink } from '../components/billing/invoiceLinks';
 
-// Mock stores
-jest.mock('../stores/authStore');
-jest.mock('../stores/themeStore');
+const staff = (role: string): TestUser => ({ id: 'u1', name: 'Test Staff Member', email: 'staff@example.test', role, practice_id: 'practice-1' });
 
-// Mock user data
-const mockUser = {
-  id: '1',
-  name: 'Dr. John Smith',
-  email: 'john.smith@example.com',
-  role: 'doctor',
-  avatar: 'https://example.com/avatar.jpg'
+const renderSettings = (url = '/settings') => {
+  // The page reads ?tab= from the address bar
+  window.history.pushState({}, '', url);
+  return render(
+    <MemoryRouter>
+      <Settings />
+    </MemoryRouter>
+  );
 };
 
-// Mock theme data
-const mockThemes = [
-  {
-    id: 'default',
-    name: 'Default',
-    description: 'Clean and professional',
-    colors: {
-      primary: { from: '#01b9d4', to: '#0891b2' }
-    },
-    gradients: {
-      sidebar: 'from-cyan-500 to-blue-600'
+const tabNames = () => screen.getAllByRole('tab').map(tab => tab.textContent?.trim());
+
+beforeEach(() => {
+  mocks.user = staff('doctor');
+  mocks.setTheme.mockReset();
+  mocks.updatePassword.mockReset().mockResolvedValue({ error: null });
+  mocks.checkPassword.mockReset().mockResolvedValue({ error: null });
+  mocks.endCheckSession.mockReset().mockResolvedValue({ error: null });
+  mocks.createClient.mockReset().mockImplementation(() => ({ auth: { signInWithPassword: mocks.checkPassword, signOut: mocks.endCheckSession } }));
+  vi.mocked(toast.success).mockClear();
+  vi.mocked(toast.error).mockClear();
+});
+
+afterEach(() => {
+  window.history.pushState({}, '', '/');
+});
+
+describe('Account', () => {
+  it('opens on the signed-in person\'s own details', () => {
+    renderSettings();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Account/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Full Name')).toHaveValue('Test Staff Member');
+    expect(screen.getByLabelText('Email Address')).toHaveValue('staff@example.test');
+  });
+
+  // A receptionist must not be able to make herself an administrator; the email is the sign-in
+  it('cannot change the person\'s own name, sign-in email or role: an administrator does that in Users', () => {
+    renderSettings();
+    expect(screen.getByLabelText('Full Name')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Email Address')).toHaveAttribute('readonly');
+    expect(screen.getByLabelText('Role')).toBeDisabled();
+    expect(screen.getByLabelText('Role')).toHaveValue('doctor');
+    expect(screen.getByText(/ask a practice administrator \(Settings > Users\)/)).toBeInTheDocument();
+  });
+
+  // Keyboard users close the profile card the way they close it on every other page
+  it('the profile card under the picture closes with Escape', () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Open profile menu' }));
+    expect(screen.getByRole('heading', { name: 'User Profile' })).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('heading', { name: 'User Profile' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Open profile menu' })).toHaveFocus();
+  });
+
+  it('still opens while the signed-in person is loading', () => {
+    mocks.user = null;
+    renderSettings();
+    expect(screen.getByRole('heading', { level: 1, name: 'Settings' })).toBeInTheDocument();
+  });
+});
+
+describe('sections by role', () => {
+  // The import writes patients, accounts and balances into the practice (the database checks the role too)
+  it('administrators get Users and "Move over from Eminance"', () => {
+    mocks.user = staff('admin');
+    renderSettings();
+    expect(tabNames()).toEqual(expect.arrayContaining(['Users', 'Move over from Eminance']));
+    expect(tabNames()).not.toContain('My HR');
+  });
+
+  it('other staff get "My HR" for their own leave and payslips, and no Eminance import', () => {
+    renderSettings();
+    expect(tabNames()).toContain('My HR');
+    expect(tabNames()).not.toContain('Users');
+    expect(tabNames()).not.toContain('Move over from Eminance');
+  });
+
+  // Stock says "Your current list is in Settings > Practice > Inventory": the link must open that list, not the profile
+  it('a link that names a part of a section (Settings > Practice > Inventory) opens that part', async () => {
+    mocks.user = staff('admin');
+    renderSettings(practiceInventoryLink());
+    expect(screen.getByRole('tab', { name: /Practice/ })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByText('The practice inventory list')).toBeInTheDocument();
+  });
+
+  it('a link to a section (?tab=system) opens that section', () => {
+    renderSettings('/settings?tab=system');
+    expect(screen.getByRole('tab', { name: /System/ })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Color Themes')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Full Name')).not.toBeInTheDocument();
+  });
+
+  // A reload or a copied link must open the tab the person was on, not Account
+  it('names the open section in the address when another section is chosen', () => {
+    renderSettings('/settings?tab=practice&section=inventory');
+    fireEvent.click(screen.getByRole('tab', { name: /System/ }));
+    expect(window.location.search).toBe('?tab=system');
+  });
+});
+
+describe('System: the practice\'s colour theme', () => {
+  it('lists every theme with what it looks like and marks the one in use', () => {
+    renderSettings('/settings?tab=system');
+    for (const theme of mocks.themes) {
+      expect(screen.getByRole('heading', { name: theme.name })).toBeInTheDocument();
+      expect(screen.getAllByText(theme.description).length).toBeGreaterThan(0);
     }
-  },
-  {
-    id: 'purple',
-    name: 'Purple',
-    description: 'Modern and vibrant',
-    colors: {
-      primary: { from: '#8B5CF6', to: '#7C3AED' }
-    },
-    gradients: {
-      sidebar: 'from-purple-500 to-indigo-600'
-    }
-  }
-];
-
-const mockCurrentTheme = mockThemes[0];
-
-// Mock store implementations
-const mockUseAuthStore = useAuthStore as jest.MockedFunction<typeof useAuthStore>;
-const mockUseTheme = useTheme as jest.MockedFunction<typeof useTheme>;
-
-// Wrapper component for tests
-const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <BrowserRouter>
-    {children}
-  </BrowserRouter>
-);
-
-describe('Settings Page', () => {
-  beforeEach(() => {
-    mockUseAuthStore.mockReturnValue({
-      user: mockUser,
-      isAuthenticated: true,
-      login: jest.fn(),
-      logout: jest.fn(),
-      initialize: jest.fn()
-    });
-
-    mockUseTheme.mockReturnValue({
-      currentTheme: mockCurrentTheme,
-      themes: mockThemes,
-      setTheme: jest.fn()
-    });
+    // One theme in use, the other offered
+    expect(screen.getAllByText('ACTIVE')).toHaveLength(1);
+    expect(screen.getAllByText('SELECT')).toHaveLength(1);
+    expect(screen.getByText('Active: Default')).toBeInTheDocument();
   });
 
-  afterEach(() => {
-    jest.clearAllMocks();
+  // Saved with the practice id, so everyone in the practice gets the same colours
+  it('applies a chosen theme and saves it for the practice', () => {
+    renderSettings('/settings?tab=system');
+    fireEvent.click(screen.getByText('Purple'));
+    expect(mocks.setTheme).toHaveBeenCalledWith('purple', 'practice-1');
   });
 
-  describe('Page Structure', () => {
-    test('renders settings page with correct title and description', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
+  // The new colours show at once; without this message they went back on the next load with no reason given
+  it('says so when the practice\'s theme could not be saved', async () => {
+    mocks.setTheme.mockResolvedValue(false);
+    renderSettings('/settings?tab=system');
+    fireEvent.click(screen.getByText('Purple'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The colour theme could not be saved for the practice. Please try again.'));
+  });
+});
 
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      expect(screen.getByText('Manage your account and application preferences')).toBeInTheDocument();
-    });
+describe('Account > Security: changing one\'s own password', () => {
+  const openSecurity = () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole('button', { name: 'Security' }));
+  };
+  const fill = (current: string, next: string, confirm: string) => {
+    fireEvent.change(screen.getByLabelText('Current Password'), { target: { value: current } });
+    fireEvent.change(screen.getByLabelText('New Password'), { target: { value: next } });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), { target: { value: confirm } });
+  };
+  const update = () => fireEvent.click(screen.getByRole('button', { name: /Update Password/ }));
+  const nothingSent = () => {
+    expect(mocks.createClient).not.toHaveBeenCalled();
+    expect(mocks.updatePassword).not.toHaveBeenCalled();
+  };
 
-    test('renders all navigation tabs', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      expect(screen.getByText('Account')).toBeInTheDocument();
-      expect(screen.getByText('Security')).toBeInTheDocument();
-      expect(screen.getByText('Themes')).toBeInTheDocument();
-      expect(screen.getByText('System')).toBeInTheDocument();
-      expect(screen.getByText('Practice')).toBeInTheDocument();
-    });
-
-    test('displays sidebar navigation with icons', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const accountTab = screen.getByRole('button', { name: /account/i });
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      
-      expect(accountTab).toBeInTheDocument();
-      expect(securityTab).toBeInTheDocument();
-      expect(themesTab).toBeInTheDocument();
-    });
+  it('offers Update Password only once all three fields are filled in', () => {
+    openSecurity();
+    expect(screen.getByRole('button', { name: /Update Password/ })).toBeDisabled();
+    fill('old-test-pass', 'new-test-pass', '');
+    expect(screen.getByRole('button', { name: /Update Password/ })).toBeDisabled();
+    fill('old-test-pass', 'new-test-pass', 'new-test-pass');
+    expect(screen.getByRole('button', { name: /Update Password/ })).toBeEnabled();
   });
 
-  describe('Account Tab', () => {
-    test('displays user profile information', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      expect(screen.getByDisplayValue(mockUser.name)).toBeInTheDocument();
-      expect(screen.getByDisplayValue(mockUser.email)).toBeInTheDocument();
-      expect(screen.getByText(mockUser.role, { exact: false })).toBeInTheDocument();
-    });
-
-    test('shows user avatar or default placeholder', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const avatar = screen.getByAltText(mockUser.name);
-      expect(avatar).toBeInTheDocument();
-      expect(avatar).toHaveAttribute('src', mockUser.avatar);
-    });
-
-    test('displays theme selection with available themes', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      expect(screen.getByText('Color Theme')).toBeInTheDocument();
-      expect(screen.getByText('Choose your preferred color theme')).toBeInTheDocument();
-      
-      mockThemes.forEach(theme => {
-        expect(screen.getByText(theme.name)).toBeInTheDocument();
-        expect(screen.getByText(theme.description)).toBeInTheDocument();
-      });
-    });
-
-    test('displays preferences toggles', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      expect(screen.getByText('Dark Mode')).toBeInTheDocument();
-      expect(screen.getByText('Show Online Status')).toBeInTheDocument();
-      expect(screen.getByText('Appointment Notification Sounds')).toBeInTheDocument();
-    });
+  it('refuses a new password shorter than 8 characters, before anything is sent', () => {
+    openSecurity();
+    // 7 characters
+    fill('old-test-pass', 'pass-07', 'pass-07');
+    update();
+    expect(screen.getByRole('alert')).toHaveTextContent('Your new password must be at least 8 characters.');
+    nothingSent();
   });
 
-  describe('Themes Tab', () => {
-    test('switches to themes tab when clicked', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      fireEvent.click(themesTab);
-
-      expect(screen.getByText('Color Themes')).toBeInTheDocument();
-      expect(screen.getByText('Choose your preferred color theme')).toBeInTheDocument();
-    });
-
-    test('displays theme selection with available themes', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      fireEvent.click(themesTab);
-      
-      mockThemes.forEach(theme => {
-        expect(screen.getByText(theme.name)).toBeInTheDocument();
-        expect(screen.getByText(theme.description)).toBeInTheDocument();
-      });
-    });
-
-    test('shows current theme as selected', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      fireEvent.click(themesTab);
-
-      const currentThemeElement = screen.getByText(mockCurrentTheme.name).closest('div');
-      expect(currentThemeElement).toHaveClass('border-blue-500');
-    });
-
-    test('allows theme selection', () => {
-      const mockSetTheme = jest.fn();
-      mockUseTheme.mockReturnValue({
-        currentTheme: mockCurrentTheme,
-        themes: mockThemes,
-        setTheme: mockSetTheme
-      });
-
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      fireEvent.click(themesTab);
-
-      const purpleTheme = screen.getByText('Purple').closest('div');
-      fireEvent.click(purpleTheme!);
-
-      expect(mockSetTheme).toHaveBeenCalledWith('purple');
-    });
-
-    test('displays theme preview components', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const themesTab = screen.getByRole('button', { name: /themes/i });
-      fireEvent.click(themesTab);
-
-      expect(screen.getByText('Theme Preview')).toBeInTheDocument();
-      expect(screen.getByText('Primary Button')).toBeInTheDocument();
-      expect(screen.getByText('Sidebar Style')).toBeInTheDocument();
-    });
+  it('refuses when the two new passwords differ (a typing slip would lock the person out)', () => {
+    openSecurity();
+    fill('old-test-pass', 'new-test-pass', 'new-test-pas');
+    update();
+    expect(screen.getByRole('alert')).toHaveTextContent('The new passwords do not match.');
+    nothingSent();
   });
 
-  describe('Security Tab', () => {
-    test('switches to security tab when clicked', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      expect(screen.getByText('Change Password')).toBeInTheDocument();
-      expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
-      expect(screen.getByText('Login Sessions')).toBeInTheDocument();
-    });
-
-    test('displays password change form', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      expect(screen.getByLabelText('Current Password')).toBeInTheDocument();
-      expect(screen.getByLabelText('New Password')).toBeInTheDocument();
-      expect(screen.getByLabelText('Confirm Password')).toBeInTheDocument();
-    });
-
-    test('shows 2FA status', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      expect(screen.getByText('Two-factor authentication is enabled')).toBeInTheDocument();
-    });
-
-    test('displays active sessions', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      expect(screen.getByText('Current Session')).toBeInTheDocument();
-      expect(screen.getByText('Mac OS • Chrome')).toBeInTheDocument();
-    });
+  it('refuses a new password that is the same as the current one', () => {
+    openSecurity();
+    fill('same-test-pass', 'same-test-pass', 'same-test-pass');
+    update();
+    expect(screen.getByRole('alert')).toHaveTextContent('Choose a password that is different from your current one.');
+    nothingSent();
   });
 
-
-  describe('System Tab', () => {
-    test('switches to system tab when clicked', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const systemTab = screen.getByRole('button', { name: /system/i });
-      fireEvent.click(systemTab);
-
-      expect(screen.getByText('System Information')).toBeInTheDocument();
-      expect(screen.getByText('Data Management')).toBeInTheDocument();
-      expect(screen.getByText('Compliance Settings')).toBeInTheDocument();
-    });
-
-    test('displays system information', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const systemTab = screen.getByRole('button', { name: /system/i });
-      fireEvent.click(systemTab);
-
-      expect(screen.getByText('System Version')).toBeInTheDocument();
-      expect(screen.getByText('Last Updated')).toBeInTheDocument();
-      expect(screen.getByText('Database Status')).toBeInTheDocument();
-      expect(screen.getByText('Storage Usage')).toBeInTheDocument();
-    });
-
-    test('displays compliance settings', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const systemTab = screen.getByRole('button', { name: /system/i });
-      fireEvent.click(systemTab);
-
-      expect(screen.getByText('HIPAA Audit Logging')).toBeInTheDocument();
-      expect(screen.getByText('Data Encryption')).toBeInTheDocument();
-      expect(screen.getByText('Session Timeout')).toBeInTheDocument();
-    });
+  // Someone at a computer left signed in must not be able to take the account over
+  it('checks the current password first: a wrong one changes nothing', async () => {
+    mocks.checkPassword.mockResolvedValue({ error: { message: 'Invalid login credentials' } });
+    openSecurity();
+    fill('wrong-test-pass', 'new-test-pass', 'new-test-pass');
+    update();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Your current password is incorrect.');
+    expect(mocks.checkPassword).toHaveBeenCalledWith({ email: 'staff@example.test', password: 'wrong-test-pass' });
+    expect(mocks.updatePassword).not.toHaveBeenCalled();
   });
 
-  describe('Practice Tab', () => {
-    test('switches to practice tab when clicked', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const practiceTab = screen.getByRole('button', { name: /practice/i });
-      fireEvent.click(practiceTab);
-
-      expect(screen.getByText('Practice Management')).toBeInTheDocument();
-      expect(screen.getByText('Practice Info')).toBeInTheDocument();
-      expect(screen.getByText('Staff')).toBeInTheDocument();
-      expect(screen.getByText('Hours & Availability')).toBeInTheDocument();
-    });
-
-    test('displays practice information in profile tab', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const practiceTab = screen.getByRole('button', { name: /practice/i });
-      fireEvent.click(practiceTab);
-
-      expect(screen.getByText('HealthCare Medical Center')).toBeInTheDocument();
-      expect(screen.getByText('Practice Description')).toBeInTheDocument();
-      expect(screen.getByText('Specialties & Services')).toBeInTheDocument();
-    });
-
-    test('displays staff members in staff tab', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const practiceTab = screen.getByRole('button', { name: /practice/i });
-      fireEvent.click(practiceTab);
-
-      const staffTab = screen.getByRole('button', { name: /^staff$/i });
-      fireEvent.click(staffTab);
-
-      expect(screen.getByText('Practice Staff')).toBeInTheDocument();
-      expect(screen.getByText('Dr. Jane Smith')).toBeInTheDocument();
-      expect(screen.getByText('Dr. Michael Chen')).toBeInTheDocument();
-    });
-
-    test('displays hours of operation in hours tab', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const practiceTab = screen.getByRole('button', { name: /practice/i });
-      fireEvent.click(practiceTab);
-
-      const hoursTab = screen.getByRole('button', { name: /hours & availability/i });
-      fireEvent.click(hoursTab);
-
-      expect(screen.getByText('Hours of Operation')).toBeInTheDocument();
-      expect(screen.getByText('Staff Availability')).toBeInTheDocument();
-      expect(screen.getByText('Monday')).toBeInTheDocument();
-    });
+  // A lost connection or too many tries is not a wrong password: saying so sends people to reset a good password
+  it('says the current password could not be checked when the check itself failed', async () => {
+    mocks.checkPassword.mockResolvedValue({ error: { message: 'Failed to fetch' } });
+    openSecurity();
+    fill('old-test-pass', 'new-test-pass', 'new-test-pass');
+    update();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('could not be checked');
+    expect(alert).not.toHaveTextContent('incorrect');
+    expect(mocks.updatePassword).not.toHaveBeenCalled();
   });
 
-  describe('Tab Navigation', () => {
-    test('highlights active tab', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
+  it('with the right current password, sets the new one without touching the signed-in session', async () => {
+    openSecurity();
+    // 8 characters: the shortest allowed
+    fill('old-test-pass', 'pass-008', 'pass-008');
+    update();
 
-      const accountTab = screen.getByRole('button', { name: /account/i });
-      expect(accountTab).toHaveClass('bg-primary-50', 'text-primary-700');
-    });
-
-    test('changes content when switching tabs', async () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      // Start on account tab
-      expect(screen.getByText('Profile Information')).toBeInTheDocument();
-
-      // Switch to security tab
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      await waitFor(() => {
-        expect(screen.getByText('Change Password')).toBeInTheDocument();
-        expect(screen.queryByText('Profile Information')).not.toBeInTheDocument();
-      });
-    });
-
-    test('maintains correct tab styling on switch', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const securityTab = screen.getByRole('button', { name: /security/i });
-      fireEvent.click(securityTab);
-
-      expect(securityTab).toHaveClass('bg-primary-50', 'text-primary-700');
-      
-      const accountTab = screen.getByRole('button', { name: /account/i });
-      expect(accountTab).toHaveClass('text-gray-700');
-    });
-  });
-
-  describe('Form Interactions', () => {
-    test('save buttons are present and clickable', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const saveButton = screen.getByRole('button', { name: /save changes/i });
-      expect(saveButton).toBeInTheDocument();
-      expect(saveButton).not.toBeDisabled();
-
-      fireEvent.click(saveButton);
-      // Add assertions for save functionality when implemented
-    });
-
-    test('toggle switches work correctly', () => {
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      const toggles = screen.getAllByRole('checkbox');
-      expect(toggles.length).toBeGreaterThan(0);
-
-      // Test first toggle
-      const firstToggle = toggles[0];
-      const initialChecked = firstToggle.checked;
-      
-      fireEvent.click(firstToggle);
-      expect(firstToggle.checked).toBe(!initialChecked);
-    });
-  });
-
-  describe('Responsive Design', () => {
-    test('renders correctly on mobile viewport', () => {
-      // Mock mobile viewport
-      Object.defineProperty(window, 'innerWidth', {
-        writable: true,
-        configurable: true,
-        value: 375,
-      });
-
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-      // Check that mobile-specific classes are applied
-      const container = screen.getByText('Settings').closest('div');
-      expect(container).toHaveClass('min-h-screen');
-    });
-  });
-
-  describe('Error Handling', () => {
-    test('handles missing user data gracefully', () => {
-      mockUseAuthStore.mockReturnValue({
-        user: null,
-        isAuthenticated: false,
-        login: jest.fn(),
-        logout: jest.fn(),
-        initialize: jest.fn()
-      });
-
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      // Should still render without crashing
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-    });
-
-    test('handles missing theme data gracefully', () => {
-      mockUseTheme.mockReturnValue({
-        currentTheme: mockCurrentTheme,
-        themes: [],
-        setTheme: jest.fn()
-      });
-
-      render(
-        <TestWrapper>
-          <Settings />
-        </TestWrapper>
-      );
-
-      // Should still render without crashing
-      expect(screen.getByText('Settings')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(mocks.updatePassword).toHaveBeenCalledWith({ password: 'pass-008' }));
+    // The check runs on its own client that keeps no session (only its options are looked at here), and only that
+    // check's session is ended
+    expect(mocks.createClient).toHaveBeenCalledTimes(1);
+    expect(mocks.createClient.mock.calls[0][2]).toEqual(expect.objectContaining({ auth: expect.objectContaining({ persistSession: false }) }));
+    expect(mocks.endCheckSession).toHaveBeenCalledWith({ scope: 'local' });
+    expect(toast.success).toHaveBeenCalledWith('Your password has been updated');
+    // Nothing typed stays on the screen
+    await waitFor(() => expect(screen.getByLabelText('Current Password')).toHaveValue(''));
+    expect(screen.getByLabelText('New Password')).toHaveValue('');
+    expect(screen.getByLabelText('Confirm Password')).toHaveValue('');
   });
 });

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { 
@@ -10,7 +11,6 @@ import {
   Film,
   ImageIcon,
   Upload,
-  Search,
   FileText,
   Activity,
   Pill,
@@ -20,7 +20,6 @@ import {
   Filter,
   Weight,
   Thermometer,
-  Calendar,
   AlertCircle,
   Stethoscope,
   ClipboardList,
@@ -41,7 +40,46 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ServiceSelection } from '../../types/billing';
-import { invoiceService } from '../../services/invoiceService';
+import { findInvoiceLineProblems, invoiceService } from '../../services/invoiceService';
+import { medicationIssues, useOneSaveAtATime } from './visitSave';
+import { takeMedicineToEdit } from './medicineEdit';
+import { loadPracticeTariffRows } from '../../services/practiceTariffService';
+import { computeLine, normalizeMultiplyRule } from '../../utils/billing/pricing';
+import { formatNad, nadParts } from '../../utils/billing/money';
+import { formatServiceDate, toDateKey, todayKey } from '../../utils/billing/dates';
+import {
+  billableVisitTariffs,
+  buildInfectionControlLine,
+  buildMaterialFactorLine,
+  buildTariffLine,
+  changeLineQuantity,
+  fundPricingNotice,
+  priceForPatient,
+  quantityControls,
+  tariffLineInput,
+  withDisciplineRules
+} from './visitBillingLines';
+import { loadPatientHasMedicalAid } from './patientMedicalAid';
+import { useFundPricing } from './useFundPricing';
+import BillingLineDetails, { type LineDetailChanges } from './BillingLineDetails';
+import InvoiceBillingSummary from './InvoiceBillingSummary';
+import { useVisitBilling } from './useVisitBilling';
+import { useVisitClaimDetails } from './useVisitClaimDetails';
+import VisitClaimDetailsCard from './VisitClaimDetailsCard';
+import { useVisitPayer } from './useVisitPayer';
+import VisitPayerCard from './VisitPayerCard';
+import { useCodeRulesOnVisit } from './useCodeRulesOnVisit';
+import { offerVisitRecalls } from './recallOffer';
+import { InvoiceAndPayButton, VisitTakePayment } from './VisitTakePayment';
+import { useInvoiceFlagCheck } from './InvoiceFlagCheck';
+import { AccountFlagBadges } from '../finance/debtors/AccountFlagBadges';
+import { canInvoiceAndTakePayment } from '../../utils/billing/invoiceRights';
+import { INFECTION_CONTROL_CODE, MATERIAL_FACTOR_CODE, isDentalPractice, isRestorationCode } from '../../utils/billing/tariffRules';
+import BundleMenu from '../quotes/BundleMenu';
+import { VisitBillingExtras } from '../billingExtras/VisitBillingExtras';
+import VisitServiceSelector from '../billing/VisitServiceSelector';
+import TeethBillingPanel from '../dental/TeethBillingPanel';
+import ToothPickerDialog from '../dental/ToothPickerDialog';
 import FileUploadComponent from '../uploads/FileUploadComponent';
 import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import MediaUploadWrapper from '../uploads/MediaUploadWrapper';
@@ -49,8 +87,16 @@ import LabResultsTable from '../requests/LabResultsTable';
 import ImagingTabContentSimple from '../requests/ImagingTabContentSimple';
 import LeaveFormTab from './LeaveFormTab';
 import HandoffCard from './HandoffCard';
+import { DiagnosisToProblems } from '../patients/safety/DiagnosisToProblems';
+import Icd10DiagnosisSearch from '../billing/Icd10DiagnosisSearch';
+import { useMedicineAllergyCheck } from '../patients/safety/useMedicineAllergyCheck';
 import { PremiumInput, PremiumTextarea, PremiumSelect } from '../ui/PremiumInput';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import { useAuthStore } from '../../stores/authStore';
+import { usePractice } from '../../contexts/PracticeContext';
+import { toast } from 'react-hot-toast';
+import { PrevisitAnswersCard } from '../previsit/PrevisitAnswersCard';
+import { VisitDrawingsSection } from '../drawings/VisitDrawingsSection';
 
 interface EditVisitFormData {
   visit_type: 'consultation' | 'follow-up' | 'procedure' | 'emergency';
@@ -82,6 +128,8 @@ interface Props {
   patientId: string;
   appointmentId?: string;
   activeTab: string;
+  /** Lets a refused save show the tab that holds the problem (the Billing tab for a line without its tooth) */
+  onTabChange?: (tab: string) => void;
   onSuccess: () => void;
   onCancel: () => void;
   selectedServices?: ServiceSelection[];
@@ -142,12 +190,15 @@ const ProfessionalDropdown: React.FC<{
 const AddVisitTabs: React.FC<Props> = ({ 
   patientId,
   appointmentId,
-  activeTab, 
-  onSuccess, 
+  activeTab,
+  onTabChange,
+  onSuccess,
   onCancel,
   selectedServices: externalSelectedServices,
   onSelectedServicesChange
 }) => {
+  const user = useAuthStore((s) => s.user);
+  const { practiceId: contextPracticeId } = usePractice();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [internalSelectedServices, setInternalSelectedServices] = useState<ServiceSelection[]>([]);
@@ -176,18 +227,23 @@ const AddVisitTabs: React.FC<Props> = ({
   const [imagingDragging, setImagingDragging] = useState(false);
   const [mediaDragging, setMediaDragging] = useState(false);
   
-  // Service selection states
-  const [serviceSearchTerm, setServiceSearchTerm] = useState('');
+  // Service selection states (the tooth picker keeps the teeth it is choosing)
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showQuantityModal, setShowQuantityModal] = useState(false);
   const [showToothModal, setShowToothModal] = useState(false);
   const [selectedTariff, setSelectedTariff] = useState<any>(null);
   const [serviceQuantity, setServiceQuantity] = useState(1);
-  const [selectedTooth, setSelectedTooth] = useState('');
+  // Every tariff row of the practice type; billableTariffs (below) is what may be billed
   const [availableTariffs, setAvailableTariffs] = useState<any[]>([]);
   const [serviceUsageStats, setServiceUsageStats] = useState<{[key: string]: number}>({});
   const [practiceId, setPracticeId] = useState<string>('');
+  // practices.practice_type: decides the tariff list and whether the dental rules (8109, 8346, teeth) apply
+  const [practiceType, setPracticeType] = useState<string | null>(null);
   const [newVisitId, setNewVisitId] = useState<string>('');
+  // "Invoice and take payment": the invoice just created, paid over this screen before it closes
+  const [paymentInvoiceId, setPaymentInvoiceId] = useState<string | null>(null);
+  // From the patient's medical aid record (null until read or when it can't be read)
+  const [patientHasMedicalAid, setPatientHasMedicalAid] = useState<boolean | null>(null);
 
   // Date picker modal states
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -213,6 +269,8 @@ const AddVisitTabs: React.FC<Props> = ({
     duration: '',
     instructions: ''
   });
+  // Checks each medicine against the patient's recorded allergies before it is added
+  const allergyCheck = useMedicineAllergyCheck({ patientId, practiceId: user?.practice_id, visitId: newVisitId || null });
 
   // Function to refresh medications (for new visit, just reset to empty)
   const refreshMedications = async () => {
@@ -241,9 +299,75 @@ const AddVisitTabs: React.FC<Props> = ({
       notes: '',
       vitals: {},
       selectedServices: [],
-      generateInvoice: false
+      // A visit with billing lines is invoiced when it is saved, unless staff switch this off (parity D1)
+      generateInvoice: true
     }
   });
+
+  // What can be billed: tariffs active and in effect on the visit date, one version per code. The 8109
+  // and 8346 lookups use this list too, so they find the current tariff rather than the first row.
+  // Priced for the patient: the fund's own price where its schedule has the code, otherwise the practice tariff.
+  // Nothing is priced until the patient's fund is known, so a medical aid patient never gets the wrong schedule.
+  const visitDate = watch('visit_date');
+  const visitDateKey = toDateKey(visitDate) ?? todayKey();
+  // Who treated: new lines are priced at that practitioner's own rate when they have one (parity D31)
+  const visitPractitionerId = appointmentDoctor || watch('doctor_id') || null;
+  const fundPricing = useFundPricing({ practiceId: practiceId || null, practiceType, patientId, practitionerId: visitPractitionerId });
+  const isDental = isDentalPractice(practiceType);
+  const billingBlocked =
+    fundPricing.status !== 'ready' ? "Loading the patient's medical aid prices. Try again in a moment." : fundPricing.blockMessage;
+  const billingNotice = billingBlocked ?? fundPricingNotice(fundPricing.status === 'ready' ? fundPricing.pricing : null, visitDateKey);
+  const billableTariffs = useMemo(
+    () =>
+      priceForPatient(
+        withDisciplineRules(billableVisitTariffs(availableTariffs, visitDateKey), practiceType),
+        visitDateKey,
+        fundPricing.status === 'ready' ? fundPricing.pricing : null
+      ),
+    [availableTariffs, visitDateKey, practiceType, fundPricing]
+  );
+
+  // Who treated, who pays what (co-payment) and services already billed to the patient (Billing tab)
+  const billing = useVisitBilling({
+    services: selectedServices,
+    practiceId: contextPracticeId || practiceId || null,
+    patientId,
+    visitId: null,
+    visitDateKey,
+    visitPractitionerId,
+    hasMedicalAid: patientHasMedicalAid === true,
+    fund: fundPricing.status === 'ready' ? fundPricing.pricing.fund : null,
+    // Each line's ICD-10 codes start from the practice's usual code or the diagnosis; a changed fee is recorded
+    practiceType,
+    diagnosis: watch('diagnosis'),
+    tariffs: billableTariffs,
+    user,
+    // Each practitioner's own practice number and rate: the lines follow the visit practitioner's rate (D31)
+    practitionerBilling: fundPricing.practitionerBilling,
+    onServicesChange: setSelectedServices
+  });
+  // The visit's referral, hospital stay and place of service (claim fields 25, 30, 42-44), saved once the visit exists
+  const claimDetails = useVisitClaimDetails(null);
+  // Who pays (parity A14, A19): the patient, a company account or an injury case; saved once the visit exists
+  const visitPayer = useVisitPayer({ practiceId: contextPracticeId || practiceId || null, patientId, visitId: null });
+  // The practice's rules per code: linked codes come with a code, a default place of service, each line's notices
+  const codeRules = useCodeRulesOnVisit({
+    ready: !isLoading,
+    services: selectedServices,
+    setServices: setSelectedServices,
+    tariffs: billableTariffs,
+    hasMedicalAid: patientHasMedicalAid === true,
+    practiceType,
+    lineAuthorisations: billing.lineAuthorisations,
+    claimDetails
+  });
+  // Account flags checked when the visit is invoiced: cash only (confirm), credit limit (administrators only)
+  const invoiceFlags = useInvoiceFlagCheck({ patientId, practiceId: contextPracticeId || practiceId || null, role: user?.role ?? null });
+  const changeLineDetails = (serviceId: string, changes: LineDetailChanges) => {
+    const updated = billing.withLineDetails(serviceId, changes);
+    setSelectedServices(updated);
+    if (onSelectedServicesChange) onSelectedServicesChange(updated);
+  };
 
   // Calculate BMI when height or weight changes
   const weight = watch('vitals.weight');
@@ -342,6 +466,8 @@ const AddVisitTabs: React.FC<Props> = ({
           .from('users')
           .select('id, full_name, role')
           .eq('role', 'doctor')
+          // New visits can only be assigned to active doctors
+          .or('is_active.is.null,is_active.eq.true')
           .order('full_name');
 
         if (error) throw error;
@@ -355,6 +481,17 @@ const AddVisitTabs: React.FC<Props> = ({
 
     fetchDoctors();
   }, []);
+
+  // Medical aid or private follows the patient's medical aid record, as in invoiceService
+  useEffect(() => {
+    let cancelled = false;
+    loadPatientHasMedicalAid(patientId).then(hasMedicalAid => {
+      if (!cancelled) setPatientHasMedicalAid(hasMedicalAid);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
 
   // Fetch appointment doctor if appointmentId is provided
   useEffect(() => {
@@ -381,16 +518,65 @@ const AddVisitTabs: React.FC<Props> = ({
     fetchAppointmentDoctor();
   }, [appointmentId, setValue]);
 
-  const onSubmit = async (data: EditVisitFormData) => {
+  // Create Visit writes a visit once: one save at a time (a double click does nothing), and a retry after a step
+  // failed updates the visit the first try wrote, keeping its invoice and medicines: never a second visit or invoice
+  const runOneSave = useOneSaveAtATime();
+  const written = useRef<{ visitId: string | null; invoiceId: string | null; medicinesSaved: boolean }>({ visitId: null, invoiceId: null, medicinesSaved: false });
+
+  // takePaymentAfterSave: "Invoice and take payment" saves exactly as "Create Visit", then opens Receive payment
+  const saveNewVisit = (data: EditVisitFormData, takePaymentAfterSave: boolean) => runOneSave(() => saveNewVisitOnce(data, takePaymentAfterSave));
+
+  const saveNewVisitOnce = async (data: EditVisitFormData, takePaymentAfterSave: boolean) => {
     console.log('📝 Form submitted - this should only happen when clicking Create Visit button');
     console.log('Submit event triggered by:', document.activeElement);
     console.trace('Form submission stack trace');
-    
+    let createdInvoiceId: string | null = written.current.invoiceId;
+
+    // Every check runs before anything is written, as on Update Visit: a refused save writes nothing, so pressing
+    // Create Visit again can never leave a second visit or invoice behind
+    const medicineProblems = medicationIssues(medications);
+    if (medicineProblems.length > 0) {
+      toast.error(`Visit not saved. ${medicineProblems.join('. ')}.`, { duration: 8000 });
+      if (activeTab !== 'medications') onTabChange?.('medications');
+      return;
+    }
+
+    // Dental practices: a fund rejects a claim line without the tooth its code needs, so nothing is saved until the
+    // lines that will be invoiced have their tooth (the visit stays open on the Billing tab)
+    if (data.generateInvoice && selectedServices.length > 0 && billing.toothProblem) {
+      toast.error(`Visit not saved. ${billing.toothProblem}`, { duration: 8000 });
+      if (activeTab !== 'billing') onTabChange?.('billing');
+      return;
+    }
+
+    // The checks the invoice makes on its lines (invoiceService), here before the visit is written
+    const lineProblems = data.generateInvoice && selectedServices.length > 0 && !written.current.invoiceId ? findInvoiceLineProblems(selectedServices) : [];
+    if (lineProblems.length > 0) {
+      toast.error(`Visit not saved. ${lineProblems.join(' ')}`, { duration: 8000 });
+      if (activeTab !== 'billing') onTabChange?.('billing');
+      return;
+    }
+
+    // Account flags, before anything is saved: "Back" leaves the visit open as it is (an invoice already made by an
+    // earlier try of this visit is not made again, so nothing to confirm)
+    const flagDecision = data.generateInvoice && selectedServices.length > 0 && !written.current.invoiceId
+      ? await invoiceFlags.confirm({ totalCents: billing.totals.totalCents, patientCents: billing.totals.patientCents })
+      : { billPatientOnly: false };
+    if (!flagDecision) return;
+
     try {
       setIsSubmitting(true);
 
       // Get current user for fallback doctor_id
       const { data: { user } } = await supabase.auth.getUser();
+
+      // SSOT: prefer PracticeContext, fall back to legacy local state
+      const finalPracticeId = contextPracticeId || practiceId;
+      if (!finalPracticeId) {
+        toast.error('No practice context — cannot create visit. Please reload.');
+        setIsSubmitting(false);
+        return;
+      }
 
       // Determine the doctor ID - prioritize appointment doctor over selected doctor over current user
       const finalDoctorId = appointmentDoctor || data.doctor_id || user?.id;
@@ -399,9 +585,9 @@ const AddVisitTabs: React.FC<Props> = ({
       const visitData = {
         patient_id: patientId,
         doctor_id: finalDoctorId,
-        practice_id: practiceId,
+        practice_id: finalPracticeId,
         visit_type: data.visit_type,
-        visit_date: data.visit_date ? data.visit_date.toISOString().split('T')[0] : undefined,
+        visit_date: data.visit_date ? format(data.visit_date, 'yyyy-MM-dd') : undefined,
         visit_time: data.visit_time || undefined,
         chief_complaint: data.chief_complaint || '',
         diagnosis: data.diagnosis || '',
@@ -412,41 +598,54 @@ const AddVisitTabs: React.FC<Props> = ({
         notes: data.notes || undefined,
         status: 'in-progress',
         is_scheduled: appointmentId ? true : false,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
       console.log('🏥 Creating new visit with data:', visitData);
 
-      const { data: newVisit, error: visitError } = await supabase
-        .from('visits')
-        .insert([visitData])
-        .select('id')
-        .single();
+      // The first try inserts the visit; a retry (a later step failed) updates the visit that try wrote
+      const earlierVisitId = written.current.visitId;
+      const { data: newVisit, error: visitError } = earlierVisitId
+        ? await supabase.from('visits').update(visitData).eq('id', earlierVisitId).select('id').single()
+        : await supabase
+            .from('visits')
+            .insert([{ ...visitData, created_at: new Date().toISOString() }])
+            .select('id')
+            .single();
 
       if (visitError) throw visitError;
-      
+
       const newVisitId = newVisit.id;
+      written.current.visitId = newVisitId;
       setNewVisitId(newVisitId);
       console.log('✅ New visit created with ID:', newVisitId);
 
-      // Create vitals if provided
+      // Who pays, before the invoice: a visit billed to an account is all the account's, nothing claimed (A14, A19)
+      const payer = await visitPayer.save(newVisitId);
+      if (payer.problem) toast.error(`The visit was created but who pays for it was not saved: ${payer.problem}`, { duration: 8000 });
+
+      // Create vitals if provided (a retry updates the vitals an earlier try saved)
       if (Object.keys(data.vitals).some(key => data.vitals[key as keyof typeof data.vitals])) {
         console.log('💓 Creating vitals for new visit:', data.vitals);
-        const { error: vitalsError } = await supabase
-          .from('vitals')
-          .insert([{
-            visit_id: newVisitId,
-            ...data.vitals,
-            created_at: new Date().toISOString()
-          }]);
+        const { data: earlierVitals } = earlierVisitId
+          ? await supabase.from('vitals').select('id').eq('visit_id', newVisitId).limit(1)
+          : { data: [] as { id: string }[] };
+        const { error: vitalsError } = earlierVitals && earlierVitals.length > 0
+          ? await supabase.from('vitals').update({ ...data.vitals }).eq('id', earlierVitals[0].id)
+          : await supabase
+              .from('vitals')
+              .insert([{
+                visit_id: newVisitId,
+                ...data.vitals,
+                created_at: new Date().toISOString()
+              }]);
 
         if (vitalsError) throw vitalsError;
         console.log('✅ Vitals created successfully');
       }
 
-      // Handle invoice creation if services selected
-      if (selectedServices.length > 0 && data.generateInvoice) {
+      // Handle invoice creation if services selected (once: an invoice an earlier try made is kept, never made again)
+      if (selectedServices.length > 0 && data.generateInvoice && !written.current.invoiceId) {
         try {
           console.log('🧾 Creating invoice for new visit with services:', selectedServices.length);
           
@@ -466,13 +665,30 @@ const AddVisitTabs: React.FC<Props> = ({
             visitId: newVisitId,
             patientId,
             practiceId: practiceId || '',
-            services: selectedServices,
+            // Each line with the ICD-10 codes the Billing tab shows for it (its own or the suggested ones)
+            services: billing.servicesForInvoice,
             medicalAidId: undefined,
+            // The visit's practitioner treats; whoever saves (reception too) only raises the invoice
+            practitionerId: finalDoctorId || null,
             generatePdf: false,
-            notes: 'Generated from new visit form'
+            notes: 'Generated from new visit form',
+            // A cash-only account, confirmed above: the invoice is the patient's and is not claimed; nor is an account's
+            billPatientOnly: flagDecision.billPatientOnly || payer.billsAccount
           };
-          
-          await invoiceService.generateInvoiceFromVisit(invoiceRequest);
+
+          const created = await invoiceService.generateInvoiceFromVisit(invoiceRequest);
+          createdInvoiceId = created.id;
+          written.current.invoiceId = created.id;
+          // Codes with a recall: offer one for the patient (one tap to set, one to skip; never stops the save)
+          void offerVisitRecalls({
+            practiceId: contextPracticeId || practiceId || null,
+            patientId,
+            visitId: newVisitId,
+            visitDate: visitData.visit_date ?? visitDateKey,
+            lines: billing.servicesForInvoice,
+            tariffs: billableTariffs
+          });
+          (created.warnings ?? []).forEach(warning => toast(warning, { duration: 8000 }));
           console.log('✅ Invoice created successfully');
         } catch (invoiceError) {
           console.error('Invoice creation failed:', invoiceError);
@@ -481,42 +697,20 @@ const AddVisitTabs: React.FC<Props> = ({
         }
       }
 
-      // Save medications to database
-      if (medications.length > 0) {
+      // The referral, hospital stay and place of service: after the invoice, so its claim lines carry them
+      const claimDetailsProblem = await claimDetails.save(newVisitId, visitData.visit_date ?? null);
+      if (claimDetailsProblem) {
+        toast.error(`The visit was created but its referral and hospital details were not saved: ${claimDetailsProblem}`, { duration: 8000 });
+      }
+
+      // Save medications to database (once: medicines an earlier try saved are not saved again)
+      if (medications.length > 0 && !written.current.medicinesSaved) {
         try {
           console.log('💊 Creating medications for new visit:', medications.length);
-          
-          // Validate medications before saving
-          const validMedications = medications.filter(med => {
-            // Check if medication name is valid
-            if (!med.medication_name || med.medication_name.trim().length < 3) {
-              console.error(`❌ Invalid medication name: "${med.medication_name}" - must be at least 3 characters`);
-              alert(`Medication name "${med.medication_name || '(empty)'}" must be at least 3 characters. Please use the full medication name.`);
-              return false;
-            }
-            
-            // Check if required fields are present
-            if (!med.dosage || med.dosage.trim() === '') {
-              console.error(`❌ Missing dosage for medication: ${med.medication_name}`);
-              alert(`Dosage is required for ${med.medication_name}. Please specify the dosage.`);
-              return false;
-            }
-            
-            if (!med.frequency || med.frequency.trim() === '') {
-              console.error(`❌ Missing frequency for medication: ${med.medication_name}`);
-              alert(`Frequency is required for ${med.medication_name}. Please specify how often the medication should be taken.`);
-              return false;
-            }
-            
-            return true;
-          });
 
-          // Only proceed if we have valid medications
-          if (validMedications.length === 0) {
-            console.warn('⚠️ No valid medications to save after validation');
-            return;
-          }
-          
+          // Every medication was checked before the visit was written (medicationIssues)
+          const validMedications = medications;
+
           // Get current user for prescribed_by
           const { data: { user } } = await supabase.auth.getUser();
           
@@ -551,8 +745,9 @@ const AddVisitTabs: React.FC<Props> = ({
           });
 
           await Promise.all(medicationPromises);
+          written.current.medicinesSaved = true;
           console.log('✅ Medications saved successfully:', validMedications.length, 'medications');
-          
+
         } catch (medicationError) {
           console.error('Error saving medications:', medicationError);
           alert(`Medications save failed: ${medicationError instanceof Error ? medicationError.message : 'Unknown error'}. The visit was created but medications were not saved.`);
@@ -605,7 +800,12 @@ const AddVisitTabs: React.FC<Props> = ({
           // Don't fail the whole creation if document generation fails
         }
       }
-      
+
+      // Receive payment opens over this screen; it closes (onSuccess) when the payment is done or skipped
+      if (takePaymentAfterSave && createdInvoiceId) {
+        setPaymentInvoiceId(createdInvoiceId);
+        return;
+      }
       onSuccess();
     } catch (error) {
       console.error('❌ Error creating visit:', error);
@@ -614,6 +814,10 @@ const AddVisitTabs: React.FC<Props> = ({
       setIsSubmitting(false);
     }
   };
+  const onSubmit = (data: EditVisitFormData) => saveNewVisit(data, false);
+  const onSubmitAndTakePayment = (data: EditVisitFormData) => saveNewVisit(data, true);
+  // Raising the invoice and recording the receipt are both allowed here (invoiceRights, ar_post_receipt)
+  const canTakePayment = canInvoiceAndTakePayment(user, contextPracticeId || practiceId);
 
   // Load available tariffs and usage statistics
   useEffect(() => {
@@ -646,18 +850,15 @@ const AddVisitTabs: React.FC<Props> = ({
           .eq('id', userProfile.practice_id)
           .single();
 
-        if (!practiceData || practiceData.practice_type !== 'dental') return;
+        // Every discipline bills from its own practice type's tariff list (it was dental only)
+        if (!practiceData?.practice_type) return;
+        setPracticeType(practiceData.practice_type);
 
-        // Load tariffs
-        const { data: tariffs } = await supabase
-          .from('practice_tariffs_with_types')
-          .select('*')
-          .eq('practice_type_name', 'dental')
-          .order('code', { ascending: true });
-
-        if (tariffs) {
-          setAvailableTariffs(tariffs);
-        }
+        // Load tariffs: the practice type's shared list with the practice's own codes (its own price wins) and each
+        // code's default portion (Admin > Tariffs)
+        const { rows: tariffs, problems: tariffProblems } = await loadPracticeTariffRows(userProfile.practice_id, practiceData.practice_type);
+        tariffProblems.forEach(problem => console.warn(problem));
+        setAvailableTariffs(tariffs);
 
         // Load real usage statistics from invoice_services
         const { data: usageData } = await supabase
@@ -685,38 +886,22 @@ const AddVisitTabs: React.FC<Props> = ({
 
   // Auto-add 8109 Infection Control when billing tab is accessed for the first time
   useEffect(() => {
-    if (activeTab === 'billing' && availableTariffs.length > 0) {
-      const hasInfectionControl = selectedServices.some(s => s.code === '8109');
-      
+    // Dental practices only, and only once the patient's prices are known
+    if (activeTab === 'billing' && availableTariffs.length > 0 && isDental && !billingBlocked) {
+      const hasInfectionControl = selectedServices.some(s => s.code === INFECTION_CONTROL_CODE);
+
       if (!hasInfectionControl) {
         console.log('🦠 Auto-adding 8109 Infection Control on billing tab load');
-        
-        const infectionControlTariff = availableTariffs.find(t => t.code === '8109');
-        const infectionControlPrice = infectionControlTariff ? parseFloat(infectionControlTariff.price) : 45.0;
-        
-        const infectionControlService: ServiceSelection = {
-          id: crypto.randomUUID(),
-          tariffId: infectionControlTariff?.id || 'manual-8109',
-          code: '8109',
-          description: 'Infection control per visit (Auto-added)',
-          category: 'Dental Service',
-          subcategory: 'Infection Control',
-          unitPrice: infectionControlPrice,
-          quantity: 1,
-          totalPrice: infectionControlPrice,
-          requiresPreAuth: false,
-          medicalAidCovered: true,
-          coveragePercentage: 100,
-          businessRule: 'Automatically added per visit',
-          exampleCalculation: `Fixed rate: ${infectionControlPrice}`,
-          requiresTeethNumbers: false,
-          canBeMultiplied: false,
-          teethNumbers: undefined,
-          isAutoGenerated: true,
-          isRequired: true
-        };
-        
-        const updatedServices = [infectionControlService, ...selectedServices];
+
+        // Priced from the 8109 tariff only; without a usable 8109 tariff no line is added. Quantity: the practice's
+        // clinical staff count (NAMAF bills 8109 per dentist, hygienist and assistant)
+        const infectionControl = buildInfectionControlLine(billableTariffs, patientHasMedicalAid === true, undefined, fundPricing.infectionControlStaff);
+        if (!infectionControl.ok) {
+          toast.error(infectionControl.message, { id: 'tariff-8109' });
+          return;
+        }
+
+        const updatedServices = [infectionControl.service, ...selectedServices];
         setSelectedServices(updatedServices);
         
         if (onSelectedServicesChange) {
@@ -726,73 +911,51 @@ const AddVisitTabs: React.FC<Props> = ({
         console.log('✅ Auto-added 8109 Infection Control on billing tab load');
       }
     }
-  }, [activeTab, availableTariffs, selectedServices.length]);
+  }, [activeTab, availableTariffs, selectedServices.length, isDental, billingBlocked]);
 
   // Helper functions for service selection
 
   // Business Rules Engine for Dental Services - 10 iterations of refinement
   const getDentalServiceBusinessRules = (tariff: any) => {
     const code = tariff.code;
-    const formula = tariff.business_rule_formula?.toLowerCase() || '';
     const canMultiply = tariff.can_be_multiplied;
     const requiresTooth = tariff.requires_tooth_number;
-    
-    // Iteration 1: Basic categorization
-    let ruleType = 'FIXED';
-    if (formula.includes('progressive')) ruleType = 'PROGRESSIVE';
-    else if (formula.includes('multiply') || formula.includes('×')) ruleType = 'MULTIPLY';
-    else if (formula.includes('per visit') || formula.includes('once per visit')) ruleType = 'PER_VISIT';
-    else if (canMultiply === 'YES') ruleType = 'MULTIPLY';
-    
+
+    // Iteration 1: The tariff's own quantity rule; computeLine prices every line from it
+    const multiplyRule = normalizeMultiplyRule(canMultiply);
+
     // Iteration 2: Special codes handling
     const specialCodes: {[key: string]: any} = {
-      '8109': { type: 'INFECTION_CONTROL', maxQuantity: 1, autoAdd: true },
+      [INFECTION_CONTROL_CODE]: { type: 'INFECTION_CONTROL', maxQuantity: 1, autoAdd: true },
       '8110': { type: 'STERILIZATION', maxQuantity: 1 },
       '8145': { type: 'ANESTHETIC', maxQuantity: 10 }, // Multiple injections
       '8107': { type: 'XRAY', maxQuantity: 7 }, // Max 7 films
       '8163': { type: 'SEALANT', requiresTooth: true, maxTeeth: 32 },
       '8185': { type: 'QUADRANT', maxQuantity: 4 }, // Max 4 quadrants
-      '8346': { type: 'MATERIAL_FACTOR', autoGenerated: true, percentage: 0.10 }
+      [MATERIAL_FACTOR_CODE]: { type: 'MATERIAL_FACTOR', autoGenerated: true }
     };
-    
-    // Iteration 3: Progressive pricing rules
-    const progressiveCodes = ['8340', '8202', '8328', '8337', '8348'];
-    if (progressiveCodes.includes(code)) {
-      ruleType = 'PROGRESSIVE';
-    }
-    
+
     // Iteration 4: Tooth-specific logic refinement
+    // Tooth numbers are a dental rule (withDisciplineRules clears the flag for other practice types)
     const toothLogic = {
       requiresTooth: requiresTooth === 'YES',
       multipleTeeth: canMultiply === 'YES' && requiresTooth === 'YES',
-      singleTooth: requiresTooth === 'YES' && canMultiply !== 'YES',
-      toothSpecificPricing: code === '8346' // Special pricing per tooth
+      singleTooth: requiresTooth === 'YES' && canMultiply !== 'YES'
     };
-    
+
     // Iteration 5: Quantity rules
     const quantityRules = {
-      allowQuantity: canMultiply === 'YES' || specialCodes[code]?.maxQuantity > 1,
+      // From the tariff only: a maxQuantity entry offered a quantity for once-per-line codes, which were then billed as one unit
+      allowQuantity: multiplyRule !== 'NO',
       minQuantity: 1,
-      maxQuantity: specialCodes[code]?.maxQuantity || (ruleType === 'QUADRANT' ? 4 : 99),
+      maxQuantity: specialCodes[code]?.maxQuantity || 99,
       defaultQuantity: 1
     };
-    
-    // Iteration 6: Auto-generation rules
-    const autoGenerateRules: {[key: string]: string[]} = {
-      '8341': ['8346'], // Amalgam procedures auto-generate material factor
-      '8342': ['8346'],
-      '8343': ['8346'],
-      '8344': ['8346'],
-      '8351': ['8346'], // Resin procedures
-      '8352': ['8346'],
-      '8353': ['8346'],
-      '8354': ['8346'],
-      '8367': ['8346'],
-      '8368': ['8346'],
-      '8369': ['8346'],
-      '8370': ['8346']
-    };
-    
+
+    // Iteration 6: Auto-generation rules: a restoration brings its 8346 material factor (dental practices only;
+    // the code lists live in tariffRules.ts)
+    const autoGenerateRules: string[] = isDental && isRestorationCode(code) ? [MATERIAL_FACTOR_CODE] : [];
+
     // Iteration 7: Validation rules
     const validationRules = {
       requiresToothValidation: toothLogic.requiresTooth,
@@ -803,27 +966,7 @@ const AddVisitTabs: React.FC<Props> = ({
       requiresQuantityValidation: quantityRules.allowQuantity,
       conflictsWithCodes: [] // Some codes can't be used together
     };
-    
-    // Iteration 8: Pricing calculation rules
-    const pricingRules = {
-      basePrice: parseFloat(tariff.price) || 0,
-      calculation: (quantity: number, toothNumbers?: string[]) => {
-        let total = parseFloat(tariff.price) || 0;
-        
-        if (ruleType === 'PROGRESSIVE') {
-          // First item full price, additional at 50% (example)
-          total = total + ((quantity - 1) * total * 0.5);
-        } else if (ruleType === 'MULTIPLY') {
-          total = total * quantity;
-        } else if (code === '8346' && toothNumbers) {
-          // Special tooth-specific pricing
-          total = toothNumbers.length * total;
-        }
-        
-        return total;
-      }
-    };
-    
+
     // Iteration 9: UI workflow rules
     const workflowRules = {
       showQuantityModal: quantityRules.allowQuantity && !toothLogic.requiresTooth,
@@ -831,20 +974,19 @@ const AddVisitTabs: React.FC<Props> = ({
       showBothModals: quantityRules.allowQuantity && toothLogic.requiresTooth,
       skipAllModals: !quantityRules.allowQuantity && !toothLogic.requiresTooth
     };
-    
+
     // Iteration 10: Final comprehensive rule object
     return {
       code,
-      ruleType,
+      multiplyRule,
       specialCode: specialCodes[code],
       toothLogic,
       quantityRules,
-      autoGenerateRules: autoGenerateRules[code] || [],
+      autoGenerateRules,
       validationRules,
-      pricingRules,
       workflowRules,
       description: tariff.description,
-      isRequired: code === '8109', // Infection control always required
+      isRequired: code === INFECTION_CONTROL_CODE, // Infection control always required
       allowDuplicates: toothLogic.requiresTooth // Can add same service for different teeth
     };
   };
@@ -875,7 +1017,6 @@ const AddVisitTabs: React.FC<Props> = ({
       setShowQuantityModal(true);
     } else if (rules.workflowRules.showToothModal) {
       console.log('🦷 Showing tooth selection modal only');
-      setSelectedTooth('');
       setShowToothModal(true);
     } else {
       console.log('➕ Adding service directly');
@@ -888,18 +1029,11 @@ const AddVisitTabs: React.FC<Props> = ({
     setShowQuantityModal(false);
     if (selectedTariff?.requires_tooth_number === 'YES') {
       console.log('🦷 Moving to tooth selection');
-      setSelectedTooth('');
       setShowToothModal(true);
     } else {
       console.log('➕ Adding service with quantity only');
       addServiceDirectly(selectedTariff, serviceQuantity, '');
     }
-  };
-
-  const handleToothNext = () => {
-    console.log('🦷✅ Tooth next clicked:', { tooth: selectedTooth, quantity: serviceQuantity });
-    setShowToothModal(false);
-    addServiceDirectly(selectedTariff, serviceQuantity, selectedTooth);
   };
 
   const handleModalCancel = () => {
@@ -909,7 +1043,6 @@ const AddVisitTabs: React.FC<Props> = ({
     setShowToothModal(false);
     setSelectedTariff(null);
     setServiceQuantity(1);
-    setSelectedTooth('');
   };
 
   const addServiceDirectly = (tariff: any, quantity: number, toothNumber: string) => {
@@ -925,106 +1058,61 @@ const AddVisitTabs: React.FC<Props> = ({
       price: tariff.price
     });
 
-    const rules = getDentalServiceBusinessRules(tariff);
-    const basePrice = parseFloat(tariff.price) || 0;
-    const totalPrice = rules.pricingRules.calculation(quantity, toothNumber ? [toothNumber] : undefined);
+    // A medical aid patient's lines wait for the fund's prices (never the practice tariff by accident)
+    if (billingBlocked) {
+      toast.error(billingBlocked, { id: 'fund-prices' });
+      handleModalCancel();
+      return;
+    }
 
-    const newService: ServiceSelection = {
-      id: crypto.randomUUID(),
-      tariffId: tariff.id,
-      code: tariff.code,
-      description: `${tariff.description}${toothNumber ? ` (Tooth ${toothNumber})` : ''}`,
-      category: 'Dental Service',
-      subcategory: 'General',
-      unitPrice: basePrice,
-      quantity: quantity,
-      totalPrice: totalPrice,
-      requiresPreAuth: false,
-      medicalAidCovered: true,
-      coveragePercentage: 100,
-      businessRule: tariff.business_rule_formula,
-      exampleCalculation: tariff.example_calculation,
-      requiresTeethNumbers: tariff.requires_tooth_number === 'YES',
-      canBeMultiplied: tariff.can_be_multiplied === 'YES',
-      teethNumbers: toothNumber ? [toothNumber] : undefined
-    };
+    const rules = getDentalServiceBusinessRules(tariff);
+    const hasMedicalAid = patientHasMedicalAid === true;
+    // Priced by computeLine from the tariff; a line it refuses (no price, quantity, tooth) is not added
+    const added = buildTariffLine(tariff, quantity, toothNumber, hasMedicalAid);
+    if (!added.ok) {
+      toast.error(added.message, { duration: 8000 });
+      handleModalCancel();
+      return;
+    }
+    if (added.warnings.length > 0) toast(added.warnings.join(' '), { duration: 8000 });
+    const newService = added.service;
 
     const updatedServices = [...selectedServices, newService];
-    
-    // Auto-add 8109 Infection Control for EVERY service (if not already present)
-    const hasInfectionControl = selectedServices.some(s => s.code === '8109');
-    if (!hasInfectionControl && tariff.code !== '8109') {
+
+    // Auto-add 8109 Infection Control for EVERY service (dental practices, if not already present)
+    const hasInfectionControl = selectedServices.some(s => s.code === INFECTION_CONTROL_CODE);
+    if (isDental && !hasInfectionControl && tariff.code !== INFECTION_CONTROL_CODE) {
       console.log('🦠 Auto-adding 8109 Infection Control');
-      
-      // Create 8109 service (use tariff data if available, otherwise create manually)
-      const infectionControlTariff = availableTariffs.find(t => t.code === '8109');
-      const infectionControlPrice = infectionControlTariff ? parseFloat(infectionControlTariff.price) : 45.0; // Default price
-      
-      const infectionControlService: ServiceSelection = {
-        id: crypto.randomUUID(),
-        tariffId: infectionControlTariff?.id || 'manual-8109',
-        code: '8109',
-        description: 'Infection control per visit (Auto-added)',
-        category: 'Dental Service',
-        subcategory: 'Infection Control',
-        unitPrice: infectionControlPrice,
-        quantity: 1,
-        totalPrice: infectionControlPrice,
-        requiresPreAuth: false,
-        medicalAidCovered: true,
-        coveragePercentage: 100,
-        businessRule: 'Automatically added per visit',
-        exampleCalculation: `Fixed rate: ${infectionControlPrice}`,
-        requiresTeethNumbers: false,
-        canBeMultiplied: false,
-        teethNumbers: undefined,
-        isAutoGenerated: true,
-        isRequired: true,
-        parentServiceId: newService.id
-      };
-      
-      updatedServices.unshift(infectionControlService); // Add at beginning
-      console.log('✅ Auto-added 8109 Infection Control:', infectionControlPrice);
+
+      // Priced from the 8109 tariff only; without a usable 8109 tariff no line is added
+      const infectionControl = buildInfectionControlLine(billableTariffs, hasMedicalAid, newService.id, fundPricing.infectionControlStaff);
+      if (infectionControl.ok) {
+        updatedServices.unshift(infectionControl.service); // Add at beginning
+        console.log('✅ Auto-added 8109 Infection Control:', infectionControl.service.unitPrice);
+      } else {
+        toast.error(infectionControl.message, { id: 'tariff-8109' });
+      }
     }
-    
+
     // Check for 8346 material factor auto-generation
     if (rules.autoGenerateRules.length > 0) {
       console.log('🔄 Auto-generating material factor for codes:', rules.autoGenerateRules);
-      
+
       for (const autoCode of rules.autoGenerateRules) {
-        if (autoCode === '8346') {
-          // Create 8346 Material Factor service
-          const materialTariff = availableTariffs.find(t => t.code === '8346');
-          const materialPrice = basePrice * 0.10; // 10% of the service price
-          
-          const autoService: ServiceSelection = {
-            id: crypto.randomUUID(),
-            tariffId: materialTariff?.id || 'manual-8346',
-            code: '8346',
-            description: `Material factor (10% of ${tariff.code})${toothNumber ? ` - Tooth ${toothNumber}` : ''}`,
-            category: 'Dental Service',
-            subcategory: 'Material Factor',
-            unitPrice: materialPrice,
-            quantity: quantity,
-            totalPrice: materialPrice * quantity,
-            requiresPreAuth: false,
-            medicalAidCovered: true,
-            coveragePercentage: 100,
-            businessRule: '10% material factor of primary service',
-            exampleCalculation: `${basePrice} × 0.10 = ${materialPrice.toFixed(2)}`,
-            requiresTeethNumbers: toothNumber ? true : false,
-            canBeMultiplied: false,
-            teethNumbers: toothNumber ? [toothNumber] : undefined,
-            isAutoGenerated: true,
-            parentServiceId: newService.id
-          };
-          
-          updatedServices.push(autoService);
+        if (autoCode === MATERIAL_FACTOR_CODE) {
+          // 10% of the procedure's unit price, rounded to the cent, for the same quantity
+          const material = buildMaterialFactorLine(billableTariffs, newService, hasMedicalAid);
+          if (!material.ok) {
+            toast.error(material.message, { id: 'tariff-8346' });
+            continue;
+          }
+
+          updatedServices.push(material.service);
           console.log('✅ Auto-generated 8346 Material Factor:', {
             baseService: tariff.code,
-            basePrice,
-            materialPrice,
-            calculation: `${basePrice} × 0.10 = ${materialPrice.toFixed(2)}`
+            basePrice: newService.unitPrice,
+            materialPrice: material.service.unitPrice,
+            calculation: material.service.exampleCalculation
           });
         }
       }
@@ -1037,7 +1125,7 @@ const AddVisitTabs: React.FC<Props> = ({
       newCount: updatedServices.length,
       newService: newService.code,
       autoGenerated: {
-        infectionControl: !selectedServices.some(s => s.code === '8109') && tariff.code !== '8109',
+        infectionControl: isDental && !selectedServices.some(s => s.code === INFECTION_CONTROL_CODE) && tariff.code !== INFECTION_CONTROL_CODE,
         materialFactor: rules.autoGenerateRules.length
       }
     });
@@ -1051,7 +1139,19 @@ const AddVisitTabs: React.FC<Props> = ({
     // Reset states
     setSelectedTariff(null);
     setServiceQuantity(1);
-    setSelectedTooth('');
+  };
+
+  // Quantity changes in the services table are priced by computeLine; an auto-added 8346 line follows
+  const changeServiceQuantity = (serviceId: string, quantity: number) => {
+    const { services, line } = changeLineQuantity(selectedServices, serviceId, quantity, billableTariffs, patientHasMedicalAid === true);
+    if (!line) return;
+    if (!line.ok) {
+      toast.error(line.errors.join(' '), { duration: 8000 });
+      return;
+    }
+    if (line.warnings.length > 0) toast(line.warnings.join(' '), { id: `quantity-${serviceId}`, duration: 8000 });
+    setSelectedServices(services);
+    if (onSelectedServicesChange) onSelectedServicesChange(services);
   };
 
   // Dental tooth numbering system (FDI notation) - removed unused array
@@ -1066,6 +1166,10 @@ const AddVisitTabs: React.FC<Props> = ({
       </div>
     );
   }
+
+  // The quantity dialog shows the total computeLine will bill (a tooth, if needed, is chosen next)
+  const quantityPreviewInput = selectedTariff ? tariffLineInput(selectedTariff, serviceQuantity, patientHasMedicalAid === true) : null;
+  const quantityPreview = quantityPreviewInput ? computeLine(quantityPreviewInput) : null;
 
   return (
     <div className="flex flex-col">
@@ -1111,13 +1215,8 @@ const AddVisitTabs: React.FC<Props> = ({
                             <div>
                               <p className="text-xs text-gray-500 font-medium">Encounter Date</p>
                               <p className="text-sm font-semibold text-gray-900">
-                                {watch('visit_date') ? 
-                                  watch('visit_date').toLocaleDateString('en-US', { 
-                                    month: 'short', 
-                                    day: 'numeric', 
-                                    year: 'numeric' 
-                                  }) : 'Select date'
-                                }
+                                {/* Day first, as Namibian practices write dates: 7 Oct 2026 */}
+                                {watch('visit_date') ? formatServiceDate(watch('visit_date')) : 'Select date'}
                               </p>
                             </div>
                           </div>
@@ -1299,6 +1398,13 @@ const AddVisitTabs: React.FC<Props> = ({
                   {errors.diagnosis && (
                     <p className="text-sm text-red-600 mt-1">{errors.diagnosis.message}</p>
                   )}
+                  {/* The full ICD-10 list, by code or words: a chosen code is added to the diagnosis for billing */}
+                  <Icd10DiagnosisSearch
+                    diagnosis={watch('diagnosis') ?? ''}
+                    onDiagnosisChange={(next) => setValue('diagnosis', next, { shouldDirty: true, shouldValidate: true })}
+                  />
+                  {/* One tap puts this diagnosis (each ICD-10 code in it) on the patient's problem list */}
+                  <DiagnosisToProblems patientId={patientId} practiceId={user?.practice_id} visitId={newVisitId || null} diagnosis={watch('diagnosis')} />
                 </div>
 
                 <div>
@@ -1337,12 +1443,17 @@ const AddVisitTabs: React.FC<Props> = ({
                 <PremiumTextarea
                   {...register('notes')}
                   rows={3}
-                  icon="solar:chat-square-text-bold-duotone"
+                  icon="solar:chat-square-bold-duotone"
                   iconColor="text-purple-500"
                   placeholder="Additional notes and observations (optional)"
                 />
               </div>
             </div>
+
+            {/* The patient's answers before the visit (parity B17); shown only when they answered */}
+            <PrevisitAnswersCard visitId={newVisitId} />
+            {/* Drawings on a body or tooth chart, kept with the visit's notes (parity C9); once the visit is saved */}
+            <VisitDrawingsSection patientId={patientId} visitId={newVisitId} isDental={isDental} />
           </motion.div>
         )}
 
@@ -2169,14 +2280,7 @@ const AddVisitTabs: React.FC<Props> = ({
                   </div>
                   <h3 className="text-lg font-semibold text-gray-800">Prescription Notes</h3>
                 </div>
-                <button
-                  type="button"
-                  className="p-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-                  title="AI-Powered Prescription Assistant"
-                >
-                  <Icon icon="solar:robot-bold-duotone" className="w-5 h-5" />
-                  <Icon icon="solar:camera-bold-duotone" className="w-5 h-5" />
-                </button>
+                {/* The "AI-Powered Prescription Assistant" button is hidden until a service exists behind it (no buttons that do nothing) */}
               </div>
               <div className="bg-gradient-to-br from-gray-50 to-gray-100/30 p-6 rounded-xl border border-gray-200/50">
                 <textarea
@@ -2280,13 +2384,17 @@ const AddVisitTabs: React.FC<Props> = ({
                         e.preventDefault();
                         e.stopPropagation();
                         if (newMedication.medication_name && newMedication.dosage) {
-                          setMedications([...medications, { ...newMedication, id: Date.now() }]);
-                          setNewMedication({
-                            medication_name: '',
-                            dosage: '',
-                            frequency: '',
-                            duration: '',
-                            instructions: ''
+                          const medication = { ...newMedication, id: Date.now() };
+                          // Added only after the allergy check (straight away when nothing matches)
+                          allergyCheck.confirmMedicine(medication.medication_name, () => {
+                            setMedications(current => [...current, medication]);
+                            setNewMedication({
+                              medication_name: '',
+                              dosage: '',
+                              frequency: '',
+                              duration: '',
+                              instructions: ''
+                            });
                           });
                         }
                       }}
@@ -2294,6 +2402,7 @@ const AddVisitTabs: React.FC<Props> = ({
                     >
                       Add
                     </button>
+                    {allergyCheck.dialog}
                   </div>
                 </div>
                 <div className="mt-4">
@@ -2342,6 +2451,15 @@ const AddVisitTabs: React.FC<Props> = ({
                               <div className="flex items-center gap-2">
                                 <button
                                   type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    // Back into the "Add New Medication" form to change it and add it again, as on Update Visit
+                                    const edit = takeMedicineToEdit(medications, med.id);
+                                    if (!edit) return;
+                                    setNewMedication(edit.form);
+                                    setMedications(edit.rest);
+                                  }}
                                   className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
                                   title="Edit medication"
                                 >
@@ -2398,14 +2516,14 @@ const AddVisitTabs: React.FC<Props> = ({
           >
             <LabResultsTable
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
             />
           </motion.div>
         )}
 
         {/* Imaging Tab */}
         {activeTab === 'imaging' && (
-          <ImagingTabContentSimple patientId={patientId} visitId="" />
+          <ImagingTabContentSimple patientId={patientId} visitId={newVisitId} />
         )}
 
         {/* Leave Form Tab */}
@@ -2468,7 +2586,7 @@ const AddVisitTabs: React.FC<Props> = ({
             
             <MediaUploadWrapper
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
               onUploadSuccess={(file) => {
                 console.log('✅ Media file uploaded:', file);
                 console.log('🔄 Triggering media files refresh');
@@ -2477,14 +2595,14 @@ const AddVisitTabs: React.FC<Props> = ({
               }}
               onUploadError={(error) => {
                 console.error('❌ Media upload error:', error);
-                alert(`Upload failed: ${error}`);
+                toast.error(`Upload failed: ${error}`);
               }}
             />
-            
+
             <FileDisplayComponent
               key={`media-display-${mediaRefreshTrigger}`}
               patientId={patientId}
-              visitId=""
+              visitId={newVisitId}
               uploadType="media"
               onFileDelete={(fileId) => {
                 console.log('🗑️ Media file deleted:', fileId);
@@ -2506,15 +2624,73 @@ const AddVisitTabs: React.FC<Props> = ({
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-4">
                 <h3 className="text-lg font-bold text-gray-500">Services</h3>
-                
+
               </div>
-              
-           
+
+              {/* Code bundles: a set of codes in one click, priced from the tariffs for the visit date */}
+              <BundleMenu
+                practiceId={practiceId || null}
+                practiceType={practiceType}
+                tariffs={billableTariffs}
+                lines={selectedServices}
+                hasMedicalAid={patientHasMedicalAid === true}
+                autoInfectionControl={isDental}
+                infectionControlStaff={fundPricing.infectionControlStaff}
+                askAuthorisation
+                disabled={Boolean(billingBlocked)}
+                disabledReason={billingBlocked ?? undefined}
+                onApply={setSelectedServices}
+              />
             </div>
+
+            {/* The account flags that change how this visit is billed or paid (cash only, credit limit, dispute ...) */}
+            <AccountFlagBadges patientId={patientId} practiceId={contextPracticeId || practiceId || null} billing label="Account" max={0} className="-mt-4" />
+
+            {/* How this patient's lines are priced: the fund's own schedule, or why billing has to wait */}
+            {billingNotice && (
+              <div
+                role="status"
+                className={`-mt-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-sm ${
+                  billingBlocked ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-cyan-200 bg-cyan-50 text-cyan-800'
+                }`}
+              >
+                <Icon icon={billingBlocked ? 'solar:danger-triangle-bold-duotone' : 'solar:tag-price-bold-duotone'} className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                <span>{billingNotice}</span>
+              </div>
+            )}
+
+            {/* Prepaid packages and promotions (parity D17, D18): applied to lines added now, each can be undone */}
+            <VisitBillingExtras
+              ready={!isLoading}
+              practiceId={contextPracticeId || practiceId || null}
+              patientId={patientId || null}
+              invoiceId={null}
+              services={selectedServices}
+              setServices={setSelectedServices}
+              hasMedicalAid={patientHasMedicalAid === true}
+              visitDateKey={visitDateKey}
+              tariffs={billableTariffs}
+              locked={false}
+            />
+
+            {/* Dental practices: the tooth chart; tap teeth, then the work for them (one line per tooth) */}
+            <TeethBillingPanel
+              practiceId={contextPracticeId || practiceId || null}
+              practiceType={practiceType}
+              patientId={patientId}
+              tariffs={billableTariffs}
+              lines={selectedServices}
+              usage={serviceUsageStats}
+              hasMedicalAid={patientHasMedicalAid === true}
+              infectionControlStaff={fundPricing.infectionControlStaff}
+              disabledReason={billingBlocked ?? null}
+              onApply={setSelectedServices}
+              canRecordSurfaces={billing.lineTeethEditable}
+            />
 
             {/* Clean Services Table */}
             {selectedServices.length > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3 }}
@@ -2577,6 +2753,25 @@ const AddVisitTabs: React.FC<Props> = ({
                                 </span>
                               )}
                             </div>
+                            <BillingLineDetails
+                              service={service}
+                              visitDate={visitDateKey}
+                              visitPractitionerId={visitPractitionerId}
+                              practitioners={billing.invoiceContext.practitioners}
+                              editable={billing.lineDetailsEditable}
+                              hasMedicalAid={patientHasMedicalAid === true}
+                              amounts={billing.lineAmounts.get(service.id) ?? null}
+                              today={todayKey()}
+                              onChange={changes => changeLineDetails(service.id, changes)}
+                              icd10={billing.lineIcd10.get(service.id)}
+                              codesEditable={billing.lineCodesEditable}
+                              canChangeFee={billing.canChangeFee}
+                              portionsEditable={billing.linePortionsEditable}
+                              teethEditable={billing.lineTeethEditable}
+                              authorisation={billing.lineAuthorisations.get(service.id)}
+                              people={billing.linePeople}
+                              ruleNotices={codeRules.lineNotices.get(service.id)}
+                            />
                           </td>
                           
                           {/* Compact Quantity Controls */}
@@ -2584,20 +2779,14 @@ const AddVisitTabs: React.FC<Props> = ({
                             <div className="inline-flex items-center bg-gray-100 rounded-lg overflow-hidden">
                               <button
                                 type="button"
-                                disabled={!service.canBeMultiplied || service.quantity <= 1 || service.isRequired}
+                                disabled={!quantityControls(service).editable || service.quantity <= 1}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  const updatedServices = selectedServices.map(s => 
-                                    s.id === service.id 
-                                      ? { ...s, quantity: Math.max(1, s.quantity - 1), totalPrice: s.unitPrice * Math.max(1, s.quantity - 1) }
-                                      : s
-                                  );
-                                  setSelectedServices(updatedServices);
-                                  if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
+                                  changeServiceQuantity(service.id, Math.max(1, service.quantity - 1));
                                 }}
                                 className={`p-1 text-xs ${
-                                  !service.canBeMultiplied || service.quantity <= 1 || service.isRequired
+                                  !quantityControls(service).editable || service.quantity <= 1
                                     ? 'text-gray-300 cursor-not-allowed'
                                     : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
                                 }`}
@@ -2609,20 +2798,14 @@ const AddVisitTabs: React.FC<Props> = ({
                               </span>
                               <button
                                 type="button"
-                                disabled={!service.canBeMultiplied || service.isRequired}
+                                disabled={!quantityControls(service).editable || service.quantity >= quantityControls(service).max}
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  const updatedServices = selectedServices.map(s => 
-                                    s.id === service.id 
-                                      ? { ...s, quantity: s.quantity + 1, totalPrice: s.unitPrice * (s.quantity + 1) }
-                                      : s
-                                  );
-                                  setSelectedServices(updatedServices);
-                                  if (onSelectedServicesChange) onSelectedServicesChange(updatedServices);
+                                  changeServiceQuantity(service.id, service.quantity + 1);
                                 }}
                                 className={`p-1 text-xs ${
-                                  !service.canBeMultiplied || service.isRequired
+                                  !quantityControls(service).editable || service.quantity >= quantityControls(service).max
                                     ? 'text-gray-300 cursor-not-allowed'
                                     : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
                                 }`}
@@ -2633,16 +2816,16 @@ const AddVisitTabs: React.FC<Props> = ({
                           </td>
                           
                           {/* Unit Price */}
-                          <td className="px-4 py-2 text-right">
+                          <td className="px-4 py-2 text-right whitespace-nowrap">
                             <span className="text-sm font-semibold text-gray-900">
-                              N${service.unitPrice.toFixed(2)}
+                              {formatNad(service.unitPrice)}
                             </span>
                           </td>
                           
                           {/* Total */}
-                          <td className="px-4 py-2 text-right">
+                          <td className="px-4 py-2 text-right whitespace-nowrap">
                             <span className="text-sm font-bold" style={{ color: '#30b4be' }}>
-                              N${service.totalPrice.toFixed(2)}
+                              {formatNad(service.totalPrice)}
                             </span>
                           </td>
                           
@@ -2682,6 +2865,20 @@ const AddVisitTabs: React.FC<Props> = ({
                 </div>
               </motion.div>
             )}
+
+            {/* Who pays: the patient, a company account or an injury case (shown when the patient has one) */}
+            <VisitPayerCard state={visitPayer} />
+
+            {/* Medical aid patients: who referred the patient, a hospital stay and the place of service (saved with the visit) */}
+            <VisitClaimDetailsCard
+              state={claimDetails}
+              visitDate={visitDateKey}
+              hasMedicalAid={patientHasMedicalAid === true}
+              practiceId={contextPracticeId || practiceId || null}
+              patientId={patientId || null}
+              registers={billing.registers}
+              authorisationNotices={billing.authorisationNotices}
+            />
 
             {/* Invoice Generation Options */}
             <div>
@@ -2727,33 +2924,28 @@ const AddVisitTabs: React.FC<Props> = ({
                     </label>
                   </div>
 
-                  {/* Additional Options */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                          <Calendar className="w-4 h-4" style={{ color: '#30b4be' }} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">Payment Terms</span>
-                      </div>
-                      <p className="text-xs text-gray-600">Payment due immediately upon service completion</p>
-                    </div>
-                    
-                    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                      <div className="flex items-center gap-3 mb-2">
-                        <div className="p-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #30b4be20, #2a9da620)' }}>
-                          <CheckCircle2 className="w-4 h-4" style={{ color: '#30b4be' }} />
-                        </div>
-                        <span className="text-sm font-semibold text-gray-900">Medical Aid</span>
-                      </div>
-                      <p className="text-xs text-gray-600">
-                        {selectedServices.some(s => s.medicalAidCovered) 
-                          ? 'Some services covered by medical aid' 
-                          : 'No medical aid coverage applied'
-                        }
-                      </p>
-                    </div>
-                  </div>
+                  {/* What the invoice comes to, who pays what, and services that look billed twice */}
+                  {selectedServices.length > 0 && (
+                    <InvoiceBillingSummary
+                      totals={billing.totals}
+                      hasMedicalAid={patientHasMedicalAid === true}
+                      copay={billing.copayRule}
+                      invoice={null}
+                      duplicates={billing.duplicates}
+                      problems={billing.invoiceContext.problems}
+                    />
+                  )}
+
+                  {/* One step at the desk: the visit and its invoice are saved, then Receive payment opens */}
+                  {canTakePayment && selectedServices.length > 0 && (
+                    <InvoiceAndPayButton
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        setValue('generateInvoice', true);
+                        void handleSubmit(onSubmitAndTakePayment)();
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -2761,143 +2953,14 @@ const AddVisitTabs: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Service Selection Modal */}
-      <AnimatePresence>
-        {showServiceModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={handleModalCancel}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden"
-              onClick={(e) => {
-                e.stopPropagation();
-                console.log('🛡️ Modal content clicked - stopping propagation');
-              }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                console.log('🚫 Form submission prevented in modal');
-              }}
-            >
-              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                    Select Service
-                  </h3>
-                  <p className="text-sm text-gray-600">Choose from {availableTariffs.length} available services</p>
-                </div>
-                <button
-                  onClick={handleModalCancel}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-              
-              <div className="p-6 max-h-[70vh] overflow-y-auto">
-                {/* Search Bar */}
-                <div className="mb-6 relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <input
-                    type="text"
-                    placeholder="Search services..."
-                    value={serviceSearchTerm}
-                    onChange={(e) => setServiceSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500/20 focus:border-cyan-500/50 transition-all"
-                  />
-                </div>
-
-                {/* Services Grid - 8 per row */}
-                <div className="grid grid-cols-8 gap-3">
-                  {availableTariffs
-                    .filter(tariff => 
-                      serviceSearchTerm === '' || 
-                      tariff.code.toLowerCase().includes(serviceSearchTerm.toLowerCase()) ||
-                      tariff.description.toLowerCase().includes(serviceSearchTerm.toLowerCase())
-                    )
-                    .sort((a, b) => {
-                      // Sort by frequency (most used first)
-                      const aUsage = serviceUsageStats[a.code] || 0;
-                      const bUsage = serviceUsageStats[b.code] || 0;
-                      if (aUsage !== bUsage) return bUsage - aUsage;
-                      // Then by code
-                      return parseInt(a.code) - parseInt(b.code);
-                    })
-                    .map((tariff) => {
-                      const usageCount = serviceUsageStats[tariff.code] || 0;
-                      const maxUsage = Math.max(...Object.values(serviceUsageStats));
-                      const heatLevel = maxUsage > 0 ? (usageCount / maxUsage) : 0;
-                      
-                      // Gradient from light grey to #30b4be based on usage
-                      const getGradientStyle = (level: number) => {
-                        if (level === 0) {
-                          return {
-                            backgroundColor: '#f9fafb',
-                            borderColor: '#e5e7eb',
-                            color: '#6b7280'
-                          };
-                        }
-                        // Gradient calculation from grey to #30b4be
-                        const startColor = { r: 249, g: 250, b: 251 }; // Light grey
-                        const endColor = { r: 48, g: 180, b: 190 }; // #30b4be
-                        
-                        const r = Math.round(startColor.r + (endColor.r - startColor.r) * level);
-                        const g = Math.round(startColor.g + (endColor.g - startColor.g) * level);
-                        const b = Math.round(startColor.b + (endColor.b - startColor.b) * level);
-                        
-                        return {
-                          backgroundColor: `rgba(${r}, ${g}, ${b}, 0.1)`,
-                          borderColor: `rgba(${r}, ${g}, ${b}, 0.5)`,
-                          color: level > 0.5 ? '#30b4be' : '#374151'
-                        };
-                      };
-
-                      const gradientStyle = getGradientStyle(heatLevel);
-                      
-                      return (
-                        <motion.button
-                          key={tariff.id}
-                          type="button"
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            console.log('🔘 Service button clicked:', tariff.code);
-                            handleServiceSelect(tariff);
-                          }}
-                          className="p-3 rounded-lg border-2 transition-all text-left hover:shadow-md"
-                          style={gradientStyle}
-                        >
-                          <div className="text-sm font-bold mb-1" style={{ fontFamily: 'Rubik, sans-serif' }}>
-                            {tariff.code}
-                          </div>
-                          <div className="text-xs leading-tight mb-2 line-clamp-2">
-                            {tariff.description}
-                          </div>
-                          <div className="text-xs font-semibold" style={{ color: '#30b4be' }}>
-                            N${Math.floor(parseFloat(tariff.price))}<span style={{ color: '#30b4be60' }}>.{String(parseFloat(tariff.price).toFixed(2)).split('.')[1]}</span>
-                          </div>
-                          {usageCount > 0 && (
-                            <div className="text-xs mt-1 opacity-60">
-                              Used {usageCount}x
-                            </div>
-                          )}
-                        </motion.button>
-                      );
-                    })}
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Add a service: search on top, the practice's most used codes first (every discipline) */}
+      <VisitServiceSelector
+        open={showServiceModal}
+        tariffs={billableTariffs}
+        usage={serviceUsageStats}
+        onSelect={handleServiceSelect}
+        onClose={handleModalCancel}
+      />
 
       {/* Quantity Selection Modal */}
       <AnimatePresence>
@@ -2964,7 +3027,9 @@ const AddVisitTabs: React.FC<Props> = ({
                   <div className="bg-gray-50 rounded-lg p-4 mb-6">
                     <div className="text-sm text-gray-600">Total Cost</div>
                     <div className="text-xl font-bold" style={{ color: '#30b4be', fontFamily: 'Rubik, sans-serif' }}>
-                      N${Math.floor(parseFloat(selectedTariff.price) * serviceQuantity)}<span style={{ color: '#30b4be60' }}>.{String((parseFloat(selectedTariff.price) * serviceQuantity).toFixed(2)).split('.')[1]}</span>
+                      {quantityPreview?.ok ? (
+                        <>N${nadParts(quantityPreview.total).whole}<span style={{ color: '#30b4be60' }}>.{nadParts(quantityPreview.total).cents}</span></>
+                      ) : quantityPreview ? '—' : 'No valid price'}
                     </div>
                   </div>
 
@@ -3000,201 +3065,26 @@ const AddVisitTabs: React.FC<Props> = ({
         )}
       </AnimatePresence>
 
-      {/* Tooth Selection Modal */}
-      <AnimatePresence>
-        {showToothModal && selectedTariff && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-            onClick={handleModalCancel}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Poppins, sans-serif' }}>
-                  Select Tooth Number
-                </h3>
-                <p className="text-sm text-gray-600 mt-1">
-                  {selectedTariff.code} - {selectedTariff.description}
-                </p>
-              </div>
-              
-              <div className="p-6 max-h-[70vh] overflow-y-auto">
-                <p className="text-sm text-gray-600 mb-4 text-center">
-                  Select the tooth number(s) for this procedure (FDI notation)
-                </p>
-                
-                {/* Dental Chart */}
-                <div className="space-y-4">
-                  {/* Upper Jaw */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Upper Jaw</h4>
-                    <div className="grid grid-cols-8 gap-2">
-                      {/* Right upper quadrant (18-11) */}
-                      {[18, 17, 16, 15, 14, 13, 12, 11].map(tooth => (
-                        <button
-                          type="button"
-                          key={tooth}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const toothStr = tooth.toString();
-                            if (selectedTooth === toothStr) {
-                              setSelectedTooth('');
-                            } else {
-                              setSelectedTooth(toothStr);
-                            }
-                          }}
-                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
-                            selectedTooth === tooth.toString()
-                              ? 'border-2 text-white'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                          }`}
-                          style={{
-                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
-                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
-                          }}
-                        >
-                          {tooth}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-8 gap-2 mt-2">
-                      {/* Left upper quadrant (21-28) */}
-                      {[21, 22, 23, 24, 25, 26, 27, 28].map(tooth => (
-                        <button
-                          type="button"
-                          key={tooth}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const toothStr = tooth.toString();
-                            if (selectedTooth === toothStr) {
-                              setSelectedTooth('');
-                            } else {
-                              setSelectedTooth(toothStr);
-                            }
-                          }}
-                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
-                            selectedTooth === tooth.toString()
-                              ? 'border-2 text-white'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                          }`}
-                          style={{
-                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
-                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
-                          }}
-                        >
-                          {tooth}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Lower Jaw */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-gray-700 mb-2">Lower Jaw</h4>
-                    <div className="grid grid-cols-8 gap-2">
-                      {/* Right lower quadrant (48-41) */}
-                      {[48, 47, 46, 45, 44, 43, 42, 41].map(tooth => (
-                        <button
-                          type="button"
-                          key={tooth}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const toothStr = tooth.toString();
-                            if (selectedTooth === toothStr) {
-                              setSelectedTooth('');
-                            } else {
-                              setSelectedTooth(toothStr);
-                            }
-                          }}
-                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
-                            selectedTooth === tooth.toString()
-                              ? 'border-2 text-white'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                          }`}
-                          style={{
-                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
-                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
-                          }}
-                        >
-                          {tooth}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-8 gap-2 mt-2">
-                      {/* Left lower quadrant (31-38) */}
-                      {[31, 32, 33, 34, 35, 36, 37, 38].map(tooth => (
-                        <button
-                          type="button"
-                          key={tooth}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const toothStr = tooth.toString();
-                            if (selectedTooth === toothStr) {
-                              setSelectedTooth('');
-                            } else {
-                              setSelectedTooth(toothStr);
-                            }
-                          }}
-                          className={`p-3 text-sm font-bold rounded-lg border-2 transition-all ${
-                            selectedTooth === tooth.toString()
-                              ? 'border-2 text-white'
-                              : 'bg-white border-gray-200 text-gray-700 hover:border-gray-300'
-                          }`}
-                          style={{
-                            backgroundColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined,
-                            borderColor: selectedTooth === tooth.toString() ? '#30b4be' : undefined
-                          }}
-                        >
-                          {tooth}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleModalCancel();
-                    }}
-                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleToothNext();
-                    }}
-                    disabled={!selectedTooth}
-                    className="flex-1 px-4 py-2 text-white rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: '#30b4be' }}
-                  >
-                    Add Service
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* The teeth for a code that needs one: one or more teeth (milk teeth too), one line per tooth */}
+      <ToothPickerDialog
+        open={showToothModal && Boolean(selectedTariff)}
+        tariff={selectedTariff}
+        quantity={serviceQuantity}
+        practiceId={practiceId || null}
+        patientId={patientId}
+        lines={selectedServices}
+        tariffs={billableTariffs}
+        hasMedicalAid={patientHasMedicalAid === true}
+        autoInfectionControl={isDental}
+        infectionControlStaff={fundPricing.infectionControlStaff}
+        disabledReason={billingBlocked ?? null}
+        onApply={lines => {
+          setSelectedServices(lines);
+          handleModalCancel();
+        }}
+        onCancel={handleModalCancel}
+        canRecordSurfaces={billing.lineTeethEditable}
+      />
 
       {/* Form Actions */}
       <div className="border-t border-gray-200 pt-6 mt-8 flex justify-end space-x-3">
@@ -3224,6 +3114,21 @@ const AddVisitTabs: React.FC<Props> = ({
           )}
         </button>
       </div>
+
+      {/* Cash only / credit limit check when the visit is invoiced */}
+      {invoiceFlags.dialog}
+
+      {paymentInvoiceId && user?.practice_id && (
+        <VisitTakePayment
+          practiceId={user.practice_id}
+          patientId={patientId}
+          invoiceId={paymentInvoiceId}
+          onDone={() => {
+            setPaymentInvoiceId(null);
+            onSuccess();
+          }}
+        />
+      )}
 
       {/* Premium Doctor Selection Modal */}
       <AnimatePresence>

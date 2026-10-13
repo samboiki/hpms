@@ -1,6 +1,11 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { TemplateProcessor } from './template-processor.ts';
+import { maySendToOptedOutPatient, smsContentForLog } from '../_shared/smsMessagePolicy.ts';
+import { maskPhone } from '../_shared/logMask.ts';
+import { normalizePhoneNumber, storedPhoneSearchPattern } from '../_shared/smsPhone.ts';
+import { constantTimeEqual } from '../_shared/smsReplyPayload.ts';
+import { bearerToken, decideGatewayAccess, type GatewayCaller } from '../_shared/smsGatewayAccess.ts';
 
 // CORS headers with additional allowed headers
 const corsHeaders = {
@@ -9,6 +14,49 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Has the recipient replied STOP (patients.sms_opt_out)? Checks the patient the message is for and
+ * every patient file of the practice with the same number (a shared family phone).
+ * Before the two-way SMS database change the column does not exist, so nobody has opted out.
+ * Any other failure counts as opted out: a non-essential message is never worth that risk.
+ */
+async function recipientHasOptedOut(
+  supabase: SupabaseClient,
+  practiceId: string,
+  patientId: unknown,
+  recipientPhone: string
+): Promise<boolean> {
+  const columnMissing = (error: { code?: string }) => error.code === '42703';
+
+  if (typeof patientId === 'string' && UUID_PATTERN.test(patientId)) {
+    const { data, error } = await supabase
+      .from('patients')
+      .select('id')
+      .eq('id', patientId)
+      .eq('sms_opt_out', true)
+      .maybeSingle();
+    if (error) return !columnMissing(error);
+    if (data) return true;
+  }
+
+  const recipient = normalizePhoneNumber(recipientPhone);
+  const pattern = storedPhoneSearchPattern(recipient);
+  if (!recipient || !pattern) return false;
+  const { data, error } = await supabase
+    .from('patients')
+    .select('cell_number')
+    .eq('practice_id', practiceId)
+    .eq('sms_opt_out', true)
+    .ilike('cell_number', pattern)
+    .limit(50);
+  if (error) return !columnMissing(error);
+  return ((data ?? []) as Array<{ cell_number: string | null }>).some(
+    (patient) => normalizePhoneNumber(patient.cell_number) === recipient
+  );
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -54,13 +102,42 @@ serve(async (req) => {
       templateVariables = {}
     } = await req.json();
 
-    console.log('SMS Request:', { 
-      practiceId, 
-      recipientPhone, 
-      messageType, 
+    // Who may send: the platform's own functions (service role key) or signed-in, active staff of the practice
+    // whose SMS bundle pays for the message. The public anon key alone is no longer enough (see smsGatewayAccess.ts).
+    const token = bearerToken(req.headers.get('Authorization'));
+    const isServiceKey = !!token && !!supabaseServiceKey && constantTimeEqual(token, supabaseServiceKey);
+    let caller: GatewayCaller = { isServiceKey, user: null, staff: null, assignedPracticeIds: [] };
+    if (!isServiceKey && token) {
+      const { data: { user } } = await supabase.auth.getUser(token);
+      if (user) {
+        const [{ data: staff }, { data: assignments }] = await Promise.all([
+          supabase.from('users').select('practice_id, is_active, is_super_admin').eq('id', user.id).maybeSingle(),
+          supabase.from('user_practice_assignments').select('practice_id').eq('user_id', user.id)
+        ]);
+        caller = {
+          isServiceKey,
+          user: { id: user.id },
+          staff: staff ?? null,
+          assignedPracticeIds: (assignments ?? []).map((row: { practice_id: string }) => row.practice_id)
+        };
+      }
+    }
+    const access = decideGatewayAccess(caller, String(practiceId ?? ''));
+    if (!access.allowed) {
+      return new Response(
+        JSON.stringify({ success: false, error: access.error }),
+        { status: access.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Function logs are kept and read by support: never a patient's full number or message details (_shared/logMask.ts)
+    console.log('SMS Request:', {
+      practiceId,
+      recipient: maskPhone(recipientPhone),
+      messageType,
       templateId,
-      metadata,
-      queue_id: metadata?.queue_id 
+      metadataKeys: Object.keys(metadata ?? {}),
+      queue_id: metadata?.queue_id
     });
 
     // Process template if templateId is provided
@@ -94,6 +171,27 @@ serve(async (req) => {
         }),
         { 
           status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // A patient who replied STOP gets only essential messages (appointments, results, replies they
+    // asked for). The message type lists are in ../_shared/smsMessagePolicy.ts.
+    if (
+      !maySendToOptedOutPatient(messageType, metadata) &&
+      await recipientHasOptedOut(supabase, practiceId, patientId, String(recipientPhone))
+    ) {
+      console.log('SMS not sent: the recipient opted out of non-essential SMS', { practiceId, messageType });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          status: 'blocked',
+          code: 'PATIENT_OPTED_OUT',
+          error: 'Not sent: this patient replied STOP to opt out of non-essential SMS. Appointment, results and other essential messages can still be sent.'
+        }),
+        {
+          status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
@@ -157,13 +255,13 @@ serve(async (req) => {
       );
     }
 
-    // Create log entry
+    // Create log entry. A sign-in code is stored hidden: staff can read this table (smsMessagePolicy.ts)
     console.log('Creating log entry');
     const logData = {
       practice_id: practiceId,
       recipient_phone: recipientPhone,
       sender_phone: senderPhone,
-      message_content: finalMessageContent,
+      message_content: smsContentForLog(messageType, finalMessageContent),
       message_type: messageType,
       provider: 'smsportal',
       status: 'pending',
@@ -182,7 +280,7 @@ serve(async (req) => {
 
     if (logError) {
       console.error('Log entry creation error:', logError);
-      console.error('Log data that failed:', logData);
+      console.error('Log data that failed:', { practice_id: logData.practice_id, message_type: logData.message_type, recipient: maskPhone(logData.recipient_phone) });
       return new Response(
         JSON.stringify({
           success: false,
@@ -213,17 +311,12 @@ serve(async (req) => {
 
     // Send SMS via SMS Portal v3 API - Using the working format
     try {
-      // Format phone number
-      let cleanPhone = recipientPhone.replace(/\D/g, '');
-      
-      // Handle Namibian numbers
-      if (cleanPhone.startsWith('0')) {
-        cleanPhone = '264' + cleanPhone.substring(1);
-      }
-      
-      // Add + if not present
-      if (!cleanPhone.startsWith('+')) {
-        cleanPhone = '+' + cleanPhone;
+      // The app's own rules (normalizePhoneNumber; shared copy in _shared/smsPhone.ts): a number saved without its
+      // leading 0 ("81 123 4567") is Namibian, never +81 Japan, and a number that cannot be dialled is refused
+      // (the log row records why) instead of being sent to a foreign number
+      const cleanPhone = normalizePhoneNumber(recipientPhone);
+      if (!cleanPhone) {
+        throw new Error('Not a dialable phone number: check the patient\'s cell number');
       }
       
       // Create Basic Auth credentials
@@ -244,14 +337,16 @@ serve(async (req) => {
           {
             content: finalMessageContent,
             destination: cleanPhone,
-            customerId: metadata.reference || `msg-${Date.now()}`
+            // The log row id by default: SMSPortal returns it with a patient's reply, so the reply
+            // finds its message, practice, patient and appointment (see sms-reply-webhook)
+            customerId: metadata.reference || logEntry.id
           }
         ]
       };
 
-      console.log('Sending SMS to SMS Portal v3 API with payload:', { 
+      console.log('Sending SMS to SMS Portal v3 API with payload:', {
         ...payload,
-        messages: payload.messages.map(m => ({ ...m, destination: m.destination }))
+        messages: payload.messages.map(m => ({ ...m, destination: maskPhone(m.destination), content: smsContentForLog(messageType, m.content) }))
       });
 
       // Use the v3 endpoint
@@ -267,20 +362,22 @@ serve(async (req) => {
 
       const responseText = await smsResponse.text();
       console.log('SMS Portal response status:', smsResponse.status);
-      console.log('SMS Portal response text:', responseText);
+      console.log('SMS Portal response length:', responseText.length);
 
       let smsResult;
       try {
         smsResult = JSON.parse(responseText);
       } catch {
-        console.error('Failed to parse SMS Portal response as JSON:', responseText);
-        throw new Error(`Invalid response from SMS Portal: ${responseText.substring(0, 200)}`);
+        // A provider error page may repeat the number: long digit runs are hidden
+        const shown = responseText.substring(0, 200).replace(/\d{6,}/g, '***');
+        console.error('Failed to parse SMS Portal response as JSON:', shown);
+        throw new Error(`Invalid response from SMS Portal: ${shown}`);
       }
 
       // Check if SMS was accepted
       if (smsResponse.ok) {
         console.log('SMS sent successfully, updating log entry');
-        console.log('SMS Result:', JSON.stringify(smsResult));
+        console.log('SMS Result fields:', Object.keys(smsResult ?? {}).join(', '));
         
         // Extract message ID from response - SMS Portal v3 format
         const messageId = smsResult.results?.[0]?.messageId || 
@@ -300,7 +397,7 @@ serve(async (req) => {
           provider_response: smsResult
         };
 
-        console.log('Updating log entry with:', updateData);
+        console.log('Updating log entry with:', { status: updateData.status, provider_message_id: updateData.provider_message_id });
 
         const { data: updatedLog, error: updateError } = await supabase
           .from('practice_sms_logs')
@@ -311,13 +408,13 @@ serve(async (req) => {
 
         if (updateError) {
           console.error('Failed to update log entry:', updateError);
-          console.error('Update error details:', { 
-            error: updateError, 
+          console.error('Update error details:', {
+            error: updateError,
             logId: logEntry.id,
-            updateData 
+            status: updateData.status
           });
         } else {
-          console.log('Log entry updated successfully:', updatedLog);
+          console.log('Log entry updated successfully:', updatedLog?.id);
         }
 
         // Update subscription usage

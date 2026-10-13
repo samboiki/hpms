@@ -22,7 +22,10 @@ import {
   Image,
   File
 } from 'lucide-react';
+import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { RECORD_LINK_SECONDS, bucketOf } from '../../services/recordFiles';
 import FileUploadComponent from '../uploads/FileUploadComponent';
 import FileDisplayComponent from '../uploads/FileDisplayComponent';
 import LabRequestForm from './LabRequestForm';
@@ -32,17 +35,20 @@ interface LaboratoryTabContentProps {
   visitId: string;
 }
 
+// lab_requests has no test_name, test_category, priority, clinical_indication or requested_by
+// column (see database.types.ts), so rows arrive without them; calling string methods on them
+// crashed this tab as soon as a visit had a lab request
 interface LabRequest {
   id: string;
-  test_name: string;
-  test_category: string;
-  priority: string;
+  test_name?: string;
+  test_category?: string;
+  priority?: string;
   status: string;
   request_date: string;
-  clinical_indication: string;
+  clinical_indication?: string;
   result_file_id?: string;
   result_text_ids?: string[];
-  requested_by: string;
+  requested_by?: string;
 }
 
 const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
@@ -99,12 +105,14 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (error) {
         console.error('Error fetching lab requests:', error);
+        toast.error('Could not load lab requests. Check your connection and try again.');
         return;
       }
 
       setLabRequests(data || []);
     } catch (error) {
       console.error('Error in fetchLabRequests:', error);
+      toast.error('Could not load lab requests. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -131,8 +139,8 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
   };
 
   const filteredRequests = labRequests.filter(request => {
-    const matchesSearch = request.test_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         request.clinical_indication.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (request.test_name ?? '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (request.clinical_indication ?? '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || request.status === filterStatus;
     return matchesSearch && matchesStatus;
   });
@@ -157,7 +165,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (filesError || !labFiles || labFiles.length === 0) {
         console.error('❌ No lab files found for extraction:', filesError);
-        alert('No lab request files found to extract from. Please upload a lab request form first.');
+        toast.error('No lab request files found to extract from. Please upload a lab request form first.');
         return;
       }
 
@@ -169,7 +177,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
         .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
 
       if (extractableFiles.length === 0) {
-        alert('No AI-compatible files found for extraction. Please upload an image (JPG, PNG, GIF, WebP) or PDF for AI processing.');
+        toast.error('No AI-compatible files found for extraction. Please upload an image (JPG, PNG, GIF, WebP) or PDF for AI processing.');
         return;
       }
 
@@ -190,7 +198,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
       
     } catch (error) {
       console.error('❌ AI extraction failed:', error);
-      alert('AI extraction failed. Please try again.');
+      toast.error('AI extraction failed. Please try again.');
     }
   };
 
@@ -206,18 +214,18 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (!allSupportedTypes.includes(selectedFile.mime_type)) {
         console.error('❌ Unsupported file type for AI extraction:', selectedFile.mime_type);
-        alert(`File type "${selectedFile.mime_type}" is not supported for AI extraction. Please upload JPG, PNG, GIF, WebP, or PDF files.`);
+        toast.error(`File type "${selectedFile.mime_type}" is not supported for AI extraction. Please upload JPG, PNG, GIF, WebP, or PDF files.`);
         return;
       }
 
-      // 2. Get signed URL for the file
+      // 2. Get signed URL for the file (from the bucket its row names; short-lived, for this reading only)
       const { data: urlData, error: urlError } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(selectedFile.storage_path, 3600);
+        .from(bucketOf(selectedFile.storage_path, selectedFile.storage_bucket))
+        .createSignedUrl(selectedFile.storage_path, RECORD_LINK_SECONDS);
 
       if (urlError || !urlData?.signedUrl) {
         console.error('❌ Failed to get file URL:', urlError);
-        alert('Failed to access the uploaded file. Please try again.');
+        toast.error('Failed to access the uploaded file. Please try again.');
         return;
       }
 
@@ -255,18 +263,18 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
         // Handle specific error types
         if (extractionData?.error) {
           // Use the error message from the edge function
-          alert(`AI Extraction Failed: ${extractionData.message || extractionData.error}`);
+          toast.error(`AI Extraction Failed: ${extractionData.message || extractionData.error}`);
         } else if (extractionError.message && extractionError.message.includes('PDF processing')) {
-          alert('PDF files are not yet supported for AI extraction. Please convert your PDF to JPG or PNG format and upload again for AI processing.');
+          toast.error('PDF files are not yet supported for AI extraction. Please convert your PDF to JPG or PNG format and upload again for AI processing.');
         } else {
-          alert('AI extraction service failed. Please try again.');
+          toast.error('AI extraction service failed. Please try again.');
         }
         return;
       }
 
       if (!extractionData?.results || extractionData.results.length === 0) {
         console.log('⚠️ No lab data extracted from image');
-        alert('No lab request data could be extracted from the file. Please ensure the image is clear and contains lab request information.');
+        toast.error('No lab request data could be extracted from the file. Please ensure the image is clear and contains lab request information.');
         return;
       }
 
@@ -293,19 +301,19 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (updateError) {
         console.error('❌ Failed to update lab request:', updateError);
-        alert('Failed to update lab request with extracted data.');
+        toast.error('Failed to update lab request with extracted data.');
         return;
       }
 
       console.log('✅ Lab request updated with AI extracted data');
-      alert(`Successfully extracted and updated lab request with:\n• Test Name: ${updatedTestName}\n• ${extractedResults.length} test results found`);
+      toast.success(`Lab request updated: ${updatedTestName} (${extractedResults.length} tests found)`);
       
       // Refresh the lab requests list
       fetchLabRequests();
       
     } catch (error) {
       console.error('❌ AI extraction failed:', error);
-      alert('AI extraction failed. Please try again.');
+      toast.error('AI extraction failed. Please try again.');
     }
   };
 
@@ -323,7 +331,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (filesError || !labFiles || labFiles.length === 0) {
         console.error('❌ No lab files found for results extraction:', filesError);
-        alert('No lab result files found to extract from. Please upload lab result documents first.');
+        toast.error('No lab result files found to extract from. Please upload lab result documents first.');
         return;
       }
 
@@ -335,7 +343,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
         .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
 
       if (resultFiles.length === 0) {
-        alert('No AI-compatible files found for extraction. Please upload an image (JPG, PNG, GIF, WebP) or PDF for AI processing.');
+        toast.error('No AI-compatible files found for extraction. Please upload an image (JPG, PNG, GIF, WebP) or PDF for AI processing.');
         return;
       }
 
@@ -355,7 +363,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
       
     } catch (error) {
       console.error('❌ AI results extraction failed:', error);
-      alert('AI results extraction failed. Please try again.');
+      toast.error('AI results extraction failed. Please try again.');
     }
   };
 
@@ -371,18 +379,18 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (!allSupportedTypes.includes(selectedResultFile.mime_type)) {
         console.error('❌ Unsupported file type for AI extraction:', selectedResultFile.mime_type);
-        alert(`File type "${selectedResultFile.mime_type}" is not supported for AI extraction. Please upload JPG, PNG, GIF, WebP, or PDF files.`);
+        toast.error(`File type "${selectedResultFile.mime_type}" is not supported for AI extraction. Please upload JPG, PNG, GIF, WebP, or PDF files.`);
         return;
       }
 
-      // 2. Get signed URL for the file
+      // 2. Get signed URL for the file (from the bucket its row names; short-lived, for this reading only)
       const { data: urlData, error: urlError } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(selectedResultFile.storage_path, 3600);
+        .from(bucketOf(selectedResultFile.storage_path, selectedResultFile.storage_bucket))
+        .createSignedUrl(selectedResultFile.storage_path, RECORD_LINK_SECONDS);
 
       if (urlError || !urlData?.signedUrl) {
         console.error('❌ Failed to get file URL:', urlError);
-        alert('Failed to access the uploaded file. Please try again.');
+        toast.error('Failed to access the uploaded file. Please try again.');
         return;
       }
 
@@ -413,18 +421,18 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
         // Handle specific error types
         if (extractionData?.error) {
           // Use the error message from the edge function
-          alert(`AI Extraction Failed: ${extractionData.message || extractionData.error}`);
+          toast.error(`AI Extraction Failed: ${extractionData.message || extractionData.error}`);
         } else if (extractionError.message && extractionError.message.includes('PDF processing')) {
-          alert('PDF files are not yet supported for AI extraction. Please convert your PDF to JPG or PNG format and upload again for AI processing.');
+          toast.error('PDF files are not yet supported for AI extraction. Please convert your PDF to JPG or PNG format and upload again for AI processing.');
         } else {
-          alert('AI extraction service failed. Please try again.');
+          toast.error('AI extraction service failed. Please try again.');
         }
         return;
       }
 
       if (!extractionData?.results || extractionData.results.length === 0) {
         console.log('⚠️ No lab results extracted from file');
-        alert('No lab result data could be extracted from the file. Please ensure the image is clear and contains lab test results.');
+        toast.error('No lab result data could be extracted from the file. Please ensure the image is clear and contains lab test results.');
         return;
       }
 
@@ -432,18 +440,16 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
       const extractedResults = extractionData.results;
       console.log('✅ Extracted lab results:', extractedResults);
 
-      // Create lab_results entries for each extracted test
+      // Create lab_results entries for each extracted test. Uses the columns lab_results actually has
+      // (same as manual entry in EnterLabResults); the old payload wrote patient_id, visit_id,
+      // result_value, unit, abnormal_flag, performed_at and result_date, which don't exist, so every
+      // AI-extracted save failed. Results link to the patient and visit through the lab request.
       const labResultsToInsert = extractedResults.map(result => ({
-        patient_id: patientId,
-        visit_id: visitId,
+        lab_request_id: requestId,
         test_name: result.testName || 'Unknown Test',
-        result_value: result.value || '',
-        unit: result.unit || '',
-        reference_range: result.referenceRange || '',
-        abnormal_flag: result.status === 'normal' ? null : result.status,
-        status: 'completed',
-        performed_at: new Date().toISOString(),
-        result_date: new Date().toISOString()
+        test_value: result.value || '',
+        test_unit: result.unit || null,
+        reference_range: result.referenceRange || null
       }));
 
       // Insert the lab results
@@ -454,39 +460,33 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
 
       if (insertError) {
         console.error('❌ Failed to insert lab results:', insertError);
-        alert('Failed to save extracted lab results to database.');
+        toast.error('Failed to save extracted lab results to database.');
         return;
       }
 
-      // 5. Update the lab request with the extracted results information
-      const resultSummary = extractedResults.map(r => `${r.testName}: ${r.value} ${r.unit} (${r.status})`).join('; ');
-      
+      // 5. Mark the lab request completed. lab_requests only has `status` of the fields this used to
+      // write (extracted_results_data, ai_processing_status, clinical_indication, completed_at don't exist).
       const { error: updateError } = await supabase
         .from('lab_requests')
-        .update({
-          status: 'completed',
-          extracted_results_data: extractedResults,
-          ai_processing_status: 'completed',
-          clinical_indication: `${resultSummary} - AI Extracted from ${selectedResultFile.original_name}`,
-          completed_at: new Date().toISOString()
-        })
+        .update({ status: 'completed' })
         .eq('id', requestId);
 
       if (updateError) {
         console.error('❌ Failed to update lab request:', updateError);
-        alert('Failed to update lab request with extracted results.');
+        toast.error('Failed to update lab request with extracted results.');
         return;
       }
 
       console.log('✅ Lab request updated with AI extracted results');
-      alert(`Successfully extracted and processed ${extractedResults.length} lab results:\n\n${resultSummary}`);
+      // Values are read automatically and can be misread, so ask for a check against the report
+      toast.success(`Saved ${extractedResults.length} lab results from ${selectedResultFile.original_name}. Please check them against the original.`);
       
       // Refresh the lab requests list
       fetchLabRequests();
       
     } catch (error) {
       console.error('❌ AI results extraction failed:', error);
-      alert('AI results extraction failed. Please try again.');
+      toast.error('AI results extraction failed. Please try again.');
     }
   };
 
@@ -506,11 +506,12 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
       }
 
       console.log('✅ Lab request deleted successfully');
+      toast.success('Lab request deleted');
       fetchLabRequests(); // Refresh the list
       
     } catch (error) {
       console.error('💥 Error deleting lab request:', error);
-      alert(`Failed to delete lab request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(`Failed to delete lab request: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -620,8 +621,14 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
             ) : filteredRequests.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
                 <TestTube className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">No lab requests yet</h4>
-                <p className="text-gray-500">Create lab requests to track tests ordered for this patient</p>
+                <h4 className="text-lg font-medium text-gray-900 mb-2">
+                  {labRequests.length > 0 ? 'No lab requests match your search' : 'No lab requests yet'}
+                </h4>
+                <p className="text-gray-500">
+                  {labRequests.length > 0
+                    ? 'Clear the search or choose All Status to see every request.'
+                    : "Use 'New Lab Request' to add one."}
+                </p>
               </div>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -643,7 +650,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                       <tr key={request.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <div>
-                            <div className="font-medium text-gray-900">{request.test_name}</div>
+                            <div className="font-medium text-gray-900">{request.test_name || '—'}</div>
                             <div className="text-sm text-gray-500 truncate max-w-xs" title={request.clinical_indication}>
                               {request.clinical_indication}
                             </div>
@@ -651,7 +658,9 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-600">
-                            {request.test_category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            {request.test_category
+                              ? request.test_category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                              : '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -660,14 +669,18 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(request.priority)}`}>
-                            {request.priority.charAt(0).toUpperCase() + request.priority.slice(1)}
-                          </span>
+                          {request.priority ? (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(request.priority)}`}>
+                              {request.priority.charAt(0).toUpperCase() + request.priority.slice(1)}
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 text-sm text-gray-600">
                             <Calendar className="w-3 h-3" />
-                            {new Date(request.request_date).toLocaleDateString()}
+                            {format(new Date(request.request_date), 'dd MMM yyyy')}
                           </div>
                         </td>
                         <td className="px-4 py-3">
@@ -743,6 +756,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                                 setShowRequestForm(true);
                               }}
                               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                              aria-label="Edit lab request"
                               title="Edit request"
                             >
                               <Edit3 className="w-4 h-4" />
@@ -752,11 +766,12 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                if (confirm('Are you sure you want to delete this lab request?')) {
+                                if (window.confirm(`Delete the lab request${request.test_name ? ` for ${request.test_name}` : ''} from ${format(new Date(request.request_date), 'dd MMM yyyy')}? This cannot be undone.`)) {
                                   handleDeleteRequest(request.id);
                                 }
                               }}
                               className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              aria-label="Delete lab request"
                               title="Delete request"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -805,12 +820,12 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                 // Auto-switch back to requests tab after upload for easy AI extraction
                 setTimeout(() => {
                   setActiveSection('requests');
-                  alert(`File "${file.originalName}" uploaded successfully! You can now use AI extraction in the Lab Requests tab.`);
+                  toast.success(`File "${file.originalName}" uploaded. You can now use AI extraction in the Lab Requests tab.`);
                 }, 1000);
               }}
               onUploadError={(error) => {
                 console.error('❌ Laboratory upload error:', error);
-                alert(`Upload failed: ${error}`);
+                toast.error(`Upload failed: ${error}`);
               }}
             />
             
@@ -886,6 +901,8 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                   type="button"
                   onClick={() => setShowFileSelector(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Close file list"
+                  title="Close"
                 >
                   <X className="w-5 h-5 text-gray-500" />
                 </button>
@@ -912,7 +929,7 @@ const LaboratoryTabContent: React.FC<LaboratoryTabContentProps> = ({
                     <div className="flex-1">
                       <p className="font-medium text-gray-900">{file.original_name}</p>
                       <p className="text-sm text-gray-500">
-                        {file.mime_type} • Uploaded {new Date(file.uploaded_at).toLocaleDateString()}
+                        {file.mime_type}{file.uploaded_at ? ` • Uploaded ${format(new Date(file.uploaded_at), 'dd MMM yyyy')}` : ''}
                       </p>
                       {file.description && (
                         <p className="text-xs text-gray-400 mt-1">{file.description}</p>

@@ -1,267 +1,97 @@
 import React, { useState } from 'react';
-import Html2CanvasPDF from './Html2CanvasPDF';
-import PuppeteerPDF from './PuppeteerPDF';
+import { Icon } from '@iconify/react';
+import toast from 'react-hot-toast';
+import { makeInvoicePdf } from '../../services/invoiceDocumentService';
 
-interface Invoice {
+/** The invoice fields callers pass; the PDF itself is read fresh from the database by its id. */
+interface InvoiceRef {
   id: string;
   invoice_number: string;
-  visit_id: string;
-  visit_date?: string;
-  visit_number?: number;
-  chief_complaint?: string;
-  payment_status: 'paid' | 'pending' | 'overdue' | 'cancelled';
-  payment_method?: string;
-  total: number;
-  created_at: string;
-  services: Service[];
-  medical_aid_covered: number;
-  patient_portion: number;
-}
-
-interface Service {
-  id: string;
-  code: string;
-  description: string;
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-  medical_aid_covered: number;
-  patient_portion: number;
-}
-
-// PracticeInfo interface removed - components now fetch practice data directly from database
-
-interface PatientInfo {
-  name: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  medicalAidProvider?: string;
-  membershipNumber?: string;
 }
 
 interface UnifiedPDFGeneratorProps {
-  invoice: Invoice;
-  patient: PatientInfo;
+  invoice: InvoiceRef;
+  /** Kept for callers; the patient, member and fund come from the invoice's own records */
+  patient?: unknown;
 }
 
-type PDFMethod = 'html2canvas' | 'puppeteer' | 'browser-print';
+/**
+ * Download or print one invoice: the practice's text PDF in the NAMAF rule-008 layout (invoicePdf.ts, the one
+ * invoice PDF of the app). After it is made, anything rule 008 still asks for (a practice number, an HPCNA number,
+ * an ICD-10 code) is listed, so it can be fixed before the account goes to the patient or fund.
+ */
+const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) => {
+  const [busy, setBusy] = useState<'download' | 'print' | null>(null);
+  const [missing, setMissing] = useState<string[] | null>(null);
 
-const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({
-  invoice,
-  patient
-}) => {
-  const [selectedMethod, setSelectedMethod] = useState<PDFMethod>('html2canvas');
-  const [generating, setGenerating] = useState(false);
-
-  const methods = [
-    {
-      id: 'html2canvas' as PDFMethod,
-      name: 'HTML2Canvas + jsPDF',
-      description: 'Client-side PDF generation from HTML',
-      pros: ['✅ Works immediately', '✅ No server setup', '✅ Perfect font rendering'],
-      cons: ['⚠️ Large file sizes', '⚠️ Image-based text'],
-      recommended: true,
-      status: '🟢 Ready'
-    },
-    {
-      id: 'puppeteer' as PDFMethod,
-      name: 'Puppeteer (Server-side)',
-      description: 'Professional PDF generation using headless Chrome',
-      pros: ['✅ Perfect rendering', '✅ Small file sizes', '✅ Searchable text', '✅ Production ready'],
-      cons: ['⚠️ Requires server setup', '⚠️ Node.js dependency'],
-      recommended: false,
-      status: '🟡 Needs API setup'
-    },
-    {
-      id: 'browser-print' as PDFMethod,
-      name: 'Browser Print (CSS)',
-      description: 'Use browser\'s native print functionality',
-      pros: ['✅ Zero dependencies', '✅ Perfect fonts', '✅ Lightweight'],
-      cons: ['⚠️ Manual user action', '⚠️ Inconsistent across browsers'],
-      recommended: false,
-      status: '🟢 Ready'
+  const run = async (action: 'download' | 'print') => {
+    setBusy(action);
+    try {
+      const { doc, pdf } = await makeInvoicePdf(invoice.id);
+      setMissing(doc.missing);
+      if (action === 'download') {
+        pdf.save(doc.fileName);
+      } else {
+        // The browser's PDF viewer opens in a new tab, where it can be printed or shared
+        const url = URL.createObjectURL(pdf.output('blob'));
+        const opened = window.open(url, '_blank');
+        if (!opened) {
+          pdf.save(doc.fileName);
+          toast('The PDF was downloaded because the browser blocked the new tab. Open it to print.', { duration: 6000 });
+        }
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
+    } catch (error) {
+      toast.error(`Could not create the invoice PDF: ${error instanceof Error ? error.message : 'unknown error'}`);
+    } finally {
+      setBusy(null);
     }
-  ];
-
-  const handleBrowserPrint = () => {
-    window.print();
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          🚀 Choose PDF Generation Method
-        </h3>
-        <p className="text-sm text-gray-600">
-          Select the best PDF generation method for your needs. Each has different trade-offs.
+    <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
+      <h3 className="text-lg font-semibold text-gray-900">Invoice {invoice.invoice_number}</h3>
+      <p className="mt-1 text-sm text-gray-600">A PDF with the practice and practitioner numbers, each service with its date, ICD-10 and code, and what the medical aid and the patient pay.</p>
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => void run('download')}
+          disabled={busy !== null}
+          className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 font-medium text-white hover:bg-cyan-700 disabled:opacity-60"
+        >
+          <Icon icon="solar:download-minimalistic-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+          {busy === 'download' ? 'Making the PDF...' : 'Download PDF'}
+        </button>
+        <button
+          type="button"
+          onClick={() => void run('print')}
+          disabled={busy !== null}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+        >
+          <Icon icon="solar:printer-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+          {busy === 'print' ? 'Opening...' : 'Open to print'}
+        </button>
+      </div>
+
+      {missing && missing.length > 0 && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
+          <p className="font-medium">The invoice was made, but NAMAF rule 008 also asks for:</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            {missing.map(item => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {missing && missing.length === 0 && (
+        <p className="mt-4 flex items-center gap-2 text-sm text-emerald-700" role="status">
+          <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+          Everything NAMAF rule 008 asks for is on the invoice.
         </p>
-      </div>
-
-      {/* Method Selection */}
-      <div className="grid gap-4 mb-6">
-        {methods.map((method) => (
-          <div
-            key={method.id}
-            className={`border rounded-lg p-4 cursor-pointer transition-all ${
-              selectedMethod === method.id
-                ? 'border-blue-500 bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'
-            } ${method.recommended ? 'ring-2 ring-green-200' : ''}`}
-            onClick={() => setSelectedMethod(method.id)}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  checked={selectedMethod === method.id}
-                  onChange={() => setSelectedMethod(method.id)}
-                  className="text-blue-600"
-                />
-                <h4 className="font-medium text-gray-900">
-                  {method.name}
-                  {method.recommended && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
-                      Recommended
-                    </span>
-                  )}
-                </h4>
-              </div>
-              <span className="text-sm">{method.status}</span>
-            </div>
-            
-            <p className="text-sm text-gray-600 mb-3">{method.description}</p>
-            
-            <div className="grid md:grid-cols-2 gap-3">
-              <div>
-                <h5 className="text-xs font-medium text-green-700 mb-1">Pros:</h5>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  {method.pros.map((pro, index) => (
-                    <li key={index}>{pro}</li>
-                  ))}
-                </ul>
-              </div>
-              <div>
-                <h5 className="text-xs font-medium text-amber-700 mb-1">Considerations:</h5>
-                <ul className="text-xs text-gray-600 space-y-1">
-                  {method.cons.map((con, index) => (
-                    <li key={index}>{con}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Action Buttons */}
-      <div className="border-t pt-4">
-        <div className="flex flex-wrap gap-3">
-          {selectedMethod === 'html2canvas' && (
-            <Html2CanvasPDF
-              invoice={invoice}
-              patient={patient}
-              onGenerating={setGenerating}
-            />
-          )}
-          
-          {selectedMethod === 'puppeteer' && (
-            <div className="flex flex-col gap-2">
-              <PuppeteerPDF
-                invoice={invoice}
-                patient={patient}
-              />
-              <p className="text-xs text-amber-600">
-                ⚠️ Requires server-side API setup (see instructions below)
-              </p>
-            </div>
-          )}
-          
-          {selectedMethod === 'browser-print' && (
-            <button
-              onClick={handleBrowserPrint}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-medium px-4 py-2 rounded-lg flex items-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a1 1 0 001-1v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4a1 1 0 001 1zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-              </svg>
-              Print Invoice
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Status */}
-      {generating && (
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <span className="text-sm text-blue-800">Generating PDF...</span>
-          </div>
-        </div>
       )}
-
-      {/* Setup Instructions */}
-      {selectedMethod === 'puppeteer' && (
-        <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <h4 className="font-medium text-yellow-800 mb-2">
-            🛠️ Puppeteer Setup Required
-          </h4>
-          <div className="text-sm text-yellow-700 space-y-2">
-            <p>To use Puppeteer PDF generation, you need to set up a server-side API:</p>
-            <div className="bg-yellow-100 p-3 rounded border font-mono text-xs overflow-x-auto">
-              <div className="mb-2"># 1. Install dependencies</div>
-              <div className="mb-2">npm install puppeteer express</div>
-              <div className="mb-2"># 2. Create server/pdf-service.js (see documentation)</div>
-              <div># 3. Add API endpoint: POST /api/generate-pdf</div>
-            </div>
-            <p>
-              <a 
-                href="https://github.com/puppeteer/puppeteer" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-yellow-800 underline hover:text-yellow-900"
-              >
-                View Puppeteer documentation →
-              </a>
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Migration Notice */}
-      <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <h4 className="font-medium text-green-800 mb-2">
-          ✅ Migration from React-PDF Complete
-        </h4>
-        <div className="text-sm text-green-700 space-y-1">
-          <p>• ✅ Montserrat font now renders perfectly</p>
-          <p>• ✅ No more "Buffer is not defined" errors</p>
-          <p>• ✅ No more "Font family not registered" errors</p>
-          <p>• ✅ Professional grey color scheme applied</p>
-          <p>• ✅ Fixed INVOICE/invoice number spacing</p>
-        </div>
-      </div>
     </div>
   );
-};
-
-// Export functions for backward compatibility
-export const generateInvoicePDF = async (
-  invoice: Invoice,
-  patient: PatientInfo
-): Promise<Blob> => {
-  // Default to html2canvas method since it works immediately
-  throw new Error('Use the UnifiedPDFGenerator component to select your preferred PDF generation method');
-};
-
-export const downloadInvoicePDF = async (
-  invoice: Invoice,
-  patient: PatientInfo
-): Promise<void> => {
-  // Default to html2canvas method since it works immediately
-  throw new Error('Use the UnifiedPDFGenerator component to select your preferred PDF generation method');
 };
 
 export default UnifiedPDFGenerator;

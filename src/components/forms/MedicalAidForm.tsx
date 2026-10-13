@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { errorMessage } from './formErrors';
 
 interface MedicalAidFormData {
   provider: string;
@@ -58,6 +60,7 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
         setProviders(data || []);
       } catch (error) {
         console.error('Error fetching providers:', error);
+        toast.error(`Couldn't load the medical aid list: ${errorMessage(error)}`);
       } finally {
         setLoadingProviders(false);
       }
@@ -82,6 +85,7 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
           setSchemes(data || []);
         } catch (error) {
           console.error('Error fetching schemes:', error);
+          toast.error(`Couldn't load the schemes for this medical aid: ${errorMessage(error)}`);
         } finally {
           setLoadingSchemes(false);
         }
@@ -100,11 +104,13 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
       const selectedProvider = providers.find(p => p.id === data.provider_id);
       const selectedScheme = schemes.find(s => s.id === data.scheme_id);
 
+      // The real medical_aid_details columns, written the same way as EditPatientForm: the old
+      // scheme_name, provider_id and scheme_id keys don't exist on the table, so every save failed
       const medicalAidData = {
         provider: selectedProvider?.name || '',
-        scheme_name: selectedScheme?.name || '',
-        provider_id: data.provider_id,
-        scheme_id: data.scheme_id,
+        scheme: selectedScheme?.name || '',
+        plan_type: selectedScheme?.name || '',
+        medical_aid_provider_id: data.provider_id,
         membership_number: data.membership_number,
         main_member_name: data.main_member_name,
         main_member_id_number: data.main_member_id_number,
@@ -131,10 +137,13 @@ const MedicalAidForm: React.FC<Props> = ({ patientId, initialData, onSuccess }) 
         if (error) throw error;
       }
 
-      onSuccess();
     } catch (error) {
       console.error('Error saving medical aid:', error);
+      toast.error(`Couldn't save the medical aid details: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Medical aid details saved');
+    onSuccess();
   };
 
   return (

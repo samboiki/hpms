@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { User } from 'lucide-react';
+import { errorMessage } from './formErrors';
+import { EXCLUDE_CARRIER_VISITS } from '../../utils/carrierVisits';
 
 interface Patient {
   id: string;
   first_name: string;
   last_name: string;
+  practice_id: string | null;
 }
 
 interface MediaRequestFormData {
@@ -46,13 +51,14 @@ const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, practice_id')
         .order('last_name', { ascending: true });
 
       if (error) throw error;
       setPatients(data || []);
     } catch (error) {
       console.error('Error fetching patients:', error);
+      toast.error(`Couldn't load the patient list: ${errorMessage(error)}`);
     }
   };
 
@@ -62,20 +68,30 @@ const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
         .from('visits')
         .select('id, visit_date, visit_time, visit_type')
         .eq('patient_id', patientId)
+        // A row that only carries a payment plan's, package's or opening balance's invoices is not a visit to pick
+        .or(EXCLUDE_CARRIER_VISITS)
         .order('visit_date', { ascending: false });
 
       if (error) throw error;
       setVisits(data || []);
     } catch (error) {
       console.error('Error fetching visits:', error);
+      toast.error(`Couldn't load this patient's visits: ${errorMessage(error)}`);
     }
   };
 
   const onSubmit = async (data: MediaRequestFormData) => {
+    // Media requests are listed per practice, so record the patient's practice
+    const patient = patients.find(p => p.id === data.patient_id);
+    if (!patient?.practice_id) {
+      toast.error("Can't create the media request: this patient isn't linked to a practice.");
+      return;
+    }
     try {
       const { error } = await supabase
         .from('media_requests')
         .insert([{
+          practice_id: patient.practice_id,
           visit_id: data.visit_id,
           requesting_doctor_id: doctorId,
           type: data.type,
@@ -88,16 +104,18 @@ const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
 
       if (error) {
         if (error.code === 'PGRST116' || error.message.includes('does not exist')) {
-          alert('Media requests feature is not available yet. Please contact your administrator.');
+          toast.error('Media requests are not available yet. Please contact your administrator.');
           return;
         }
         throw error;
       }
-      onSuccess();
     } catch (error) {
       console.error('Error creating media request:', error);
-      alert('Failed to create media request. Please try again.');
+      toast.error(`Couldn't create the media request: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Media request created');
+    onSuccess();
   };
 
   return (
@@ -130,7 +148,7 @@ const AddMediaRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
             <option value="">Select visit</option>
             {visits.map((visit) => (
               <option key={visit.id} value={visit.id}>
-                {new Date(visit.visit_date).toLocaleDateString()} - {visit.visit_type}
+                {visit.visit_date ? format(new Date(visit.visit_date), 'dd MMM yyyy') : 'No date'} - {visit.visit_type}
               </option>
             ))}
           </select>

@@ -9,6 +9,16 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { InfoTooltip, PayrollTooltips } from '../../ui/InfoTooltip';
+import { formatNad } from '../../../utils/billing/money';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { describeDbError, ensureRowsUpdated } from './staffUtils';
+
+// These icons are not in the shared SolarIcons map (referencing them there rendered nothing)
+const ITEM_ICONS = {
+  benefit: 'solar:gift-bold-duotone',
+  deduction: 'solar:money-bag-bold-duotone',
+  bonus: 'solar:star-bold-duotone'
+} as const;
 
 interface Benefit {
   id: string;
@@ -64,6 +74,8 @@ const ComponentModal: React.FC<{
   editingItem?: any;
   isLoading?: boolean;
 }> = ({ isOpen, onClose, type, onSubmit, editingItem, isLoading }) => {
+  // Escape closes this window, as its X does
+  useEscapeToClose(isOpen, onClose);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -115,16 +127,7 @@ const ComponentModal: React.FC<{
     onSubmit(formData);
   };
 
-  const getIcon = () => {
-    switch (type) {
-      case 'benefit':
-        return SolarIcons.gift;
-      case 'deduction':
-        return SolarIcons.moneyBag;
-      case 'bonus':
-        return SolarIcons.star;
-    }
-  };
+  const getIcon = () => ITEM_ICONS[type];
 
   const getTitle = () => {
     const action = editingItem ? 'Edit' : 'Add';
@@ -172,7 +175,9 @@ const ComponentModal: React.FC<{
                 </div>
               </div>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Close"
                 className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
               >
                 <Icon icon={SolarIcons.closeCircle} className="w-6 h-6 text-white" />
@@ -245,7 +250,7 @@ const ComponentModal: React.FC<{
               <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
                 <div className="flex items-center gap-3 mb-6">
                   <div className="p-2 bg-purple-100 rounded-lg">
-                    <Icon icon={SolarIcons.calculator} className="w-5 h-5 text-purple-600" />
+                    <Icon icon="solar:calculator-bold-duotone" className="w-5 h-5 text-purple-600" />
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">Calculation Settings</h3>
@@ -430,7 +435,7 @@ const ComponentModal: React.FC<{
                 >
                   {isLoading ? (
                     <>
-                      <Icon icon={SolarIcons.loading} className="w-4 h-4 mr-2 animate-spin" />
+                      <Icon icon={SolarIcons.loader} className="w-4 h-4 mr-2 animate-spin" />
                       Saving...
                     </>
                   ) : (
@@ -456,6 +461,8 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  // Escape closes the delete confirmation, as Cancel does
+  useEscapeToClose(!!deleteConfirm, () => setDeleteConfirm(null));
 
   // Fetch queries
   const { data: benefits = [] } = useQuery<Benefit[]>({
@@ -548,8 +555,9 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
       setShowModal(false);
       setEditingItem(null);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to create item');
+    onError: (error: unknown) => {
+      console.error('Error creating payroll item:', error);
+      toast.error(describeDbError(error, 'Failed to create item'));
     }
   });
 
@@ -583,8 +591,10 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
         })
       };
 
-      const { error } = await supabase.from(table).update(payload).eq('id', id);
+      const { data: updated, error } = await supabase.from(table).update(payload).eq('id', id).select('id');
       if (error) throw error;
+      // The access rules skip a refused update without an error; never say "updated" then
+      ensureRowsUpdated(updated, 'The item');
     },
     onSuccess: (_, variables) => {
       const key = variables.type === 'benefit' ? 'benefits' : 
@@ -595,33 +605,41 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
       setShowModal(false);
       setEditingItem(null);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to update item');
+    onError: (error: unknown) => {
+      console.error('Error updating payroll item:', error);
+      toast.error(describeDbError(error, 'Failed to update item'));
     }
   });
 
   const toggleStatusMutation = useMutation({
     mutationFn: async ({ id, table, is_active }: { id: string, table: string, is_active: boolean }) => {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from(table)
         .update({ is_active: !is_active })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
       
       if (error) throw error;
+      ensureRowsUpdated(updated, 'The item');
     },
     onSuccess: (_, variables) => {
       const key = variables.table === 'benefits' ? 'benefits' : 
                   variables.table === 'deductions' ? 'deductions' : 
                   'bonus-configurations';
       queryClient.invalidateQueries({ queryKey: [key] });
-      toast.success(`Status updated successfully`);
+      toast.success(variables.is_active ? 'Deactivated - no longer applied to new payslips' : 'Activated');
+    },
+    onError: (error: unknown) => {
+      console.error('Error changing payroll item status:', error);
+      toast.error(describeDbError(error, 'Failed to update status'));
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async ({ id, table }: { id: string, table: string }) => {
-      const { error } = await supabase.from(table).delete().eq('id', id);
+      const { data: removed, error } = await supabase.from(table).delete().eq('id', id).select('id');
       if (error) throw error;
+      ensureRowsUpdated(removed, 'The item');
     },
     onSuccess: (_, variables) => {
       const key = variables.table === 'benefits' ? 'benefits' : 
@@ -631,28 +649,31 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
       toast.success('Item deleted successfully');
       setDeleteConfirm(null);
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete item');
+    onError: (error: unknown) => {
+      console.error('Error deleting payroll item:', error);
+      toast.error(describeDbError(error, 'Failed to delete item'));
     }
   });
 
+  // 'bonuses'.slice(0, -1) is 'bonuse', which hid the bonus period fields and dropped
+  // period_type from the saved row, so map each tab to its item type explicitly
+  const itemType: 'benefit' | 'deduction' | 'bonus' =
+    activeTab === 'benefits' ? 'benefit' : activeTab === 'deductions' ? 'deduction' : 'bonus';
+
   const handleSubmit = (data: any) => {
     if (editingItem) {
-      updateMutation.mutate({ type: activeTab.slice(0, -1), id: editingItem.id, data });
+      updateMutation.mutate({ type: itemType, id: editingItem.id, data });
     } else {
-      createMutation.mutate({ type: activeTab.slice(0, -1), data });
+      createMutation.mutate({ type: itemType, data });
     }
   };
 
   const formatValue = (type: string, value: number) => {
-    return type === 'percentage' ? `${value}%` : `NAD ${value.toFixed(2)}`;
+    return type === 'percentage' ? `${value}%` : formatNad(Number(value) || 0);
   };
 
-  const getMonthName = (month: number) => {
-    const date = new Date();
-    date.setMonth(month - 1);
-    return format(date, 'MMM');
-  };
+  // Fixed day-of-month: setMonth() on the 29th-31st rolls over (e.g. 31 Oct -> "Mar" for February)
+  const getMonthName = (month: number) => format(new Date(2000, month - 1, 1), 'MMM');
 
   const ComponentCard: React.FC<{
     item: any;
@@ -747,9 +768,9 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
               onClick={onToggle}
               title={item.is_active ? 'Deactivate' : 'Activate'}
             >
-              <Icon 
-                icon={item.is_active ? SolarIcons.pauseCircle : SolarIcons.playCircle} 
-                className={`w-4 h-4 ${item.is_active ? 'text-orange-600' : 'text-green-600'}`} 
+              <Icon
+                icon={item.is_active ? 'solar:pause-circle-bold-duotone' : 'solar:play-circle-bold-duotone'}
+                className={`w-4 h-4 ${item.is_active ? 'text-orange-600' : 'text-green-600'}`}
               />
             </Button>
             <Button 
@@ -814,7 +835,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
-              <Icon icon={SolarIcons.gift} className="w-4 h-4" />
+              <Icon icon={ITEM_ICONS.benefit} className="w-4 h-4" />
               Benefits ({benefits.length})
             </button>
             <button
@@ -825,7 +846,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
-              <Icon icon={SolarIcons.moneyBag} className="w-4 h-4" />
+              <Icon icon={ITEM_ICONS.deduction} className="w-4 h-4" />
               Deductions ({deductions.length})
             </button>
             <button
@@ -836,7 +857,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                   : 'text-gray-500 border-transparent hover:text-gray-700'
               }`}
             >
-              <Icon icon={SolarIcons.star} className="w-4 h-4" />
+              <Icon icon={ITEM_ICONS.bonus} className="w-4 h-4" />
               Bonuses ({bonuses.length})
             </button>
           </div>
@@ -853,7 +874,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                   <ComponentCard
                     key={item.id}
                     item={item}
-                    type={activeTab.slice(0, -1) as any}
+                    type={itemType}
                     onEdit={() => {
                       setEditingItem(item);
                       setShowModal(true);
@@ -870,15 +891,13 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
             </div>
           ) : (
             <div className="text-center py-12">
-              <Icon 
-                icon={activeTab === 'benefits' ? SolarIcons.gift : 
-                      activeTab === 'deductions' ? SolarIcons.moneyBag : 
-                      SolarIcons.star} 
-                className="w-16 h-16 text-gray-400 mx-auto mb-4" 
+              <Icon
+                icon={ITEM_ICONS[itemType]}
+                className="w-16 h-16 text-gray-400 mx-auto mb-4"
               />
               <p className="text-gray-600 text-lg">No {activeTab} configured yet</p>
               <p className="text-gray-500 text-sm mt-2">
-                Click the "Add {activeTab.slice(0, -1)}" button to get started
+                Click the "Add {itemType}" button to get started
               </p>
             </div>
           )}
@@ -892,7 +911,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
           setShowModal(false);
           setEditingItem(null);
         }}
-        type={activeTab.slice(0, -1) as any}
+        type={itemType}
         onSubmit={handleSubmit}
         editingItem={editingItem}
         isLoading={createMutation.isPending || updateMutation.isPending}
@@ -923,7 +942,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                 </div>
               </div>
               <p className="text-gray-700 mb-6">
-                Are you sure you want to delete this {activeTab.slice(0, -1)}? This will remove it from all future payslips.
+                Are you sure you want to delete this {itemType}? This will remove it from all future payslips.
               </p>
               <div className="flex justify-end gap-3">
                 <Button
@@ -939,7 +958,7 @@ export const EnhancedBenefitsDeductionsManager: React.FC = () => {
                 >
                   {deleteMutation.isPending ? (
                     <>
-                      <Icon icon={SolarIcons.loading} className="w-4 h-4 mr-2 animate-spin" />
+                      <Icon icon={SolarIcons.loader} className="w-4 h-4 mr-2 animate-spin" />
                       Deleting...
                     </>
                   ) : (

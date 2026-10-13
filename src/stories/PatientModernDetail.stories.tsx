@@ -1,1 +1,0 @@
-{/* Full content of PatientModernDetail.stories.tsx shown above */}

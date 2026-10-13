@@ -6,7 +6,10 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import DateInput from '../ui/DateInput';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
+import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
 import MonthInput from '../ui/MonthInput';
+import { expenseCurrencyLabel, formatExpenseAmount, formatExpenseDate, nonNadCurrencies, toDateValue } from './expenseFormat';
 
 interface Expense {
   id: string;
@@ -59,14 +62,14 @@ interface Branch {
 
 // Expense type configuration with icons
 const expenseTypes = [
-  { value: 'rent', label: 'Rent & Lease', icon: 'solar:building-bold-duotone', color: 'purple' },
+  { value: 'rent', label: 'Rent & Lease', icon: 'solar:buildings-2-bold-duotone', color: 'purple' },
   { value: 'utilities', label: 'Utilities', icon: 'solar:lightning-bold-duotone', color: 'yellow' },
   { value: 'insurance', label: 'Insurance', icon: 'solar:shield-check-bold-duotone', color: 'green' },
   { value: 'supplies', label: 'Medical Supplies', icon: 'solar:medical-kit-bold-duotone', color: 'blue' },
   { value: 'equipment', label: 'Equipment', icon: 'solar:settings-bold-duotone', color: 'indigo' },
   { value: 'staff', label: 'Staff & Payroll', icon: 'solar:users-group-two-rounded-bold-duotone', color: 'pink' },
-  { value: 'professional_services', label: 'Professional Services', icon: 'solar:briefcase-bold-duotone', color: 'orange' },
-  { value: 'marketing', label: 'Marketing', icon: 'solar:megaphone-bold-duotone', color: 'red' },
+  { value: 'professional_services', label: 'Professional Services', icon: 'solar:case-round-bold-duotone', color: 'orange' },
+  { value: 'marketing', label: 'Marketing', icon: 'solar:volume-loud-bold-duotone', color: 'red' },
   { value: 'technology', label: 'Technology & IT', icon: 'solar:laptop-bold-duotone', color: 'cyan' },
   { value: 'regulatory', label: 'Regulatory & Compliance', icon: 'solar:document-text-bold-duotone', color: 'teal' },
   { value: 'maintenance', label: 'Maintenance', icon: 'solar:settings-minimalistic-bold-duotone', color: 'gray' },
@@ -128,7 +131,7 @@ const PracticeExpenses: React.FC = () => {
     vendor_name: '',
     vendor_contact: '',
     account_number: '',
-    expense_date: new Date().toISOString().split('T')[0],
+    expense_date: toDateValue(),
     due_date: '',
     paid_date: '',
     next_payment_date: '',
@@ -185,33 +188,61 @@ const PracticeExpenses: React.FC = () => {
     }
   };
 
+  // In the Branches view a new expense belongs to the selected branch; without one it would be
+  // saved to the main practice and vanish from the list the user is looking at
+  const isBranchChosenForNewExpense = () => {
+    if (activeView === 'branches' && !selectedBranchId) {
+      toast.error('Select a branch first, then add the expense.');
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmitExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!user?.practice_id) {
+      toast.error('No practice ID found. Please refresh and try again.');
+      return;
+    }
+    if (!editingExpense && !isBranchChosenForNewExpense()) return;
+    // practice_expenses.expense_date is NOT NULL: a cleared date used to be sent as null and the save failed
+    // with "Failed to save expense", without saying why
+    if (!formData.expense_date) {
+      toast.error('Enter the date of the expense.');
+      return;
+    }
+
     try {
       const expenseData = {
         ...formData,
         practice_id: user?.practice_id,
         branch_id: activeView === 'branches' ? selectedBranchId : null,
-        created_by: user?.id,
+        // Editing keeps who recorded the expense
+        ...(editingExpense ? {} : { created_by: user?.id }),
         updated_by: user?.id,
-        // Convert empty date strings to null
-        expense_date: formData.expense_date || null,
+        expense_date: formData.expense_date,
+        // Convert empty optional date strings to null
         due_date: formData.due_date || null,
         paid_date: formData.paid_date || null,
         next_payment_date: formData.next_payment_date || null
       };
 
       if (editingExpense) {
-        const { error } = await supabase
+        // A bill marked paid without a date was paid today
+        const { data, error } = await supabase
           .from('practice_expenses')
           .update({
             ...expenseData,
+            paid_date: expenseData.paid_date || (expenseData.status === 'paid' ? toDateValue() : null),
             updated_at: new Date().toISOString()
           })
-          .eq('id', editingExpense.id);
+          .eq('id', editingExpense.id)
+          .select('id');
 
         if (error) throw error;
+        // The access rules skip a refused update without an error; don't report that as saved
+        ensureRowsUpdated(data, 'The expense');
         toast.success('Expense updated successfully');
       } else {
         const { error } = await supabase
@@ -228,49 +259,54 @@ const PracticeExpenses: React.FC = () => {
       loadData();
     } catch (error) {
       console.error('Error saving expense:', error);
-      toast.error('Failed to save expense');
+      toast.error(describeDbError(error, 'Failed to save expense'));
     }
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this expense?')) return;
+  const handleDeleteExpense = async (id: string, name: string) => {
+    if (!window.confirm(`Delete the expense "${name}"? This cannot be undone.`)) return;
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('practice_expenses')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The expense');
       toast.success('Expense deleted successfully');
       loadData();
     } catch (error) {
       console.error('Error deleting expense:', error);
-      toast.error('Failed to delete expense');
+      toast.error(describeDbError(error, 'Failed to delete expense'));
     }
   };
 
   const handleMarkAsPaid = async (expense: Expense) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('practice_expenses')
         .update({
           status: 'paid',
-          paid_date: new Date().toISOString().split('T')[0],
+          paid_date: toDateValue(),
           updated_at: new Date().toISOString()
         })
-        .eq('id', expense.id);
+        .eq('id', expense.id)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The expense');
       toast.success('Expense marked as paid');
       loadData();
     } catch (error) {
       console.error('Error updating expense:', error);
-      toast.error('Failed to update expense');
+      toast.error(describeDbError(error, 'Failed to update expense'));
     }
   };
 
   const handleCreateFromTemplate = (template: ExpenseTemplate) => {
+    if (!isBranchChosenForNewExpense()) return;
     setFormData({
       expense_type: template.expense_type,
       expense_category: template.expense_category,
@@ -283,7 +319,7 @@ const PracticeExpenses: React.FC = () => {
       vendor_name: template.vendor_name || '',
       vendor_contact: template.vendor_contact || '',
       account_number: template.account_number || '',
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: toDateValue(),
       due_date: '',
       paid_date: '',
       next_payment_date: '',
@@ -306,7 +342,7 @@ const PracticeExpenses: React.FC = () => {
       vendor_name: '',
       vendor_contact: '',
       account_number: '',
-      expense_date: new Date().toISOString().split('T')[0],
+      expense_date: toDateValue(),
       due_date: '',
       paid_date: '',
       next_payment_date: '',
@@ -315,11 +351,20 @@ const PracticeExpenses: React.FC = () => {
     });
   };
 
+  // Escape closes the expense form (without saving) and the templates window, as their X does
+  useEscapeToClose(showExpenseModal, () => {
+    setShowExpenseModal(false);
+    setEditingExpense(null);
+    resetForm();
+  });
+  useEscapeToClose(showTemplateModal, () => setShowTemplateModal(false));
+
   // Filter expenses
   const filteredExpenses = expenses.filter(expense => {
-    const matchesBranch = activeView === 'main' 
-      ? !expense.branch_id 
-      : expense.branch_id === selectedBranchId;
+    // With no branch picked, null === null would list the main practice's expenses as a branch's
+    const matchesBranch = activeView === 'main'
+      ? !expense.branch_id
+      : !!selectedBranchId && expense.branch_id === selectedBranchId;
     const matchesType = filterType === 'all' || expense.expense_type === filterType;
     const matchesStatus = filterStatus === 'all' || expense.status === filterStatus;
     
@@ -348,6 +393,8 @@ const PracticeExpenses: React.FC = () => {
   };
 
   const totals = calculateTotals();
+  // The totals add every amount as N$; name any other currency they include
+  const totalsOtherCurrencies = nonNadCurrencies(filteredExpenses.filter(expense => expense.status !== 'cancelled'));
 
   // Get expense type info
   const getExpenseTypeInfo = (type: string) => {
@@ -369,12 +416,12 @@ const PracticeExpenses: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div>
             <h2 className="text-2xl font-semibold text-gray-900">Practice Expenses</h2>
             <p className="text-gray-600 mt-1">Track and manage all your practice expenses</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
               onClick={() => setShowTemplateModal(true)}
@@ -385,6 +432,7 @@ const PracticeExpenses: React.FC = () => {
             </Button>
             <Button
               onClick={() => {
+                if (!isBranchChosenForNewExpense()) return;
                 setEditingExpense(null);
                 resetForm();
                 setShowExpenseModal(true);
@@ -398,7 +446,7 @@ const PracticeExpenses: React.FC = () => {
         </div>
 
         {/* View Toggle */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setActiveView('main')}
@@ -408,7 +456,7 @@ const PracticeExpenses: React.FC = () => {
                   : 'text-gray-600 hover:text-gray-900'
               }`}
             >
-              <Icon icon="solar:building-bold-duotone" className="w-4 h-4" />
+              <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4" />
               Main Practice
             </button>
             <button
@@ -424,11 +472,13 @@ const PracticeExpenses: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {/* View Mode Toggle */}
             <div className="flex gap-1 bg-gray-100 p-1 rounded-lg">
               <button
                 onClick={() => setViewMode('grid')}
+                aria-label="Show expenses as cards"
+                title="Card view"
                 className={`p-2 rounded transition-all ${
                   viewMode === 'grid'
                     ? 'bg-white text-purple-600 shadow-sm'
@@ -439,6 +489,8 @@ const PracticeExpenses: React.FC = () => {
               </button>
               <button
                 onClick={() => setViewMode('list')}
+                aria-label="Show expenses as a table"
+                title="Table view"
                 className={`p-2 rounded transition-all ${
                   viewMode === 'list'
                     ? 'bg-white text-purple-600 shadow-sm'
@@ -502,40 +554,45 @@ const PracticeExpenses: React.FC = () => {
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-sm text-gray-600">Fixed Monthly</p>
             <p className="text-xl font-bold text-gray-900">
-              {totals.currency || 'NAD'} {totals.fixed_monthly.toFixed(2)}
+              {formatExpenseAmount(totals.fixed_monthly, 'NAD')}
             </p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-sm text-gray-600">Variable Monthly</p>
             <p className="text-xl font-bold text-gray-900">
-              {totals.currency || 'NAD'} {totals.variable_monthly.toFixed(2)}
+              {formatExpenseAmount(totals.variable_monthly, 'NAD')}
             </p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-sm text-gray-600">Quarterly</p>
             <p className="text-xl font-bold text-gray-900">
-              {totals.currency || 'NAD'} {totals.quarterly.toFixed(2)}
+              {formatExpenseAmount(totals.quarterly, 'NAD')}
             </p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-sm text-gray-600">Annual</p>
             <p className="text-xl font-bold text-gray-900">
-              {totals.currency || 'NAD'} {totals.annual.toFixed(2)}
+              {formatExpenseAmount(totals.annual, 'NAD')}
             </p>
           </div>
           <div className="bg-gray-50 rounded-xl p-4">
             <p className="text-sm text-gray-600">One Time</p>
             <p className="text-xl font-bold text-gray-900">
-              {totals.currency || 'NAD'} {totals.one_time.toFixed(2)}
+              {formatExpenseAmount(totals.one_time, 'NAD')}
             </p>
           </div>
           <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-xl p-4">
             <p className="text-sm opacity-90">Total Active</p>
             <p className="text-xl font-bold">
-              {totals.currency || 'NAD'} {totals.total.toFixed(2)}
+              {formatExpenseAmount(totals.total, 'NAD')}
             </p>
           </div>
         </div>
+        {totalsOtherCurrencies.length > 0 && (
+          <p className="-mt-3 mb-6 text-xs text-gray-500">
+            Totals include {totalsOtherCurrencies.join(', ')} amounts counted 1:1 as N$.
+          </p>
+        )}
 
         {/* Expenses Display */}
         {viewMode === 'grid' ? (
@@ -575,7 +632,7 @@ const PracticeExpenses: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Amount:</span>
                       <span className="font-semibold text-gray-900">
-                        {expense.currency} {expense.amount.toFixed(2)}
+                        {formatExpenseAmount(expense.amount, expense.currency)}
                       </span>
                     </div>
                     {expense.vendor_name && (
@@ -587,7 +644,7 @@ const PracticeExpenses: React.FC = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Due Date:</span>
                       <span className="text-gray-900">
-                        {expense.due_date ? new Date(expense.due_date).toLocaleDateString() : '-'}
+                        {formatExpenseDate(expense.due_date)}
                       </span>
                     </div>
                     {expense.is_recurring && (
@@ -626,6 +683,9 @@ const PracticeExpenses: React.FC = () => {
                           account_number: expense.account_number || '',
                           expense_date: expense.expense_date,
                           due_date: expense.due_date || '',
+                          // Saving maps a missing value to null, so leaving these out erased them
+                          paid_date: expense.paid_date || '',
+                          next_payment_date: expense.next_payment_date || '',
                           status: expense.status,
                           is_recurring: expense.is_recurring
                         });
@@ -636,7 +696,9 @@ const PracticeExpenses: React.FC = () => {
                       Edit
                     </button>
                     <button
-                      onClick={() => handleDeleteExpense(expense.id)}
+                      onClick={() => handleDeleteExpense(expense.id, expense.name)}
+                      aria-label={`Delete expense ${expense.name}`}
+                      title="Delete expense"
                       className="py-1.5 px-3 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     >
                       <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
@@ -700,7 +762,7 @@ const PracticeExpenses: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm font-semibold text-gray-900">
-                          {expense.currency} {expense.amount.toFixed(2)}
+                          {formatExpenseAmount(expense.amount, expense.currency)}
                         </p>
                       </td>
                       <td className="px-4 py-3">
@@ -708,7 +770,7 @@ const PracticeExpenses: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         <p className="text-sm text-gray-600">
-                          {expense.due_date ? new Date(expense.due_date).toLocaleDateString() : '-'}
+                          {formatExpenseDate(expense.due_date)}
                         </p>
                       </td>
                       <td className="px-4 py-3">
@@ -727,6 +789,7 @@ const PracticeExpenses: React.FC = () => {
                             <button
                               onClick={() => handleMarkAsPaid(expense)}
                               className="text-green-600 hover:text-green-700"
+                              aria-label={`Mark expense ${expense.name} as paid`}
                               title="Mark as paid"
                             >
                               <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />
@@ -749,20 +812,24 @@ const PracticeExpenses: React.FC = () => {
                                 account_number: expense.account_number || '',
                                 expense_date: expense.expense_date,
                                 due_date: expense.due_date || '',
+                                paid_date: expense.paid_date || '',
+                                next_payment_date: expense.next_payment_date || '',
                                 status: expense.status,
                                 is_recurring: expense.is_recurring
                               });
                               setShowExpenseModal(true);
                             }}
                             className="text-purple-600 hover:text-purple-700"
-                            title="Edit"
+                            aria-label={`Edit expense ${expense.name}`}
+                            title="Edit expense"
                           >
                             <Icon icon="solar:pen-bold-duotone" className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteExpense(expense.id)}
+                            onClick={() => handleDeleteExpense(expense.id, expense.name)}
                             className="text-red-600 hover:text-red-700"
-                            title="Delete"
+                            aria-label={`Delete expense ${expense.name}`}
+                            title="Delete expense"
                           >
                             <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5" />
                           </button>
@@ -816,6 +883,8 @@ const PracticeExpenses: React.FC = () => {
                   </div>
                   <button
                     onClick={() => setShowTemplateModal(false)}
+                    aria-label="Close expense templates"
+                    title="Close"
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-white" />
@@ -865,11 +934,11 @@ const PracticeExpenses: React.FC = () => {
                             {template.description && (
                               <p className="text-gray-600 text-xs">{template.description}</p>
                             )}
-                            {template.default_amount && (
+                            {!!template.default_amount && (
                               <div className="flex justify-between">
                                 <span className="text-gray-600">Default Amount:</span>
                                 <span className="font-semibold text-gray-900">
-                                  {template.currency} {Number(template.default_amount).toFixed(2)}
+                                  {formatExpenseAmount(Number(template.default_amount), template.currency)}
                                 </span>
                               </div>
                             )}
@@ -943,6 +1012,8 @@ const PracticeExpenses: React.FC = () => {
                       setEditingExpense(null);
                       resetForm();
                     }}
+                    aria-label="Close without saving"
+                    title="Close"
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5 text-white" />
@@ -1017,7 +1088,7 @@ const PracticeExpenses: React.FC = () => {
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-3 text-gray-500">
-                        {formData.currency}
+                        {expenseCurrencyLabel(formData.currency)}
                       </span>
                       <input
                         type="number"

@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
+import { safeRedirectOrigin } from '../_shared/oauthRedirect.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -167,7 +168,8 @@ serve(async (req) => {
     }
 
     // Redirect back to the practice's settings page with success
-    const successUrl = new URL(`${redirect_origin}/settings`)
+    // (only to the app's own origins: the state is built by the browser and anyone can forge it)
+    const successUrl = new URL(`${safeRedirectOrigin(redirect_origin)}/settings`)
     successUrl.searchParams.set('oauth_success', 'true')
     successUrl.searchParams.set('oauth_email', userInfo.email)
 

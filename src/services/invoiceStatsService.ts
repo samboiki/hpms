@@ -1,5 +1,18 @@
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { practiceDataService } from '../lib/practiceDataService';
+import { fromCents, sumCents, toCents } from '../utils/billing/money';
+
+// Revenue is added up in whole cents, so summing many invoices never drifts by a cent
+const sumInvoiceTotals = (rows: Array<{ total: number | string | null }> | null): number =>
+  fromCents(
+    sumCents(
+      (rows ?? []).map(row => {
+        const value = Number(row.total);
+        return Number.isFinite(value) ? toCents(value) : 0;
+      })
+    )
+  );
 
 export interface InvoiceStats {
   totalInvoices: number;
@@ -49,13 +62,16 @@ export const invoiceStatsService = {
       const currentQuarter = Math.floor(currentMonth / 3) + 1;
       const quarterStart = new Date(currentDate.getFullYear(), (currentQuarter - 1) * 3, 1);
       const quarterEnd = new Date(currentDate.getFullYear(), currentQuarter * 3, 0); // Last day of quarter
-      
+      // issue_date is a DATE: compare local calendar dates (toISOString() shifts to UTC, e.g. 1 Oct -> 30 Sep in UTC+2)
+      const quarterStartKey = format(quarterStart, 'yyyy-MM-dd');
+      const quarterEndKey = format(quarterEnd, 'yyyy-MM-dd');
+
       const { data: quarterlyStats, error: quarterlyError } = await supabase
         .from('invoices_enhanced')
         .select('total, payment_status')
         .eq('practice_id', practiceId)
-        .gte('issue_date', quarterStart.toISOString().split('T')[0])
-        .lte('issue_date', quarterEnd.toISOString().split('T')[0]);
+        .gte('issue_date', quarterStartKey)
+        .lte('issue_date', quarterEndKey);
 
       if (quarterlyError) {
         throw new Error(`Failed to fetch quarterly invoice stats: ${quarterlyError.message}`);
@@ -66,7 +82,7 @@ export const invoiceStatsService = {
       const paidInvoices = totalStats?.filter(invoice => invoice.payment_status === 'paid').length || 0;
       // Outstanding includes pending, overdue, and any other non-paid statuses
       const outstandingInvoices = totalStats?.filter(invoice => invoice.payment_status !== 'paid').length || 0;
-      const totalRevenue = totalStats?.reduce((sum, invoice) => sum + (parseFloat(invoice.total) || 0), 0) || 0;
+      const totalRevenue = sumInvoiceTotals(totalStats);
       
       // Calculate quarterly statistics
       const quarterlyInvoices = quarterlyStats?.length || 0;
@@ -74,7 +90,7 @@ export const invoiceStatsService = {
       // Outstanding includes pending, overdue, and any other non-paid statuses
       const quarterlyOutstandingInvoices = quarterlyStats?.filter(invoice => invoice.payment_status !== 'paid').length || 0;
       // Total quarterly revenue includes both paid and unpaid invoices
-      const quarterlyRevenue = quarterlyStats?.reduce((sum, invoice) => sum + (parseFloat(invoice.total) || 0), 0) || 0;
+      const quarterlyRevenue = sumInvoiceTotals(quarterlyStats);
 
       // Calculate percentages for total (should always add up to 100%)
       const percentagePaid = totalInvoices > 0 ? Math.round((paidInvoices / totalInvoices) * 100) : 0;
@@ -87,7 +103,7 @@ export const invoiceStatsService = {
       console.log('📊 Invoice Stats Service Results:', {
         practiceId,
         currentQuarter,
-        quarterPeriod: `Q${currentQuarter} ${currentDate.getFullYear()} (${quarterStart.toISOString().split('T')[0]} to ${quarterEnd.toISOString().split('T')[0]})`,
+        quarterPeriod: `Q${currentQuarter} ${currentDate.getFullYear()} (${quarterStartKey} to ${quarterEndKey})`,
         totalInvoices,
         quarterlyInvoices,
         paidInvoices,
@@ -136,7 +152,7 @@ export const invoiceStatsService = {
         percentageOutstanding: 0,
         quarterlyPercentagePaid: 0,
         quarterlyPercentageOutstanding: 0,
-        currentQuarter: 0,
+        currentQuarter: Math.floor(new Date().getMonth() / 3) + 1, // avoid a "Q0" label on errors
         practiceId: ''
       };
     }

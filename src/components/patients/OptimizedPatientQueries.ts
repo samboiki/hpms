@@ -1,5 +1,7 @@
 import { supabase } from '../../lib/supabase';
 import { lightningCache } from '../../lib/lightningCache';
+import { queryOptimization } from '../../lib/queryOptimization';
+import type { VisitRecordCounts } from './journey/visitJourney';
 
 // Ultra-optimized patient data fetching with maximum parallelization and lightning cache
 export const fetchPatientDetailsOptimized = async (patientId: string) => {
@@ -48,8 +50,8 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
             .select(`
               *,
               doctor:users!doctor_id(id, full_name),
-              vitals(*),
-              lab_requests(id, test_name, status, urgency, expected_results_date),
+              vitals!fk_vitals_visit_id(*),
+              lab_requests(id, status, request_date, lab_facility, notes),
               medications(id, medication_name, dosage, frequency, duration, prescribed_date)
             `)
             .eq('patient_id', patientId)
@@ -174,7 +176,7 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
         .select(`
           *, 
           doctor:users!doctor_id(id, full_name),
-          patient:patients!patient_id(id, first_name, last_name)
+          patient:patients!appointments_patient_id_fkey(id, first_name, last_name)
         `)
         .eq('patient_id', patientId)
         .order('appointment_date', { ascending: false })
@@ -189,10 +191,9 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
         .limit(1)
         .maybeSingle(),
         
-      // Visit counts (batch operation)
-      visitIds.length > 0
-        ? supabase.rpc('get_visit_counts_batch', { visit_ids: visitIds })
-        : Promise.resolve({ data: {}, error: null }),
+      // Media files, lab requests and imaging requests per visit (what each visit tab lists), for the
+      // encounter timeline's counts. The get_visit_counts_batch function called here before does not exist.
+      queryOptimization.getVisitCounts(visitIds),
         
       // Practice data - skip for now as it's fetched separately
       Promise.resolve({ data: null, error: null })
@@ -206,22 +207,34 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
 
     // Extract vitals and medications from visits (already fetched)
     const vitals = visits.flatMap(visit => visit.vitals || []);
-    const medications = visits.flatMap(visit => visit.medications || []);
-    const labRequests = visits.flatMap(visit => visit.lab_requests || []);
+    // Each medication keeps its visit, so the Medications tab can show the visit number and date and open it
+    const medications = visits.flatMap(visit => (visit.medications || []).map((medication: Record<string, unknown>) => ({
+      ...medication,
+      visit_id: visit.id,
+      visit: { id: visit.id, visit_date: visit.visit_date, visit_number: visit.visit_number }
+    })));
+    // Each request keeps its visit, so the patient's lab list can show the visit and open it
+    const labRequests = visits.flatMap(visit => (visit.lab_requests || []).map((request: Record<string, unknown>) => ({
+      ...request,
+      visit_id: visit.id,
+      visit: { id: visit.id, visit_date: visit.visit_date, visit_number: visit.visit_number }
+    })));
 
-    // Visit counts processing
-    const visitCounts: Record<string, any> = {};
-    if (visitCountsResult.data) {
-      if (Array.isArray(visitCountsResult.data)) {
-        visitCountsResult.data.forEach((count: any) => {
-          if (count.visit_id) {
-            visitCounts[count.visit_id] = count;
-          }
-        });
-      } else {
-        Object.assign(visitCounts, visitCountsResult.data);
-      }
-    }
+    // { media, lab, imaging } by visit id (empty for a patient with no visits)
+    const visitCounts: Record<string, VisitRecordCounts> = visitCountsResult;
+
+    // A section that failed to load must not look like an empty one, so callers can tell staff what is missing
+    const sectionResults: Array<[string, { error: unknown } | null | undefined]> = [
+      ['visits', visitsResult],
+      ['next of kin', nextOfKinResult],
+      ['invoices', billingResult],
+      ['documents', documentsResult],
+      ['lab results', labResultsResult],
+      ['media', mediaResult],
+      ['imaging', imagingResult],
+      ['medical aid', medicalAidResult]
+    ];
+    const failedSections = sectionResults.filter(([, result]) => result?.error).map(([name]) => name);
 
     const processingTime = performance.now() - processingStartTime;
     console.log(`⚡ DATA PROCESSING completed in ${processingTime.toFixed(2)}ms`);
@@ -256,6 +269,7 @@ export const fetchPatientDetailsOptimized = async (patientId: string) => {
       medicalAid: medicalAidResult.data,
       practiceData: practiceResult.data,
       documents: documentsResult.data || [],
+      failedSections,
       timings: {
         core: coreTime,
         secondary: secondaryTime,

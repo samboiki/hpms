@@ -22,6 +22,10 @@ import {
   Edit
 } from 'lucide-react';
 import { Icon } from '@iconify/react';
+import ToothIcon from '../dental/ToothIcon';
+import { useDentalPractice } from '../dental/useDentalPractice';
+import EyesTabIcon from '../optometry/EyesTabIcon';
+import { useOptometryPractice } from '../optometry/useOptometryPractice';
 
 interface Tab {
   id: string;
@@ -46,6 +50,8 @@ interface PatientModalTabsProps {
   billingData?: any[];
   loadingTabs?: string[];
   newDataTabs?: string[];
+  /** The practice: dental practices get the Teeth tab, optometry practices the Eyes tab */
+  practiceId?: string | null;
 }
 
 const listTabs: Tab[] = [
@@ -106,10 +112,24 @@ const detailTabs: Tab[] = [
   },
   {
     id: 'audit',
-    label: 'Audit Log',
+    label: 'Change history',
     icon: History,
-    tooltip: 'Access history and changes'
+    tooltip: 'Who changed this file, and when'
   }
+];
+
+// Dental practices only (isDentalPractice): the tooth chart and treatment plan, next to the encounters
+const dentalDetailTabs: Tab[] = [
+  ...detailTabs.slice(0, 2),
+  { id: 'teeth', label: 'Teeth', icon: ToothIcon, tooltip: 'Tooth chart and treatment plan' },
+  ...detailTabs.slice(2)
+];
+
+// Optometry practices only (isOptometryPractice): prescriptions, lab orders, contact lenses and eye exams
+const optometryDetailTabs: Tab[] = [
+  ...detailTabs.slice(0, 2),
+  { id: 'eyes', label: 'Eyes', icon: EyesTabIcon, tooltip: 'Prescriptions, lab orders, contact lenses and eye exams' },
+  ...detailTabs.slice(2)
 ];
 
 const PatientModalTabs: React.FC<PatientModalTabsProps> = ({ 
@@ -124,15 +144,24 @@ const PatientModalTabs: React.FC<PatientModalTabsProps> = ({
   imaging = [],
   billingData = [],
   loadingTabs = [],
-  newDataTabs = []
+  newDataTabs = [],
+  practiceId
 }) => {
-  const tabs = mode === 'list' ? listTabs : detailTabs;
+  const isDental = useDentalPractice(practiceId) === true;
+  const isOptometry = useOptometryPractice(practiceId) === true;
+  const tabs = mode === 'list' ? listTabs : isDental ? dentalDetailTabs : isOptometry ? optometryDetailTabs : detailTabs;
   const [hoveredTab, setHoveredTab] = useState<string | null>(null);
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Arrow keys in a text field, notes box or dropdown move the cursor there; they used to
+      // switch tabs instead (and the patient search box disappeared mid-typing)
+      const target = e.target as HTMLElement | null;
+      if (target && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))) {
+        return;
+      }
       const currentIndex = tabs.findIndex(tab => tab.id === activeTab);
       
       if (e.key === 'ArrowRight' && currentIndex < tabs.length - 1) {
@@ -366,12 +395,18 @@ interface HamburgerMenuProps {
   onSendMessage?: () => void;
   onSendEmail?: () => void;
   onEditProfile?: () => void;
+  /** When set, Message is shown disabled with this reason (e.g. no cell number on file) */
+  messageDisabledReason?: string | null;
+  /** When set, Email is shown disabled with this reason (e.g. no email address on file) */
+  emailDisabledReason?: string | null;
 }
 
 export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
   onSendMessage,
   onSendEmail,
-  onEditProfile
+  onEditProfile,
+  messageDisabledReason,
+  emailDisabledReason
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -387,7 +422,8 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
         className="p-3 rounded-lg transition-all bg-white/20 text-white hover:bg-white/30"
         whileTap={{ scale: 0.95 }}
         whileHover={{ scale: 1.05 }}
-        title="Menu"
+        title="Patient actions"
+        aria-label="Patient actions"
       >
         <Icon 
           icon="solar:hamburger-menu-bold-duotone" 
@@ -424,6 +460,8 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-colors"
                   whileTap={{ scale: 0.95 }}
+                  title="Close actions"
+                  aria-label="Close actions"
                 >
                   <X className="w-5 h-5" />
                 </motion.button>
@@ -434,20 +472,24 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 {onSendMessage && (
                   <motion.button
                     initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    // Dimmed when unavailable (an opacity class would be overridden by this animation)
+                    animate={{ opacity: messageDisabledReason ? 0.6 : 1, x: 0 }}
                     transition={{ delay: 0.1 }}
                     onClick={() => {
                       onSendMessage();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-purple-50 transition-colors text-gray-700 border-b border-gray-100"
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
+                    disabled={!!messageDisabledReason}
+                    className={`w-full flex items-center gap-3 px-4 py-4 transition-colors text-gray-700 border-b border-gray-100 ${
+                      messageDisabledReason ? 'cursor-not-allowed' : 'hover:bg-purple-50'
+                    }`}
+                    whileHover={messageDisabledReason ? undefined : { x: 4 }}
+                    whileTap={messageDisabledReason ? undefined : { scale: 0.98 }}
                   >
                     <MessageCircle className="w-6 h-6 text-purple-500" />
                     <div className="text-left">
                       <span className="font-medium text-lg">Message</span>
-                      <p className="text-sm text-gray-500 mt-0.5">Send SMS to patient</p>
+                      <p className="text-sm text-gray-500 mt-0.5">{messageDisabledReason || 'Send SMS to patient'}</p>
                     </div>
                   </motion.button>
                 )}
@@ -455,20 +497,23 @@ export const HamburgerMenu: React.FC<HamburgerMenuProps> = ({
                 {onSendEmail && (
                   <motion.button
                     initial={{ opacity: 0, x: 50 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    animate={{ opacity: emailDisabledReason ? 0.6 : 1, x: 0 }}
                     transition={{ delay: 0.15 }}
                     onClick={() => {
                       onSendEmail();
                       setIsMobileMenuOpen(false);
                     }}
-                    className="w-full flex items-center gap-3 px-4 py-4 hover:bg-blue-50 transition-colors text-gray-700 border-b border-gray-100"
-                    whileHover={{ x: 4 }}
-                    whileTap={{ scale: 0.98 }}
+                    disabled={!!emailDisabledReason}
+                    className={`w-full flex items-center gap-3 px-4 py-4 transition-colors text-gray-700 border-b border-gray-100 ${
+                      emailDisabledReason ? 'cursor-not-allowed' : 'hover:bg-blue-50'
+                    }`}
+                    whileHover={emailDisabledReason ? undefined : { x: 4 }}
+                    whileTap={emailDisabledReason ? undefined : { scale: 0.98 }}
                   >
                     <Mail className="w-6 h-6 text-blue-500" />
                     <div className="text-left">
                       <span className="font-medium text-lg">Email</span>
-                      <p className="text-sm text-gray-500 mt-0.5">Send email to patient</p>
+                      <p className="text-sm text-gray-500 mt-0.5">{emailDisabledReason || 'Send email to patient'}</p>
                     </div>
                   </motion.button>
                 )}

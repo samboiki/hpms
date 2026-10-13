@@ -8,8 +8,6 @@ export interface PatientSettings {
   requireDataConsent: boolean;
   enableDataExport: boolean;
   autoAnonymizeAfterYears: number | null;
-  idPrefix: string;
-  idFormat: 'sequential' | 'year_number' | 'random_alphanumeric';
   inactiveThresholdDays: number;
   sendSmsReminders: boolean;
   sendEmailReminders: boolean;
@@ -22,8 +20,6 @@ const DEFAULT_SETTINGS: PatientSettings = {
   requireDataConsent: true,
   enableDataExport: true,
   autoAnonymizeAfterYears: null,
-  idPrefix: 'PAT',
-  idFormat: 'sequential',
   inactiveThresholdDays: 180, // 6 months
   sendSmsReminders: true,
   sendEmailReminders: true,
@@ -96,16 +92,18 @@ export const usePatientSettings = () => {
       }
 
       if (existingData) {
-        // Update existing settings
-        const { error: updateError } = await supabase
+        // Update existing settings (an update the database refuses changes no row and returns no error)
+        const { data: updatedRows, error: updateError } = await supabase
           .from('practice_settings')
           .update({
             setting_value: newSettings,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', existingData.id);
+          .eq('id', existingData.id)
+          .select('id');
 
         if (updateError) throw updateError;
+        if (!updatedRows || updatedRows.length === 0) throw new Error('No settings row was changed');
       } else {
         // Insert new settings
         const { error: insertError } = await supabase

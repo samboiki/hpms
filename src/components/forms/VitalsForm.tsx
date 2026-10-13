@@ -1,7 +1,12 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { FeatureGuard } from '../practice/FeatureGuard';
+import { supabase } from '../../lib/supabase';
+import { checkBloodPressure, checkTemperature } from '../../utils/vitalSigns';
+import { errorMessage } from './formErrors';
+import VitalFlagNote from './VitalFlagNote';
 
 interface VitalsFormData {
   bloodPressure: string;
@@ -11,17 +16,17 @@ interface VitalsFormData {
   weight: number;
   height: number;
   bmi: number;
-  notes?: string;
 }
 
 interface Props {
-  medicalRecordId: string;
+  /** The visit the vitals belong to: the vitals table is keyed by visit (the caller already passes it) */
+  visitId: string;
   onSuccess: () => void;
   initialData?: Partial<VitalsFormData>;
 }
 
-const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }) => {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<VitalsFormData>({
+const VitalsForm: React.FC<Props> = ({ visitId, onSuccess, initialData }) => {
+  const { register, handleSubmit, watch, setValue, formState: { errors, isSubmitting } } = useForm<VitalsFormData>({
     defaultValues: initialData
   });
 
@@ -41,19 +46,44 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
     return () => subscription.unsubscribe();
   }, [watch, setValue]);
 
+  // "Save Vitals" used to log the values and close, so nothing was ever recorded
   const onSubmit = async (data: VitalsFormData) => {
+    if (!visitId) {
+      toast.error('Vitals are recorded against a visit. Start a visit for this patient first.');
+      return;
+    }
     try {
-      // Here you would typically make an API call to save the vitals
-      console.log('Saving vitals:', data);
-      onSuccess();
+      const { error } = await supabase
+        .from('vitals')
+        .insert([{
+          visit_id: visitId,
+          blood_pressure: data.bloodPressure.trim(),
+          temperature: data.temperature,
+          pulse_rate: data.pulseRate,
+          respiratory_rate: data.respiratoryRate,
+          weight: data.weight,
+          height: data.height,
+          bmi: data.bmi || null
+        }]);
+
+      if (error) throw error;
     } catch (error) {
       console.error('Failed to save vitals:', error);
+      toast.error(`Couldn't save the vitals: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Vitals saved');
+    onSuccess();
   };
 
   return (
     <FeatureGuard feature="vitals_tracking">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {!visitId && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          This patient has no visit to save vitals to. Start a visit first, then record the vitals.
+        </p>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700">Blood Pressure (mmHg)</label>
@@ -72,6 +102,7 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
           {errors.bloodPressure && (
             <p className="mt-1 text-sm text-red-600">{errors.bloodPressure.message}</p>
           )}
+          <VitalFlagNote check={checkBloodPressure(watch('bloodPressure'))} />
         </div>
 
         <div>
@@ -79,26 +110,32 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
           <input
             type="number"
             step="0.1"
+            // Wide limits only catch typing mistakes: a real reading below 35 °C (hypothermia) must be
+            // recordable, so it is flagged below rather than refused
             {...register('temperature', {
               required: 'Temperature is required',
-              min: { value: 35, message: 'Temperature too low' },
-              max: { value: 42, message: 'Temperature too high' }
+              min: { value: 25, message: 'Check the reading: enter a temperature between 25 and 45 °C' },
+              max: { value: 45, message: 'Check the reading: enter a temperature between 25 and 45 °C' },
+              valueAsNumber: true
             })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
           />
           {errors.temperature && (
             <p className="mt-1 text-sm text-red-600">{errors.temperature.message}</p>
           )}
+          <VitalFlagNote check={checkTemperature(watch('temperature'))} />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700">Pulse Rate (bpm)</label>
           <input
             type="number"
+            // Typing-mistake limits only: the old 40-200 refused real bradycardia and fast infant pulses
             {...register('pulseRate', {
               required: 'Pulse rate is required',
-              min: { value: 40, message: 'Pulse rate too low' },
-              max: { value: 200, message: 'Pulse rate too high' }
+              min: { value: 20, message: 'Check the reading: enter a pulse between 20 and 250 bpm' },
+              max: { value: 250, message: 'Check the reading: enter a pulse between 20 and 250 bpm' },
+              valueAsNumber: true
             })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
           />
@@ -111,10 +148,12 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
           <label className="block text-sm font-medium text-gray-700">Respiratory Rate (breaths/min)</label>
           <input
             type="number"
+            // Typing-mistake limits only: the old maximum of 40 refused a newborn's normal breathing rate
             {...register('respiratoryRate', {
               required: 'Respiratory rate is required',
-              min: { value: 8, message: 'Respiratory rate too low' },
-              max: { value: 40, message: 'Respiratory rate too high' }
+              min: { value: 4, message: 'Check the reading: enter a breathing rate between 4 and 100 per minute' },
+              max: { value: 100, message: 'Check the reading: enter a breathing rate between 4 and 100 per minute' },
+              valueAsNumber: true
             })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
           />
@@ -130,7 +169,8 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
             step="0.1"
             {...register('weight', {
               required: 'Weight is required',
-              min: { value: 0, message: 'Weight must be positive' }
+              min: { value: 0, message: 'Weight must be positive' },
+              valueAsNumber: true
             })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
           />
@@ -145,7 +185,8 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
             type="number"
             {...register('height', {
               required: 'Height is required',
-              min: { value: 0, message: 'Height must be positive' }
+              min: { value: 0, message: 'Height must be positive' },
+              valueAsNumber: true
             })}
             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
           />
@@ -165,22 +206,14 @@ const VitalsForm: React.FC<Props> = ({ medicalRecordId, onSuccess, initialData }
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700">Notes</label>
-          <textarea
-            {...register('notes')}
-            rows={3}
-            className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
-          />
-        </div>
       </div>
 
       <div className="flex justify-end space-x-3">
         <Button type="button" variant="outline" onClick={() => onSuccess()}>
           Cancel
         </Button>
-        <Button type="submit" className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8]">
-          Save Vitals
+        <Button type="submit" disabled={isSubmitting} className="bg-gradient-to-r from-[#01b8d8] to-[#01b8d8]">
+          {isSubmitting ? 'Saving...' : 'Save Vitals'}
         </Button>
       </div>
       </form>

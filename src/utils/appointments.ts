@@ -1,5 +1,10 @@
 import { supabase } from '../lib/supabase';
 import { startOfDay, endOfDay, addMinutes, format, parse, isWithinInterval, setHours, setMinutes } from 'date-fns';
+// The overlap rule lives in a pure module so the diary checks can use it without the Supabase client
+import { APPOINTMENT_DURATION, visitOverlapsSlot, type ConflictVisit } from './diary/visitOverlap';
+
+export { visitOverlapsSlot };
+export type { ConflictVisit };
 
 interface TimeSlot {
   start: Date;
@@ -20,8 +25,6 @@ const DEFAULT_BUSINESS_HOURS: BusinessHours = {
   lunchStart: "12:00",
   lunchEnd: "13:00"
 };
-
-const APPOINTMENT_DURATION = 30; // minutes
 
 /**
  * Opens a visit for an appointment, creating one if it doesn't exist
@@ -96,21 +99,25 @@ export async function generateTimeSlots(
       .eq('doctor_id', doctorId)
       .eq('date', dateStr)
       .neq('status', 'cancelled'),
+    // visits has no `duration` column (selecting it failed the query, so booked visits never blocked slots)
     supabase
       .from('visits')
-      .select('visit_date, visit_time, duration')
+      .select('id, visit_date, visit_time, scheduled_date, scheduled_time, status, is_cancelled')
       .eq('doctor_id', doctorId)
-      .eq('visit_date', dateStr)
-      .in('status', ['scheduled', 'in-progress'])
+      .or(`scheduled_date.eq.${dateStr},visit_date.eq.${dateStr}`)
   ]);
 
   const { data: appointments } = appointmentsData;
-  const { data: visits } = visitsData;
-  
+  const visits = ((visitsData.data || []) as ConflictVisit[])
+    .filter(visit => !visit.is_cancelled && !['cancelled', 'no-show'].includes(visit.status ?? ''))
+    // Same date rule as visitOverlapsSlot. A visit rescheduled while only scheduled_* was updated
+    // still matches its old day through visit_date, but it now takes place on scheduled_date.
+    .filter(visit => (visit.scheduled_date || visit.visit_date || '').slice(0, 10) === dateStr);
+
   // Combine appointments from both sources
   const allAppointments = [
     ...(appointments || []).map(apt => ({ time: apt.time, duration: apt.duration })),
-    ...(visits || []).map(visit => ({ time: visit.visit_time, duration: visit.duration || APPOINTMENT_DURATION }))
+    ...visits.map(visit => ({ time: visit.scheduled_time || visit.visit_time, duration: APPOINTMENT_DURATION }))
   ];
   
   // Mark slots as unavailable if they have appointments
@@ -153,20 +160,26 @@ export async function checkAppointmentConflict(
       .eq('doctor_id', doctorId)
       .eq('date', dateStr)
       .neq('status', 'cancelled'),
+    // visits has no `duration` column: selecting it made this query fail silently, so clashes with
+    // existing visits were never detected at save time.
     supabase
       .from('visits')
-      .select('id, visit_date, visit_time, duration')
+      .select('id, visit_date, visit_time, scheduled_date, scheduled_time, status, is_cancelled')
       .eq('doctor_id', doctorId)
-      .eq('visit_date', dateStr)
-      .in('status', ['scheduled', 'in-progress'])
+      .or(`scheduled_date.eq.${dateStr},visit_date.eq.${dateStr}`)
   ]);
 
+  if (visitsData.error) {
+    console.error('Could not check visit conflicts:', visitsData.error);
+    throw new Error("Could not check the doctor's availability. Please try again.");
+  }
+
   const { data: appointments } = appointmentsData;
-  const { data: visits } = visitsData;
+  const visits = (visitsData.data || []) as ConflictVisit[];
   
   // Filter out excluded appointments/visits
   const filteredAppointments = appointments?.filter(apt => apt.id !== excludeAppointmentId) || [];
-  const filteredVisits = visits?.filter(visit => visit.id !== excludeAppointmentId) || [];
+  const filteredVisits = visits.filter(visit => visit.id !== excludeAppointmentId);
   
   if (filteredAppointments.length === 0 && filteredVisits.length === 0) {
     return false;
@@ -186,15 +199,7 @@ export async function checkAppointmentConflict(
     return (slotStart < apptEnd && slotEnd > apptStart);
   });
 
-  const hasVisitConflict = filteredVisits.some(visit => {
-    if (!visit.visit_time) return false;
-    const [hours, minutes] = visit.visit_time.split(':').map(Number);
-    const visitStart = setMinutes(setHours(parse(visit.visit_date, 'yyyy-MM-dd', new Date()), hours), minutes);
-    const visitEnd = addMinutes(visitStart, visit.duration || APPOINTMENT_DURATION);
-    
-    // Check if times overlap
-    return (slotStart < visitEnd && slotEnd > visitStart);
-  });
+  const hasVisitConflict = filteredVisits.some(visit => visitOverlapsSlot(visit, slotStart, duration));
 
   return hasAppointmentConflict || hasVisitConflict;
 }

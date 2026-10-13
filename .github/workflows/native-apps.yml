@@ -1,0 +1,157 @@
+# Android and iOS store apps (Capacitor): the same web app as the website, wrapped as a native app.
+#
+# - Every push to a release/** branch builds an Android debug APK to install on a test phone: open the run under
+#   Actions and download it from Artifacts. It is signed with a throwaway debug key, so it cannot go to Google Play.
+# - "Run workflow" (Actions > Native apps) can also build a signed Google Play bundle (.aab) and an iOS simulator build.
+#
+# Repository settings (Settings > Secrets and variables > Actions), the same values as the local .env:
+#   secrets: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, VITE_N8N_WEBHOOK_URL (optional)
+#   variables: VITE_AI_ASSIST_ENABLED (optional)
+# Signed Google Play bundle only (the upload key; it must never be committed):
+#   secrets: ANDROID_KEYSTORE_BASE64 (the .jks file, base64-encoded), ANDROID_KEYSTORE_PASSWORD,
+#            ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+name: Native apps
+
+on:
+  push:
+    branches: ['release/**']
+  workflow_dispatch:
+    inputs:
+      android_release:
+        description: 'Also build a signed Google Play bundle (.aab). Needs the ANDROID_* secrets.'
+        type: boolean
+        default: false
+      version_name:
+        description: 'Version shown in Google Play for the signed bundle'
+        type: string
+        default: '1.0.0'
+      ios_simulator:
+        description: 'Also build the iOS app for the simulator (runs on macOS, which uses 10x the Actions minutes)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-apps-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+  VITE_N8N_WEBHOOK_URL: ${{ secrets.VITE_N8N_WEBHOOK_URL }}
+  VITE_AI_ASSIST_ENABLED: ${{ vars.VITE_AI_ASSIST_ENABLED }}
+  NODE_OPTIONS: --max-old-space-size=4096 # the web build is large (not minified)
+
+jobs:
+  android-debug:
+    name: Android debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the build settings
+        run: |
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_ANON_KEY" ]; then
+            echo "::error::Add the VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY repository secrets (as in .env), or the app cannot reach the database"
+            exit 1
+          fi
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci --no-audit --no-fund
+      - name: Build the web app and copy it into the Android project
+        run: npm run build && npx cap sync android
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Name the APK after the commit
+        run: mv android/app/build/outputs/apk/debug/app-debug.apk "OneHealth-debug-${GITHUB_SHA::7}.apk"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: OneHealth-debug-*.apk
+          archive: false # download the .apk itself, ready to open on a phone
+          retention-days: 14
+          if-no-files-found: error
+
+  android-release:
+    name: Android signed bundle (Google Play)
+    if: github.event_name == 'workflow_dispatch' && inputs.android_release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_VERSION_CODE: ${{ github.run_number }} # Google Play needs a higher number for every upload
+      ANDROID_VERSION_NAME: ${{ inputs.version_name }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the build settings and the signing key
+        run: |
+          for name in VITE_SUPABASE_URL VITE_SUPABASE_ANON_KEY ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Add the $name repository secret first"
+              exit 1
+            fi
+          done
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: npm ci --no-audit --no-fund
+      - name: Build the web app and copy it into the Android project
+        run: npm run build && npx cap sync android
+      - name: Build the signed bundle
+        working-directory: android
+        run: |
+          export ANDROID_KEYSTORE_PATH="$RUNNER_TEMP/upload-key.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --no-daemon
+          rm -f "$ANDROID_KEYSTORE_PATH"
+      - name: Name the bundle after the version
+        run: mv android/app/build/outputs/bundle/release/app-release.aab "OneHealth-${ANDROID_VERSION_NAME}-${ANDROID_VERSION_CODE}.aab"
+      - uses: actions/upload-artifact@v7
+        with:
+          path: OneHealth-*.aab
+          archive: false
+          retention-days: 30
+          if-no-files-found: error
+
+  # Checks that the iOS project builds. Real iPhones and TestFlight need signing with the owner's Apple account
+  # (Xcode on a Mac, or a cloud Mac service).
+  ios-simulator:
+    name: iOS simulator build (not signed)
+    if: github.event_name == 'workflow_dispatch' && inputs.ios_simulator
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Build the web app and copy it into the iOS project
+        run: npm run build && npx cap sync ios
+      - name: Build for the iOS simulator
+        run: >
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Debug
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

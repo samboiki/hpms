@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { Icon } from '@iconify/react';
+import { describeDbError, ensureRowsUpdated } from './staffUtils';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 
 interface LeaveTypeModalProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ const COLORS = [
 ];
 
 export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLeaveType }: LeaveTypeModalProps) {
+  // Escape closes this window, as its X does
+  useEscapeToClose(isOpen, onClose);
   const [name, setName] = useState(existingLeaveType?.name || '');
   const [code, setCode] = useState(existingLeaveType?.code || '');
   const [daysPerYear, setDaysPerYear] = useState(existingLeaveType?.days_per_year?.toString() || '');
@@ -105,9 +109,6 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
       };
 
       if (existingLeaveType) {
-        console.log('Updating leave type:', existingLeaveType.id);
-        console.log('Update data:', leaveTypeData);
-        
         const { data: updateResult, error } = await supabase
           .from('leave_types')
           .update({
@@ -115,15 +116,14 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
             updated_at: new Date().toISOString()
           })
           .eq('id', existingLeaveType.id)
-          .select();
+          .select('id');
 
-        console.log('Update result:', updateResult);
-        if (error) {
-          console.error('Update error:', error);
-          throw error;
-        }
+        if (error) throw error;
+        // A refused change comes back as no rows, not as an error: never say "updated" then
+        ensureRowsUpdated(updateResult, 'The leave type');
         toast.success('Leave type updated successfully');
       } else {
+        let balancesFailed = false;
         const { error } = await supabase
           .from('leave_types')
           .insert(leaveTypeData);
@@ -155,18 +155,24 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
               carried_over_days: 0
             }));
 
-            await supabase.from('leave_balances').insert(balances);
+            const { error: balanceError } = await supabase.from('leave_balances').insert(balances);
+            if (balanceError) {
+              console.error('Leave balances were not created:', balanceError);
+              balancesFailed = true;
+              toast.error('Leave type created, but staff leave balances could not be set up. Please contact support.', { duration: 8000 });
+            }
           }
         }
 
-        toast.success('Leave type created successfully');
+        // The warning above already says the type was created: no second, all-is-well message after it
+        if (!balancesFailed) toast.success('Leave type created successfully');
       }
 
       onSuccess();
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving leave type:', error);
-      toast.error(error.message || 'Failed to save leave type');
+      toast.error(describeDbError(error, 'Could not save the leave type'));
     } finally {
       setLoading(false);
     }
@@ -193,7 +199,9 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
               </div>
             </div>
             <button 
+              type="button"
               onClick={onClose} 
+              aria-label="Close"
               className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
             >
               <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-white" />
@@ -219,12 +227,13 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="leave-type-name" className="block text-sm font-medium text-gray-700 mb-2">
                     Leave Type Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Icon icon="solar:calendar-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                     <input
+                      id="leave-type-name"
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
@@ -236,12 +245,13 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="leave-type-code" className="block text-sm font-medium text-gray-700 mb-2">
                     Code <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Icon icon="solar:code-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                     <input
+                      id="leave-type-code"
                       type="text"
                       value={code}
                       onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -268,12 +278,13 @@ export default function LeaveTypeModal({ isOpen, onClose, onSuccess, existingLea
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="leave-type-days" className="block text-sm font-medium text-gray-700 mb-2">
                     Days per Year <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Icon icon="solar:calendar-days-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <Icon icon="solar:calendar-date-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                     <input
+                      id="leave-type-days"
                       type="number"
                       value={daysPerYear}
                       onChange={(e) => setDaysPerYear(e.target.value)}

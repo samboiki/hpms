@@ -27,7 +27,8 @@ import { format } from 'date-fns';
 interface BillingItem {
   id: string;
   date: string;
-  type: 'consultation' | 'procedure' | 'lab' | 'imaging' | 'medication';
+  /** 'invoice' = a whole invoice (shown with the generic receipt icon) */
+  type: 'consultation' | 'procedure' | 'lab' | 'imaging' | 'medication' | 'invoice';
   description: string;
   amount: number;
   status: 'paid' | 'pending' | 'overdue';
@@ -39,15 +40,26 @@ interface PremiumBillingModalProps {
   isOpen: boolean;
   onClose: () => void;
   patientName?: string;
+  /** @deprecated Ignored: the total is computed from billingItems */
   totalSpent?: number;
   billingItems?: BillingItem[];
 }
+
+// Groups the free-text payment methods stored on invoices into a few readable labels
+const formatPaymentMethod = (method?: string): string => {
+  if (!method) return 'Not recorded';
+  const normalized = method.toLowerCase().replace(/[_-]+/g, ' ').trim();
+  if (/medical|aid|scheme|insurance/.test(normalized)) return 'Medical aid';
+  if (/cash/.test(normalized)) return 'Cash';
+  if (/card|credit|debit|pos/.test(normalized)) return 'Card';
+  if (/eft|transfer|bank/.test(normalized)) return 'EFT';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+};
 
 const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
   isOpen,
   onClose,
   patientName = 'Patient',
-  totalSpent = 0,
   billingItems = []
 }) => {
   const { currentTheme } = useTheme();
@@ -57,65 +69,41 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Mock data for demonstration
-  const mockBillingItems: BillingItem[] = [
-    {
-      id: '1',
-      date: '2024-01-15',
-      type: 'consultation',
-      description: 'General Consultation - Dr. Smith',
-      amount: 450,
-      status: 'paid',
-      paymentMethod: 'Medical Aid',
-      invoiceNumber: 'INV-2024-001'
-    },
-    {
-      id: '2',
-      date: '2024-01-20',
-      type: 'lab',
-      description: 'Blood Test - Complete Blood Count',
-      amount: 320,
-      status: 'paid',
-      paymentMethod: 'Cash',
-      invoiceNumber: 'INV-2024-002'
-    },
-    {
-      id: '3',
-      date: '2024-02-05',
-      type: 'procedure',
-      description: 'Minor Surgery - Wound Suturing',
-      amount: 850,
-      status: 'pending',
-      invoiceNumber: 'INV-2024-003'
-    },
-    {
-      id: '4',
-      date: '2024-02-10',
-      type: 'imaging',
-      description: 'X-Ray - Chest',
-      amount: 580,
-      status: 'paid',
-      paymentMethod: 'Medical Aid',
-      invoiceNumber: 'INV-2024-004'
-    },
-    {
-      id: '5',
-      date: '2024-02-15',
-      type: 'medication',
-      description: 'Prescription Medication - 30 days',
-      amount: 245,
-      status: 'overdue',
-      invoiceNumber: 'INV-2024-005'
-    }
-  ];
+  // Only real billing items are shown. The previous fallback rendered hard-coded demo invoices
+  // ("Dr. Smith", INV-2024-00x) inside real patient records whenever no items were passed.
+  const items = billingItems;
 
-  const items = billingItems.length > 0 ? billingItems : mockBillingItems;
-  
-  // Calculate statistics
+  // Calculate statistics (total is derived from the items, not a caller-supplied estimate)
+  const totalSpent = items.reduce((sum, item) => sum + item.amount, 0);
   const totalPaid = items.filter(item => item.status === 'paid').reduce((sum, item) => sum + item.amount, 0);
   const totalPending = items.filter(item => item.status === 'pending').reduce((sum, item) => sum + item.amount, 0);
   const totalOverdue = items.filter(item => item.status === 'overdue').reduce((sum, item) => sum + item.amount, 0);
-  
+
+  // Real split of what this patient has paid, by payment method (replaces hard-coded 65/25/10%)
+  const methodTotals = items
+    .filter(item => item.status === 'paid')
+    .reduce<Record<string, number>>((acc, item) => {
+      const method = formatPaymentMethod(item.paymentMethod);
+      acc[method] = (acc[method] || 0) + item.amount;
+      return acc;
+    }, {});
+  const methodBreakdown = Object.entries(methodTotals)
+    .map(([method, amount]) => ({ method, amount, percent: totalPaid > 0 ? Math.round((amount / totalPaid) * 100) : 0 }))
+    .sort((a, b) => b.amount - a.amount);
+
+  // Billed per month over the last 6 months (replaces the "coming soon" placeholder)
+  const monthlySpending = Array.from({ length: 6 }, (_, i) => {
+    const month = new Date();
+    month.setDate(1);
+    month.setMonth(month.getMonth() - (5 - i));
+    const key = format(month, 'yyyy-MM');
+    const amount = items
+      .filter(item => item.date && item.date.slice(0, 7) === key)
+      .reduce((sum, item) => sum + item.amount, 0);
+    return { key, label: format(month, 'MMM'), amount };
+  });
+  const maxMonthly = Math.max(0, ...monthlySpending.map(m => m.amount));
+
   // Filter items
   const filteredItems = items.filter(item => {
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
@@ -224,34 +212,53 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
                 <PieChart className="w-5 h-5 text-purple-600" />
                 Payment Methods
               </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-blue-50 rounded-xl">
-                  <Wallet className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-700">Medical Aid</p>
-                  <p className="text-xl font-bold text-blue-600">65%</p>
+              {methodBreakdown.length === 0 ? (
+                <p className="text-sm text-gray-500">No payments recorded for this patient yet.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {methodBreakdown.slice(0, 3).map(({ method, amount, percent }) => {
+                    const MethodIcon = method === 'Medical aid' ? Wallet : method === 'Cash' ? DollarSign : CreditCard;
+                    return (
+                      <div key={method} className="text-center p-4 bg-white rounded-xl border border-gray-100">
+                        <MethodIcon className="w-8 h-8 text-purple-600 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-gray-700">{method}</p>
+                        <p className="text-xl font-bold text-purple-600 tabular-nums">{percent}%</p>
+                        <p className="text-xs text-gray-500 mt-1 tabular-nums">
+                          N${amount.toLocaleString('en-NA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="text-center p-4 bg-green-50 rounded-xl">
-                  <DollarSign className="w-8 h-8 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-700">Cash</p>
-                  <p className="text-xl font-bold text-green-600">25%</p>
-                </div>
-                <div className="text-center p-4 bg-purple-50 rounded-xl">
-                  <CreditCard className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-gray-700">Card</p>
-                  <p className="text-xl font-bold text-purple-600">10%</p>
-                </div>
-              </div>
+              )}
             </div>
 
-            {/* Spending Trend Chart (Placeholder) */}
+            {/* Monthly billed amounts, last 6 months */}
             <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-100">
               <h4 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2" style={{ fontFamily: 'Poppins, sans-serif' }}>
                 <BarChart className="w-5 h-5 text-blue-600" />
-                Monthly Spending Trend
+                Billed per month (last 6 months)
               </h4>
-              <div className="h-48 flex items-center justify-center">
-                <p className="text-gray-500 text-sm">Chart visualization coming soon</p>
-              </div>
+              {maxMonthly === 0 ? (
+                <p className="text-sm text-gray-500">No billing in the last 6 months.</p>
+              ) : (
+                <div className="flex items-end gap-3 h-48">
+                  {monthlySpending.map(month => (
+                    <div key={month.key} className="flex-1 h-full flex flex-col items-center gap-1">
+                      <span className="text-[11px] text-gray-600 tabular-nums h-4">
+                        {month.amount > 0 ? `N$${Math.round(month.amount).toLocaleString('en-NA')}` : ''}
+                      </span>
+                      <div className="w-full flex-1 flex items-end">
+                        <div
+                          className="w-full rounded-t-md bg-gradient-to-t from-blue-500 to-purple-500"
+                          style={{ height: `${month.amount > 0 ? Math.max((month.amount / maxMonthly) * 100, 4) : 0}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-500">{month.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         );
@@ -292,6 +299,11 @@ const PremiumBillingModal: React.FC<PremiumBillingModalProps> = ({
 
             {/* Transaction List */}
             <div className="space-y-3">
+              {filteredItems.length === 0 && (
+                <div className="text-center py-12 text-gray-500 border border-dashed border-gray-200 rounded-xl">
+                  No billing records for this patient yet.
+                </div>
+              )}
               {filteredItems.map((item, index) => (
                 <motion.div
                   key={item.id}

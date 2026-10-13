@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { EXCLUDE_CARRIER_VISITS } from '../utils/carrierVisits';
 
 export interface EncounterStats {
   total: number;
@@ -47,11 +48,12 @@ export class EncounterStatsService {
         };
       }
 
-      // Get total visits for these patients
+      // Get total visits for these patients (rows that only carry invoices are not visits)
       const { count: totalCount, error: totalError } = await supabase
         .from('visits')
         .select('*', { count: 'exact', head: true })
-        .in('patient_id', patientIds);
+        .in('patient_id', patientIds)
+        .or(EXCLUDE_CARRIER_VISITS);
 
       if (totalError) {
         console.error('❌ Error fetching total encounters:', totalError);
@@ -65,7 +67,8 @@ export class EncounterStatsService {
       const { data: statusData, error: statusError } = await supabase
         .from('visits')
         .select('status')
-        .in('patient_id', patientIds);
+        .in('patient_id', patientIds)
+        .or(EXCLUDE_CARRIER_VISITS);
 
       if (statusError) {
         console.error('❌ Error fetching encounter statuses:', statusError);
@@ -107,6 +110,7 @@ export class EncounterStatsService {
         .from('visits')
         .select('*', { count: 'exact', head: true })
         .in('patient_id', patientIds)
+        .or(EXCLUDE_CARRIER_VISITS)
         .gte('created_at', startOfMonth.toISOString());
 
       if (monthError) {
@@ -125,6 +129,7 @@ export class EncounterStatsService {
         .from('visits')
         .select('*', { count: 'exact', head: true })
         .in('patient_id', patientIds)
+        .or(EXCLUDE_CARRIER_VISITS)
         .gte('created_at', startOfWeek.toISOString());
 
       if (weekError) {

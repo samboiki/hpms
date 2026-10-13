@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { decideSessionKind, identityOfAuthUser, type SessionKind } from '../patientPortal/portalRouting';
+import { SIGN_OUT_WAIT_MS, logRecordAccess, settleWithin } from '../services/recordAccessLog';
 
 interface User {
   id: string;
@@ -20,9 +22,12 @@ interface User {
 }
 
 interface AuthState {
+  /** A staff member is signed in (a patient app login never sets this) */
   isAuthenticated: boolean;
   user: User | null;
   selectedPracticeId: string | null;
+  /** Who the restored session belongs to: App.tsx shows the patient app for 'patient' */
+  sessionKind: SessionKind | null;
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => void;
@@ -32,10 +37,24 @@ interface AuthState {
   canManagePractices: () => boolean;
 }
 
+// Used only when the staff profile (users row) can't be loaded. user_metadata is editable by the
+// user, so it may never grant admin, super-admin or practice-management rights.
+const roleFromMetadata = (role: unknown): User['role'] =>
+  role === 'doctor' || role === 'nurse' || role === 'receptionist' ? role : 'doctor';
+
+/** Thrown when a staff member whose account was deactivated tries to sign in. */
+export class AccountDeactivatedError extends Error {
+  constructor() {
+    super('This account has been deactivated. Please contact your practice administrator.');
+    this.name = 'AccountDeactivatedError';
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   user: null,
   selectedPracticeId: null,
+  sessionKind: null,
   login: async (email: string, password: string) => {
     console.log('🔐 Login attempt for:', email);
     
@@ -58,17 +77,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const { data, error } = await supabase
             .from('users')
             .select(`
-              id, 
-              email, 
-              full_name, 
-              role, 
-              avatar, 
+              id,
+              email,
+              full_name,
+              role,
+              avatar,
               signature_url,
-              practice_id, 
-              is_super_admin, 
-              can_manage_practices, 
-              permissions, 
+              practice_id,
+              is_super_admin,
+              can_manage_practices,
+              permissions,
               last_active_at,
+              is_active,
               practices:practice_id (
                 id,
                 name
@@ -86,6 +106,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         } catch (e) {
           console.log('No user found in database, using auth metadata');
+        }
+
+        // A deactivated staff member must not keep using an existing session
+        if (dbUser?.is_active === false) {
+          console.warn('⛔ Session belongs to a deactivated account; signing out');
+          await supabase.auth.signOut();
+          set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null });
+          return false;
+        }
+
+        // A patient app login (cell number + SMS code) has no staff profile and must never get a staff user
+        // from the fallback below: App.tsx shows it the patient app instead (src/patientPortal/portalRouting.ts)
+        const sessionKind = decideSessionKind(identityOfAuthUser(session.user), dbUser ? 'found' : 'not_found');
+        if (sessionKind !== 'staff') {
+          set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind });
+          return false;
         }
 
         // Use database user data if available, otherwise fallback to auth metadata
@@ -107,14 +143,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'doctor',
+          role: roleFromMetadata(authUser.user_metadata?.role),
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
-          is_super_admin: authUser.user_metadata?.is_super_admin || false,
-          can_manage_practices: authUser.user_metadata?.can_manage_practices || false
+          is_super_admin: false,
+          can_manage_practices: false
         };
 
-        set({ isAuthenticated: true, user });
+        set({ isAuthenticated: true, user, sessionKind: 'staff' });
         console.log('✅ Session restored successfully');
         return true;
       }
@@ -162,8 +198,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             practice_id, 
             is_super_admin, 
             can_manage_practices, 
-            permissions, 
+            permissions,
             last_active_at,
+            is_active,
             practices:practice_id (
               id,
               name
@@ -171,15 +208,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           `)
           .eq('id', authUser.id)
           .single();
-          
+
         userData = result.data;
         userError = result.error;
+
+        // Deactivated staff can't sign in (accounts are deactivated rather than deleted)
+        if (userData?.is_active === false) {
+          await supabase.auth.signOut();
+          throw new AccountDeactivatedError();
+        }
         
         if (userData) {
           console.log('✅ User data from DB:', userData);
           console.log('📍 Practice ID from DB:', userData.practice_id);
         }
       } catch (e) {
+        if (e instanceof AccountDeactivatedError) throw e;
         console.log('⚠️ Users table query failed, using auth metadata');
         userError = e;
       }
@@ -193,12 +237,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           id: authUser.id,
           email: authUser.email || email,
           name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: (authUser.user_metadata?.role as any) || 'doctor',
+          role: roleFromMetadata(authUser.user_metadata?.role),
           avatar: authUser.user_metadata?.avatar || null,
           practice_id: authUser.user_metadata?.practice_id || null,
-          is_super_admin: authUser.user_metadata?.is_super_admin || false,
-          can_manage_practices: authUser.user_metadata?.can_manage_practices || false,
-          permissions: authUser.user_metadata?.permissions || {},
+          is_super_admin: false,
+          can_manage_practices: false,
+          permissions: {},
           last_active_at: authUser.last_sign_in_at
         };
       } else {
@@ -225,11 +269,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       set({ 
         isAuthenticated: true, 
         user,
-        selectedPracticeId
+        selectedPracticeId,
+        sessionKind: 'staff'
       });
+      // The sign-in is recorded for the practice's administrators (parity Q8); signing in never waits for it
+      void logRecordAccess('signed_in', { screen: 'sign_in', userId: user.id });
       console.log('✅ Login complete!');
       return true;
     } catch (error) {
+      if (error instanceof AccountDeactivatedError) throw error;
       console.error('💥 Unexpected login error:', error);
       return false;
     }
@@ -237,14 +285,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: async () => {
     try {
       console.log('🔐 Starting logout process...');
-      
+      // A staff member's sign-out is recorded (parity Q8) while the session still exists
+      const { sessionKind, user: signedIn } = get();
+      const recorded = sessionKind === 'staff' ? logRecordAccess('signed_out', { screen: 'app', userId: signedIn?.id }) : Promise.resolve();
+
       // Clear auth state immediately to prevent any race conditions
-      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
-      
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null });
+
       // Clear any cached data
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.clear();
-      
+
+      // The screen has already changed; the session ends once the entry went, or after a moment at most
+      await settleWithin(recorded, SIGN_OUT_WAIT_MS);
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
       
@@ -257,7 +310,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('❌ Unexpected logout error:', error);
       // Still ensure state is cleared even if there's an error
-      set({ isAuthenticated: false, user: null, selectedPracticeId: null });
+      set({ isAuthenticated: false, user: null, selectedPracticeId: null, sessionKind: null });
     }
   },
   updateUser: (updates: Partial<User>) => {

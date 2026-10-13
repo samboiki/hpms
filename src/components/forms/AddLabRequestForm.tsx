@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
 import { User } from 'lucide-react';
+import { errorMessage } from './formErrors';
+import { EXCLUDE_CARRIER_VISITS } from '../../utils/carrierVisits';
 
 interface Patient {
   id: string;
   first_name: string;
   last_name: string;
+  practice_id: string | null;
 }
 
 interface LabRequestFormData {
@@ -24,7 +29,14 @@ interface Props {
   onSuccess: () => void;
 }
 
-const AddLabRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
+const PRIORITY_LABELS: Record<LabRequestFormData['priority'], string> = {
+  routine: 'Routine',
+  urgent: 'Urgent',
+  stat: 'STAT'
+};
+
+// lab_requests has no column for the requesting doctor, so doctorId is accepted but not stored
+const AddLabRequestForm: React.FC<Props> = ({ onSuccess }) => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
@@ -46,13 +58,14 @@ const AddLabRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, practice_id')
         .order('last_name', { ascending: true });
 
       if (error) throw error;
       setPatients(data || []);
     } catch (error) {
       console.error('Error fetching patients:', error);
+      toast.error(`Couldn't load the patient list: ${errorMessage(error)}`);
     }
   };
 
@@ -62,34 +75,51 @@ const AddLabRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
         .from('visits')
         .select('id, visit_date, visit_time, visit_type')
         .eq('patient_id', patientId)
+        // A row that only carries a payment plan's, package's or opening balance's invoices is not a visit to pick
+        .or(EXCLUDE_CARRIER_VISITS)
         .order('visit_date', { ascending: false });
 
       if (error) throw error;
       setVisits(data || []);
     } catch (error) {
       console.error('Error fetching visits:', error);
+      toast.error(`Couldn't load this patient's visits: ${errorMessage(error)}`);
     }
   };
 
   const onSubmit = async (data: LabRequestFormData) => {
+    // Lab requests are listed per practice, so record the patient's practice (as CreateLabRequest does)
+    const patient = patients.find(p => p.id === data.patient_id);
+    if (!patient?.practice_id) {
+      toast.error("Can't create the lab request: this patient isn't linked to a practice.");
+      return;
+    }
     try {
+      // Only real lab_requests columns: the old insert named test_name, priority, requesting_doctor_id and
+      // expected_completion_date, which the table doesn't have, so every request failed. The test and
+      // priority are kept in the notes.
       const { error } = await supabase
         .from('lab_requests')
         .insert([{
+          patient_id: data.patient_id,
           visit_id: data.visit_id,
-          requesting_doctor_id: doctorId,
-          test_name: data.test_name,
-          priority: data.priority,
+          practice_id: patient.practice_id,
+          request_date: format(new Date(), 'yyyy-MM-dd'),
+          preferred_date: data.expected_completion_date || null,
           status: 'pending',
-          expected_completion_date: data.expected_completion_date,
-          notes: data.notes
+          notes: [`Test: ${data.test_name}`, `Priority: ${PRIORITY_LABELS[data.priority]}`, data.notes?.trim()]
+            .filter(Boolean)
+            .join('\n')
         }]);
 
       if (error) throw error;
-      onSuccess();
     } catch (error) {
       console.error('Error creating lab request:', error);
+      toast.error(`Couldn't create the lab request: ${errorMessage(error)}`);
+      return;
     }
+    toast.success('Lab request created');
+    onSuccess();
   };
 
   return (
@@ -122,7 +152,7 @@ const AddLabRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
             <option value="">Select visit</option>
             {visits.map((visit) => (
               <option key={visit.id} value={visit.id}>
-                {new Date(visit.visit_date).toLocaleDateString()} - {visit.visit_type}
+                {visit.visit_date ? format(new Date(visit.visit_date), 'dd MMM yyyy') : 'No date'} - {visit.visit_type}
               </option>
             ))}
           </select>
@@ -162,7 +192,8 @@ const AddLabRequestForm: React.FC<Props> = ({ doctorId, onSuccess }) => {
       <div>
         <label className="block text-sm font-medium text-gray-700">Expected Completion Date</label>
         <input
-          type="datetime-local"
+          // Saved as the request's preferred date, which has no time of day
+          type="date"
           {...register('expected_completion_date', { required: 'Expected completion date is required' })}
           className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
         />

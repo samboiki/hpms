@@ -24,7 +24,7 @@ export const SolarIcons = {
   // User & Profile
   user: 'solar:user-bold-duotone',
   userCircle: 'solar:user-circle-bold-duotone',
-  users: 'solar:users-group-two-bold-duotone',
+  users: 'solar:users-group-two-rounded-bold-duotone',
   
   // Security
   shield: 'solar:shield-bold-duotone',
@@ -74,12 +74,12 @@ export const SolarIcons = {
   listCheck: 'solar:list-check-bold-duotone',
   arrowUp: 'solar:arrow-up-bold-duotone',
   arrowDown: 'solar:alt-arrow-down-bold-duotone',
-  plane: 'solar:plane-bold-duotone',
-  messageText: 'solar:chat-square-text-bold-duotone',
+  plane: 'solar:plain-bold-duotone',
+  messageText: 'solar:chat-square-bold-duotone',
   eye: 'solar:eye-bold-duotone',
   download: 'solar:download-bold-duotone',
   closeCircle: 'solar:close-circle-bold-duotone',
-  userEdit: 'solar:user-edit-bold-duotone',
+  userEdit: 'solar:user-id-bold-duotone',
   
   // Storage & Data
   hardDrive: 'solar:server-bold-duotone',

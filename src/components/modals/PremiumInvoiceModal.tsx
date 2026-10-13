@@ -25,8 +25,12 @@ import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import { supabase } from '../../lib/supabase';
-import { communicationService } from '../../services/communicationService';
+import { communicationService, getCommunicationErrorMessage } from '../../services/communicationService';
 import { useAuthStore } from '../../stores/authStore';
+import { formatNad } from '../../utils/billing/money';
+
+// formatNad throws on NaN, so a missing amount prints as N$ 0.00 instead of failing the PDF
+const nad = (value: unknown) => formatNad(Number(value) || 0);
 
 interface PremiumInvoiceModalProps {
   isOpen: boolean;
@@ -50,21 +54,26 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
   const [isSmsModalOpen, setIsSmsModalOpen] = useState(false);
   const [emailAddress, setEmailAddress] = useState(patient?.email || '');
   const [phoneNumber, setPhoneNumber] = useState(patient?.cell_number || '');
-  const [emailSubject, setEmailSubject] = useState(`Invoice #${invoice?.invoice_number} - ${practiceInfo?.practice_name || 'HPMS'}`);
-  const [emailMessage, setEmailMessage] = useState('Please find your invoice attached.');
-  const [smsMessage, setSmsMessage] = useState(`Hi ${patient?.first_name}, your invoice #${invoice?.invoice_number} for N$${invoice?.total?.toFixed(2)} is ready. Visit our portal to view details.`);
+  // Filled in by the effect below when an invoice is opened
+  const [emailSubject, setEmailSubject] = useState('');
+  const [smsMessage, setSmsMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [practice, setPractice] = useState<any>(null);
   const [generating, setGenerating] = useState(false);
 
-  // Fetch practice info on mount
+  // The current practice's details for the PDF and email (the fields used are practices columns).
+  // Never another practice's: this used to read the first row of a 'practice_info' table, which is
+  // not in the schema, so Print and Download stopped at "Practice information not loaded".
   useEffect(() => {
     const fetchPracticeInfo = async () => {
+      const { user, selectedPracticeId } = useAuthStore.getState();
+      const practiceId = selectedPracticeId || user?.practice_id;
+      if (!practiceId) return;
       try {
         const { data, error } = await supabase
-          .from('practice_info')
+          .from('practices')
           .select('*')
-          .limit(1)
+          .eq('id', practiceId)
           .single();
 
         if (error) throw error;
@@ -79,7 +88,32 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
     }
   }, [isOpen]);
 
+  // The modal stays mounted with invoice=null, so the email/SMS defaults cannot be set in useState.
+  // Refresh the editable email/SMS defaults whenever a different invoice is opened.
+  useEffect(() => {
+    if (!isOpen || !invoice) return;
+    const greeting = patient?.first_name ? `Hi ${patient.first_name},` : 'Hi,';
+    setEmailAddress(patient?.email || '');
+    setPhoneNumber(patient?.cell_number || '');
+    // No made-up practice name (was 'HPMS') in a patient's email subject
+    setEmailSubject(`Invoice #${invoice.invoice_number}${practiceInfo?.practice_name ? ` - ${practiceInfo.practice_name}` : ''}`);
+    setSmsMessage(`${greeting} your invoice #${invoice.invoice_number} for ${nad(invoice.total)} is ready. Visit our portal to view details.`);
+    // Only reset when the open invoice changes, not on every parent re-render (would wipe user edits)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, invoice?.id]);
+
   if (!isOpen || !invoice) return null;
+
+  // Practice details for the emailed invoice: the practiceInfo prop when given, else the practice
+  // loaded above. Missing details are left out, never replaced by a made-up phone number or email.
+  const practiceName = practiceInfo?.practice_name || practice?.name || '';
+  const practiceAddress = practiceInfo?.address || practice?.address || '';
+  const practicePhone = practiceInfo?.phone || practice?.contact_phone || '';
+  const practiceEmail = practiceInfo?.email || practice?.contact_email || '';
+  // medical_aid_details stores membership_number (member_number read "undefined")
+  const membershipNumber = medicalAid?.membership_number || medicalAid?.member_number || patient?.membershipNumber || '';
+  // Visit date, else the invoice date (not today's date, which misdated older invoices)
+  const invoiceDate: string | undefined = invoice.visit_date || invoice.created_at;
 
   const statusColors = {
     paid: 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -252,8 +286,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
             currentY += 4;
           }
           
-          if (medicalAid?.provider && patient.membershipNumber) {
-            pdf.text(`Medical Aid: ${medicalAid.provider} - ${patient.membershipNumber}`, margin, currentY);
+          if (medicalAid?.provider && membershipNumber) {
+            pdf.text(`Medical Aid: ${medicalAid.provider} - ${membershipNumber}`, margin, currentY);
             currentY += 4;
           }
 
@@ -334,13 +368,14 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
           pdf.text(description, colX, rowY + 5);
           colX += colWidths.description;
           
-          pdf.text(service.quantity.toString(), colX, rowY + 5);
+          // invoice_services.quantity is nullable
+          pdf.text(String(service.quantity ?? ''), colX, rowY + 5);
           colX += colWidths.quantity;
-          
-          pdf.text(`R ${service.unit_price.toFixed(2)}`, colX, rowY + 5);
+
+          pdf.text(nad(service.unit_price), colX, rowY + 5);
           colX += colWidths.unitPrice;
-          
-          pdf.text(`R ${service.total_price.toFixed(2)}`, colX, rowY + 5);
+
+          pdf.text(nad(service.total_price), colX, rowY + 5);
           
           rowY += rowHeight;
         });
@@ -354,18 +389,18 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
           
           pdf.setFont('helvetica', 'normal');
           pdf.text('Subtotal:', totalsX, rowY);
-          pdf.text(`R ${invoice.total.toFixed(2)}`, totalsX + 40, rowY);
+          pdf.text(nad(invoice.total), totalsX + 40, rowY);
           rowY += 6;
-          
+
           if (invoice.medical_aid_covered > 0) {
             pdf.text('Medical Aid:', totalsX, rowY);
-            pdf.text(`R ${invoice.medical_aid_covered.toFixed(2)}`, totalsX + 40, rowY);
+            pdf.text(nad(invoice.medical_aid_covered), totalsX + 40, rowY);
             rowY += 6;
           }
-          
+
           pdf.setFont('helvetica', 'bold');
           pdf.text('Patient Portion:', totalsX, rowY);
-          pdf.text(`R ${invoice.patient_portion.toFixed(2)}`, totalsX + 40, rowY);
+          pdf.text(nad(invoice.patient_portion), totalsX + 40, rowY);
           
           // Payment status
           rowY += 10;
@@ -398,6 +433,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
           printWindow.onload = () => {
             printWindow.print();
           };
+        } else {
+          toast.error('The print window was blocked. Allow pop-ups for this site and try again.');
         }
       }
     } catch (error) {
@@ -410,7 +447,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       const pdf = await generateEnhancedPDF();
       if (pdf) {
         pdf.save(`invoice-${invoice.invoice_number}.pdf`);
-        toast.success('Enhanced multi-page PDF downloaded successfully!');
+        toast.success('Invoice PDF downloaded');
       }
     } catch (error) {
       toast.error('Failed to generate PDF for download');
@@ -423,8 +460,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       return;
     }
 
-    const user = useAuthStore.getState().user;
-    const practiceId = user?.practice_id || practiceInfo?.id;
+    const { user, selectedPracticeId } = useAuthStore.getState();
+    const practiceId = selectedPracticeId || user?.practice_id || practiceInfo?.id;
 
     if (!practiceId) {
       toast.error('Practice information not found');
@@ -434,20 +471,22 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
     setIsLoading(true);
     try {
       const invoiceHTML = generateInvoiceHTML();
-      
+
       // Use centralized communication service
       const response = await communicationService.sendEmail({
         practiceId: practiceId,
-        recipientEmail: emailAddress,
+        recipientEmail: emailAddress.trim(),
         recipientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Patient',
-        subject: `Invoice #${invoice?.id || 'N/A'} from ${practiceInfo?.name || 'Practice'}`,
+        // Use the subject the user edited (was hard-coded with the invoice UUID)
+        subject: emailSubject.trim() || `Invoice #${invoice?.invoice_number || 'N/A'}`,
         htmlContent: invoiceHTML,
         emailType: 'invoice',
         patientId: patient?.id,
+        visitId: invoice?.visit_id,
         invoiceId: invoice?.id,
         metadata: {
-          invoiceNumber: invoice?.id,
-          amount: invoice?.total_amount,
+          invoiceNumber: invoice?.invoice_number,
+          amount: invoice?.total,
           patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown'
         }
       });
@@ -456,7 +495,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
         toast.success('Invoice email sent successfully!');
         setIsEmailModalOpen(false);
       } else {
-        toast.error(response.error || 'Failed to send email');
+        toast.error(getCommunicationErrorMessage('email', response.error));
       }
     } catch (error) {
       toast.error('Failed to send email. Please try again.');
@@ -472,8 +511,13 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
       return;
     }
 
-    const user = useAuthStore.getState().user;
-    const practiceId = user?.practice_id || practiceInfo?.id;
+    if (!smsMessage.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
+    const { user, selectedPracticeId } = useAuthStore.getState();
+    const practiceId = selectedPracticeId || user?.practice_id || practiceInfo?.id;
 
     if (!practiceId) {
       toast.error('Practice information not found');
@@ -482,20 +526,19 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
 
     setIsLoading(true);
     try {
-      // Prepare SMS message with invoice details
-      const smsMessage = `Invoice #${invoice?.id || 'N/A'} from ${practiceInfo?.name || 'Practice'}. Amount: ${practiceInfo?.currency || 'R'}${invoice?.total_amount || '0.00'}. Please contact us for payment details.`;
-      
-      // Use centralized communication service
+      // Send the message the user reviewed/edited in the SMS dialog. The previous hard-coded text
+      // used the invoice UUID, a non-existent total_amount column (always 0.00) and 'R' currency.
       const response = await communicationService.sendSMS({
         practiceId: practiceId,
-        recipientPhone: phoneNumber,
-        messageContent: smsMessage,
+        recipientPhone: phoneNumber.trim(),
+        messageContent: smsMessage.trim(),
         messageType: 'custom',
         patientId: patient?.id,
+        visitId: invoice?.visit_id,
         metadata: {
           invoiceId: invoice?.id,
-          invoiceNumber: invoice?.id,
-          amount: invoice?.total_amount,
+          invoiceNumber: invoice?.invoice_number,
+          amount: invoice?.total,
           patientName: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown',
           source: 'invoice_sms'
         }
@@ -505,7 +548,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
         toast.success('Invoice SMS sent successfully!');
         setIsSmsModalOpen(false);
       } else {
-        toast.error(response.error || 'Failed to send SMS');
+        toast.error(getCommunicationErrorMessage('sms', response.error));
       }
     } catch (error) {
       toast.error('Failed to send SMS. Please try again.');
@@ -553,9 +596,9 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                     </svg>
                 </div>
                 <div class="practice-info">
-                    <h1>${practiceInfo?.practice_name || 'HPMS Medical Practice'}</h1>
-                    <p>${practiceInfo?.address || 'Professional Medical Services'}</p>
-                    <p>${practiceInfo?.phone || '+264 61 123 4567'} • ${practiceInfo?.email || 'info@hpms.com'}</p>
+                    ${practiceName ? `<h1>${practiceName}</h1>` : ''}
+                    ${practiceAddress ? `<p>${practiceAddress}</p>` : ''}
+                    ${practicePhone || practiceEmail ? `<p>${[practicePhone, practiceEmail].filter(Boolean).join(' • ')}</p>` : ''}
                 </div>
             </div>
             
@@ -566,11 +609,11 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                     <p>${patient?.email || ''}</p>
                     <p>${patient?.cell_number || ''}</p>
                     <p>${patient?.address || ''}</p>
-                    ${medicalAid ? `<p><strong>Medical Aid:</strong> ${medicalAid.provider} (${medicalAid.member_number})</p>` : ''}
+                    ${medicalAid ? `<p><strong>Medical Aid:</strong> ${medicalAid.provider}${membershipNumber ? ` (${membershipNumber})` : ''}</p>` : ''}
                 </div>
                 <div class="invoice-meta">
                     <div class="invoice-number">Invoice #${invoice.invoice_number}</div>
-                    <p><strong>Date:</strong> ${invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : format(new Date(), 'MMMM dd, yyyy')}</p>
+                    ${invoiceDate ? `<p><strong>Date:</strong> ${format(parseISO(invoiceDate), 'd MMMM yyyy')}</p>` : ''}
                     <p><strong>Status:</strong> <span style="color: ${invoice.payment_status === 'paid' ? '#10b981' : invoice.payment_status === 'pending' ? '#f59e0b' : '#ef4444'}">${invoice.payment_status?.toUpperCase() || 'PENDING'}</span></p>
                 </div>
             </div>
@@ -621,8 +664,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
             </div>
             
             <div class="footer">
-                <p>Thank you for choosing ${practiceInfo?.practice_name || 'HPMS Medical Practice'}!</p>
-                <p>For questions about this invoice, please contact us at ${practiceInfo?.phone || '+264 61 123 4567'}</p>
+                <p>Thank you for choosing ${practiceName || 'us'}!</p>
+                ${practicePhone ? `<p>For questions about this invoice, please contact us at ${practicePhone}</p>` : ''}
             </div>
         </div>
     </body>
@@ -633,27 +676,31 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        // Bottom sheet on phones (up to the full height), centred dialog from sm: the header stays put and
+        // the invoice and its actions scroll
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 sm:p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", duration: 0.5 }}
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-4xl w-full max-h-[100dvh] sm:max-h-[90vh] flex flex-col overflow-hidden"
           >
             {/* Premium Header */}
-            <div className="bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Receipt className="w-8 h-8 text-white" />
+            <div className="flex-none bg-gradient-to-r from-[#01b9d4] to-purple-600 text-white p-4 sm:p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                  <div className="flex-none p-2.5 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Receipt className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                   </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">Invoice Details</h2>
-                    <p className="text-white/80">#{invoice.invoice_number}</p>
+                  <div className="min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold">Invoice Details</h2>
+                    <p className="text-white/80 break-words">#{invoice.invoice_number}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-3">
                   <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${statusColors[invoice.payment_status || 'pending']}`}>
                     {statusIcons[invoice.payment_status || 'pending']}
                     <span className="font-semibold">{(invoice.payment_status || 'pending').toUpperCase()}</span>
@@ -663,6 +710,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                     whileTap={{ scale: 0.9 }}
                     onClick={onClose}
                     className="p-2 hover:bg-white/20 rounded-xl transition-colors"
+                    title="Close"
+                    aria-label="Close"
                   >
                     <X className="w-6 h-6" />
                   </motion.button>
@@ -671,7 +720,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
             </div>
 
             {/* Invoice Content */}
-            <div className="p-6 max-h-[60vh] overflow-y-auto">
+            <div className="flex-1 min-h-0 p-4 sm:p-6 overflow-y-auto">
               {/* Invoice Preview */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-6 mb-6">
                 <div className="flex justify-between items-start mb-6">
@@ -682,7 +731,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                     <p className="text-gray-600">{patient?.cell_number}</p>
                     {medicalAid && (
                       <p className="text-gray-600 mt-2">
-                        <strong>Medical Aid:</strong> {medicalAid.provider} ({medicalAid.member_number})
+                        <strong>Medical Aid:</strong> {medicalAid.provider}{membershipNumber ? ` (${membershipNumber})` : ''}
                       </p>
                     )}
                   </div>
@@ -691,7 +740,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                       N$ {invoice.total?.toFixed(2)}
                     </p>
                     <p className="text-gray-600">
-                      {invoice.visit_date ? format(parseISO(invoice.visit_date), 'MMMM dd, yyyy') : format(new Date(), 'MMMM dd, yyyy')}
+                      {invoiceDate ? format(parseISO(invoiceDate), 'd MMMM yyyy') : ''}
                     </p>
                   </div>
                 </div>
@@ -764,7 +813,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                   ) : (
                     <>
                       <Printer className="w-5 h-5" />
-                      <span>Print Enhanced PDF</span>
+                      <span>Print PDF</span>
                     </>
                   )}
                 </motion.button>
@@ -784,7 +833,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                   ) : (
                     <>
                       <Download className="w-5 h-5" />
-                      <span>Download Enhanced PDF</span>
+                      <span>Download PDF</span>
                     </>
                   )}
                 </motion.button>
@@ -806,6 +855,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                       <button
                         onClick={() => setIsEmailModalOpen(false)}
                         className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                        title="Close"
+                        aria-label="Close"
                       >
                         <X className="w-5 h-5" />
                       </button>
@@ -832,16 +883,7 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                           className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent outline-none transition-all"
                         />
                       </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Message</label>
-                        <textarea
-                          value={emailMessage}
-                          onChange={(e) => setEmailMessage(e.target.value)}
-                          rows={3}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent outline-none transition-all resize-none"
-                        />
-                      </div>
+                      <p className="text-xs text-gray-500">The invoice is sent in the body of the email.</p>
                     </div>
                     
                     <div className="flex gap-3 mt-6">
@@ -888,6 +930,8 @@ const PremiumInvoiceModal: React.FC<PremiumInvoiceModalProps> = ({
                       <button
                         onClick={() => setIsSmsModalOpen(false)}
                         className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                        title="Close"
+                        aria-label="Close"
                       >
                         <X className="w-5 h-5" />
                       </button>

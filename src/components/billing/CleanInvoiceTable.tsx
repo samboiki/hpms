@@ -25,8 +25,16 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
+import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import PrintStatementModal from '../modals/PrintStatementModal';
+import { PatientStatementChooser } from '../finance/receipts/PatientStatementChooser';
+import { PAYMENT_METHOD_META } from '../finance/financeTheme';
+import type { PaymentMethodKey } from '../../services/ledgerService';
+import { INVOICE_LOCK_MESSAGES, loadInvoiceLock } from '../../utils/invoiceLock';
+import { formatNad, nadParts } from '../../utils/billing/money';
+
+/** Ways a patient or fund settles an invoice, recorded so Finance can report collections by method */
+const PAYMENT_METHODS: PaymentMethodKey[] = ['cash', 'card', 'eft', 'medical_aid'];
 
 interface Invoice {
   id: string;
@@ -58,7 +66,11 @@ interface Service {
 interface CleanInvoiceTableProps {
   patientId: string;
   onVisitClick?: (visitId: string) => void;
-  onStatusChange?: (invoiceId: string, newStatus: 'paid' | 'pending' | 'overdue' | 'cancelled') => void;
+  onStatusChange?: (
+    invoiceId: string,
+    newStatus: 'paid' | 'pending' | 'overdue' | 'cancelled',
+    paymentMethod?: PaymentMethodKey
+  ) => void | Promise<void>;
   onEmailInvoice?: (invoice: Invoice) => void;
   onPrintInvoice?: (invoice: Invoice) => void;
   onDeleteInvoice?: (invoice: Invoice) => void;
@@ -76,11 +88,15 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
 }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  // True when the invoice list failed to load, so the table doesn't claim "No invoices"
+  const [loadError, setLoadError] = useState(false);
   const [expandedInvoices, setExpandedInvoices] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'paid' | 'pending' | 'overdue'>('all');
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'status'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [statusDropdown, setStatusDropdown] = useState<string | null>(null);
+  // "Paid" is a two-step choice: the status menu then asks how the invoice was paid
+  const [choosingPaymentMethod, setChoosingPaymentMethod] = useState(false);
   const [showPrintStatementModal, setShowPrintStatementModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
@@ -109,7 +125,16 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   const handleDeleteInvoice = async (invoiceId: string) => {
     try {
       console.log('🗑️ Starting deletion for invoice:', invoiceId);
-      
+
+      // Paid invoices and invoices in a claim batch are financial records: deleting them would lose the
+      // payment or leave the claim batch pointing at an invoice that no longer exists
+      const lock = await loadInvoiceLock(invoiceId);
+      if (lock) {
+        toast.error(`Can't delete this invoice. ${INVOICE_LOCK_MESSAGES[lock]}`, { duration: 7000 });
+        setShowDeleteModal(null);
+        return;
+      }
+
       // Delete invoice services first
       const { error: servicesError } = await supabase
         .from('invoice_services')
@@ -146,6 +171,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       
     } catch (error) {
       console.error('❌ Error deleting invoice:', error);
+      toast.error(error instanceof Error ? error.message : 'Could not delete the invoice');
       setShowDeleteModal(null);
     }
   };
@@ -153,7 +179,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      
+      setLoadError(false);
+
       const billingStartTime = performance.now();
       
       const [invoicesResult, visitsResult] = await Promise.all([
@@ -177,11 +204,17 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       }
 
       const invoiceIds = invoicesResult.data.map(inv => inv.id);
-      const { data: servicesData } = await supabase
+      const { data: servicesData, error: servicesError } = await supabase
         .from('invoice_services')
         .select('*')
         .in('invoice_id', invoiceIds)
         .order('created_at', { ascending: true });
+
+      // Still list the invoices, but say so: otherwise each one silently shows "0 services" or "No visit linked"
+      if (servicesError || visitsResult.error) {
+        console.error('Error loading invoice details:', servicesError ?? visitsResult.error);
+        toast.error('Some invoice details (services or visit links) could not be loaded. Close and reopen the patient to try again.');
+      }
 
       const visitMap = new Map(visitsResult.data?.map(v => [v.id, v]) || []);
       const servicesByInvoice = new Map<string, Service[]>();
@@ -232,6 +265,8 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
     } catch (error) {
       console.error('Error fetching invoices:', error);
       setInvoices([]);
+      setLoadError(true);
+      toast.error("Could not load this patient's invoices.");
     } finally {
       setLoading(false);
     }
@@ -312,8 +347,10 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
-  // Calculate stats
-  const totalAmount = filteredInvoices.reduce((sum, inv) => sum + inv.total, 0);
+  // Calculate stats. Cancelled invoices stay listed but no longer count as billed or owed.
+  const totalAmount = filteredInvoices
+    .filter(inv => inv.payment_status !== 'cancelled')
+    .reduce((sum, inv) => sum + inv.total, 0);
   const paidAmount = filteredInvoices
     .filter(inv => inv.payment_status === 'paid')
     .reduce((sum, inv) => sum + inv.total, 0);
@@ -323,6 +360,20 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
   const overdueAmount = filteredInvoices
     .filter(inv => inv.payment_status === 'overdue')
     .reduce((sum, inv) => sum + inv.total, 0);
+
+  // N$ whole part and cents in two shades, both from one rounded value (Math.floor plus "% 1"
+  // showed a sum like 180.99999999 as "180.00"); a dash when the invoices could not be loaded
+  const renderStatAmount = (amount: number) => {
+    if (loadError) return '—';
+    const { whole, cents } = nadParts(amount);
+    return (
+      <>
+        N$ <span style={{ color: '#4f575e' }}>{whole}</span><span style={{ color: '#8B9197' }}>.{cents}</span>
+      </>
+    );
+  };
+
+  const invoicePendingDelete = showDeleteModal ? invoices.find(inv => inv.id === showDeleteModal) : undefined;
 
   if (loading) {
     return (
@@ -354,7 +405,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Total Invoiced</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
-                N$ <span style={{ color: '#4f575e' }}>{Math.floor(totalAmount)}</span><span style={{ color: '#8B9197' }}>.{(totalAmount % 1).toFixed(2).slice(2)}</span>
+                {renderStatAmount(totalAmount)}
               </p>
             </div>
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -368,7 +419,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Paid</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
-                N$ <span style={{ color: '#4f575e' }}>{Math.floor(paidAmount)}</span><span style={{ color: '#8B9197' }}>.{(paidAmount % 1).toFixed(2).slice(2)}</span>
+                {renderStatAmount(paidAmount)}
               </p>
             </div>
             <div className="p-2 bg-green-100 rounded-lg">
@@ -382,7 +433,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Pending</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
-                N$ <span style={{ color: '#4f575e' }}>{Math.floor(pendingAmount)}</span><span style={{ color: '#8B9197' }}>.{(pendingAmount % 1).toFixed(2).slice(2)}</span>
+                {renderStatAmount(pendingAmount)}
               </p>
             </div>
             <div className="p-2 bg-yellow-100 rounded-lg">
@@ -396,7 +447,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
             <div>
               <p className="text-xs font-medium text-gray-500 uppercase">Overdue</p>
               <p className="text-2xl font-bold" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
-                N$ <span style={{ color: '#4f575e' }}>{Math.floor(overdueAmount)}</span><span style={{ color: '#8B9197' }}>.{(overdueAmount % 1).toFixed(2).slice(2)}</span>
+                {renderStatAmount(overdueAmount)}
               </p>
             </div>
             <div className="p-2 bg-red-100 rounded-lg">
@@ -421,30 +472,10 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
         <div className="flex items-center gap-3">
           {/* Print Statement Button */}
           <button
-            onClick={() => {
-              console.log('🖨️ Print Statement button clicked');
-              console.log('📊 Current invoices:', invoices.length);
-              console.log('🔍 Filtered invoices:', filteredInvoices.length);
-              console.log('📋 Current modal state:', showPrintStatementModal);
-              setShowPrintStatementModal(true);
-              console.log('✅ Modal state set to true');
-              
-              // Debug: Check if modal renders in DOM after state change
-              setTimeout(() => {
-                const modalElement = document.querySelector('[data-testid="print-statement-modal"]');
-                console.log('🔍 Modal element found in DOM:', !!modalElement);
-                if (!modalElement) {
-                  console.error('❌ PrintStatementModal not found in DOM!');
-                  // Fallback alert
-                  alert('PrintStatementModal debug: Modal not appearing in DOM. Check console for details.');
-                } else {
-                  console.log('✅ Modal found with z-index:', modalElement.style.zIndex);
-                  console.log('📍 Modal computed style:', window.getComputedStyle(modalElement));
-                }
-              }, 100);
-            }}
+            type="button"
+            onClick={() => setShowPrintStatementModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-md hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-sm text-xs font-medium"
-            title="Print Statement"
+            title="Print a statement of this patient's account"
           >
             <FileText className="w-3.5 h-3.5" />
             Statement
@@ -476,6 +507,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
               setSortOrder(order as any);
             }}
             className="text-xs border border-gray-300 rounded-lg px-3 py-1.5 bg-white"
+            aria-label="Sort invoices"
           >
             <option value="date-desc">Newest First</option>
             <option value="date-asc">Oldest First</option>
@@ -513,11 +545,29 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredInvoices.length === 0 ? (
+              {loadError ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <AlertTriangle className="w-12 h-12 text-red-300 mx-auto mb-4" />
+                    <p className="text-sm text-gray-700">Could not load this patient's invoices.</p>
+                    <button
+                      type="button"
+                      onClick={() => fetchInvoices()}
+                      className="mt-3 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    >
+                      Try again
+                    </button>
+                  </td>
+                </tr>
+              ) : filteredInvoices.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-sm text-gray-500">No invoices found</p>
+                    <p className="text-sm text-gray-500">
+                      {filter === 'all'
+                        ? 'No invoices yet. An invoice is created when a visit is saved with billed services.'
+                        : `No ${filter} invoices. Choose "All" to see every invoice.`}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -543,7 +593,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                 #{invoice.invoice_number}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {format(parseISO(invoice.created_at), 'MMM dd, yyyy')}
+                                {format(parseISO(invoice.created_at), 'dd MMM yyyy')}
                               </p>
                             </div>
                           </div>
@@ -588,11 +638,11 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                         {/* Amount */}
                         <td className="px-6 py-4 text-right">
                           <p className="font-bold text-gray-900">
-                            N$ {invoice.total.toFixed(2)}
+                            {formatNad(invoice.total)}
                           </p>
                           {invoice.medical_aid_covered > 0 && (
                             <p className="text-xs text-green-600 font-semibold">
-                              Aid: N$ {invoice.medical_aid_covered.toFixed(2)}
+                              Medical aid: {formatNad(invoice.medical_aid_covered)}
                             </p>
                           )}
                         </td>
@@ -617,6 +667,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                               }}
                               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                               title="Email Invoice"
+                              aria-label={`Email invoice ${invoice.invoice_number}`}
                             >
                               <Mail className="w-4 h-4 text-green-600" />
                             </button>
@@ -633,6 +684,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                   : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
                               }`}
                               title={isPrintingPDF ? "Generating PDF..." : "Print Invoice"}
+                              aria-label={isPrintingPDF ? 'Generating PDF...' : `Print invoice ${invoice.invoice_number}`}
                             >
                               {isPrintingPDF ? (
                                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
@@ -648,6 +700,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                               }}
                               className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                               title="Delete Invoice"
+                              aria-label={`Delete invoice ${invoice.invoice_number}`}
                             >
                               <Trash2 className="w-4 h-4 text-red-600" />
                             </button>
@@ -657,9 +710,11 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                   e.stopPropagation();
                                   console.log('✏️ Edit status button clicked for invoice:', invoice.invoice_number);
                                   setStatusDropdown(statusDropdown === invoice.id ? null : invoice.id);
+                                  setChoosingPaymentMethod(false);
                                 }}
                                 className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors shadow-sm border border-gray-200"
                                 title="Change Status"
+                                aria-label={`Change the payment status of invoice ${invoice.invoice_number}`}
                               >
                                 <Edit3 className="w-4 h-4 text-orange-600" />
                               </button>
@@ -673,15 +728,58 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
                                     className="status-dropdown absolute top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] overflow-hidden"
                                   >
-                                    {(['paid', 'pending', 'overdue', 'cancelled'] as const).map((status) => {
+                                    {choosingPaymentMethod ? (
+                                      <>
+                                        <p className="px-3 pt-2 pb-1 text-xs font-medium text-gray-500">How was it paid?</p>
+                                        {PAYMENT_METHODS.map((method) => (
+                                          <button
+                                            key={method}
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              setStatusDropdown(null);
+                                              setChoosingPaymentMethod(false);
+                                              if (!onStatusChange) return;
+                                              await onStatusChange(invoice.id, 'paid', method);
+                                              await fetchInvoices();
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 transition-colors"
+                                          >
+                                            {PAYMENT_METHOD_META[method].label}
+                                          </button>
+                                        ))}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setChoosingPaymentMethod(false);
+                                          }}
+                                          className="w-full px-3 py-2 text-left text-xs text-gray-500 border-t border-gray-100 hover:bg-gray-50"
+                                        >
+                                          Back
+                                        </button>
+                                      </>
+                                    ) : (['paid', 'pending', 'overdue', 'cancelled'] as const).map((status) => {
                                       const statusConfig = getStatusColor(status);
                                       return (
                                         <button
                                           key={status}
-                                          onClick={(e) => {
+                                          onClick={async (e) => {
                                             e.stopPropagation();
-                                            onStatusChange?.(invoice.id, status);
+                                            if (!onStatusChange || invoice.payment_status === status) {
+                                              setStatusDropdown(null);
+                                              return;
+                                            }
+                                            if (status === 'paid') {
+                                              setChoosingPaymentMethod(true);
+                                              return;
+                                            }
                                             setStatusDropdown(null);
+                                            if (status === 'cancelled' && !window.confirm(
+                                              `Cancel invoice #${invoice.invoice_number}? It stays on the patient's record but no longer counts as billed or owed.`
+                                            )) return;
+                                            // Parent performs the update; this table holds its own copy of the
+                                            // invoices, so reload afterwards or "Mark paid" looks like it did nothing.
+                                            await onStatusChange(invoice.id, status);
+                                            await fetchInvoices();
                                           }}
                                           className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-gray-50 transition-colors ${
                                             invoice.payment_status === status ? 'bg-blue-50' : ''
@@ -738,12 +836,12 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                             <td className="px-4 py-2 font-mono text-gray-900">{service.code}</td>
                                             <td className="px-4 py-2 text-gray-700">{service.description}</td>
                                             <td className="px-4 py-2 text-center text-gray-600">{service.quantity}</td>
-                                            <td className="px-4 py-2 text-right text-gray-900">N$ {service.unit_price.toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-gray-900">N$ {service.total_price.toFixed(2)}</td>
-                                            <td className="px-4 py-2 text-right text-sm text-green-600">N$ {(service.medical_aid_covered || 0).toFixed(2)}</td>
+                                            <td className="px-4 py-2 text-right text-gray-900">{formatNad(service.unit_price)}</td>
+                                            <td className="px-4 py-2 text-right font-medium text-gray-900">{formatNad(service.total_price)}</td>
+                                            <td className="px-4 py-2 text-right text-sm text-green-600">{formatNad(service.medical_aid_covered || 0)}</td>
                                             <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
-                                              {service.patient_portion && service.patient_portion > 0 ? 
-                                                `N$ ${service.patient_portion.toFixed(2)}` : 
+                                              {service.patient_portion && service.patient_portion > 0 ?
+                                                formatNad(service.patient_portion) :
                                                 '-'
                                               }
                                             </td>
@@ -767,13 +865,14 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
         </div>
       </div>
       
-      {/* Print Statement Modal */}
-      <PrintStatementModal 
-        isOpen={showPrintStatementModal}
-        onClose={() => setShowPrintStatementModal(false)}
-        patientId={patientId}
-        invoices={filteredInvoices}
-      />
+      {/* The statement: the ledger statement once receipts are in use (one statement on the Billing tab), else the invoice statement */}
+      {showPrintStatementModal && (
+        <PatientStatementChooser
+          patientId={patientId}
+          invoices={filteredInvoices}
+          onClose={() => setShowPrintStatementModal(false)}
+        />
+      )}
       
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
@@ -796,7 +895,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                 Invoice: #{invoices.find(inv => inv.id === showDeleteModal)?.invoice_number}
               </p>
               <p className="text-xs text-gray-600">
-                Total: N$ {invoices.find(inv => inv.id === showDeleteModal)?.total.toFixed(2)}
+                Total: {invoicePendingDelete ? formatNad(invoicePendingDelete.total) : '—'}
               </p>
               <p className="text-xs text-gray-600">
                 Services: {invoices.find(inv => inv.id === showDeleteModal)?.services.length || 0}

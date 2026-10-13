@@ -37,7 +37,8 @@ export const DateInput: React.FC<DateInputProps> = ({
     onChange('');
   };
 
-  const displayValue = value ? format(new Date(value), 'MMM dd, yyyy') : '';
+  // Day first, as dates are written in Namibia (06 Oct 2026)
+  const displayValue = value ? format(new Date(value), 'dd MMM yyyy') : '';
   const selectedDate = value ? new Date(value) : undefined;
   const minDateObj = minDate ? new Date(minDate) : undefined;
   const maxDateObj = maxDate ? new Date(maxDate) : undefined;

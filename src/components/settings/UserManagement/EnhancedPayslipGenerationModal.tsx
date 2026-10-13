@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
-import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
 import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { PayrollService } from '../../../services/payrollService';
 import MonthInput from '../../ui/MonthInput';
+import { describeDbError, parseMonthValue } from './staffUtils';
+import { formatNad } from '../../../utils/billing/money';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 
 interface Props {
   isOpen: boolean;
@@ -35,13 +37,14 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
   onSuccess,
   month = new Date()
 }) => {
-  const { user } = useAuthStore();
+  // Escape closes this window, as its X does
+  useEscapeToClose(isOpen, onClose);
+  const queryClient = useQueryClient();
   const [payPeriod, setPayPeriod] = useState(month);
-  const [processing, setProcessing] = useState(false);
   const [results, setResults] = useState<{ userId: string; success: boolean; error?: string }[]>([]);
 
   // Fetch users info
-  const { data: users = [], isLoading } = useQuery<UserInfo[]>({
+  const { data: users = [], isLoading, isError, refetch } = useQuery<UserInfo[]>({
     queryKey: ['payslip-generation-users', selectedUsers, format(payPeriod, 'yyyy-MM')],
     queryFn: async () => {
       const monthStart = startOfMonth(payPeriod);
@@ -59,10 +62,7 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
         `)
         .in('id', selectedUsers);
 
-      if (usersError) {
-        console.error('Error fetching users:', usersError);
-        return [];
-      }
+      if (usersError) throw usersError;
 
       if (!usersData || usersData.length === 0) return [];
 
@@ -106,7 +106,6 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
   });
 
   const readyUsers = users.filter(u => u.status === 'ready');
-  const problemUsers = users.filter(u => u.status !== 'ready');
 
   // Generate payslips mutation
   const generateMutation = useMutation({
@@ -116,20 +115,29 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
       return result;
     },
     onSuccess: (data) => {
-      setResults(data.results);
       const successCount = data.results.filter(r => r.success).length;
-      
+      setResults([
+        ...data.results.map(r => ({ userId: r.userId, success: true })),
+        ...data.errors.map(e => ({ userId: e.userId, success: false, error: e.error }))
+      ]);
+      // Refresh statuses so the same people cannot be generated twice
+      queryClient.invalidateQueries({ queryKey: ['payslip-generation-users'] });
+
       if (successCount > 0) {
-        toast.success(`Generated ${successCount} payslip(s) successfully`);
+        toast.success(`Generated ${successCount} payslip${successCount === 1 ? '' : 's'}`);
+      }
+
+      if (data.errors.length > 0) {
+        // Keep the dialog open so the failures can be read; still refresh the list behind it
+        queryClient.invalidateQueries({ queryKey: ['payslips'] });
+        toast.error(`${data.errors.length} payslip${data.errors.length === 1 ? '' : 's'} could not be generated - see details below`);
+      } else if (successCount > 0) {
         onSuccess();
       }
-      
-      if (data.errors.length > 0) {
-        toast.error(`Failed to generate ${data.errors.length} payslip(s)`);
-      }
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to generate payslips');
+    onError: (error) => {
+      console.error('Error generating payslips:', error);
+      toast.error(describeDbError(error, 'Failed to generate payslips'));
     }
   });
 
@@ -155,7 +163,13 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
                 For {format(payPeriod, 'MMMM yyyy')}
               </p>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={generateMutation.isPending}
+              aria-label="Close"
+              className="text-gray-500 hover:text-gray-700"
+            >
               <Icon icon={SolarIcons.closeCircle} className="w-6 h-6" />
             </button>
           </div>
@@ -166,12 +180,23 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
               label="Select Payroll Month"
               value={format(payPeriod, 'yyyy-MM')}
               onChange={(value) => {
-                const [year, month] = value.split('-').map(Number);
-                setPayPeriod(new Date(year, month - 1, 1));
+                // The clear button sends '' - keep the current month instead of an invalid date
+                const month = parseMonthValue(value);
+                if (month) {
+                  setPayPeriod(month);
+                  setResults([]);
+                }
               }}
               placeholder="Select payroll month"
             />
           </div>
+
+          {isError && (
+            <div className="mb-6 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <span>Employee payroll details could not be loaded.</span>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>Try again</Button>
+            </div>
+          )}
 
           {/* Status summary */}
           <div className="grid grid-cols-3 gap-4 mb-6">
@@ -211,7 +236,7 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
           <div className="space-y-2 mb-6 max-h-64 overflow-y-auto">
             {isLoading ? (
               <div className="text-center py-4">
-                <Icon icon={SolarIcons.loading} className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
+                <Icon icon={SolarIcons.loader} className="w-8 h-8 text-gray-400 animate-spin mx-auto" />
                 <p className="text-gray-600 mt-2">Loading employee data...</p>
               </div>
             ) : (
@@ -229,14 +254,14 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
                       <div>
                         <p className="font-medium text-gray-900">{user.full_name}</p>
                         <p className="text-sm text-gray-600">
-                          {user.employee_number} • {user.department || 'No department'}
+                          {user.employee_number || 'No employee number'} • {user.department || 'No department'}
                         </p>
                       </div>
                       <div className="text-right">
                         {user.status === 'ready' && (
                           <>
                             <p className="text-sm text-gray-600">Basic Salary</p>
-                            <p className="font-medium">NAD {user.basic_salary?.toFixed(2)}</p>
+                            <p className="font-medium">{formatNad(Number(user.basic_salary ?? 0) || 0)}</p>
                           </>
                         )}
                         {user.status === 'missing_salary' && (
@@ -272,7 +297,7 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
                         <Icon icon={SolarIcons.closeCircle} className="w-4 h-4 text-red-600" />
                       )}
                       <span className={result.success ? 'text-green-700' : 'text-red-700'}>
-                        {user?.full_name}: {result.success ? 'Success' : result.error || 'Failed'}
+                        {user?.full_name ?? 'Employee'}: {result.success ? 'Generated' : result.error || 'Failed'}
                       </span>
                     </div>
                   );
@@ -291,17 +316,17 @@ export const EnhancedPayslipGenerationModal: React.FC<Props> = ({
               )}
             </div>
             <div className="flex gap-3">
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} disabled={generateMutation.isPending}>
                 Close
               </Button>
               <Button
                 onClick={handleGenerate}
-                disabled={readyUsers.length === 0 || generateMutation.isPending}
+                disabled={readyUsers.length === 0 || generateMutation.isPending || isLoading}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 text-white"
               >
                 {generateMutation.isPending ? (
                   <>
-                    <Icon icon={SolarIcons.loading} className="w-4 h-4 mr-2 animate-spin" />
+                    <Icon icon={SolarIcons.loader} className="w-4 h-4 mr-2 animate-spin" />
                     Generating...
                   </>
                 ) : (

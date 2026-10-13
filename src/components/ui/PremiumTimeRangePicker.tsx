@@ -11,10 +11,17 @@ interface PremiumTimeRangePickerProps {
   startLabel?: string;
   endLabel?: string;
   error?: string;
+  /** Start times the practitioner already has a booking at. Still selectable: saving asks first. */
   bookedTimes?: string[];
+  /** Start times inside blocked time ('HH:mm' -> reason). Still selectable: saving asks first. */
+  blockedTimes?: Record<string, string>;
   min?: string;
   max?: string;
   step?: number;
+  /** Appointment date (yyyy-MM-dd). When it is today, start times earlier than now are disabled. */
+  date?: string;
+  /** Reception picked a length: the form then stops applying the visit type's default length */
+  onDurationSelect?: (minutes: number) => void;
 }
 
 export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
@@ -26,9 +33,12 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
   endLabel = 'End Time',
   error,
   bookedTimes = [],
+  blockedTimes,
   min = '08:00',
   max = '18:00',
-  step = 15
+  step = 15,
+  date,
+  onDurationSelect
 }) => {
   const [duration, setDuration] = useState(30);
   const [selectedDuration, setSelectedDuration] = useState<number | null>(30);
@@ -78,6 +88,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
 
   const handleDurationSelect = (durationMinutes: number) => {
     setSelectedDuration(durationMinutes);
+    onDurationSelect?.(durationMinutes);
     
     if (startTime) {
       const [hours, minutes] = startTime.split(':').map(Number);
@@ -87,6 +98,10 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
       onEndTimeChange(format(endDate, 'HH:mm'));
     }
   };
+
+  // Current time (HH:mm) when the selected date is today; recomputed each render so it stays fresh
+  const now = new Date();
+  const pastCutoff = date === format(now, 'yyyy-MM-dd') ? format(now, 'HH:mm') : null;
 
   const timeSlots = useMemo(() => {
     const slots = [];
@@ -102,19 +117,23 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
     while (current <= end) {
       const timeStr = format(current, 'HH:mm');
       const isBooked = bookedTimes.includes(timeStr);
-      
+      const isPast = pastCutoff !== null && timeStr < pastCutoff;
+      const blockedReason = blockedTimes?.[timeStr] ?? null;
+
       slots.push({
         time: timeStr,
         display: format(current, 'h:mm a'),
         isBooked,
+        isPast,
+        blockedReason,
         period: current.getHours() < 12 ? 'morning' : current.getHours() < 17 ? 'afternoon' : 'evening'
       });
-      
+
       current = addMinutes(current, step);
     }
-    
+
     return slots;
-  }, [min, max, step, bookedTimes]);
+  }, [min, max, step, bookedTimes, blockedTimes, pastCutoff]);
 
   return (
     <div className="space-y-4">
@@ -152,23 +171,47 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
                 <motion.button
                   key={slot.time}
                   type="button"
-                  disabled={slot.isBooked}
-                  whileHover={!slot.isBooked ? { scale: 1.02 } : {}}
-                  whileTap={!slot.isBooked ? { scale: 0.98 } : {}}
+                  // Booked and blocked times stay selectable: saving lists the clash and asks before booking
+                  disabled={slot.isPast}
+                  title={
+                    slot.isPast
+                      ? 'This time has already passed'
+                      : slot.isBooked
+                      ? 'Already booked: you will be asked before double-booking'
+                      : slot.blockedReason
+                      ? `Blocked: ${slot.blockedReason}. You will be asked before booking.`
+                      : undefined
+                  }
+                  whileHover={!slot.isBooked && !slot.isPast ? { scale: 1.02 } : {}}
+                  whileTap={!slot.isBooked && !slot.isPast ? { scale: 0.98 } : {}}
                   onClick={() => handleStartTimeChange(slot.time)}
                   className={`w-full py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200
                     ${startTime === slot.time
                       ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md'
+                      : slot.isPast
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40'
                       : slot.isBooked
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed opacity-40 line-through'
+                      ? 'bg-gray-100 text-gray-500 opacity-60 line-through hover:opacity-80'
+                      : slot.blockedReason
+                      ? 'bg-gray-100 text-gray-500 border border-dashed border-gray-300 hover:bg-gray-200'
                       : 'bg-white hover:bg-purple-50 text-gray-700 border border-gray-200 hover:border-purple-300'
                     }`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span>{slot.display}</span>
-                    {slot.isBooked && (
-                      <Icon icon="solar:lock-bold-duotone" className="w-4 h-4 opacity-50" />
-                    )}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="whitespace-nowrap">{slot.display}</span>
+                    {slot.isBooked ? (
+                      <>
+                        <Icon icon="solar:lock-bold-duotone" className="w-4 h-4 opacity-50" aria-hidden="true" />
+                        <span className="sr-only">(booked)</span>
+                      </>
+                    ) : slot.blockedReason ? (
+                      <span className="flex min-w-0 items-center gap-1 text-xs opacity-80">
+                        {/* On a phone the column is too narrow for the reason; it is in the tooltip and the save check */}
+                        <span className="hidden sm:block truncate">{slot.blockedReason}</span>
+                        <span className="sr-only sm:hidden">(blocked: {slot.blockedReason})</span>
+                        <Icon icon="solar:forbidden-circle-bold-duotone" className="w-4 h-4 flex-none" aria-hidden="true" />
+                      </span>
+                    ) : null}
                   </div>
                 </motion.button>
               ))}
@@ -190,7 +233,7 @@ export const PremiumTimeRangePicker: React.FC<PremiumTimeRangePickerProps> = ({
               </div>
               {duration > 0 && (
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white rounded-full text-sm">
-                  <Icon icon="solar:timer-bold-duotone" className="w-4 h-4 text-purple-500" />
+                  <Icon icon="solar:stopwatch-bold-duotone" className="w-4 h-4 text-purple-500" />
                   <span className="font-medium text-gray-700">{duration} minutes</span>
                 </div>
               )}

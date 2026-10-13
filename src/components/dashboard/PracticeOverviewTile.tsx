@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 import { useTheme } from '../../stores/themeStore';
 import { toast } from 'react-hot-toast';
+import { FollowUpsDueDialog } from './FollowUpsDueDialog';
+import { useFollowUpsDue } from './useFollowUpsDue';
 
 interface PracticeOverviewProps {
   totalPatients: number;
@@ -11,6 +13,8 @@ interface PracticeOverviewProps {
   pendingAppointments: number;
   completedToday: number;
   practiceStatus: 'operational' | 'busy' | 'quiet';
+  /** False for roles the practice keeps out of Finance (Settings > Users > Screen access): Submit Batch leads there */
+  financeOpen?: boolean;
 }
 
 const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({ 
@@ -18,12 +22,16 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
   todayAppointments,
   pendingAppointments,
   completedToday,
-  practiceStatus
+  practiceStatus,
+  financeOpen = true
 }) => {
   const { currentTheme } = useTheme();
   const navigate = useNavigate();
+  // Follow-ups of patient notes due today and overdue (the number counts the user's own and anyone's)
+  const followUps = useFollowUpsDue();
+  const [showFollowUps, setShowFollowUps] = useState(false);
 
-  const quickActions = [
+  const quickActions: { id: string; label: string; icon: string; onClick?: () => void; disabledReason?: string; badge?: number }[] = [
     {
       id: 'add-patient',
       label: 'Add Patient',
@@ -34,19 +42,27 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
       id: 'send-sms',
       label: 'Send SMS',
       icon: 'lets-icons:message-duotone',
-      onClick: () => toast.success('SMS feature coming soon!')
+      // SMS goes to chosen patients from the Patients page (Send Message); the old toast said "coming soon"
+      onClick: () => {
+        navigate('/patients');
+        toast('Select the patients, then tap the envelope button (Send Message) to send them an SMS.');
+      }
     },
     {
       id: 'submit-batch',
       label: 'Submit Batch',
       icon: 'material-icon-theme:folder-batch-open',
-      onClick: () => navigate('/billing?action=batch')
+      // Claim batches are on the Finance page; /billing does not exist and showed "page not found"
+      onClick: () => navigate('/finance?tab=batch-management'),
+      disabledReason: financeOpen ? undefined : 'Claim batches are in Finance, which your practice has not opened to your role'
     },
     {
       id: 'to-dos',
       label: 'To Dos',
       icon: 'fluent:calendar-reply-20-filled',
-      onClick: () => navigate('/todos')
+      onClick: () => setShowFollowUps(true),
+      badge: followUps.dueForMe,
+      disabledReason: followUps.status === 'not_set_up' ? 'Follow-ups come from patient notes, which are not set up in this database yet' : undefined
     }
   ];
 
@@ -82,8 +98,16 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={action.onClick}
-                className="relative bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-200 group/btn"
+                disabled={Boolean(action.disabledReason)}
+                title={action.disabledReason}
+                aria-label={action.badge ? `${action.label}: ${action.badge} follow-up${action.badge === 1 ? '' : 's'} due` : undefined}
+                className="relative bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-all duration-200 group/btn disabled:opacity-50 disabled:cursor-not-allowed"
               >
+                {Boolean(action.badge) && (
+                  <span className="absolute right-2 top-2 min-w-[1.5rem] rounded-full bg-white px-1.5 py-0.5 text-center text-xs font-semibold text-gray-900 shadow-sm" aria-hidden="true">
+                    {action.badge}
+                  </span>
+                )}
                 <div className="flex flex-col items-center gap-2">
                   {/* Icon with light grey background */}
                   <div className="p-3 rounded-lg bg-white/20 group-hover/btn:bg-white/30 group-hover/btn:scale-110 transition-all">
@@ -103,6 +127,7 @@ const PracticeOverviewTile: React.FC<PracticeOverviewProps> = ({
           </div>
         </div>
       </div>
+      <FollowUpsDueDialog open={showFollowUps} onClose={() => setShowFollowUps(false)} followUps={followUps} />
     </motion.div>
   );
 };

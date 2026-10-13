@@ -1,191 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { format, parseISO, isToday, isFuture, isPast } from 'date-fns';
-import { supabase } from '../../lib/supabase';
-import {
-  Clock,
-  Heart,
-  Stethoscope,
-  Pill,
-  FileText,
-  Thermometer,
-  FlaskConical,
-  User,
-  Plus,
-  Copy,
-  Calendar,
-  PieChart,
-  BarChart3,
-  Zap,
-  Shield,
-  Star,
-  Sparkles,
-  Diamond,
-  Crown,
-  Award,
-  Target,
-  Hexagon,
-  CalendarCheck,
-  CheckCircle2,
-  CreditCard,
-  Receipt,
-  ScrollText
-} from 'lucide-react';
+import React from 'react';
+import { motion, MotionConfig } from 'framer-motion';
+import { Icon } from '@iconify/react';
+import { todayKey } from '../../utils/billing/dates';
+import { EmptyState } from '../finance/FinanceUI';
+import { PRIMARY } from '../stock/stockUi';
+import type { PatientInvoice } from './patientBilling';
+import { JourneyVisitCard } from './journey/JourneyVisitCard';
+import { sortNewestFirst, type JourneyVisit, type VisitQuickTab, type VisitRecordCounts } from './journey/visitJourney';
 
-// Professional Status Toggle Component
-const StatusToggle: React.FC<{
-  visitId: string;
-  currentStatus: string;
-  onStatusChange?: (visitId: string, newStatus: string) => void;
-  disabled?: boolean;
-}> = ({ visitId, currentStatus, onStatusChange, disabled = false }) => {
-  const [localStatus, setLocalStatus] = useState(currentStatus);
-  const [isUpdating, setIsUpdating] = useState(false);
-  
-  const isCompleted = localStatus === 'completed';
-  
-  const handleToggle = async (e: React.MouseEvent) => {
-    // Prevent event bubbling to parent card
-    e.stopPropagation();
-    e.preventDefault();
-    
-    if (isUpdating || disabled) return;
-    
-    const newStatus = isCompleted ? 'in-progress' : 'completed';
-    const previousStatus = localStatus;
-    
-    try {
-      setIsUpdating(true);
-      
-      // Immediate optimistic update for snappy UX
-      setLocalStatus(newStatus);
-      
-      // Update database silently in background
-      const { error } = await supabase
-        .from('visits')
-        .update({ status: newStatus })
-        .eq('id', visitId);
-      
-      if (error) throw error;
-      
-      // Silently notify parent without refreshing
-      if (onStatusChange) {
-        onStatusChange(visitId, newStatus);
-      }
-      
-    } catch (error) {
-      console.error('Error updating visit status:', error);
-      
-      // Revert optimistic update on error
-      setLocalStatus(previousStatus);
-      
-      // Simple error notification
-      console.error('Failed to update visit status');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-  
-  return (
-    <div 
-      className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full cursor-pointer select-none transition-all duration-150 ease-out ${
-        isCompleted 
-          ? 'bg-white border border-[#01b9d5] hover:bg-[#01b9d5]/8' 
-          : 'bg-gray-100 border border-gray-200 hover:bg-gray-200'
-      } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-      onClick={handleToggle}
-    >
-      {/* Compact toggle switch */}
-      <div className={`relative w-7 h-4 rounded-full transition-colors duration-150 ease-out ${
-        isCompleted ? 'bg-[#01b9d5]' : 'bg-gray-400'
-      }`}>
-        <div
-          className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform duration-150 ease-out ${
-            isCompleted ? 'transform translate-x-3' : 'transform translate-x-0.5'
-          }`}
-          style={{ willChange: 'transform' }}
-        />
-      </div>
-      
-      {/* Compact status text */}
-      <span className={`text-xs font-medium transition-colors duration-150 ${
-        isCompleted ? 'text-[#01b9d5]' : 'text-gray-600'
-      }`}>
-        {isCompleted ? 'Done' : 'Pending'}
-      </span>
-    </div>
-  );
-};
+// Tabs of FullScreenEditVisitModal that the card's actions open
+export type { VisitQuickTab };
 
-// Unified Visit interface for both appointments and visits
-interface Visit {
-  id: string;
-  visit_date: string;
-  visit_time?: string;
-  visit_number?: number;  // Sequential number for patient journey
-  chief_complaint?: string;
-  diagnosis?: string;
-  treatment_plan?: string;
-  doctor_name?: string;
-  doctor?: {
-    id: string;
-    full_name: string;
-  };
-  visit_type?: string;
-  status?: 'scheduled' | 'in-progress' | 'completed' | 'cancelled';  // Unified statuses
-  history_of_present_illness?: string;
-  follow_up_instructions?: string;
-  notes?: string;
-  duration?: number;
-  appointment_id?: string;  // Link to original appointment if migrated
-  vitals?: {
-    blood_pressure?: string;
-    heart_rate?: number;
-    temperature?: number;
-    weight?: number;
-  };
-  medications?: Array<{
-    name: string;
-    dosage: string;
-  }>;
-  lab_results?: Array<{
-    test_name: string;
-    status: string;
-  }>;
-  // Add counts for media, lab, and imaging
-  media_count?: number;
-  lab_count?: number;
-  imaging_count?: number;
-}
-
-// Helper to check if a visit is scheduled (appointment)
-const isScheduledVisit = (visit: Visit): boolean => {
-  return visit.status === 'scheduled';
-};
-
-interface EncounterTimelineProps {
-  visits: Visit[];
-  appointments?: any[];  // Deprecated - kept for backward compatibility
+interface EncounterTimelineProps<V extends JourneyVisit> {
+  visits: V[];
+  appointments?: unknown[];  // Deprecated - appointments are scheduled visits; not read
   patientName?: string;
   onAddVisit?: () => void;
   onAddVisitTabs?: () => void;
-  onEditVisit?: (visit: Visit) => void;
-  onCreateFollowUp?: (visit: Visit) => void;
-  onStartAppointment?: (visit: Visit) => void;  // Now handles scheduled visits
+  onEditVisit?: (visit: V) => void;
+  onOpenVisitTab?: (visit: V, tab: VisitQuickTab) => void;  // Open the visit on a specific edit tab
+  onCreateFollowUp?: (visit: V) => void;
+  onStartAppointment?: (visit: V) => void;
   onVisitStatusChange?: (visitId: string, newStatus: string) => void;
-  // Add counts prop for MASSIVE performance optimization - eliminates N+1 queries
-  visitCounts?: { [visitId: string]: { media: number; lab: number; imaging: number } };
+  // Lab, imaging and media counts per visit, loaded once with the patient file (no query per card)
+  visitCounts?: { [visitId: string]: Partial<VisitRecordCounts> };
+  // This patient's invoices (usePatientInvoices); undefined until they have loaded
+  invoices?: readonly PatientInvoice[];
 }
 
 // Donut Chart Component
-const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
+const CompletionDonutChart: React.FC<{ visits: readonly JourneyVisit[] }> = ({ visits }) => {
   const completedVisits = visits.filter(visit => visit.status === 'completed').length;
   const totalVisits = visits.length;
   const completionPercentage = totalVisits > 0 ? (completedVisits / totalVisits) * 100 : 0;
-  
+
   const circumference = 2 * Math.PI * 32;
   const strokeDasharray = `${(completionPercentage / 100) * circumference} ${circumference}`;
-  
+
   return (
     <div className="flex flex-col items-center gap-3">
       <div className="relative">
@@ -215,7 +66,7 @@ const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
           <div className="text-lg font-bold text-indigo-600">{Math.round(completionPercentage)}%</div>
         </div>
       </div>
-      
+
       {/* Legend - Single row layout */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -231,770 +82,132 @@ const CompletionDonutChart: React.FC<{ visits: Visit[] }> = ({ visits }) => {
   );
 };
 
-// Format date like "13th June '25"
-const formatVisitDate = (dateString: string) => {
-  try {
-    if (!dateString) return 'No date';
-    
-    const date = parseISO(dateString);
-    
-    // Check if date is valid
-    if (isNaN(date.getTime())) {
-      return 'Invalid date';
-    }
-    
-    const day = format(date, 'do');
-    const month = format(date, 'MMMM');
-    const year = format(date, "''yy");
-    return `${day} ${month} ${year}`;
-  } catch (error) {
-    console.error('Error formatting date:', dateString, error);
-    return 'Invalid date';
-  }
-};
-
-const TimelineNode: React.FC<{
-  visit: Visit;
-  index: number;
-  totalVisits: number;
-  isLast: boolean;
-  isExpanded: boolean;
-  onToggle: () => void;
-  onEditVisit?: (visit: Visit) => void;
-  onCreateFollowUp?: (visit: Visit) => void;
-  onVisitStatusChange?: (visitId: string, newStatus: string) => void;
-  onStartAppointment?: (visit: Visit) => void;
-  // Add optional counts prop for MASSIVE performance optimization
-  visitCounts?: { [visitId: string]: { media: number; lab: number; imaging: number } };
-  // Date/time info for mobile integration
-  displayDate?: string;
-  displayTime?: string;
-}> = ({ visit, index, totalVisits, isLast, isExpanded, onToggle, onEditVisit, onCreateFollowUp, onVisitStatusChange, onStartAppointment, visitCounts, displayDate, displayTime }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  
-  // ⚡ PERFORMANCE OPTIMIZATION: Use pre-calculated counts instead of individual queries
-  // This eliminates the N+1 query problem that was causing 3-4 second delays
-  const counts = {
-    media: visitCounts?.[visit.id]?.media ?? visit.media_count ?? 0,
-    lab: visitCounts?.[visit.id]?.lab ?? visit.lab_count ?? 0,
-    imaging: visitCounts?.[visit.id]?.imaging ?? visit.imaging_count ?? 0,
-    // Add new counts - these will need to be populated from the backend
-    leave: visit.leave_count ?? 0,
-    billing: visit.billing_count ?? 1, // Most visits have billing
-    prescriptions: visit.prescriptions_count ?? 0
-  };
-  const visitDate = parseISO(visit.visit_date);
-  const isTodayVisit = isToday(visitDate);
-  const isFutureVisit = isFuture(visitDate);
-  const visitNumber = visit.visit_number || (totalVisits - index);  // Use visit_number if available
-  const isCompleted = visit.status === 'completed';
-  const isScheduled = visit.status === 'scheduled';  // This is an appointment
-  
-  // Get premium colors and demarcation based on status
-  const getVisitTheme = () => {
-    if (isScheduled) {
-      // Scheduled visits (appointments) get a special theme
-      return {
-        bg: 'bg-gradient-to-br from-emerald-500 to-teal-600',
-        border: 'border-emerald-300',
-        glow: 'bg-emerald-400',
-        cardBg: 'bg-gradient-to-br from-emerald-50/30 to-teal-50/30',
-        textPrimary: 'text-gray-900',
-        textSecondary: 'text-gray-700',
-        accent: 'from-emerald-500 to-teal-600',
-        icon: CalendarCheck,
-        iconColor: 'text-emerald-600',
-        status: 'scheduled'
-      };
-    }
-    if (isCompleted) {
-      return {
-        bg: 'bg-gradient-to-br from-gray-400 to-gray-500',
-        border: 'border-gray-300',
-        glow: 'bg-gray-400',
-        cardBg: 'bg-gradient-to-br from-gray-50/30 to-gray-100/30',
-        textPrimary: 'text-gray-700',
-        textSecondary: 'text-gray-600',
-        accent: 'from-gray-400 to-gray-500',
-        icon: CheckCircle2,
-        iconColor: 'text-gray-500',
-        status: 'completed'
-      };
-    }
-    if (isTodayVisit) {
-      return {
-        bg: 'bg-gradient-to-br from-purple-500 to-pink-600',
-        border: 'border-purple-300',
-        glow: 'bg-purple-400',
-        cardBg: 'bg-gradient-to-br from-purple-50/30 to-pink-50/30',
-        textPrimary: 'text-gray-900',
-        textSecondary: 'text-gray-700',
-        accent: 'from-purple-500 to-pink-600',
-        icon: Zap,
-        iconColor: 'text-purple-600',
-        status: 'today'
-      };
-    }
-    if (isFutureVisit) {
-      return {
-        bg: 'bg-gradient-to-br from-blue-500 to-cyan-600',
-        border: 'border-blue-300',
-        glow: 'bg-blue-400',
-        cardBg: 'bg-gradient-to-br from-blue-50/30 to-cyan-50/30',
-        textPrimary: 'text-gray-900',
-        textSecondary: 'text-gray-700',
-        accent: 'from-blue-500 to-cyan-600',
-        icon: Target,
-        iconColor: 'text-blue-600',
-        status: 'future'
-      };
-    }
-    return {
-      bg: 'bg-gradient-to-br from-gray-400 to-gray-600',
-      border: 'border-gray-300',
-      glow: 'bg-gray-400',
-      cardBg: 'bg-white',
-      textPrimary: 'text-gray-900',
-      textSecondary: 'text-gray-600',
-      accent: 'from-gray-400 to-gray-600',
-      icon: Shield,
-      iconColor: 'text-gray-600',
-      status: 'past'
-    };
-  };
-  
-  const theme = getVisitTheme();
-  
-  // Get visit type display name
-  const getVisitTypeDisplay = () => {
-    if (visit.visit_type) {
-      return visit.visit_type.charAt(0).toUpperCase() + visit.visit_type.slice(1);
-    }
-    return 'General Visit';
-  };
-  
-  return (
-    <div className="relative flex items-start gap-0 sm:gap-6">
-      {/* Timeline node - Hidden on mobile */}
-      <div className="relative flex-shrink-0 hidden sm:block timeline-node">
-        {/* Simplified connection line - No heavy animations */}
-        {!isLast && (
-          <div
-            className={`absolute top-16 left-8 w-0.5 -z-10 ${
-              isCompleted 
-                ? 'bg-indigo-500' 
-                : isTodayVisit
-                ? 'bg-purple-500'
-                : isFutureVisit
-                ? 'bg-blue-500'
-                : 'bg-gray-300'
-            }`}
-            style={{
-              height: 'calc(100% + 2rem + 200px)',
-              transformOrigin: 'top'
-            }}
-          />
-        )}
-        
-        <div className="relative z-10">
-          {/* Simplified circle - No animations */}
-          <div
-            className={`relative z-10 w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-lg border-4 ${theme.border}`}
-          >
-            {/* Inner colored circle with visit number */}
-            <div className={`w-12 h-12 ${theme.bg} rounded-full flex items-center justify-center shadow-sm`}>
-              <span className="text-xl font-bold text-white">
-                {visitNumber}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Content card - Full width on mobile */}
-      <div className="w-full sm:flex-1 sm:min-w-0">
-        <div
-          className={`${theme.cardBg} rounded-xl overflow-hidden transition-all duration-200 cursor-pointer relative group border visit-card timeline-card encounter-card ${
-            isCompleted 
-              ? 'border-indigo-500' 
-              : isTodayVisit
-              ? 'border-purple-500'
-              : isFutureVisit
-              ? 'border-blue-500'
-              : 'border-gray-300'
-          }`}
-          onClick={() => onEditVisit && onEditVisit(visit)}
-          style={{ willChange: 'transform' }}
-        >
-            {/* Creative Demarcation System */}
-            
-            {/* Method 1: Corner Accent with Visit Number */}
-            <div className="absolute top-0 right-0 z-20">
-              <div className={`w-12 h-12 bg-gradient-to-br ${theme.accent} opacity-90 rounded-bl-3xl rounded-tr-xl flex items-center justify-center shadow-lg`}>
-                <span className="text-sm font-bold text-white drop-shadow-sm">
-                  #{visitNumber}
-                </span>
-              </div>
-            </div>
-            
-            {/* Method 2: Geometric Side Pattern */}
-            <div className="absolute left-0 top-0 bottom-0 w-1.5 z-10">
-              <div className={`h-full bg-gradient-to-b ${theme.accent} relative overflow-hidden`}>
-                {/* Animated diamond pattern */}
-                <motion.div
-                  className="absolute inset-0"
-                  style={{
-                    background: `linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.2) 50%, transparent 50%, transparent 75%, rgba(255,255,255,0.2) 75%)`,
-                    backgroundSize: '8px 8px'
-                  }}
-                  animate={{
-                    backgroundPosition: isHovered ? '8px 8px' : '0px 0px'
-                  }}
-                  transition={{ duration: 0.3 }}
-                />
-              </div>
-            </div>
-            
-            
-            {/* Method 4: Subtle Border Glow Effect */}
-            <div className="absolute inset-0 rounded-xl z-0">
-              <div className={`absolute inset-0 rounded-xl bg-gradient-to-r ${theme.accent} opacity-20 blur-sm`} />
-              <div className="absolute inset-[1px] rounded-xl bg-white" />
-            </div>
-            
-            {/* Verified check icon for completed visits */}
-            {isCompleted && (
-              <div className="absolute inset-0 flex items-center justify-center z-5 pointer-events-none">
-                <CheckCircle2 className="w-32 h-32 text-gray-200 opacity-20" />
-              </div>
-            )}
-            
-            {/* Card content */}
-            <div className="relative z-10">
-              {/* Main content area */}
-              <div className="pt-4 px-4">
-                {/* Mobile: Date and Time Header - Only visible on mobile */}
-                {(displayDate || displayTime) && (
-                  <div className="block sm:hidden mb-3 p-2 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="flex flex-col gap-1">
-                      {displayDate && (
-                        <p className={`font-bold text-sm leading-tight ${
-                          visit.status === 'completed' ? 'text-indigo-600' : 
-                          isToday(parseISO(displayDate)) ? 'text-emerald-600' :
-                          'text-gray-900'
-                        }`}>
-                          {formatVisitDate(displayDate)}
-                        </p>
-                      )}
-                      {displayTime && (
-                        <div className="flex items-center gap-1 visit-time-mobile">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          <p className="text-xs text-gray-500 font-medium">
-                            {displayTime}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Row 1: Visit type and chief complaint */}
-                <div className="flex items-center gap-2 mb-3">
-                  <h3 
-                    className={`font-semibold text-base ${theme.textPrimary} relative z-10 flex-shrink-0`}
-                  >
-                    {getVisitTypeDisplay()}:
-                  </h3>
-                  {visit.chief_complaint && (
-                    <>
-                      <Stethoscope className={`w-4 h-4 ${theme.iconColor} flex-shrink-0`} />
-                      <p 
-                        className={`text-sm ${theme.textSecondary} font-medium relative z-10 truncate`}
-                      >
-                        {visit.chief_complaint}
-                      </p>
-                    </>
-                  )}
-                </div>
-                
-                {/* Row 2: Doctor info (if available) */}
-                {(visit.doctor?.full_name || visit.doctor_name) && (
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      <User className="w-3.5 h-3.5" />
-                      <span className="font-semibold text-sm">
-                        Dr. {visit.doctor?.full_name || visit.doctor_name}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Row 3: Status Toggle with Follow-up */}
-                <div className="mb-3 flex items-center gap-2">
-                  {/* Show status toggle for all visits */}
-                  <StatusToggle
-                    visitId={visit.id}
-                    currentStatus={visit.status || (isScheduled ? 'scheduled' : 'in-progress')}
-                    onStatusChange={onVisitStatusChange}
-                  />
-                  
-                  {/* Follow-up button positioned next to Status Toggle */}
-                  {onCreateFollowUp && isCompleted && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCreateFollowUp(visit);
-                      }}
-                      className="group flex items-center gap-1.5 px-3 py-2.5 sm:px-2.5 sm:py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-md transition-all duration-200 min-h-[40px] sm:min-h-0 touch-manipulation"
-                      title="Create follow-up"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-gray-500 group-hover:text-gray-700" />
-                      <span className="font-medium text-gray-600 group-hover:text-gray-800">Follow-up</span>
-                    </button>
-                  )}
-                </div>
-                
-                {/* Row 4: Quick stats */}
-                {(visit.vitals?.blood_pressure || (visit.medications && visit.medications.length > 0) || (visit.lab_results && visit.lab_results.length > 0)) && (
-                  <div className="flex items-center gap-2 mb-3">
-                    {visit.vitals?.blood_pressure && (
-                      <div 
-                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-red-50 to-pink-50 rounded-lg px-2.5 py-1.5 border border-red-100"
-                      >
-                        <Heart className="w-3.5 h-3.5 text-red-500" />
-                        <span className="font-semibold text-red-700">{visit.vitals.blood_pressure}</span>
-                      </div>
-                    )}
-                    {visit.medications && visit.medications.length > 0 && (
-                      <div 
-                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg px-2.5 py-1.5 border border-blue-100"
-                      >
-                        <Pill className="w-3.5 h-3.5 text-blue-500" />
-                        <span className="font-semibold text-blue-700">{visit.medications.length} meds</span>
-                      </div>
-                    )}
-                    {visit.lab_results && visit.lab_results.length > 0 && (
-                      <div 
-                        className="flex items-center gap-1.5 text-xs bg-gradient-to-r from-emerald-50 to-green-50 rounded-lg px-2.5 py-1.5 border border-emerald-100"
-                      >
-                        <FlaskConical className="w-3.5 h-3.5 text-emerald-500" />
-                        <span className="font-semibold text-emerald-700">{visit.lab_results.length} tests</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-              
-              {/* Bottom row: Media/Lab/Imaging badges and Action buttons */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-4 pb-3 border-t border-gray-100 pt-3 gap-3 sm:gap-0">
-                {/* Action buttons grid - Desktop: Single row, Mobile: 3 per row */}
-                <div className="grid grid-cols-3 sm:flex sm:flex-row gap-2 w-full sm:w-full desktop-button-container">
-                  {/* Media Button */}
-                  <button className="premium-action-button group relative">
-                    <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 group-hover:text-blue-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-blue-700">Media</span>
-                    {counts.media > 0 && (
-                      <span className="count-badge bg-blue-600">{counts.media}</span>
-                    )}
-                  </button>
-                  
-                  {/* Lab Button */}
-                  <button className="premium-action-button group relative">
-                    <FlaskConical className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600 group-hover:text-emerald-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-emerald-700">Lab</span>
-                    {counts.lab > 0 && (
-                      <span className="count-badge bg-emerald-600">{counts.lab}</span>
-                    )}
-                  </button>
-                  
-                  {/* Imaging Button */}
-                  <button className="premium-action-button group relative">
-                    <Hexagon className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600 group-hover:text-purple-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-purple-700">Imaging</span>
-                    {counts.imaging > 0 && (
-                      <span className="count-badge bg-purple-600">{counts.imaging}</span>
-                    )}
-                  </button>
-                  
-                  {/* Leave Button */}
-                  <button className="premium-action-button group relative">
-                    <ScrollText className="w-4 h-4 sm:w-5 sm:h-5 text-amber-600 group-hover:text-amber-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-amber-700">Leave</span>
-                    {counts.leave > 0 && (
-                      <span className="count-badge bg-amber-600">{counts.leave}</span>
-                    )}
-                  </button>
-                  
-                  {/* Billing Button */}
-                  <button className="premium-action-button group relative">
-                    <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 group-hover:text-green-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-green-700">Billing</span>
-                    {counts.billing > 0 && (
-                      <span className="count-badge bg-green-600">{counts.billing}</span>
-                    )}
-                  </button>
-                  
-                  {/* Prescriptions Button */}
-                  <button className="premium-action-button group relative">
-                    <Pill className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600 group-hover:text-indigo-700 transition-all" />
-                    <span className="text-xs sm:text-sm font-medium text-indigo-700">Rx</span>
-                    {counts.prescriptions > 0 && (
-                      <span className="count-badge bg-indigo-600">{counts.prescriptions}</span>
-                    )}
-                  </button>
-                  
-                </div>
-              </div>
-            </div>
-          </div>
-      </div>
-    </div>
-  );
-};
-
-// AppointmentNode component removed - All appointments are now scheduled visits
-
-const EncounterTimeline: React.FC<EncounterTimelineProps> = ({ 
-  visits, 
-  appointments = [],
-  onAddVisit, 
-  onAddVisitTabs,
-  onEditVisit, 
+/**
+ * Patient file > Encounters: the patient's visits, newest first, as calm cards on a timeline line,
+ * beside Journey Progress. Each card's display rules live in ./journey/visitJourney.ts.
+ */
+function EncounterTimeline<V extends JourneyVisit>({
+  visits,
+  onAddVisit,
+  onEditVisit,
+  onOpenVisitTab,
   onCreateFollowUp,
-  onStartAppointment,
   onVisitStatusChange,
-  visitCounts
-}) => {
-  console.log('🔍 ENCOUNTER TIMELINE: Unified Visit System', {
-    totalVisits: visits.length,
-    scheduledVisits: visits.filter(v => v.status === 'scheduled').length,
-    completedVisits: visits.filter(v => v.status === 'completed').length,
-    inProgressVisits: visits.filter(v => v.status === 'in-progress').length,
-    hasOnAddVisit: !!onAddVisit,
-    hasOnEditVisit: !!onEditVisit
-  });
-  
-  const [expandedVisits, setExpandedVisits] = useState<Set<string>>(new Set());
-  
-  // Sort visits by date and time (includes scheduled visits/appointments)
-  const sortedVisits = [...visits].sort((a, b) => {
-    // Handle visits that might use scheduled_date instead of visit_date
-    const dateA = a.visit_date || a.scheduled_date || '';
-    const dateB = b.visit_date || b.scheduled_date || '';
-    
-    // Skip invalid dates
-    if (!dateA && !dateB) return 0;
-    if (!dateA) return 1;
-    if (!dateB) return -1;
-    
-    const dateCompare = new Date(dateB).getTime() - new Date(dateA).getTime();
-    if (dateCompare !== 0) return dateCompare;
-    
-    // If same date, sort by time
-    const timeA = a.visit_time || a.scheduled_time || '00:00';
-    const timeB = b.visit_time || b.scheduled_time || '00:00';
-    return timeB.localeCompare(timeA);
-  });
+  visitCounts,
+  invoices
+}: EncounterTimelineProps<V>) {
+  const sortedVisits = sortNewestFirst(visits);
+  // One date for every card, so "Today", Scheduled and Pending agree across the journey
+  const today = todayKey();
 
-  // All items are now visits (appointments are scheduled visits)
-  const timelineItems = sortedVisits.map(visit => {
-    // Handle scheduled visits that might use scheduled_date instead of visit_date
-    const effectiveDate = visit.visit_date || visit.scheduled_date || '';
-    const effectiveTime = visit.visit_time || visit.scheduled_time || '00:00';
-    
-    return {
-      ...visit,
-      type: 'visit' as const,
-      dateTime: effectiveDate ? new Date(`${effectiveDate} ${effectiveTime}`) : new Date(),
-      displayDate: effectiveDate,
-      displayTime: effectiveTime !== '00:00' ? effectiveTime : undefined
-    };
-  });
-
-  console.log('📊 UNIFIED TIMELINE:', {
-    totalItems: timelineItems.length,
-    itemsWithNumbers: timelineItems.filter(item => item.visit_number).length,
-    scheduledItems: timelineItems.filter(item => item.status === 'scheduled').length
-  });
-  
-  const toggleVisit = (visitId: string) => {
-    setExpandedVisits(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(visitId)) {
-        newSet.delete(visitId);
-      } else {
-        newSet.add(visitId);
-      }
-      return newSet;
-    });
-  };
-  
   return (
-    <div className="relative timeline-container mobile-scroll-optimize">
-      {/* Header */}
-      <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          {/* Title */}
+    // Animations below honour the device's "reduce motion" setting
+    <MotionConfig reducedMotion="user">
+      {/* Up to 768px the app's mobile CSS removes the patient file's padding; keep the journey off the screen edge */}
+      <div className="relative [@media(max-width:768px)]:px-3">
+        {/* Header */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-              Patient Journey
-            </h2>
+            <h2 className="text-xl font-bold text-gray-900 sm:text-2xl">Patient Journey</h2>
+            {sortedVisits.length > 0 && (
+              <p className="mt-0.5 text-sm text-gray-500">
+                {sortedVisits.length === 1 ? '1 visit' : `${sortedVisits.length} visits`}, newest first
+              </p>
+            )}
           </div>
-          
-          {/* Add Visit Button */}
+
           {onAddVisit && (
-            <button
-              onClick={onAddVisit}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-3 sm:py-2 rounded-xl hover:shadow-lg transition-all flex items-center gap-2 font-medium min-h-[44px] sm:min-h-0 touch-manipulation w-full sm:w-auto justify-center sm:justify-start"
-            >
-              <Plus className="w-5 h-5" />
-              <span className="text-sm sm:text-base">Add New Visit</span>
+            <button type="button" onClick={onAddVisit} className={`${PRIMARY} w-full sm:w-auto`}>
+              <Icon icon="solar:add-circle-bold-duotone" className="h-5 w-5" aria-hidden="true" />
+              Add New Visit
             </button>
           )}
         </div>
-      </div>
-      
-      {/* Mobile: Single Column | Desktop: Timeline (10/12) + Journey Progress (2/12) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Timeline Column - Full width on mobile for larger cards */}
-        <div className="lg:col-span-10 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {console.log('🎬 RENDERING TIMELINE ITEMS:', {
-            totalItems: timelineItems.length,
-            itemBreakdown: timelineItems.map(item => ({ type: item.type, id: item.id, date: item.displayDate }))
-          })}
-          {timelineItems.map((item, index) => {
-            console.log(`🔄 RENDERING ITEM ${index}:`, { type: item.type, id: item.id, data: item });
-            return (
-            <div key={`${item.type}-${item.id}`} className="flex flex-col sm:flex-row items-start gap-3 sm:gap-6 mb-8 last:mb-0 relative">
-              {/* Date column - Hidden on mobile, integrated into card */}
-              <div className="hidden sm:block w-24 lg:w-32 text-right flex-shrink-0 pt-2 sm:pt-5">
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.04 + 0.1, duration: 0.3 }}
-                >
-                  <p className={`font-bold text-sm sm:text-base leading-tight ${
-                    item.type === 'visit' && item.status === 'completed' ? 'text-indigo-600' : 
-                    item.type === 'appointment' && isToday(parseISO(item.displayDate)) ? 'text-emerald-600' :
-                    'text-gray-900'
-                  }`}>
-                    {formatVisitDate(item.displayDate)}
-                  </p>
-                  {item.displayTime && (
-                    <div className="flex items-center justify-end gap-1 mt-1 sm:mt-2">
-                      <Clock className="w-3 h-3 text-gray-400" />
-                      <p className="text-xs text-gray-500 font-medium">
-                        {item.displayTime}
-                      </p>
-                    </div>
-                  )}
-                </motion.div>
-              </div>
-              
-              {/* Timeline content - Full width on mobile */}
-              <div className="w-full sm:flex-1 sm:min-w-0">
-                <TimelineNode
-                  visit={item}
-                  index={index}
-                  totalVisits={timelineItems.length}  // Total count includes scheduled visits
-                  isLast={index === timelineItems.length - 1}
-                  isExpanded={expandedVisits.has(item.id)}
-                  onToggle={() => toggleVisit(item.id)}
-                  onEditVisit={onEditVisit}
-                  onCreateFollowUp={onCreateFollowUp}
-                  onVisitStatusChange={onVisitStatusChange}
-                  onStartAppointment={onStartAppointment}
-                  visitCounts={visitCounts}
-                  // Pass date/time info for mobile integration
-                  displayDate={item.displayDate}
-                  displayTime={item.displayTime}
-                />
-              </div>
-            </div>
-            );
-          })}
-        </div>
-        
-        {/* Journey Progress Column - Mobile: Full width | Desktop: 2/12 width */}
-        <div className="lg:col-span-2 order-first lg:order-last journey-progress-section">
-          <div className="sticky top-8">
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3, duration: 0.6 }}
-            >
-              <div className="relative">
-                {/* Pure glassmorphic card with border */}
-                <div className="relative bg-white/30 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-gray-200/50">
-                  {/* Gradient overlay for glassmorphic effect */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-white/10 to-indigo-100/30 pointer-events-none" />
-                  
-                  {/* Content */}
-                  <div className="relative z-10">
-                    <div className="text-center mb-4">
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">Journey Progress</h3>
-                      <p className="text-sm text-gray-700/80">Visit completion status</p>
-                    </div>
-                    <CompletionDonutChart visits={sortedVisits} />
-                  </div>
-                  
-                  {/* Subtle decorative elements */}
-                  <motion.div
-                    className="absolute -top-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
-                    animate={{
-                      scale: [1, 1.3, 1],
-                      opacity: [0.2, 0.4, 0.2],
-                    }}
-                    transition={{
-                      duration: 6,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                  />
-                  <motion.div
-                    className="absolute -bottom-4 -left-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
-                    animate={{
-                      scale: [1, 1.2, 1],
-                      opacity: [0.3, 0.5, 0.3],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      delay: 2,
-                    }}
-                  />
-                </div>
-              </div>
-            </motion.div>
-            
-            {/* Play Medical History Tile */}
-            <div className="mt-6 play-medical-history-section">
+
+        {/* Phones and tablets: one column | Desktop: Timeline (10/12) + Journey Progress (2/12).
+            gap-x/gap-y, not gap-6: the mobile CSS pads anything whose class contains "p-6" */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-6 gap-y-6">
+          <div className="min-w-0 lg:col-span-10">
+            {sortedVisits.length === 0 ? (
+              <EmptyState
+                icon="solar:stethoscope-bold-duotone"
+                title="No visits yet"
+                message={onAddVisit ? "Use 'Add New Visit' to record this patient's first visit." : "This patient's visits will appear here."}
+              />
+            ) : (
+              <ol aria-label="Visits, newest first" className="space-y-4 sm:space-y-5">
+                {sortedVisits.map((visit, index) => (
+                  <li key={visit.id} className="relative sm:pl-8">
+                    {/* The timeline line, from this visit's marker down to the next visit's */}
+                    {index < sortedVisits.length - 1 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -bottom-11 left-2 top-10 hidden w-px -translate-x-1/2 bg-gray-200 sm:block"
+                      />
+                    )}
+                    <JourneyVisitCard
+                      visit={visit}
+                      today={today}
+                      counts={visitCounts?.[visit.id]}
+                      invoices={invoices}
+                      onOpenVisit={onEditVisit}
+                      onOpenVisitTab={onOpenVisitTab}
+                      onCreateFollowUp={onCreateFollowUp}
+                      onStatusChange={onVisitStatusChange}
+                    />
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+
+          {/* Journey Progress Column - Mobile: Full width | Desktop: 2/12 width */}
+          <div className="lg:col-span-2 order-first lg:order-last journey-progress-section">
+            <div className="sticky top-8">
               <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6, duration: 0.6 }}
-                whileHover={{ y: -4 }}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
               >
-                <div className="relative group cursor-pointer">
-                  {/* Premium glassmorphic card */}
-                  <div 
-                    className="relative bg-gradient-to-br from-purple-500/10 via-indigo-500/10 to-purple-500/10 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-purple-300/20"
-                    onClick={() => {
-                      // TODO: Implement medical history playback functionality
-                      console.log('Playing medical history for patient...');
-                    }}
-                  >
-                    {/* Animated background pattern */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/20 via-indigo-100/10 to-purple-100/20 pointer-events-none" />
-                    
+                <div className="relative">
+                  {/* Pure glassmorphic card with border */}
+                  <div className="relative bg-white/30 backdrop-blur-xl rounded-3xl p-6 overflow-hidden border border-gray-200/50">
+                    {/* Gradient overlay for glassmorphic effect */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-100/30 via-white/10 to-indigo-100/30 pointer-events-none" />
+
                     {/* Content */}
                     <div className="relative z-10">
                       <div className="text-center mb-4">
-                        <h3 className="text-lg font-bold text-gray-900">Play Medical History</h3>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">Journey Progress</h3>
+                        <p className="text-sm text-gray-700/80">Visit completion status</p>
                       </div>
-                      
-                      {/* Audio Controls */}
-                      <div className="space-y-4">
-                        {/* Play/Pause and Control Buttons */}
-                        <div className="flex items-center justify-center gap-3">
-                          {/* Previous/Restart Button */}
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
-                          >
-                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-                            </svg>
-                          </motion.button>
-                          
-                          {/* Main Play Button */}
-                          <motion.div
-                            className="relative"
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                          >
-                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-2xl group-hover:shadow-purple-500/50 transition-all duration-300">
-                              <motion.svg 
-                                className="w-5 h-5 text-white ml-1" 
-                                fill="currentColor" 
-                                viewBox="0 0 24 24"
-                                whileHover={{ scale: 1.2 }}
-                                transition={{ duration: 0.2 }}
-                              >
-                                <path d="M8 5v14l11-7z"/>
-                              </motion.svg>
-                            </div>
-                            
-                            {/* Ripple effect */}
-                            <motion.div
-                              className="absolute inset-0 bg-purple-400 rounded-full"
-                              animate={{
-                                scale: [1, 1.5, 1],
-                                opacity: [0.3, 0, 0.3]
-                              }}
-                              transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: "easeOut"
-                              }}
-                            />
-                          </motion.div>
-                          
-                          {/* Stop Button */}
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.95 }}
-                            className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-all"
-                          >
-                            <svg className="w-4 h-4 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M6 6h12v12H6z"/>
-                            </svg>
-                          </motion.button>
-                        </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="px-2">
-                          <div className="flex items-center gap-3 text-xs text-gray-600">
-                            <span>0:00</span>
-                            <div className="flex-1 h-2 bg-white/30 rounded-full overflow-hidden cursor-pointer">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-purple-400 to-indigo-500 rounded-full"
-                                style={{ width: '0%' }}
-                                whileHover={{ opacity: 0.8 }}
-                              />
-                            </div>
-                            <span>2:45</span>
-                          </div>
-                        </div>
-                      </div>
+                      <CompletionDonutChart visits={sortedVisits} />
                     </div>
-                    
+
                     {/* Subtle decorative elements */}
                     <motion.div
-                      className="absolute -top-6 -left-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
+                      className="absolute -top-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-300/20 to-indigo-300/20 rounded-full blur-3xl"
                       animate={{
                         scale: [1, 1.3, 1],
                         opacity: [0.2, 0.4, 0.2],
                       }}
                       transition={{
-                        duration: 4,
+                        duration: 6,
                         repeat: Infinity,
                         ease: "easeInOut",
                       }}
                     />
                     <motion.div
-                      className="absolute -bottom-4 -right-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
+                      className="absolute -bottom-4 -left-4 w-24 h-24 bg-gradient-to-br from-indigo-300/20 to-purple-300/20 rounded-full blur-2xl"
                       animate={{
                         scale: [1, 1.2, 1],
                         opacity: [0.3, 0.5, 0.3],
                       }}
                       transition={{
-                        duration: 3,
+                        duration: 4,
                         repeat: Infinity,
                         ease: "easeInOut",
-                        delay: 1.5,
+                        delay: 2,
                       }}
                     />
                   </div>
@@ -1004,35 +217,8 @@ const EncounterTimeline: React.FC<EncounterTimelineProps> = ({
           </div>
         </div>
       </div>
-      
-      {/* Premium floating decoration */}
-      <motion.div
-        className="absolute -top-8 -right-8 w-32 h-32 bg-gradient-to-br from-purple-400 via-indigo-400 to-purple-600 rounded-full blur-3xl opacity-10"
-        animate={{
-          scale: [1, 1.3, 1],
-          opacity: [0.1, 0.2, 0.1],
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          ease: "easeInOut",
-        }}
-      />
-      <motion.div
-        className="absolute -bottom-8 -left-8 w-24 h-24 bg-gradient-to-br from-indigo-400 to-cyan-400 rounded-full blur-2xl opacity-15"
-        animate={{
-          scale: [1, 1.1, 1],
-          opacity: [0.15, 0.25, 0.15],
-        }}
-        transition={{
-          duration: 8,
-          repeat: Infinity,
-          ease: "easeInOut",
-          delay: 2,
-        }}
-      />
-    </div>
+    </MotionConfig>
   );
-};
+}
 
 export default EncounterTimeline;

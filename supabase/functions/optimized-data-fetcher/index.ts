@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { decidePracticeAccess, decideRecordAccess, decideStaffAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,12 +22,35 @@ serve(async (req) => {
   }
 
   try {
-    const { type, practiceId, patientId, date, includeVisitCounts } = await req.json() as QueryRequest
+    const { type, practiceId: requestedPracticeId, patientId, date, includeVisitCounts } = await req.json() as QueryRequest
     
     // Create Supabase client with service role for optimal performance
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // The service role reads past row-level security, so only signed-in, active staff may fetch, and only their own
+    // practice's data: patient_details checks the patient's practice; the other types use the practice in the
+    // request or, when none is named, the caller's own. Patient app logins have no staff row and are refused.
+    const caller = await loadCaller(supabase, req.headers.get('Authorization'), supabaseServiceKey)
+    const staffAccess = decideStaffAccess(caller)
+    if (!staffAccess.allowed) return deniedResponse(staffAccess, corsHeaders)
+    let practiceId: string | null = null
+    if (type === 'patient_details') {
+      const { data: patientRow } = await supabase.from('patients').select('practice_id').eq('id', patientId).maybeSingle()
+      if (!patientRow) {
+        return new Response(JSON.stringify({ error: 'Patient not found.' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404,
+        })
+      }
+      const recordAccess = decideRecordAccess(caller, patientRow.practice_id)
+      if (!recordAccess.allowed) return deniedResponse(recordAccess, corsHeaders)
+    } else {
+      const practiceAccess = decidePracticeAccess(caller, requestedPracticeId)
+      if (!practiceAccess.allowed) return deniedResponse(practiceAccess, corsHeaders)
+      practiceId = practiceAccess.practiceId
+    }
 
     let data: any
 

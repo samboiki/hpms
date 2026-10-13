@@ -1,24 +1,34 @@
 import React, { useState } from 'react';
-import { supabase } from '../../../lib/supabase';
 import { Icon } from '@iconify/react';
-import Button from '../../ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../ui/Card';
-import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { DepartmentSelectionModal } from './DepartmentSelectionModal';
 import DateInput from '../../ui/DateInput';
+import { formatRole } from './staffUtils';
+import { inviteStaff } from '../../../services/staffInviteService';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 
 interface AddUserModalProps {
   practiceId: string;
   onClose: () => void;
-  onSuccess: () => void;
 }
 
-export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose, onSuccess }) => {
-  const [loading, setLoading] = useState(false);
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Creating a staff login needs the Supabase service-role key, which must never be shipped to the
+ * browser, so the invite-staff edge function does it (practice administrators and super admins
+ * only) and emails a link. Staff set their own password from that link (/set-password), so no
+ * password is collected here.
+ */
+
+export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose }) => {
+  // Escape closes this window, as its X does
+  useEscapeToClose(true, onClose);
   const [showDepartmentModal, setShowDepartmentModal] = useState(false);
-  const [tempUserId, setTempUserId] = useState<string>('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
@@ -28,71 +38,67 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
     contact_number: '',
     address: '',
     employee_number: '',
-    start_date: format(new Date(), 'yyyy-MM-dd'),
-    password: '',
-    confirmPassword: ''
+    hpcsa_number: '',
+    start_date: format(new Date(), 'yyyy-MM-dd')
   });
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }));
+  };
+    
+  const validate = () => {
+    const nextErrors: Record<string, string> = {};
+    if (!EMAIL_PATTERN.test(formData.email.trim())) nextErrors.email = 'Enter a valid email address';
+    if (!formData.full_name.trim()) nextErrors.full_name = 'Full name is required';
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      toast.error('Passwords do not match');
+    setSubmitError(null);
+    if (!validate()) return;
+    if (!practiceId) {
+      setSubmitError('Your practice could not be identified. Please refresh the page and try again.');
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('Password must be at least 6 characters');
-      return;
-    }
-
-    setLoading(true);
-
+    setSending(true);
     try {
-      // First create the auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: formData.email,
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: formData.full_name,
-          role: formData.role
-        }
+      const confirmation = await inviteStaff({
+        practiceId,
+        email: formData.email.trim(),
+        fullName: formData.full_name.trim(),
+        role: formData.role,
+        jobTitle: formData.job_title,
+        department: formData.department,
+        contactNumber: formData.contact_number,
+        address: formData.address,
+        employeeNumber: formData.employee_number,
+        hpcsaNumber: formData.hpcsa_number,
+        startDate: formData.start_date
       });
-
-      if (authError) throw authError;
-
-      // Then create the user record
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          full_name: formData.full_name,
-          role: formData.role,
-          practice_id: practiceId,
-          job_title: formData.job_title || null,
-          department: formData.department || null,
-          contact_number: formData.contact_number || null,
-          address: formData.address || null,
-          employee_number: formData.employee_number || null,
-          start_date: formData.start_date || null,
-          is_active: true
-        });
-
-      if (userError) throw userError;
-
-      onSuccess();
-    } catch (error: any) {
-      console.error('Error creating user:', error);
-      toast.error(error.message || 'Failed to create user');
+      toast.success(confirmation);
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'The invitation could not be sent. Please try again.');
+      toast.error('Invitation not sent');
     } finally {
-      setLoading(false);
+      setSending(false);
     }
   };
 
+  const fieldClass = (field: string) =>
+    `w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 transition-all duration-200 text-gray-700 hover:bg-gray-200 ${
+      errors[field] ? 'ring-2 ring-red-400 focus:ring-red-500' : 'focus:ring-purple-500'
+    }`;
+
+  const renderError = (field: string) =>
+    errors[field] ? <p className="mt-1 text-sm text-red-600">{errors[field]}</p> : null;
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true">
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden">
         {/* Header */}
         <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
@@ -104,13 +110,15 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
               </div>
               <div>
                 <h2 className="text-xl font-bold" style={{fontFamily: 'Poppins, sans-serif'}}>
-                  Add New User
+                  Invite Staff Member
                 </h2>
-                <p className="text-purple-100 text-sm">Complete the information below</p>
+                <p className="text-purple-100 text-sm">They will set their own password from the invitation email</p>
               </div>
             </div>
             <button 
+              type="button"
               onClick={onClose} 
+              aria-label="Close"
               className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
             >
               <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-white" />
@@ -120,7 +128,26 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-6 custom-scrollbar bg-white">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium">They get an email with a link to choose their password</p>
+                <p className="mt-1">
+                  If invitations are not switched on for your practice yet, you are told so after Send Invite and no
+                  login is created; OneHealth support then creates it. Existing staff can still be edited,
+                  deactivated and managed as normal.
+                </p>
+              </div>
+            </div>
+
+            {submitError && (
+              <div className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+                <Icon icon="solar:danger-circle-bold-duotone" className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <p>{submitError}</p>
+              </div>
+            )}
+
             {/* Account Information Section */}
             <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
               <div className="flex items-center gap-3 mb-6 -ml-2">
@@ -129,7 +156,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">Account Information</h3>
-                  <p className="text-sm text-gray-500">Set up the basic account details</p>
+                  <p className="text-sm text-gray-500">Where the invitation will be sent</p>
                 </div>
               </div>
               
@@ -139,16 +166,18 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Icon icon="solar:mail-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <Icon icon="solar:letter-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                     <input
                       type="email"
                       required
+                      autoComplete="off"
                       value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      onChange={(e) => updateField('email', e.target.value)}
+                      className={fieldClass('email')}
                       placeholder="user@example.com"
                     />
                   </div>
+                  {renderError('email')}
                 </div>
                 
                 <div>
@@ -161,45 +190,12 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                       type="text"
                       required
                       value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      onChange={(e) => updateField('full_name', e.target.value)}
+                      className={fieldClass('full_name')}
                       placeholder="John Doe"
                     />
                   </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Icon icon="solar:lock-password-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                    <input
-                      type="password"
-                      required
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Confirm Password <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Icon icon="solar:lock-password-unlocked-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                    <input
-                      type="password"
-                      required
-                      value={formData.confirmPassword}
-                      onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
-                      placeholder="••••••••"
-                    />
-                  </div>
+                  {renderError('full_name')}
                 </div>
               </div>
             </div>
@@ -226,15 +222,17 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     <select
                       required
                       value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      onChange={(e) => updateField('role', e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
                     >
-                      <option value="receptionist">Receptionist</option>
-                      <option value="nurse">Nurse</option>
-                      <option value="doctor">Doctor</option>
-                      <option value="admin">Administrator</option>
+                      {['receptionist', 'nurse', 'doctor', 'admin'].map(role => (
+                        <option key={role} value={role}>{formatRole(role)}</option>
+                      ))}
                     </select>
                   </div>
+                  {formData.role === 'admin' && (
+                    <p className="mt-1 text-xs text-amber-700">Administrators can manage staff, payroll and practice settings.</p>
+                  )}
                 </div>
                 
                 <div>
@@ -246,7 +244,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     <input
                       type="text"
                       value={formData.job_title}
-                      onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+                      onChange={(e) => updateField('job_title', e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
                       placeholder="Senior Doctor"
                     />
@@ -266,18 +264,13 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                         readOnly
                         placeholder="Click to select department"
                         className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200 cursor-pointer"
-                        onClick={() => {
-                          setTempUserId('new-user');
-                          setShowDepartmentModal(true);
-                        }}
+                        onClick={() => setShowDepartmentModal(true)}
                       />
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        setTempUserId('new-user');
-                        setShowDepartmentModal(true);
-                      }}
+                      onClick={() => setShowDepartmentModal(true)}
+                      aria-label="Choose department"
                       className="px-4 py-3 bg-purple-100 text-purple-600 rounded-lg hover:bg-purple-200 transition-colors"
                     >
                       <Icon icon="solar:buildings-3-bold-duotone" className="w-5 h-5" />
@@ -294,11 +287,33 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     <input
                       type="text"
                       value={formData.employee_number}
-                      onChange={(e) => setFormData({ ...formData, employee_number: e.target.value })}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
+                      onChange={(e) => updateField('employee_number', e.target.value)}
+                      className={fieldClass('employee_number')}
                       placeholder="EMP001"
                     />
                   </div>
+                  {renderError('employee_number')}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label htmlFor="add-hpcsa-number" className="block text-sm font-medium text-gray-700 mb-2">
+                    Professional Registration No.
+                    {(formData.role === 'doctor' || formData.role === 'nurse') && (
+                      <span className="ml-2 text-xs font-normal text-gray-500">recommended for clinical staff</span>
+                    )}
+                  </label>
+                  <div className="relative">
+                    <Icon icon="solar:diploma-verified-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                    <input
+                      id="add-hpcsa-number"
+                      type="text"
+                      value={formData.hpcsa_number}
+                      onChange={(e) => updateField('hpcsa_number', e.target.value)}
+                      className={fieldClass('hpcsa_number')}
+                      placeholder="HPCNA/HPCSA number, e.g. MP 12345"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">Printed as the treating practitioner number on medical aid claims.</p>
                 </div>
               </div>
             </div>
@@ -325,7 +340,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     <input
                       type="tel"
                       value={formData.contact_number}
-                      onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                      onChange={(e) => updateField('contact_number', e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200"
                       placeholder="+264 81 234 5678"
                     />
@@ -336,7 +351,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                   <DateInput
                     label="Start Date"
                     value={formData.start_date}
-                    onChange={(value) => setFormData({ ...formData, start_date: value })}
+                    onChange={(value) => updateField('start_date', value)}
                     placeholder="Select start date"
                   />
                 </div>
@@ -349,7 +364,7 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
                     <Icon icon="solar:map-point-bold-duotone" className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
                     <textarea
                       value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                      onChange={(e) => updateField('address', e.target.value)}
                       className="w-full pl-10 pr-4 py-3 bg-gray-100 border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all duration-200 text-gray-700 hover:bg-gray-200 resize-none"
                       rows={3}
                       placeholder="123 Main Street, Windhoek"
@@ -364,41 +379,30 @@ export const AddUserModal: React.FC<AddUserModalProps> = ({ practiceId, onClose,
               <button
                 type="button"
                 onClick={onClose}
-                disabled={loading}
                 className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors font-medium"
               >
-                Cancel
+                Close
               </button>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={sending}
                 className="px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg hover:from-purple-600 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium transition-all shadow-lg hover:shadow-xl"
               >
-                {loading ? (
-                  <>
-                    <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
-                    Creating User...
-                  </>
-                ) : (
-                  <>
-                    <Icon icon="solar:user-plus-bold-duotone" className="w-5 h-5" />
-                    Create User
-                  </>
-                )}
+                <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
+                {sending ? 'Sending invite...' : 'Send Invite'}
               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Department Selection Modal */}
+      {/* Department Selection Modal (no user id: only fills the form) */}
       {showDepartmentModal && (
         <DepartmentSelectionModal
-          userId={tempUserId}
           currentDepartment={formData.department}
           onClose={() => setShowDepartmentModal(false)}
           onSuccess={(departmentName) => {
-            setFormData({ ...formData, department: departmentName });
+            updateField('department', departmentName);
             setShowDepartmentModal(false);
           }}
         />

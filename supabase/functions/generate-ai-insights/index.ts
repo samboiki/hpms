@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.220.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import "https://deno.land/x/xhr@0.3.0/mod.ts";
+import { decidePracticeAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -32,7 +33,14 @@ serve(async (req) => {
     const requestBody = await req.json();
     console.log('📨 Request body:', requestBody);
     
-    const { practiceId, forceGenerate = false } = requestBody;
+    const { practiceId: requestedPracticeId, forceGenerate = false } = requestBody;
+
+    // The service role reads three months of visits past row-level security: only signed-in, active staff of the
+    // practice (with none named, their own) may generate or read its insights
+    const caller = await loadCaller(supabaseClient, req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+    const access = decidePracticeAccess(caller, requestedPracticeId);
+    if (!access.allowed) return deniedResponse(access, corsHeaders);
+    const practiceId = access.practiceId;
 
     if (!practiceId) {
       console.error('❌ No practice ID provided');

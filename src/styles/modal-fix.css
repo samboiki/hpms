@@ -80,12 +80,6 @@
   pointer-events: auto !important;
 }
 
-/* Prevent any element from blocking modal interactions */
-body > *:not(#modal-portal-root):not(script):not(style) {
-  position: relative !important;
-  z-index: auto !important;
-}
-
 /* Special handling for high z-index elements that might interfere */
 *[style*="2147483647"] {
   pointer-events: auto !important;

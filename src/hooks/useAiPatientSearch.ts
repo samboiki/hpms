@@ -3,6 +3,8 @@ import { toast } from 'react-hot-toast';
 import { Patient } from '../stores/patientsStoreNew';
 import { usePractice } from '../contexts/PracticeContext';
 import { supabase } from '../lib/supabase';
+import { runFallbackSearch, applyParsedFilters, ParsedQuery } from '../lib/aiSearchFallback';
+import { geminiSearchPlan, isGeminiConfigured } from '../lib/geminiClient';
 
 export interface AiSearchResult {
   success: boolean;
@@ -29,87 +31,72 @@ export const useAiPatientSearch = (
 
   const searchPatients = useCallback(async (query: string) => {
     if (!query.trim() || isAiSearching) return;
-    
-    console.log('🔍 AI Search via Supabase Edge Function initiated with query:', query);
+
+    console.log('🔍 AI Search initiated:', query);
     setIsAiSearching(true);
     setLastSearchQuery(query);
     setSearchLogs([]);
-    
-    try {
-      // Generate a session ID for tracking
-      const sessionId = crypto.randomUUID();
-      
-      console.log('📡 Calling Supabase Edge Function: ai-patient-search');
-      
-      const { data, error } = await supabase.functions.invoke('ai-patient-search', {
-        body: {
-          query,
-          practiceId,
-          sessionId
-        }
-      });
-      
-      console.log('📨 Edge function response:', data);
-      
-      if (error) {
-        console.error('Edge function error:', error);
-        throw new Error(error.message || 'Edge function call failed');
-      }
-      
-      const result: AiSearchResult = data || {};
-      
-      // Store logs if available
-      if (result.logs) {
-        setSearchLogs(result.logs);
-        console.log('📋 Search logs:', result.logs);
-      }
-      
-      // If not successful, show the error details
-      if (!result.success) {
-        console.error('Edge function returned error:', result);
-        throw new Error(result.error || 'Search failed');
-      }
-      
-      if (result.patientIds) {
-        // Filter patients by returned IDs
-        const filteredPatients = patients.filter(p => 
-          result.patientIds!.includes(p.id)
-        );
-        
-        console.log(`✅ Found ${filteredPatients.length} patients matching criteria`);
-        
-        // Update state
+
+    // Path A — Gemini Flash (multilingual, handles complex phrasing)
+    if (isGeminiConfigured()) {
+      try {
+        console.log('✨ Calling Gemini 1.5 Flash for query plan');
+        const plan = await geminiSearchPlan(query);
+        console.log('📋 Gemini plan:', plan);
+
+        const parsed: ParsedQuery = {
+          gender: plan.gender,
+          ageMin: plan.ageMin,
+          ageMax: plan.ageMax,
+          conditionKeywords: plan.conditionKeywords,
+          visitedSinceDays: plan.visitedSinceDays,
+          withMedicalAid: plan.withMedicalAid,
+          noMedicalAid: plan.noMedicalAid,
+          description: plan.description,
+        };
+
+        const fallbackTerm = plan.freeTextKeywords?.join(' ') || query;
+        const out = await applyParsedFilters(parsed, patients, practiceId, fallbackTerm);
+
+        const filteredPatients = patients.filter(p => out.patientIds.includes(p.id));
         setAiFilteredPatients(filteredPatients);
-        setSearchDescription(result.description || query);
+        setSearchDescription(out.description);
         setCurrentPage(1);
-        
-        // Show success message
+        setSearchLogs([`Gemini plan: ${plan.description}`]);
+
         if (filteredPatients.length === 0) {
-          toast.error('No patients found matching your criteria.');
+          toast(`No patients matched "${out.description}"`, { icon: '🔍' });
         } else {
-          toast.success(`Found ${filteredPatients.length} patients: ${result.description}`);
+          toast.success(
+            `Found ${filteredPatients.length} patient${filteredPatients.length === 1 ? '' : 's'}: ${out.description}`
+          );
         }
-      } else {
-        throw new Error(result.error || 'Search failed');
+        setIsAiSearching(false);
+        return;
+      } catch (geminiErr: any) {
+        console.warn('⚠️ Gemini failed, falling back to local parser:', geminiErr?.message);
       }
-      
+    }
+
+    // Path B — local parser fallback (handles common patterns without any LLM)
+    try {
+      const fallback = await runFallbackSearch(query, patients, practiceId);
+      const filteredPatients = patients.filter(p => fallback.patientIds.includes(p.id));
+      setAiFilteredPatients(filteredPatients);
+      setSearchDescription(fallback.description);
+      setCurrentPage(1);
+
+      if (filteredPatients.length === 0) {
+        toast(`No patients matched "${fallback.description}"`, { icon: '🔍' });
+      } else {
+        toast.success(
+          `Found ${filteredPatients.length} patient${filteredPatients.length === 1 ? '' : 's'} (${fallback.description})`
+        );
+      }
     } catch (error: any) {
-      console.error('❌ AI search error:', error);
-      
-      let errorMessage = 'AI search failed. ';
-      if (error?.message?.includes('fetch')) {
-        errorMessage += 'Could not connect to AI service.';
-      } else if (error?.message?.includes('CORS')) {
-        errorMessage += 'CORS error - check edge function configuration.';
-      } else if (error?.message?.includes('OpenAI')) {
-        errorMessage += 'OpenAI API error - check API key configuration.';
-      } else {
-        errorMessage += error?.message || 'Please try again.';
-      }
-      
-      toast.error(errorMessage);
-      
-      // Clear any previous results on error
+      console.error('❌ AI search failed entirely:', error);
+      // The reason stays in the console; staff need to know the search did not run, not the database's wording
+      toast.error('The search could not be completed. Please check the connection and try again.');
       setAiFilteredPatients(null);
       setSearchDescription('');
     } finally {

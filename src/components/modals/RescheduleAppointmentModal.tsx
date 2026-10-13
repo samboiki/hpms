@@ -59,17 +59,22 @@ const RescheduleAppointmentModal: React.FC<RescheduleAppointmentModalProps> = ({
 
   const handleQuickReschedule = async (days: number) => {
     const targetDate = addDays(new Date(), days);
-    const nextSlot = await findNextAvailableSlot(
-      appointment.doctor_id,
-      targetDate
-    );
-    
-    if (nextSlot) {
-      setSelectedDate(startOfDay(nextSlot.start));
-      setSelectedSlot(nextSlot);
-      setShowQuickActions(false);
-    } else {
-      setError(`No available slots found in the next ${days} days`);
+    try {
+      const nextSlot = await findNextAvailableSlot(
+        appointment.doctor_id,
+        targetDate
+      );
+
+      if (nextSlot) {
+        setSelectedDate(startOfDay(nextSlot.start));
+        setSelectedSlot(nextSlot);
+        setShowQuickActions(false);
+      } else {
+        setError(`No available slots found in the next ${days} days`);
+      }
+    } catch (err) {
+      console.error('Error finding next available slot:', err);
+      setError('Could not check availability. Please try again or choose a specific date.');
     }
   };
 
@@ -119,6 +124,8 @@ const RescheduleAppointmentModal: React.FC<RescheduleAppointmentModalProps> = ({
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -134,9 +141,9 @@ const RescheduleAppointmentModal: React.FC<RescheduleAppointmentModalProps> = ({
                   <p><span className="text-gray-600">Type:</span> {appointment.appointment_type || appointment.type}</p>
                   <p><span className="text-gray-600">Current Time:</span> {
                     appointment.scheduled_time 
-                      ? format(new Date(appointment.scheduled_time), 'PPp')
+                      ? format(new Date(appointment.scheduled_time), 'd MMM yyyy, h:mm a')
                       : appointment.date && appointment.time
-                      ? `${format(new Date(appointment.date), 'PP')} at ${appointment.time}`
+                      ? `${format(new Date(appointment.date), 'd MMM yyyy')} at ${appointment.time}`
                       : 'Unknown'
                   }</p>
                 </div>
@@ -196,7 +203,10 @@ const RescheduleAppointmentModal: React.FC<RescheduleAppointmentModalProps> = ({
                       type="date"
                       value={format(selectedDate, 'yyyy-MM-dd')}
                       min={format(new Date(), 'yyyy-MM-dd')}
-                      onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                      onChange={(e) => {
+                        // A cleared date field gives '' (Invalid Date), which would crash the next render
+                        if (e.target.value) setSelectedDate(new Date(e.target.value));
+                      }}
                       className="w-full p-2 border rounded-lg"
                     />
                   </div>
@@ -237,7 +247,7 @@ const RescheduleAppointmentModal: React.FC<RescheduleAppointmentModalProps> = ({
                   <div className="flex items-center gap-2 text-blue-700">
                     <Clock className="w-4 h-4" />
                     <span className="font-medium">New Time:</span>
-                    <span>{format(selectedSlot.start, 'PPp')}</span>
+                    <span>{format(selectedSlot.start, 'd MMM yyyy, h:mm a')}</span>
                   </div>
                 </div>
               )}

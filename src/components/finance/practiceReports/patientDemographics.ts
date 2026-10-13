@@ -1,0 +1,211 @@
+/**
+ * Demographics and new patients (parity R26; Eminance's demographics, marketing and new-accounts reports): the patients
+ * on file, or the files opened in a period, by home language, town and where they came from, with new files per month
+ * and a list to export (a mailing or marketing list). Files merged into another file are left out (they are the same
+ * person). Where a patient came from is worked out from what the file already holds, in this order: a referral letter on
+ * the file, a booking made on the practice's website, an old file number (paper or the previous system); there is no
+ * "how did you hear about us?" question at registration.
+ */
+import {
+  dateKeyFrom,
+  isInRange,
+  monthKeyOf,
+  monthKeysInRange,
+  type DateRange
+} from '../../../services/ledgerService';
+import type { CsvCell } from '../financeExport';
+import { formatMonthKey } from '../financeFormat';
+import { REGION_NOT_RECORDED, TOWN_NOT_RECORDED, tidyWords, townReader } from './patientTowns';
+import type { LinkedReport } from './reportTargets';
+
+export type PatientSource = 'referred' | 'online' | 'previous_file' | 'not_recorded';
+
+export const PATIENT_SOURCES: readonly PatientSource[] = ['referred', 'online', 'previous_file', 'not_recorded'];
+
+export const SOURCE_LABELS: Readonly<Record<PatientSource, string>> = {
+  referred: 'Referred by a practitioner',
+  online: 'Booked online',
+  previous_file: 'Had a file before (paper or previous system)',
+  not_recorded: 'Not recorded'
+};
+
+export const LANGUAGE_NOT_RECORDED = 'Not recorded';
+
+/** A patient file as the reports read it (patients, with the town and region columns once the database has them) */
+export interface PatientRecord {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  homeLanguage: string | null;
+  homeAddress: string | null;
+  postalAddress: string | null;
+  town?: string | null;
+  /** One of the 14 regions (patients.region, proposals/2026-10-13-patient-town.sql) */
+  region?: string | null;
+  createdAt: string | null;
+  legacyAccountNumber: string | null;
+}
+
+export interface PatientFacts {
+  id: string;
+  name: string;
+  /** The day the file was opened (local day of created_at); null when unknown */
+  openedOn: string | null;
+  language: string;
+  town: string;
+  region: string;
+  source: PatientSource;
+}
+
+export const patientName = (record: Pick<PatientRecord, 'firstName' | 'lastName'>): string =>
+  [record.firstName, record.lastName].map(part => part?.trim()).filter(Boolean).join(' ') || 'Unnamed patient';
+
+/** Where a patient came from, the strongest sign first */
+export function patientSource(signs: { referred: boolean; bookedOnline: boolean; hadFileBefore: boolean }): PatientSource {
+  if (signs.referred) return 'referred';
+  if (signs.bookedOnline) return 'online';
+  if (signs.hadFileBefore) return 'previous_file';
+  return 'not_recorded';
+}
+
+export function patientFacts(
+  records: readonly PatientRecord[],
+  signs: { referred: ReadonlySet<string>; bookedOnline: ReadonlySet<string> }
+): PatientFacts[] {
+  const reader = townReader();
+  return records.map(record => {
+    const town = reader.town(record);
+    return {
+      id: record.id,
+      name: patientName(record),
+      openedOn: dateKeyFrom(record.createdAt),
+      language: record.homeLanguage?.trim() ? tidyWords(record.homeLanguage) : LANGUAGE_NOT_RECORDED,
+      town,
+      region: reader.region(record, town),
+      source: patientSource({
+        referred: signs.referred.has(record.id),
+        bookedOnline: signs.bookedOnline.has(record.id),
+        hadFileBefore: !!record.legacyAccountNumber?.trim()
+      })
+    };
+  });
+}
+
+/** Files opened in the range */
+export const openedIn = (facts: readonly PatientFacts[], range: DateRange): PatientFacts[] =>
+  facts.filter(fact => isInRange(fact.openedOn, range));
+
+export type Dimension = 'language' | 'town' | 'region' | 'source';
+
+export const dimensionKey = (fact: PatientFacts, dimension: Dimension): string =>
+  dimension === 'language' ? fact.language : dimension === 'town' ? fact.town : dimension === 'region' ? fact.region : fact.source;
+
+export const dimensionLabel = (key: string, dimension: Dimension): string =>
+  dimension === 'source' ? SOURCE_LABELS[key as PatientSource] ?? key : key;
+
+export interface DimensionGroup {
+  key: string;
+  count: number;
+}
+
+/** Patients per language, town, region or source, the most first ("not recorded" last) */
+export function countBy(facts: readonly PatientFacts[], dimension: Dimension): DimensionGroup[] {
+  const counts = new Map<string, number>();
+  for (const fact of facts) {
+    const key = dimensionKey(fact, dimension);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const last = (key: string) => Number([LANGUAGE_NOT_RECORDED, 'not_recorded', TOWN_NOT_RECORDED, REGION_NOT_RECORDED].includes(key));
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => last(a.key) - last(b.key) || b.count - a.count || a.key.localeCompare(b.key));
+}
+
+export interface MonthOpened {
+  monthKey: string;
+  count: number;
+  bySource: Record<PatientSource, number>;
+}
+
+/** Files opened per month of the range (months with none included), by where the patients came from */
+export function openedPerMonth(facts: readonly PatientFacts[], range: DateRange): MonthOpened[] {
+  const months = new Map<string, MonthOpened>(monthKeysInRange(range).map(monthKey => [
+    monthKey, { monthKey, count: 0, bySource: { referred: 0, online: 0, previous_file: 0, not_recorded: 0 } }
+  ]));
+  for (const fact of openedIn(facts, range)) {
+    const month = months.get(monthKeyOf(fact.openedOn as string));
+    if (!month) continue;
+    month.count += 1;
+    month.bySource[fact.source] += 1;
+  }
+  return [...months.values()];
+}
+
+export const DEMOGRAPHIC_NOTES = {
+  opened: 'New patients are the patient files opened in the period: each member of a family has a file of their own. Files merged into another file are left out.',
+  source: 'Where a patient came from is read from the file: a referral letter on it (Referred by a practitioner), a booking on the practice\'s website (Booked online), an old file number typed at registration (Had a file before). Registration does not ask "How did you hear about us?".',
+  language: 'The home language as recorded on the file; registration records English when none is chosen.'
+} as const;
+
+/** One row per language, town, region or source with its share; a row lists those patients */
+export function dimensionTable(groups: readonly DimensionGroup[], input: { dimension: Dimension; title: string; basis: string; notes: string[] }): LinkedReport & { keys: string[] } {
+  const total = groups.reduce((sum, group) => sum + group.count, 0);
+  const header = input.dimension === 'language' ? 'Home language' : input.dimension === 'town' ? 'Town' : input.dimension === 'region' ? 'Region' : 'Came to us through';
+  return {
+    table: {
+      title: input.title,
+      basis: input.basis,
+      columns: [{ header, type: 'text' }, { header: 'Patients', type: 'count' }, { header: 'Share', type: 'percent' }],
+      rows: groups.map(group => [dimensionLabel(group.key, input.dimension), group.count, total > 0 ? group.count / total : null] as CsvCell[]),
+      totals: ['Total', total, total > 0 ? 1 : null],
+      notes: input.notes
+    },
+    targets: groups.map(() => null),
+    keys: groups.map(group => group.key)
+  };
+}
+
+/** New files per month, split by where the patients came from; a row lists that month's new patients */
+export function monthTable(months: readonly MonthOpened[], basis: string, notes: string[]): LinkedReport & { keys: string[] } {
+  const sum = (pick: (month: MonthOpened) => number) => months.reduce((total, month) => total + pick(month), 0);
+  return {
+    table: {
+      title: 'New patients per month',
+      basis,
+      columns: [
+        { header: 'Month', type: 'text' },
+        { header: 'New patients', type: 'count' },
+        ...PATIENT_SOURCES.map(source => ({ header: SOURCE_LABELS[source], type: 'count' as const }))
+      ],
+      rows: months.map(month => [formatMonthKey(month.monthKey, 'MMMM yyyy'), month.count, ...PATIENT_SOURCES.map(source => month.bySource[source])] as CsvCell[]),
+      totals: ['Total', sum(month => month.count), ...PATIENT_SOURCES.map(source => sum(month => month.bySource[source]))],
+      notes
+    },
+    targets: months.map(() => null),
+    keys: months.map(month => month.monthKey)
+  };
+}
+
+/** The patients themselves (a mailing or marketing list): opened, name, language, town, region and source; each opens the file */
+export function patientListTable(facts: readonly PatientFacts[], input: { title: string; basis: string; notes: string[] }): LinkedReport {
+  const sorted = [...facts].sort((a, b) => (a.openedOn ?? '').localeCompare(b.openedOn ?? '') || a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+  return {
+    table: {
+      title: input.title,
+      basis: input.basis,
+      columns: [
+        { header: 'File opened', type: 'date' },
+        { header: 'Patient', type: 'text' },
+        { header: 'Home language', type: 'text' },
+        { header: 'Town', type: 'text' },
+        { header: 'Region', type: 'text' },
+        { header: 'Came to us through', type: 'text' }
+      ],
+      rows: sorted.map(fact => [fact.openedOn, fact.name, fact.language, fact.town, fact.region, SOURCE_LABELS[fact.source]] as CsvCell[]),
+      totals: ['Total', `${sorted.length}`, '', '', '', ''],
+      notes: input.notes
+    },
+    targets: sorted.map(fact => ({ kind: 'patient' as const, id: fact.id })),
+    names: sorted.map(fact => fact.name)
+  };
+}

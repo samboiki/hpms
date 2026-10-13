@@ -9,6 +9,10 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PayrollTooltips } from '../../ui/InfoTooltip';
+import { ConfirmDialog } from './ConfirmDialog';
+import { describeDbError, ensureRowsUpdated } from './staffUtils';
+import { formatNad } from '../../../utils/billing/money';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
 
 interface PayslipAdjustment {
   id: string;
@@ -41,57 +45,74 @@ interface AdjustmentModalProps {
   month: number;
   year: number;
   userId?: string;
+  practiceId?: string | null;
 }
 
-const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, month, year, userId }) => {
+interface AdjustmentComponent {
+  id: string;
+  name: string;
+  code?: string;
+  value: number;
+  type: string;
+  base_calculation?: string | null;
+}
+
+const emptyAdjustmentForm = (userId?: string) => ({
+  user_id: userId || '',
+  type: 'deduction' as 'benefit' | 'deduction' | 'bonus',
+  component_id: '',
+  name: '',
+  amount: '',
+  reason: ''
+});
+
+const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, month, year, userId, practiceId }) => {
+  // Escape closes this window, as its X does
+  useEscapeToClose(isOpen, onClose);
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
-  const [formData, setFormData] = useState({
-    user_id: userId || '',
-    type: 'deduction' as 'benefit' | 'deduction' | 'bonus',
-    component_id: '',
-    name: '',
-    amount: '',
-    reason: ''
-  });
+  const [formData, setFormData] = useState(() => emptyAdjustmentForm(userId));
 
   // Fetch users if not specific user
   const { data: users = [] } = useQuery({
-    queryKey: ['users-for-adjustments', user?.practice_id],
+    queryKey: ['users-for-adjustments', practiceId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('users')
         .select('id, full_name, email')
-        .eq('practice_id', user?.practice_id)
+        .eq('practice_id', practiceId)
         .eq('is_active', true)
         .order('full_name');
-      
+
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.practice_id && !userId
+    enabled: !!practiceId && !userId
   });
 
   // Fetch non-recurring components with full details
-  const { data: availableComponents = [] } = useQuery({
-    queryKey: ['non-recurring-components', user?.practice_id, formData.type],
+  const { data: availableComponents = [] } = useQuery<AdjustmentComponent[]>({
+    queryKey: ['non-recurring-components', practiceId, formData.type],
     queryFn: async () => {
       const table = formData.type === 'benefit' ? 'benefits' :
                   formData.type === 'deduction' ? 'deductions' :
                   'bonus_configurations';
-      
+
+      // bonus_configurations has no `code` column; asking for it made the whole query fail
       const { data, error } = await supabase
         .from(table)
-        .select('id, name, code, value, type, base_calculation')
-        .eq('practice_id', user?.practice_id)
+        .select(table === 'bonus_configurations'
+          ? 'id, name, value, type, base_calculation'
+          : 'id, name, code, value, type, base_calculation')
+        .eq('practice_id', practiceId)
         .eq('is_active', true)
         .eq('is_recurring', false)
         .order('name');
-      
+
       if (error) throw error;
-      return data || [];
+      return (data || []) as unknown as AdjustmentComponent[];
     },
-    enabled: !!user?.practice_id
+    enabled: !!practiceId && isOpen
   });
 
   // Fetch user's basic salary if userId is provided for calculating percentage-based amounts
@@ -101,12 +122,14 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
       const targetUserId = formData.user_id || userId;
       if (!targetUserId) return null;
       
+      // Salary history keeps old rows (is_active = false); only the current salary applies
       const { data, error } = await supabase
         .from('employee_salaries')
         .select('basic_salary')
         .eq('user_id', targetUserId)
-        .single();
-      
+        .eq('is_active', true)
+        .maybeSingle();
+
       if (error) throw error;
       return data;
     },
@@ -117,7 +140,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
   const calculateComponentAmount = (component: {
     type: string;
     value: number;
-    base_calculation?: string;
+    base_calculation?: string | null;
   }) => {
     if (!component) return '';
     
@@ -173,16 +196,30 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payslip-adjustments'] });
-      toast.success('Adjustment added successfully');
+      toast.success('Adjustment added - approve it to include it in the payslip');
+      setFormData(emptyAdjustmentForm(userId));
       onClose();
     },
-    onError: (error: Error) => {
-      toast.error(error.message || 'Failed to add adjustment');
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not add the adjustment'));
     }
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.user_id) {
+      toast.error('Please select an employee');
+      return;
+    }
+    if (!formData.component_id && !formData.name.trim()) {
+      toast.error('Please choose a component or enter a name');
+      return;
+    }
+    const amount = parseFloat(formData.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Please enter an amount greater than zero');
+      return;
+    }
     createAdjustmentMutation.mutate(formData);
   };
 
@@ -207,7 +244,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
             <div className="relative flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                  <Icon icon={SolarIcons.documentAdd} className="w-7 h-7 text-white" />
+                  <Icon icon="solar:document-add-bold-duotone" className="w-7 h-7 text-white" />
                 </div>
                 <div>
                   <h2 className="text-xl font-bold">Add Payslip Adjustment</h2>
@@ -217,7 +254,9 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
                 </div>
               </div>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Close"
                 className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
               >
                 <Icon icon={SolarIcons.closeCircle} className="w-6 h-6 text-white" />
@@ -359,7 +398,7 @@ const AdjustmentModal: React.FC<AdjustmentModalProps> = ({ isOpen, onClose, mont
                 >
                   {createAdjustmentMutation.isPending ? (
                     <>
-                      <Icon icon={SolarIcons.loading} className="w-4 h-4 mr-2 animate-spin" />
+                      <Icon icon={SolarIcons.loader} className="w-4 h-4 mr-2 animate-spin" />
                       Adding...
                     </>
                   ) : (
@@ -382,77 +421,94 @@ export const PayslipAdjustments: React.FC<{
   month: number;
   year: number;
   userId?: string;
-}> = ({ month, year, userId }) => {
+  /** Practice resolved by the parent (falls back to the signed-in user's practice). */
+  practiceId?: string | null;
+}> = ({ month, year, userId, practiceId: practiceIdProp }) => {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
+  const practiceId = practiceIdProp || user?.practice_id;
   const [showAddModal, setShowAddModal] = useState(false);
+  const [adjustmentToDelete, setAdjustmentToDelete] = useState<PayslipAdjustment | null>(null);
 
-  // Fetch adjustments
-  const { data: adjustments = [] } = useQuery<PayslipAdjustment[]>({
-    queryKey: ['payslip-adjustments', user?.practice_id, month, year, userId],
+  // Fetch adjustments for this practice's staff only
+  const { data: adjustments = [], isLoading, isError, refetch } = useQuery<PayslipAdjustment[]>({
+    queryKey: ['payslip-adjustments', practiceId, month, year, userId],
     queryFn: async () => {
       let query = supabase
         .from('payslip_adjustments')
         .select(`
           *,
-          user:user_id (
+          user:user_id!inner (
             full_name,
-            email
+            email,
+            practice_id
           )
         `)
+        .eq('user.practice_id', practiceId)
         .eq('month', month)
         .eq('year', year)
         .order('created_at', { ascending: false });
-      
+
       if (userId) {
         query = query.eq('user_id', userId);
       }
 
       const { data, error } = await query;
-      
+
       if (error) throw error;
-      return data as PayslipAdjustment[];
+      return data as unknown as PayslipAdjustment[];
     },
-    enabled: !!user?.practice_id
+    enabled: !!practiceId
   });
 
   const approveMutation = useMutation({
     mutationFn: async (adjustmentId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('payslip_adjustments')
         .update({
           is_approved: true,
           approved_by: user?.id,
           approved_at: new Date().toISOString()
         })
-        .eq('id', adjustmentId);
-      
+        .eq('id', adjustmentId)
+        .select('id');
+
       if (error) throw error;
+      ensureRowsUpdated(data, 'The adjustment');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payslip-adjustments'] });
       toast.success('Adjustment approved');
+    },
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not approve the adjustment'));
     }
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (adjustmentId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('payslip_adjustments')
         .delete()
-        .eq('id', adjustmentId);
-      
+        .eq('id', adjustmentId)
+        .select('id');
+
       if (error) throw error;
+      ensureRowsUpdated(data, 'The adjustment');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payslip-adjustments'] });
       toast.success('Adjustment deleted');
+      setAdjustmentToDelete(null);
+    },
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not delete the adjustment'));
     }
   });
 
   const formatAmount = (amount: number, type: string) => {
     const prefix = type === 'deduction' ? '-' : '+';
-    return `${prefix}NAD ${Math.abs(amount).toFixed(2)}`;
+    return `${prefix}${formatNad(Math.abs(amount))}`;
   };
 
   const getTypeColor = (type: string) => {
@@ -485,7 +541,18 @@ export const PayslipAdjustments: React.FC<{
         </Button>
       </div>
 
-      {adjustments.length > 0 ? (
+      {isError && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <span>Adjustments could not be loaded.</span>
+          <Button size="sm" variant="outline" onClick={() => refetch()}>Try again</Button>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="space-y-3" aria-busy="true">
+          {[0, 1].map(index => <div key={index} className="h-24 rounded-lg bg-gray-100 animate-pulse" />)}
+        </div>
+      ) : adjustments.length > 0 ? (
         <div className="space-y-3">
           {adjustments.map((adjustment) => (
             <motion.div
@@ -527,6 +594,7 @@ export const PayslipAdjustments: React.FC<{
                       variant="ghost"
                       size="sm"
                       onClick={() => approveMutation.mutate(adjustment.id)}
+                      disabled={approveMutation.isPending}
                       title="Approve"
                     >
                       <Icon icon={SolarIcons.checkCircle} className="w-4 h-4 text-green-600" />
@@ -535,7 +603,8 @@ export const PayslipAdjustments: React.FC<{
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => deleteMutation.mutate(adjustment.id)}
+                    onClick={() => setAdjustmentToDelete(adjustment)}
+                    disabled={deleteMutation.isPending}
                     title="Delete"
                   >
                     <Icon icon={SolarIcons.trash} className="w-4 h-4 text-red-600" />
@@ -558,6 +627,24 @@ export const PayslipAdjustments: React.FC<{
         month={month}
         year={year}
         userId={userId}
+        practiceId={practiceId}
+      />
+
+      <ConfirmDialog
+        isOpen={!!adjustmentToDelete}
+        tone="danger"
+        title="Delete adjustment?"
+        message={adjustmentToDelete ? (
+          <p>
+            <strong>{adjustmentToDelete.name}</strong> ({formatAmount(adjustmentToDelete.amount, adjustmentToDelete.type)})
+            {adjustmentToDelete.user ? ` for ${adjustmentToDelete.user.full_name}` : ''} will be removed
+            {adjustmentToDelete.is_approved ? ' and left out of payslips generated from now on' : ''}.
+          </p>
+        ) : null}
+        confirmLabel="Delete adjustment"
+        isLoading={deleteMutation.isPending}
+        onConfirm={() => adjustmentToDelete && deleteMutation.mutate(adjustmentToDelete.id)}
+        onCancel={() => setAdjustmentToDelete(null)}
       />
     </div>
   );

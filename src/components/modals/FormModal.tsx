@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 import { Icon } from '@iconify/react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface FormModalProps {
   isOpen: boolean;
@@ -23,7 +24,9 @@ const FormModal: React.FC<FormModalProps> = ({
   hideHeader = false,
   icon = "solar:calendar-add-bold-duotone"
 }) => {
-  
+  // Escape closes the form as its X does (only the form on top when one opens over another)
+  useEscapeToClose(isOpen, onClose);
+
 
   // Handle modal open/close effects
   useEffect(() => {
@@ -68,31 +71,35 @@ const FormModal: React.FC<FormModalProps> = ({
             exit={{ opacity: 0 }}
           />
           
-          {/* Modal Container */}
-          <div className="fixed inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <motion.div 
-              className={`relative bg-white rounded-2xl shadow-2xl w-full ${className || 'max-w-5xl'} max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden`}
+          {/* Modal Container: on phones a bottom sheet that grows up to the full screen height (the
+              header stays put while the content scrolls); from sm a centred dialog with a max height */}
+          <div className="fixed inset-0 flex items-end sm:items-center justify-center sm:p-4 pointer-events-none">
+            <motion.div
+              className={`relative bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full ${className || 'max-w-5xl'} max-h-[100dvh] sm:max-h-[90vh] pointer-events-auto flex flex-col overflow-hidden`}
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: "spring", damping: 20 }}
             >
           {!hideHeader && (
-            <div className="relative bg-gradient-to-r from-purple-500 to-indigo-600 p-6 text-white">
+            <div className="relative flex-none bg-gradient-to-r from-purple-500 to-indigo-600 p-4 sm:p-6 text-white">
               <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-indigo-600 opacity-20 backdrop-blur-sm"></div>
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                    <Icon icon={icon} className="w-7 h-7 text-white" />
+              <div className="relative flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                  <div className="flex-none p-2.5 sm:p-3 bg-white/20 rounded-xl backdrop-blur-sm">
+                    <Icon icon={icon} className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
+                  <div className="min-w-0">
+                    <h2 className="text-lg sm:text-xl font-bold" style={{ fontFamily: 'Poppins, sans-serif' }}>{title}</h2>
                     <p className="text-blue-100 text-sm">Complete the information below</p>
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={onClose}
-                  className="p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors"
+                  className="flex-none p-2 bg-white/20 hover:bg-red-500/30 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label="Close"
+                  title="Close"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-white" />
                 </button>
@@ -101,7 +108,7 @@ const FormModal: React.FC<FormModalProps> = ({
           )}
           
           {/* Content */}
-          <div className="flex-1 overflow-auto p-6 custom-scrollbar bg-white">
+          <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 custom-scrollbar bg-white">
             {children}
           </div>
             </motion.div>

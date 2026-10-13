@@ -45,7 +45,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+/lib/
 lib64/
 parts/
 sdist/
@@ -68,3 +68,16 @@ xai-env/
 .claude/backups/
 
 .vercel
+.gitnexus
+
+# Local secrets (keep a .env.example with names only)
+.env
+# Scratch output and AI-tool files
+temp/
+.claude/
+AGENTS.md
+# App signing keys and certificates (Google Play, App Store): kept in GitHub secrets, never in the repository
+*.jks
+*.keystore
+*.p12
+*.mobileprovision

@@ -42,7 +42,7 @@ export const iconMap: Record<string, string> = {
   'flask-conical': 'solar:test-tube-minimalistic-bold-duotone',
   
   // Business & Finance
-  'dollar-sign': 'solar:dollar-circle-bold-duotone',
+  'dollar-sign': 'solar:dollar-bold-duotone',
   'building-2': 'solar:buildings-bold-duotone',
   'crown': 'solar:crown-bold-duotone',
   

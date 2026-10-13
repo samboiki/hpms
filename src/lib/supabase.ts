@@ -52,7 +52,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
       const tableMatch = endpoint.match(/\/rest\/v1\/([^?]+)/);
       const tableName = tableMatch ? tableMatch[1] : 'unknown';
       
-      console.log(`🌐 Supabase request to: ${url}`);
+      // Development only: the URL carries filter values (ids, search text), so it never reaches a live console
+      if (import.meta.env.DEV) console.log(`🌐 Supabase request to: ${url}`);
       
       try {
         const response = await fetch(url, {

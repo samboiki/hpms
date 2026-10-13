@@ -1,5 +1,8 @@
 import { supabase } from '../lib/supabase';
 import { startOfMonth, endOfMonth, getMonth, format } from 'date-fns';
+import { classifyWorkedHours, hourlyBasicWage, timesheetPayLines, type TimesheetPayLine } from '../utils/hr/labourAct';
+import { isNamibiaPublicHoliday } from '../utils/hr/namibiaHolidays';
+import { applyNamibianStatutoryDeductions } from '../utils/hr/namibiaPayroll';
 
 interface PayrollCalculation {
   userId: string;
@@ -380,6 +383,23 @@ export class PayrollService {
       }
     }
 
+    // Overtime, Sunday, public holiday and night work from the month's approved timesheet (Labour Act s17, s19, s21, s22)
+    const timesheetPay = await this.calculateTimesheetPay(userId, payPeriodEnd, basicSalary);
+    timesheetPay.forEach(line => {
+      earnings.push({ name: line.name, code: line.code, amount: line.amount, isCompanyContribution: false });
+    });
+
+    // PAYE and Social Security are worked out from the NamRA tax table and the Social Security rules,
+    // replacing any typed-in amounts (which go stale and ignore overtime and allowances)
+    const statutory = applyNamibianStatutoryDeductions({ basicSalary, earnings, deductions, payPeriodEnd });
+    earnings.splice(0, earnings.length, ...statutory.earnings.map(line => ({
+      name: line.name,
+      code: line.code,
+      amount: line.amount,
+      isCompanyContribution: !!line.isCompanyContribution
+    })));
+    deductions.splice(0, deductions.length, ...statutory.deductions.map(line => ({ name: line.name, code: line.code, amount: line.amount })));
+
     // Calculate totals - gross earnings should include all earnings except company contributions
     const grossEarnings = basicSalary + earnings
       .filter(e => !e.isCompanyContribution)
@@ -403,6 +423,11 @@ export class PayrollService {
     // Fetch leave balances and types
     const { balances: leaveBalances, leaveTypes } = await this.fetchLeaveBalances(userId);
 
+    // The payslip carries the employee's own practice name (this used to be one practice's name for everyone)
+    const { data: practice } = user.practice_id
+      ? await supabase.from('practices').select('name').eq('id', user.practice_id).maybeSingle()
+      : { data: null };
+
     return {
       userId,
       payPeriodStart,
@@ -418,7 +443,7 @@ export class PayrollService {
       ytdNetPay: ytdData.netPay + netPay,
       leaveBalances,
       leaveTypes,
-      practiceName: 'New Charm Dental Practice', // Will be passed from frontend
+      practiceName: practice?.name || undefined,
       employeeCode: user.employee_number,
       employeeName: user.full_name,
       department: user.department,
@@ -545,6 +570,35 @@ export class PayrollService {
     }
 
     return { balances: leaveBalances, leaveTypes: leaveTypesDict };
+  }
+
+  /**
+   * Extra pay for the hours on the employee's timesheet for the month. Only an approved timesheet counts:
+   * overtime has to be agreed, and a draft can still change.
+   */
+  private static async calculateTimesheetPay(userId: string, payPeriodEnd: Date, basicSalary: number): Promise<TimesheetPayLine[]> {
+    const { data: timesheet, error } = await supabase
+      .from('timesheets')
+      .select('status, entries:timesheet_entries(date, start_time, end_time, total_hours)')
+      .eq('user_id', userId)
+      // Matched on the month end: older timesheets were saved with period_start one day early
+      .eq('period_end', format(payPeriodEnd, 'yyyy-MM-dd'))
+      .maybeSingle();
+
+    if (error) throw new Error(`Could not load the timesheet for this month: ${error.message}`);
+    if (!timesheet || timesheet.status !== 'approved') return [];
+
+    const entries = (timesheet.entries || []) as Array<{ date: string; start_time: string | null; end_time: string | null; total_hours: number | string | null }>;
+    const summary = classifyWorkedHours(
+      entries.map(entry => ({
+        date: entry.date,
+        hours: Number(entry.total_hours) || 0,
+        timeIn: entry.start_time?.slice(0, 5),
+        timeOut: entry.end_time?.slice(0, 5)
+      })),
+      isNamibiaPublicHoliday
+    );
+    return timesheetPayLines(summary, hourlyBasicWage(basicSalary));
   }
 
   private static async createPayslip(calculation: PayrollCalculation) {
@@ -691,21 +745,36 @@ export class PayrollService {
 
     if (itemsError) throw itemsError;
 
-    // Transform items into earnings and deductions
-    const earnings = items
-      ?.filter(item => item.type === 'earning' || item.type === 'company_contribution')
-      .map(item => ({
-        name: item.component_name,
-        amount: parseFloat(item.amount),
-        isCompanyContribution: item.type === 'company_contribution'
-      })) || [];
+    // Older payslips keep their lines in earnings_details / deductions_details rather than payslip_items.
+    // Without this fallback their printed payslip showed only the basic salary: no allowances, tax or deductions.
+    type DetailLine = { name: string; amount: number | string; isCompanyContribution?: boolean };
+    const hasItems = !!items && items.length > 0;
 
-    const deductions = items
-      ?.filter(item => item.type === 'deduction')
-      .map(item => ({
-        name: item.component_name,
-        amount: parseFloat(item.amount)
-      })) || [];
+    const earnings = hasItems
+      ? items
+        .filter(item => item.type === 'earning' || item.type === 'company_contribution')
+        .map(item => ({
+          name: item.component_name,
+          amount: parseFloat(item.amount),
+          isCompanyContribution: item.type === 'company_contribution'
+        }))
+      : ((payslip.earnings_details as DetailLine[] | null) || []).map(line => ({
+        name: line.name,
+        amount: Number(line.amount),
+        isCompanyContribution: !!line.isCompanyContribution
+      }));
+
+    const deductions = hasItems
+      ? items
+        .filter(item => item.type === 'deduction')
+        .map(item => ({
+          name: item.component_name,
+          amount: parseFloat(item.amount)
+        }))
+      : ((payslip.deductions_details as DetailLine[] | null) || []).map(line => ({
+        name: line.name,
+        amount: Number(line.amount)
+      }));
 
     // Extract basic salary from earnings if present
     const basicSalaryItem = earnings.find(e => e.name === 'Basic Salary');
@@ -768,8 +837,9 @@ export class PayrollService {
         .eq('user_id', userId)
         .eq('status', 'approved')
         .not('leave_type.is_paid', 'eq', true) // Only unpaid leave types
-        .gte('start_date', payPeriodStart.toISOString().split('T')[0])
-        .lte('end_date', payPeriodEnd.toISOString().split('T')[0]);
+        // Local calendar dates: toISOString() turns local midnight on the 1st into the previous day (UTC+2)
+        .gte('start_date', format(payPeriodStart, 'yyyy-MM-dd'))
+        .lte('end_date', format(payPeriodEnd, 'yyyy-MM-dd'));
 
       if (error) {
         console.error('Error fetching unpaid leave:', error);
@@ -974,8 +1044,9 @@ export class PayrollService {
         const { error: updateError } = await supabase
           .from('leave_balances')
           .update({
+            // balance_days is entitled + carried over - used: the carried days go in carried_over_days only
             carried_over_days: carryoverAmount,
-            entitled_days: newEntitlement + carryoverAmount,
+            entitled_days: newEntitlement,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingBalance.id);
@@ -1001,7 +1072,7 @@ export class PayrollService {
             user_id: userId,
             leave_type_id: leaveType.id,
             year: toYear,
-            entitled_days: newEntitlement + carryoverAmount,
+            entitled_days: newEntitlement,
             carried_over_days: carryoverAmount,
             used_days: 0,
             total_accrued: 0,

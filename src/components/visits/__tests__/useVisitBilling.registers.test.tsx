@@ -1,0 +1,110 @@
+/**
+ * The visit's Billing tab and the patient's registers (parity C10, D7, D15, F18): what the invoice saves for each line
+ * when the patient has a fund authorisation on file, and the people a line can name.
+ */
+import { describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
+import type { ServiceSelection } from '../../../types/billing';
+import type { PatientAuthorisation } from '../../../utils/billing/authorisations';
+import type { PatientReferral } from '../../../utils/billing/referrals';
+
+// Invented numbers and people only. The invoice context and the registers (database) are replaced by ready ones.
+vi.mock('../../../lib/supabase', () => ({ supabase: {} }));
+vi.mock('../useInvoiceContext', () => ({
+  useInvoiceContext: () => ({
+    status: 'ready',
+    setup: { lineDetails: true, createdBy: true, audit: true, lineCodes: true, linePortions: true, lineTeeth: true, linePeople: true },
+    practitioners: [],
+    copayRules: [],
+    invoice: null,
+    billedLines: [],
+    icd10Defaults: new Map(),
+    problems: [],
+    reload: () => undefined
+  })
+}));
+const authorisation: PatientAuthorisation = {
+  id: 'a1', patientId: 'p1', fundReference: 'MAG1', number: 'AUTH-77', validFrom: '2026-10-01', validTo: '2026-10-31',
+  allCodes: false, codes: ['0190'], visitsAllowed: null, note: null, quoteId: null, removedAt: null, createdAt: null
+};
+const ended: PatientAuthorisation = { ...authorisation, id: 'a0', number: 'OLD-1', codes: ['0191'], validFrom: '2026-09-01', validTo: '2026-09-30' };
+const referral = (id: string, removedAt: string | null): PatientReferral => ({
+  id, patientId: 'p1', referringName: `Dr ${id}`, referringPracticeNumber: null, referringHpcna: null, referralNumber: null,
+  referralDate: '2026-10-01', validUntil: null, reason: null, letterPath: null, letterName: null, removedAt, createdAt: null
+});
+vi.mock('../../../hooks/usePatientClaimRegisters', () => ({
+  usePatientClaimRegisters: () => ({
+    status: 'ready', message: null, referrals: [referral('r1', null), referral('gone', '2026-10-05T00:00:00Z')],
+    authorisations: [authorisation, ended], usage: new Map(), reload: () => undefined
+  })
+}));
+
+import { useVisitBilling } from '../useVisitBilling';
+
+const line = (id: string, code: string, overrides: Partial<ServiceSelection> = {}): ServiceSelection => ({
+  id, tariffId: `t-${code}`, code, description: `Service ${code}`, category: 'Consultation', unitPrice: 450, quantity: 1, totalPrice: 450, ...overrides
+});
+
+const hook = (services: ServiceSelection[], hasMedicalAid = true) =>
+  renderHook(() => useVisitBilling({
+    services,
+    practiceId: 'practice-1',
+    patientId: 'p1',
+    visitId: 'v1',
+    visitDateKey: '2026-10-12',
+    visitPractitionerId: null,
+    hasMedicalAid,
+    fund: { reference: 'MAG1', planOptions: [] }
+  }));
+
+// Business rule: the fund pays an authorised service only with the number on the claim line. Recorded once on the
+// patient file, it reaches every line it covers on the invoice without anyone typing it; the line still shows it.
+describe('a line covered by an authorisation on file', () => {
+  it('is saved with the number, and says where it came from', () => {
+    const { result } = hook([line('l1', '0190'), line('l2', '8101')]);
+    expect(result.current.lineAuthorisations.get('l1')).toEqual({ number: 'AUTH-77', authorisationId: 'a1' });
+    expect(result.current.servicesForInvoice.map(service => service.authorisationNumber)).toEqual(['AUTH-77', undefined]);
+  });
+
+  // The number is editable: a number typed on the line, or one taken off, is what staff decided
+  it('keeps a number typed on the line, and none when it was taken off', () => {
+    const { result } = hook([line('l1', '0190', { authorisationNumber: 'TYPED-1' }), line('l2', '0190', { authorisationNumber: '' })]);
+    expect(result.current.servicesForInvoice.map(service => service.authorisationNumber)).toEqual(['TYPED-1', '']);
+  });
+
+  it("gives a private patient's lines none", () => {
+    const { result } = hook([line('l1', '0190')], false);
+    expect(result.current.servicesForInvoice[0].authorisationNumber).toBeUndefined();
+  });
+
+  // Staff are told before the claim goes, so they ask the fund
+  it('names an authorisation that ended before a line it would cover', () => {
+    const { result } = hook([line('l1', '0191')]);
+    expect(result.current.authorisationNotices).toEqual([
+      'Authorisation OLD-1 ended on 30 Sep 2026: code 0191 on 12 Oct 2026 is not covered. Ask MAG1 to extend it, or record a new one.'
+    ]);
+  });
+});
+
+// Business rule (D7): theatre lines name the assistant and the anaesthetist, and a line can name its own referring
+// practitioner from the register; taking a number off keeps it off for this visit
+describe('changing the people on a line', () => {
+  it('sets and clears the assistant, anaesthetist and own referral; the material line follows the referral', () => {
+    const material = line('m1', '8346', { isAutoGenerated: true, parentServiceId: 'l1' });
+    const { result } = hook([line('l1', '0190'), material]);
+    const changed = result.current.withLineDetails('l1', { assistantId: 'u-2', anaesthetistId: 'u-3', referralId: 'r1' });
+    expect(changed[0]).toMatchObject({ assistantId: 'u-2', anaesthetistId: 'u-3', referralId: 'r1' });
+    expect(changed[1].referralId).toBe('r1');
+    expect(changed[1].assistantId).toBeUndefined();
+    const cleared = result.current.withLineDetails('l1', { assistantId: null, referralId: null });
+    expect(cleared[0].assistantId).toBeUndefined();
+    expect(cleared[0].referralId).toBeUndefined();
+    expect(result.current.withLineDetails('l1', { authorisationNumber: '' })[0].authorisationNumber).toBe('');
+  });
+
+  it('offers the referrals still on file, once the database keeps a line\'s people', () => {
+    const { result } = hook([line('l1', '0190')]);
+    expect(result.current.linePeople.editable).toBe(true);
+    expect(result.current.linePeople.referrals.map(item => item.id)).toEqual(['r1']);
+  });
+});

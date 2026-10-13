@@ -508,7 +508,8 @@ const defaultThemes: Theme[] = [
 interface ThemeState {
   currentTheme: Theme;
   themes: Theme[];
-  setTheme: (themeId: string, practiceId?: string) => void;
+  /** Applies a theme; with a practice, saves it for everyone there (false: that save failed or was refused) */
+  setTheme: (themeId: string, practiceId?: string) => Promise<boolean>;
   loadThemeFromDatabase: (practiceId: string) => Promise<void>;
   getThemeById: (themeId: string) => Theme | undefined;
   addCustomTheme: (theme: Theme) => void;
@@ -553,21 +554,24 @@ export const useThemeStore = create<ThemeState>()(
           // Save to database if practiceId is provided
           if (practiceId) {
             try {
-              const { error } = await supabase
+              const { data, error } = await supabase
                 .from('practices')
                 .update({ theme_id: themeId })
-                .eq('id', practiceId);
+                .eq('id', practiceId)
+                .select('id');
                 
-              if (error) {
+              // A refused update changes no row and reports no error: the colours would go back on the next load
+              if (error || !data || data.length === 0) {
                 console.error('Error saving theme preference:', error);
-              } else {
-                console.log('✅ Theme preference saved to database');
+                return false;
               }
             } catch (error) {
               console.error('Error saving theme preference:', error);
+              return false;
             }
           }
         }
+        return true;
       },
       loadThemeFromDatabase: async (practiceId: string) => {
         try {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decidePlatformAccess, deniedResponse } from '../_shared/callerAccess.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,14 +20,10 @@ serve(async (req) => {
   }
 
   try {
-    // Get the authorization header
-    const authorization = req.headers.get('Authorization')
-    if (!authorization) {
-      return new Response(
-        JSON.stringify({ error: 'No authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
+    // Runs any SQL with the service role, so only the service role key may call it (any token, even the public
+    // anon key, used to be enough). Kept closed so a later deploy cannot reopen it; the owner should delete it.
+    const access = decidePlatformAccess(req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+    if (!access.allowed) return deniedResponse(access, corsHeaders)
 
     // Initialize Supabase client with service role
     const supabase = createClient(

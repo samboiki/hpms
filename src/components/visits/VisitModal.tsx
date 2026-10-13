@@ -27,6 +27,7 @@ import Badge from '../ui/Badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 
 interface VisitModalProps {
   visit: any;
@@ -45,55 +46,29 @@ const VisitModal: React.FC<VisitModalProps> = ({ visit, onClose, onStatusChange,
     try {
       setIsDeleting(true);
 
-      // Delete vitals
-      const { error: vitalsError } = await supabase
-        .from('vitals')
-        .delete()
-        .eq('visit_id', visit.id);
-
-      if (vitalsError) throw vitalsError;
-
-      // Delete lab requests (this will cascade delete lab_results)
-      const { error: labRequestsError } = await supabase
-        .from('lab_requests')
-        .delete()
-        .eq('visit_id', visit.id);
-
-      if (labRequestsError) throw labRequestsError;
-
-      // Delete media
-      const { error: mediaError } = await supabase
-        .from('visit_media')
-        .delete()
-        .eq('visit_id', visit.id);
-
-      if (mediaError) throw mediaError;
-
-      // Delete media requests (table may not exist yet)
-      try {
-        const { error: mediaRequestsError } = await supabase
-          .from('media_requests')
-          .delete()
-          .eq('visit_id', visit.id);
-
-        if (mediaRequestsError) throw mediaRequestsError;
-      } catch (err) {
-        // Table doesn't exist yet, skip this deletion
-      }
-
-      // Finally, delete the visit
-      const { error: visitError } = await supabase
+      // Only the visit itself is deleted. Its vitals, lab requests and media are clinical records: deleting them
+      // first lost them whenever the visit could not be deleted (a database rule, or an invoice still pointing at it).
+      const { error: visitError, count } = await supabase
         .from('visits')
-        .delete()
+        .delete({ count: 'exact' })
         .eq('id', visit.id);
 
+      if (visitError?.code === '23503') {
+        toast.error('This visit has records attached (vitals, lab requests, media or an invoice), so it cannot be deleted. Cancel the visit instead.');
+        return;
+      }
       if (visitError) throw visitError;
+      // A database rule that forbids the delete removes nothing and reports no error
+      if (count === 0) {
+        toast.error('Your account is not allowed to delete visits. Cancel the visit instead.');
+        return;
+      }
 
       onClose();
       window.location.reload(); // Refresh to update the visits list
     } catch (error) {
       console.error('Error deleting visit:', error);
-      alert('Failed to delete visit. Please try again.');
+      toast.error('Failed to delete visit. Please try again.');
     } finally {
       setIsDeleting(false);
       setShowDeleteConfirm(false);

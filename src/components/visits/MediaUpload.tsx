@@ -2,11 +2,13 @@ import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, X, Image as ImageIcon, Camera, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { RECORDS_BUCKET, currentPracticeId, recordPath } from '../../services/recordFiles';
 import Button from '../ui/Button';
 
 interface MediaUploadProps {
   type?: string;
-  onUpload: (url: string) => void;
+  /** Receives where the photo is stored in the private bucket (open it with openRecord), never a link */
+  onUpload: (path: string) => void;
 }
 
 const MediaUpload: React.FC<MediaUploadProps> = ({ type = 'photo', onUpload }) => {
@@ -73,23 +75,18 @@ const MediaUpload: React.FC<MediaUploadProps> = ({ type = 'photo', onUpload }) =
       const previewUrl = URL.createObjectURL(file);
       setPreview(previewUrl);
 
-      // Upload to Supabase Storage
+      // Upload to the private bucket, in the practice's folder: a clinical photo is a patient record
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `${type}/${fileName}`;
+      const filePath = recordPath(currentPracticeId(), 'patient-media', type, fileName);
 
-      const { error: uploadError, data } = await supabase.storage
-        .from('media')
+      const { error: uploadError } = await supabase.storage
+        .from(RECORDS_BUCKET)
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
-
-      onUpload(publicUrl);
+      onUpload(filePath);
     } catch (err) {
       console.error('Upload error:', err);
       setError('Failed to upload file. Please try again.');

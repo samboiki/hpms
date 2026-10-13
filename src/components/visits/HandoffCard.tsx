@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from '@iconify/react';
 import { motion } from 'framer-motion';
 import { documentGenerationService } from '../../services/documentGenerationService';
+import { openRecord } from '../../services/recordFiles';
 import { supabase } from '../../lib/supabase';
+import { formatServiceDate } from '../../utils/billing/dates';
 import toast from 'react-hot-toast';
 
 interface HandoffCardProps {
@@ -56,7 +58,7 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
         await loadDocuments();
         onDocumentsGenerated?.();
       } else {
-        toast.info('No documents to generate for this visit');
+        toast('No documents to generate for this visit');
       }
     } catch (error) {
       console.error('Error generating documents:', error);
@@ -67,13 +69,15 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
   };
 
   const handlePrintDocument = (doc: any) => {
-    const url = documentGenerationService.getDocumentUrl(doc.file_path);
-    window.open(url, '_blank');
+    openRecord(doc.file_path, doc.storage_bucket).catch(error => {
+      console.error('Error opening document:', error);
+      toast.error('The document could not be opened. Please try again.');
+    });
   };
 
   const handleDownloadDocument = async (doc: any) => {
     try {
-      const url = documentGenerationService.getDocumentUrl(doc.file_path);
+      const url = await documentGenerationService.getDocumentUrl(doc.file_path, doc.storage_bucket);
       const response = await fetch(url);
       const blob = await response.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
@@ -119,7 +123,7 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-32">
-        <Icon icon="solar:spinner-bold-duotone" className="w-6 h-6 animate-spin text-gray-400" />
+        <Icon icon="solar:refresh-bold-duotone" className="w-6 h-6 animate-spin text-gray-400" />
       </div>
     );
   }
@@ -184,7 +188,7 @@ const HandoffCard: React.FC<HandoffCardProps> = ({
                 <div>
                   <p className="font-medium text-gray-900">{doc.document_name}</p>
                   <p className="text-sm text-gray-500">
-                    Generated {new Date(doc.generated_at || doc.created_at).toLocaleDateString()} at {new Date(doc.generated_at || doc.created_at).toLocaleTimeString()}
+                    Generated {formatServiceDate(new Date(doc.generated_at || doc.created_at))} at {new Date(doc.generated_at || doc.created_at).toLocaleTimeString()}
                   </p>
                 </div>
               </div>

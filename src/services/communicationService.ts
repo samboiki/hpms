@@ -1,14 +1,21 @@
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { notificationDeliveryService } from './notificationDeliveryService';
 import { edgeFunctionService } from './edgeFunctionService';
 
+// billing_cycle_end is a DATE column: compare with the local calendar date. toISOString() is UTC,
+// which is still yesterday before 02:00 in Namibia, so an expired bundle counted as active.
+const todayDateKey = (): string => format(new Date(), 'yyyy-MM-dd');
+
 // SMS Types
-export type SMSMessageType = 
-  | 'appointment_reminder' 
-  | 'follow_up' 
-  | 'marketing' 
-  | 'system' 
-  | 'custom';
+export type SMSMessageType =
+  | 'appointment_reminder'
+  | 'follow_up'
+  | 'marketing'
+  | 'system'
+  | 'custom'
+  | 'automation_list' // patient automation lists: never essential (see _shared/smsMessagePolicy.ts)
+  | 'waitlist_offer'; // an earlier time offered to a waiting patient: never essential, so never to a number that replied STOP
 
 export interface SendSMSRequest {
   practiceId: string;
@@ -449,7 +456,7 @@ class CommunicationService {
         .select('*')
         .eq('practice_id', practiceId)
         .eq('is_active', true)
-        .gte('billing_cycle_end', new Date().toISOString().split('T')[0])
+        .gte('billing_cycle_end', todayDateKey())
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -495,7 +502,7 @@ class CommunicationService {
         .select('*')
         .eq('practice_id', practiceId)
         .eq('is_active', true)
-        .gte('billing_cycle_end', new Date().toISOString().split('T')[0])
+        .gte('billing_cycle_end', todayDateKey())
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -645,7 +652,7 @@ class CommunicationService {
         .select('*')
         .eq('practice_id', practiceId)
         .eq('is_active', true)
-        .gte('billing_cycle_end', new Date().toISOString().split('T')[0])
+        .gte('billing_cycle_end', todayDateKey())
         .order('created_at', { ascending: false })
         .limit(1)
         .single(),
@@ -655,7 +662,7 @@ class CommunicationService {
         .select('*')
         .eq('practice_id', practiceId)
         .eq('is_active', true)
-        .gte('billing_cycle_end', new Date().toISOString().split('T')[0])
+        .gte('billing_cycle_end', todayDateKey())
         .order('created_at', { ascending: false })
         .limit(1)
         .single()
@@ -674,6 +681,23 @@ class CommunicationService {
       }
     };
   }
+}
+
+/**
+ * User-facing message for a failed send. Maps gateway codes (e.g. SMS_LIMIT_REACHED, which
+ * sendSMS returns instead of the gateway text) so toasts never show raw error codes.
+ */
+export function getCommunicationErrorMessage(channel: 'sms' | 'email', error?: string): string {
+  const normalized = error?.toLowerCase() || '';
+  if (error === 'SMS_LIMIT_REACHED' || normalized.includes('subscription limit reached')) {
+    return channel === 'sms'
+      ? 'SMS limit reached for this billing period. Upgrade your SMS bundle to send more messages.'
+      : 'Email limit reached for this billing period. Upgrade your email bundle to send more emails.';
+  }
+  if (normalized.includes('no authentication token') || normalized.includes('invalid jwt')) {
+    return 'Your session has expired. Please sign in again and retry.';
+  }
+  return error || (channel === 'sms' ? 'Failed to send SMS' : 'Failed to send email');
 }
 
 // Export singleton instance

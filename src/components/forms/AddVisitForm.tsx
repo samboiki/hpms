@@ -1,8 +1,16 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { format } from 'date-fns';
+import { toast } from 'react-hot-toast';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
-import { Image as ImageIcon, X, Upload, Plus, Wand2, Receipt, DollarSign } from 'lucide-react';
+import { RECORDS_BUCKET, currentPracticeId, openRecord, recordLink, recordPath } from '../../services/recordFiles';
+import { Image as ImageIcon, X, Upload, Plus, Wand2, Receipt, CalendarClock } from 'lucide-react';
+import { getResultStatus } from '../../utils/labResultStatus';
+import { checkBloodPressure, checkTemperature } from '../../utils/vitalSigns';
+import { formatNad } from '../../utils/billing/money';
+import { errorMessage } from './formErrors';
+import VitalFlagNote from './VitalFlagNote';
 import LabResultUpload from '../visits/LabResultUpload';
 import MediaUpload from '../visits/MediaUpload';
 import EnhancedServiceSelector from '../billing/EnhancedServiceSelector';
@@ -66,7 +74,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) => {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<AddVisitFormData>({
+  const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm<AddVisitFormData>({
     defaultValues: {
       encounter_date: new Date(),
       lab_results: [],
@@ -157,6 +165,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         setDoctors(data || []);
       } catch (error) {
         console.error('Error fetching doctors:', error);
+        toast.error(`Couldn't load the list of doctors: ${errorMessage(error)}`);
       } finally {
         setLoadingDoctors(false);
       }
@@ -184,6 +193,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         }
       } catch (error) {
         console.error('Error fetching appointment doctor:', error);
+        toast.error(`Couldn't load the doctor from the appointment. Choose the treating doctor yourself. (${errorMessage(error)})`);
       }
     };
 
@@ -228,6 +238,8 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         }
       } catch (error) {
         console.error('Error fetching patient info:', error);
+        // Billing stays hidden and the visit can't be saved without the practice, so say why
+        toast.error(`Couldn't load the patient's details for this visit: ${errorMessage(error)}`);
       }
     };
 
@@ -256,13 +268,24 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         unit: '',
         reference_range: '',
         status: 'normal',
-        date: new Date().toISOString().split('T')[0]
+        date: format(new Date(), 'yyyy-MM-dd')
       }
     ]);
   };
 
   const removeLabResult = (index: number) => {
     setValue('lab_results', labResults.filter((_, i) => i !== index));
+  };
+
+  // A value outside its reference range must never stay marked "Normal". Only a proven high or low
+  // changes the status: a value that can't be compared keeps what the user chose, and "Critical" is kept.
+  const flagOutOfRange = (index: number) => {
+    const result = getValues(`lab_results.${index}`);
+    if (!result || result.status === 'critical') return;
+    const computed = getResultStatus(result.value, result.reference_range);
+    if (computed !== 'normal' && computed !== result.status) {
+      setValue(`lab_results.${index}.status`, computed);
+    }
   };
 
   const addMedia = () => {
@@ -272,7 +295,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         type: 'photo',
         url: '',
         description: '',
-        date: new Date().toISOString().split('T')[0]
+        date: format(new Date(), 'yyyy-MM-dd')
       }
     ]);
   };
@@ -291,19 +314,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
     let uploadedFilePath: string | null = null;
     
     try {
-      setIsProcessingImage(true);
-      
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/jpeg,image/png,image/webp';
-      
-      input.onchange = async (e) => {
-        try {
-          const file = (e.target as HTMLInputElement).files?.[0];
-          if (!file) {
-            throw new Error('No file selected');
-          }
 
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+        // Busy only once a file is chosen: closing the file picker fires no event, so setting this before
+        // the picker opened left "Record Visit" disabled for good
+        setIsProcessingImage(true);
+        try {
           console.log('Processing file:', {
             name: file.name,
             type: file.type,
@@ -317,13 +338,14 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
 
           const fileExt = file.name.split('.').pop();
           const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-          const filePath = `lab-results/${fileName}`;
+          // The lab report is a patient record: the private bucket, in the practice's folder (no public link)
+          const filePath = recordPath(practiceId || currentPracticeId(), 'lab-results', patientId, fileName);
           uploadedFilePath = filePath;
 
           console.log('Uploading file to storage:', filePath);
 
           const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('media')
+            .from(RECORDS_BUCKET)
             .upload(filePath, file);
 
           if (uploadError) {
@@ -333,19 +355,19 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
 
           console.log('File uploaded successfully:', uploadData);
 
-          const { data: { publicUrl } } = supabase.storage
-            .from('media')
-            .getPublicUrl(filePath);
+          // The reading service fetches the photo through a link that works for a few minutes, made now
+          const imageLink = await recordLink(filePath);
 
-          console.log('Processing image with AI:', publicUrl);
+          console.log('Processing image with AI');
 
           const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              // The signed-in user's token: extract-text only reads documents for active staff
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ imageUrl: publicUrl })
+            body: JSON.stringify({ imageUrl: imageLink })
           });
 
           if (!response.ok) {
@@ -368,18 +390,13 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
           // ***** MODIFIED SECTION START *****
           if (Array.isArray(responseData.results)) {
             const newAiLabResults = responseData.results.map((item: any) => {
-              let formStatus: 'normal' | 'high' | 'low' | 'critical' = 'normal'; // Default
               const aiStatus = item.status ? String(item.status).toLowerCase() : 'normal';
-
-              if (aiStatus === 'low') {
-                formStatus = 'low';
-              } else if (aiStatus === 'high') {
-                formStatus = 'high';
-              } else if (aiStatus === 'critical') {
-                formStatus = 'critical';
-              } else if (aiStatus === 'normal' || aiStatus === 'borderline') {
-                formStatus = 'normal';
-              }
+              // Keep the AI's high/low/critical; anything else ("normal", "borderline", unknown) is checked
+              // against the reference range, so an out-of-range value is never shown as Normal
+              const formStatus: 'normal' | 'high' | 'low' | 'critical' =
+                aiStatus === 'low' || aiStatus === 'high' || aiStatus === 'critical'
+                  ? aiStatus
+                  : getResultStatus(item.value, item.referenceRange);
 
               return {
                 id: crypto.randomUUID(),
@@ -388,7 +405,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
                 unit: item.unit || '',
                 reference_range: item.referenceRange || '', // Maps AI's referenceRange to form's reference_range
                 status: formStatus,
-                date: new Date().toISOString().split('T')[0]
+                date: format(new Date(), 'yyyy-MM-dd')
               };
             });
 
@@ -409,7 +426,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
           if (uploadedFilePath) {
             try {
               await supabase.storage
-                .from('media')
+                .from(RECORDS_BUCKET)
                 .remove([uploadedFilePath]);
               console.log('Cleaned up uploaded file:', uploadedFilePath);
             } catch (cleanupError) {
@@ -417,23 +434,9 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             }
           }
 
-          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred while processing the image';
-          setProcessingError(errorMessage);
-          
-          // Add a blank lab result even if processing fails (original behavior)
-          // Consider if this is desired or if the error message alone is sufficient
-          setValue('lab_results', [
-            ...labResults,
-            {
-              id: crypto.randomUUID(),
-              name: 'Untitled Test (Processing Failed)',
-              value: 'Error',
-              unit: '',
-              reference_range: '',
-              status: 'normal', // Or a specific error status if you add one
-              date: new Date().toISOString().split('T')[0]
-            }
-          ]);
+          // No placeholder result here: the old "Untitled Test (Processing Failed)" row with the value
+          // "Error" passed validation and was saved to the patient's record as a real lab result
+          setProcessingError(errorMessage(error, 'An unknown error occurred while processing the image'));
         } finally {
           setIsProcessingImage(false);
         }
@@ -461,6 +464,16 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
   };
 
   const onSubmit = async (data: AddVisitFormData) => {
+    // The visit, its lab request and its invoice belong to the signed-in user's practice (as in
+    // AddVisitTabs); saved without it, the visit is missing from the practice's lists
+    if (!practiceId) {
+      toast.error("Can't record the visit: your practice couldn't be identified. Close the form, reload the page and try again.");
+      return;
+    }
+    const wantsInvoice = data.generateInvoice && data.selectedServices.length > 0;
+    // Once the visit row exists, a later failure must not invite a retry, which would record the visit twice
+    let visitRecorded = false;
+    let savingStep = 'the vitals';
     try {
       // Determine the doctor ID - prioritize appointment doctor over selected doctor
       const finalDoctorId = appointmentDoctor || data.doctor_id;
@@ -470,12 +483,15 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         .from('visits')
         .insert([{
           patient_id: patientId,
+          practice_id: practiceId,
           doctor_id: finalDoctorId,
           appointment_id: appointmentId || null,
           visit_type: data.visit_type,
           encounter_date: data.encounter_date.toISOString(),
-          visit_date: data.encounter_date.toISOString().split('T')[0],
-          visit_time: data.encounter_date.toLocaleTimeString('en-US', { hour12: false }),
+          // Local calendar date and 24h time: the UTC date is the previous day before 02:00 in Namibia,
+          // and toLocaleTimeString('en-US', { hour12: false }) can give "24:15:00" just after midnight
+          visit_date: format(data.encounter_date, 'yyyy-MM-dd'),
+          visit_time: format(data.encounter_date, 'HH:mm:ss'),
           chief_complaint: data.chief_complaint,
           diagnosis: data.diagnosis,
           treatment_plan: data.treatment_plan,
@@ -489,6 +505,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         .single();
 
       if (visitError) throw visitError;
+      visitRecorded = true;
 
       if (visitData) {
         // Insert vitals with correct column names for actual database schema
@@ -511,13 +528,16 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
 
         // Insert lab results (new schema: create lab_request first, then lab_results)
         if (data.lab_results.length > 0) {
+          savingStep = 'the lab results';
           // Create a lab request for this visit
           const { data: labRequestData, error: labRequestError } = await supabase
             .from('lab_requests')
             .insert({
               patient_id: patientId,
               visit_id: visitData.id,
-              request_date: data.encounter_date,
+              // Lab requests are listed per practice; the request belongs to the visit's practice
+              practice_id: practiceId,
+              request_date: format(data.encounter_date, 'yyyy-MM-dd'),
               status: 'completed',
               notes: 'Created during visit'
             })
@@ -544,6 +564,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
 
         // Insert media
         if (data.media.length > 0) {
+          savingStep = 'the media';
           const { error: mediaError } = await supabase
             .from('visit_media')
             .insert(
@@ -558,6 +579,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
 
         // Save selected services to visit_services table
         if (data.selectedServices.length > 0) {
+          savingStep = 'the billing services, so no invoice was created';
           const visitServices = data.selectedServices.map(service => ({
             visit_id: visitData.id,
             tariff_id: service.tariffId,
@@ -578,7 +600,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         }
 
         // Generate invoice if services are selected and invoice generation is enabled
-        if (data.generateInvoice && data.selectedServices.length > 0 && practiceId) {
+        if (wantsInvoice) {
           try {
             setIsGeneratingInvoice(true);
             
@@ -609,26 +631,27 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             console.log('Invoice generated successfully:', invoice.invoiceNumber);
             
             // Show success message with invoice number
-            alert(`Visit recorded successfully! Invoice ${invoice.invoiceNumber} generated for N$ ${invoice.total.toFixed(2)}`);
+            toast.success(`Visit recorded. Invoice ${invoice.invoiceNumber} created for ${formatNad(invoice.total)}`);
           } catch (invoiceError) {
             console.error('Error generating invoice:', invoiceError);
             // Don't fail the entire visit creation if invoice generation fails
-            alert(`Visit recorded successfully, but failed to generate invoice: ${invoiceError instanceof Error ? invoiceError.message : 'Unknown error'}`);
+            toast.error(`The visit was recorded, but the invoice could not be created: ${errorMessage(invoiceError)}`);
           } finally {
             setIsGeneratingInvoice(false);
           }
+        } else {
+          toast.success('Visit recorded');
         }
       }
-
-      onSuccess();
     } catch (error) {
       console.error('Error adding visit:', error);
-      // Consider setting a form-level error message for the user here
-      // For example, using a state variable and displaying it in the UI.
-      // For now, it just throws, which might not be user-friendly.
-      alert(`Error adding visit: ${error instanceof Error ? error.message : String(error)}`);
-
+      if (!visitRecorded) {
+        toast.error(`Couldn't record the visit: ${errorMessage(error)}`);
+        return;
+      }
+      toast.error(`The visit was recorded, but ${savingStep} could not be saved: ${errorMessage(error)}`);
     }
+    onSuccess();
   };
 
   return (
@@ -636,7 +659,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
       {/* Encounter Date Section */}
       <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100 space-y-4">
         <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
-          <DollarSign className="w-5 h-5" />
+          <CalendarClock className="w-5 h-5" aria-hidden="true" />
           Encounter Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -724,6 +747,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             {errors.vitals?.blood_pressure && (
               <p className="mt-1 text-sm text-red-600">{errors.vitals.blood_pressure.message}</p>
             )}
+            <VitalFlagNote check={checkBloodPressure(watch('vitals.blood_pressure'))} />
           </div>
 
           <div>
@@ -731,9 +755,11 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             <input
               type="number"
               step="0.1"
+              // Wide limits only catch typing mistakes: a real reading below 35 °C (hypothermia) must be
+              // recordable, so it is flagged below rather than refused
               {...register('vitals.temperature', {
-                min: { value: 35, message: 'Temperature too low' },
-                max: { value: 42, message: 'Temperature too high' },
+                min: { value: 25, message: 'Check the reading: enter a temperature between 25 and 45 °C' },
+                max: { value: 45, message: 'Check the reading: enter a temperature between 25 and 45 °C' },
                 valueAsNumber: true,
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
@@ -741,15 +767,17 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             {errors.vitals?.temperature && (
               <p className="mt-1 text-sm text-red-600">{errors.vitals.temperature.message}</p>
             )}
+            <VitalFlagNote check={checkTemperature(watch('vitals.temperature'))} />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700">Pulse Rate (bpm)</label>
             <input
               type="number"
+              // Typing-mistake limits only: the old 40-200 refused real bradycardia and fast infant pulses
               {...register('vitals.pulse_rate', {
-                min: { value: 40, message: 'Pulse rate too low' },
-                max: { value: 200, message: 'Pulse rate too high' },
+                min: { value: 20, message: 'Check the reading: enter a pulse between 20 and 250 bpm' },
+                max: { value: 250, message: 'Check the reading: enter a pulse between 20 and 250 bpm' },
                 valueAsNumber: true,
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
@@ -763,9 +791,10 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             <label className="block text-sm font-medium text-gray-700">Respiratory Rate (breaths/min)</label>
             <input
               type="number"
+              // Typing-mistake limits only: the old maximum of 40 refused a newborn's normal breathing rate
               {...register('vitals.respiratory_rate', {
-                min: { value: 8, message: 'Respiratory rate too low' },
-                max: { value: 40, message: 'Respiratory rate too high' },
+                min: { value: 4, message: 'Check the reading: enter a breathing rate between 4 and 100 per minute' },
+                max: { value: 100, message: 'Check the reading: enter a breathing rate between 4 and 100 per minute' },
                 valueAsNumber: true,
               })}
               className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-brand-primary focus:ring-brand-primary"
@@ -845,6 +874,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
         {processingError && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
             <span className="block sm:inline">{processingError}</span>
+            <span className="block mt-1">You can still type the results in with "Add Result".</span>
           </div>
         )}
 
@@ -887,7 +917,7 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
                 <label className="block text-sm font-medium text-gray-700">Value</label>
                 <input
                   type="text"
-                  {...register(`lab_results.${index}.value` as const, { required: "Value is required" })}
+                  {...register(`lab_results.${index}.value` as const, { required: "Value is required", onChange: () => flagOutOfRange(index) })}
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
                 {errors.lab_results?.[index]?.value && (
@@ -908,7 +938,8 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
                 <label className="block text-sm font-medium text-gray-700">Reference Range</label>
                 <input
                   type="text"
-                  {...register(`lab_results.${index}.reference_range` as const)}
+                  {...register(`lab_results.${index}.reference_range` as const, { onChange: () => flagOutOfRange(index) })}
+                  placeholder="e.g., 3.9-5.6"
                   className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
               </div>
@@ -1023,14 +1054,26 @@ const AddVisitForm: React.FC<Props> = ({ patientId, appointmentId, onSuccess }) 
             <div className="mt-4">
               <MediaUpload
                 type={watch(`media.${index}.type`)}
-                onUpload={(url) => {
-                  setValue(`media.${index}.url`, url);
+                onUpload={(path) => {
+                  // Where the photo is stored (private bucket); a short-lived link is made when it is opened
+                  setValue(`media.${index}.url`, path);
                   // Potentially set description or other fields based on upload if needed
                 }}
               />
                {watch(`media.${index}.url`) && (
                 <div className="mt-2">
-                  <p className="text-sm text-gray-500">Uploaded: <a href={watch(`media.${index}.url`)} target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline">{watch(`media.${index}.url`)}</a></p>
+                  <p className="text-sm text-gray-500">
+                    Uploaded:{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openRecord(watch(`media.${index}.url`)).catch(() => toast.error('The photo could not be opened. Please try again.'));
+                      }}
+                      className="text-brand-primary hover:underline"
+                    >
+                      view the photo
+                    </button>
+                  </p>
                 </div>
               )}
             </div>

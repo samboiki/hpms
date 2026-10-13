@@ -15,6 +15,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { decidePlatformAccess, deniedResponse } from '../_shared/callerAccess.ts'
 
 // Environment variables
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
@@ -34,6 +35,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Sends any email to anyone from the practice sender address (an open relay with the public anon key).
+  // The service role key only, so a later deploy cannot reopen it; the owner should delete it.
+  const access = decidePlatformAccess(req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+  if (!access.allowed) return deniedResponse(access, corsHeaders)
 
   try {
     // Validate environment variables

@@ -1,10 +1,12 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
+import { Icon } from '@iconify/react';
 import { CommunicationStats } from '../../services/communicationStatsService';
 import { PatientStats } from '../../services/patientStatsService';
 import { InvoiceStats } from '../../services/invoiceStatsService';
 import { EncounterStats } from '../../services/encounterStatsService';
+import { formatNad } from '../../utils/billing/money';
 
 interface StatItem {
   label: string;
@@ -31,6 +33,8 @@ interface PremiumStatCardProps {
   stats: StatItem[];
   comparison?: ComparisonData;
   onClick: () => void;
+  /** Opens a quick overview window from a small button by the title; clicking the card still runs onClick */
+  onDetails?: () => void;
   trend?: {
     value: string;
     isPositive: boolean;
@@ -54,6 +58,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
   stats,
   comparison,
   onClick,
+  onDetails,
   trend,
   unsplashQuery,
   cardType = 'patients',
@@ -164,15 +169,12 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
             totalLabel: 'Available/Total'
           };
         }
-        // Fallback to default values if no real data
+        // No usage data (still loading, or it could not be loaded): show a dash, not made-up figures
         return {
           subtitle: 'Service Availability',
-          mainValue: '88%',
-          segments: [
-            { value: 85, color: '#F59E0B', label: 'SMS Available', count: '850/1000' },
-            { value: 92, color: '#EF4444', label: 'Email Available', count: '460/500' }
-          ],
-          totalLabel: 'Available/Total'
+          mainValue: '-',
+          segments: [],
+          totalLabel: 'No usage data yet'
         };
       case 'encounters':
         if (encounterStats) {
@@ -211,7 +213,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         if (invoiceStats) {
           return {
             subtitle: `Q${invoiceStats.currentQuarter} ${new Date().getFullYear()} Breakdown`,
-            mainValue: `N$${(invoiceStats.quarterlyRevenue || 0).toLocaleString()}`,
+            mainValue: formatNad(Number(invoiceStats.quarterlyRevenue) || 0),
             segments: [
               { 
                 value: invoiceStats.quarterlyPercentagePaid || 0, 
@@ -233,7 +235,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         // Fallback to default values if no real data
         return {
           subtitle: 'Quarterly Breakdown',
-          mainValue: 'N$0',
+          mainValue: formatNad(0),
           segments: [
             { value: 0, color: '#10B981', label: 'Paid', count: '0 invoices' },
             { value: 0, color: '#EF4444', label: 'Outstanding', count: '0 invoices' }
@@ -253,10 +255,19 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -1 }}
       className="relative group cursor-pointer"
+      role="button"
       tabIndex={0}
       onClick={onClick}
+      onKeyDown={(e) => {
+        // The card is focusable, so keyboard users must be able to open it too
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
-      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-5 h-36" style={{ backdropFilter: 'blur(20px)' }}>
+      {/* Grows with its content (min height instead of a fixed one) so narrow tiles never clip figures */}
+      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-4 sm:p-5 h-full min-h-[9rem] flex flex-col [container-type:inline-size]" style={{ backdropFilter: 'blur(20px)' }}>
         {/* Glassmorphic Background with Rich Patterns */}
         <div className="absolute inset-0 overflow-hidden">
           {/* Primary glass gradient */}
@@ -299,39 +310,55 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           <div className="absolute top-0 left-0 right-0 h-8 bg-gradient-to-b from-white/30 to-transparent opacity-60 rounded-t-xl"></div>
         </div>
         
-        <div className="relative z-10 h-full flex flex-col">
-          {/* Header with Main Value on Right */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className={`p-3 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
-                {IconComponent && (
-                  <IconComponent className="w-6 h-6 text-white" />
-                )}
+        <div className="relative z-10">
+          {/* Header with Main Value on Right when the tile is wide enough (container query on the tile, not
+              the screen); on a narrower tile the value gets its own line under the title, so a figure such
+              as N$ 125,479.58 is never squeezed, split or clipped */}
+          <div className="flex flex-col gap-2 [@container(min-width:19rem)]:flex-row [@container(min-width:19rem)]:items-start [@container(min-width:19rem)]:justify-between [@container(min-width:19rem)]:gap-3">
+            <div className="flex min-w-0 items-center gap-3 [@container(min-width:19rem)]:flex-1">
+              <div className={`flex-none p-2.5 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} rounded-xl shadow-md group-hover:shadow-lg transition-all duration-300`}>
+                {IconComponent ? (
+                  <IconComponent className="w-5 h-5 text-white" />
+                ) : iconName ? (
+                  <Icon icon={iconName} className="w-5 h-5 text-white" aria-hidden="true" />
+                ) : null}
               </div>
-              <div>
-                <h3 className="text-lg font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
+              <div className="min-w-0">
+                <h3 className="text-base sm:text-lg leading-tight font-semibold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {title}
                 </h3>
                 <p className="text-xs text-gray-500 font-normal mt-0.5" style={{ fontFamily: 'Rubik, sans-serif' }}>
                   {stackedData.subtitle}
                 </p>
               </div>
+              {onDetails && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDetails(); }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  aria-label={`Open ${title} overview`}
+                  title={`Open ${title} overview`}
+                  className="flex-none ml-auto p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-white/60 transition-colors"
+                >
+                  <Icon icon="solar:chart-2-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+                </button>
+              )}
             </div>
-            
+
             {/* Main Value in Top Right */}
-            <div className="text-right">
-              <div className="text-2xl font-bold text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
+            <div className="[@container(min-width:19rem)]:flex-none [@container(min-width:19rem)]:text-right">
+              <div className="whitespace-nowrap text-2xl leading-tight font-bold tabular-nums text-gray-800" style={{ fontFamily: 'Rubik, sans-serif' }}>
                 {stackedData.mainValue}
               </div>
               <div className="text-xs font-light mt-0.5" style={{ fontFamily: 'Rubik, sans-serif', color: '#4f575e' }}>
                 {stackedData.totalLabel}
               </div>
-              
+
               {/* Clean Trend Badge below main value */}
               {trend && (
-                <div className="flex items-center justify-end gap-1.5 mt-1">
-                  <div className={`w-1.5 h-1.5 rounded-full ${trend.isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-                  <div className="text-xs font-medium">
+                <div className="flex items-center gap-1.5 mt-1 [@container(min-width:19rem)]:justify-end">
+                  <div className={`w-1.5 h-1.5 flex-none rounded-full ${trend.isPositive ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
+                  <div className="text-xs font-medium whitespace-nowrap tabular-nums">
                     <span className={`${trend.isPositive ? 'text-emerald-600' : 'text-red-600'}`}>
                       {trend.isPositive ? '↗' : '↘'}
                     </span>
@@ -343,9 +370,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           </div>
         </div>
 
-        {/* Mini Stats with Center Bars - Bottom Left */}
-        <div className="absolute bottom-2 left-2 z-20">
-          <div className="flex items-end gap-1">
+        {/* Mini Stats with Center Bars - bottom of the tile, in the flow so it can wrap instead of being clipped */}
+        <div className="relative z-20 mt-auto pt-3">
+          <div className="flex flex-wrap items-end gap-x-1 gap-y-0.5 tabular-nums">
             {/* First segment: Label + Percentage */}
             <motion.span 
               initial={{ opacity: 0 }}
@@ -364,7 +391,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               className="text-xs font-bold text-gray-700"
               style={{ fontFamily: 'Rubik, sans-serif' }}
             >
-              {stackedData.segments[0]?.value}%
+              {stackedData.segments[0] ? `${stackedData.segments[0].value}%` : null}
             </motion.span>
             
             {/* Bar container with fixed height for alignment */}
@@ -407,7 +434,7 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
               className="text-xs font-bold text-gray-700"
               style={{ fontFamily: 'Rubik, sans-serif' }}
             >
-              {stackedData.segments[1]?.value}%
+              {stackedData.segments[1] ? `${stackedData.segments[1].value}%` : null}
             </motion.span>
             
             <motion.span 

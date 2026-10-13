@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { decidePlatformAccess, deniedResponse } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Old copy of centralized-email-gateway that nothing in the app calls: it sent any email for any practice to anyone
+  // with the public anon key. The service role key only (the owner should delete it)
+  const access = decidePlatformAccess(req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+  if (!access.allowed) return deniedResponse(access, corsHeaders);
 
   try {
     console.log('Email Gateway V2 starting...');

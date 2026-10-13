@@ -275,7 +275,7 @@ const SystemBlueprint: React.FC = () => {
         >
           <div className="flex items-center gap-4 mb-4">
             <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Icon icon="solar:blueprint-bold-duotone" className="w-10 h-10" />
+              <Icon icon="solar:document-text-bold-duotone" className="w-10 h-10" />
             </div>
             <div>
               <h1 className="text-3xl font-bold">OneHealth System Blueprint</h1>
@@ -367,15 +367,20 @@ const SystemBlueprint: React.FC = () => {
                               {section.tables.map((table) => (
                                 <tr key={table.name} className="border-t border-gray-200">
                                   <td className="py-3 pr-4">
-                                    <button
-                                      onClick={() => toggleTable(table.name)}
-                                      className="font-mono text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                                    >
-                                      {table.name}
-                                      {table.fields && (
+                                    {/* Only tables with documented fields have a details panel to open */}
+                                    {table.fields ? (
+                                      <button
+                                        onClick={() => toggleTable(table.name)}
+                                        className="font-mono text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                        aria-expanded={expandedTable === table.name}
+                                        title="Show fields"
+                                      >
+                                        {table.name}
                                         <Icon icon="solar:info-circle-bold" className="w-4 h-4" />
-                                      )}
-                                    </button>
+                                      </button>
+                                    ) : (
+                                      <span className="font-mono text-gray-700">{table.name}</span>
+                                    )}
                                   </td>
                                   <td className="py-3 pr-4 text-gray-600">{table.purpose}</td>
                                   <td className="py-3 pr-4">

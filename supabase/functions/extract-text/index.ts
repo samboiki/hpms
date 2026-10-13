@@ -1,4 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
+import { decideStaffAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,6 +50,13 @@ serve(async (req) => {
         }
       );
     }
+
+    // Reading a document spends the Claude key and fetches the URL it is given: signed-in, active staff only (the
+    // app sends the user's session token). The availability check above stays open: it reveals nothing else.
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const caller = await loadCaller(createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceRoleKey), req.headers.get('Authorization'), serviceRoleKey);
+    const access = decideStaffAccess(caller);
+    if (!access.allowed) return deniedResponse(access, corsHeaders);
 
     const { imageUrl, fileType, extractionType = 'results' } = await req.json();
 

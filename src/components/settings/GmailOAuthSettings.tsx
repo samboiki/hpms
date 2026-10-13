@@ -1,7 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import { usePractice } from '../../contexts/PracticeContext';
+import {
+  GMAIL_CONNECTION_COLUMNS,
+  GMAIL_RETURN_PATH,
+  completeGmailConnect,
+  describeGoogleCallbackError,
+  loadGmailConnection,
+  loadGoogleClientId,
+  readGmailCallback,
+  startGmailConnect,
+  type GmailCallback
+} from '../../services/gmailConnectService';
 import Button from '../ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/Card';
 import toast from 'react-hot-toast';
@@ -20,7 +31,8 @@ export const GmailOAuthSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [gmailConnection, setGmailConnection] = useState<GmailConnection | null>(null);
-  const [practiceOAuthApp, setPracticeOAuthApp] = useState<{ client_id: string; client_secret: string } | null>(null);
+  // Only whether the practice's Google app is set up: its client secret never reaches the browser
+  const [practiceOAuthApp, setPracticeOAuthApp] = useState<{ client_id: string } | null>(null);
   const [automationStats, setAutomationStats] = useState<Array<{
     automation_id: string;
     automation_name: string;
@@ -29,15 +41,9 @@ export const GmailOAuthSettings: React.FC = () => {
     last_executed: string | null;
   }> | null>(null);
 
-  // OAuth configuration - Client-side callback
-  // Use the exact redirect URI that's configured in Google Cloud Console
-  const GMAIL_REDIRECT_URI = 'http://localhost:5000/settings';
-  
-  const SCOPES = [
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/userinfo.email'
-  ].join(' ');
+  // Where Google sends the browser back (the address to add in Google Cloud Console). The sign-in address itself,
+  // with its scopes and signed state, comes from the exchange-oauth-code function.
+  const GMAIL_REDIRECT_URI = `${window.location.origin}${GMAIL_RETURN_PATH}`;
 
   const checkGmailConnection = async () => {
     if (!practiceId) return;
@@ -46,76 +52,16 @@ export const GmailOAuthSettings: React.FC = () => {
       setLoading(true);
       
       // First check if practice has OAuth app configured
-      const { data: oauthApp, error: oauthError } = await supabase
-        .from('practice_oauth_apps')
-        .select('client_id, client_secret')
-        .eq('practice_id', practiceId)
-        .eq('provider', 'google')
-        .single();
-      
-      if (oauthApp && !oauthError) {
-        setPracticeOAuthApp(oauthApp);
+      const clientId = await loadGoogleClientId(practiceId).catch(() => null);
+      if (clientId) {
+        setPracticeOAuthApp({ client_id: clientId });
       }
-      
-      // First try the RPC function
-      try {
-        const { data: rpcData, error: rpcError } = await supabase.rpc('check_gmail_connection', {
-          p_practice_id: practiceId
-        });
 
-        if (!rpcError && rpcData) {
-          setGmailConnection(rpcData);
-        } else {
-          // Fallback: Check credentials directly
-          const { data: creds, error: credsError } = await supabase
-            .from('practice_oauth_credentials')
-            .select('email, connected_at, updated_at')
-            .eq('practice_id', practiceId)
-            .eq('provider', 'google')
-            .single();
-
-          if (creds && !credsError) {
-            setGmailConnection({
-              connected: true,
-              email: creds.email,
-              connected_at: creds.connected_at,
-              last_used_at: creds.updated_at
-            });
-          } else {
-            setGmailConnection({
-              connected: false,
-              email: null,
-              connected_at: null,
-              last_used_at: null
-            });
-          }
-        }
-      } catch (fallbackError) {
-        console.error('Error checking Gmail connection:', fallbackError);
-        // Try direct table query as final fallback
-        const { data: creds } = await supabase
-          .from('practice_oauth_credentials')
-          .select('email, connected_at, updated_at')
-          .eq('practice_id', practiceId)
-          .eq('provider', 'google')
-          .single();
-
-        if (creds) {
-          setGmailConnection({
-            connected: true,
-            email: creds.email,
-            connected_at: creds.connected_at,
-            last_used_at: creds.updated_at
-          });
-        } else {
-          setGmailConnection({
-            connected: false,
-            email: null,
-            connected_at: null,
-            last_used_at: null
-          });
-        }
-      }
+      // The connected account, without its tokens (check_gmail_connection read the refresh token as the caller)
+      const connection = await loadGmailConnection(practiceId);
+      setGmailConnection(connection
+        ? { connected: true, email: connection.email, connected_at: connection.connectedAt, last_used_at: connection.lastUsedAt }
+        : { connected: false, email: null, connected_at: null, last_used_at: null });
 
       // Load automation statistics (optional, don't fail if RPC doesn't exist)
       try {
@@ -127,7 +73,7 @@ export const GmailOAuthSettings: React.FC = () => {
         if (stats) {
           setAutomationStats(stats);
         }
-      } catch (e) {
+      } catch {
         // Ignore RPC errors
       }
     } catch (error) {
@@ -169,17 +115,38 @@ export const GmailOAuthSettings: React.FC = () => {
     }
   }, [practiceId]);
 
-  // Auto-process OAuth code when component mounts if we have one
+  // Google sends the browser back to Settings with a one-time code (or an error). Settings renders this component
+  // (hidden) to finish the connection: the code and the signed state go to the server once, which exchanges the code
+  // with the practice's stored client secret. React runs effects twice in development; the ref keeps it to once.
+  const callbackHandled = useRef(false);
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    
-    if (code && practiceOAuthApp && !loading && !connecting) {
-      console.log('Auto-processing OAuth code...');
-      initiateGmailOAuth();
-    }
-  }, [practiceOAuthApp, loading]);
+    const callback = readGmailCallback(window.location.search);
+    if (!callback || callbackHandled.current) return;
+    callbackHandled.current = true;
+    void finishGmailConnect(callback);
+  }, []);
 
+  const finishGmailConnect = async (callback: GmailCallback) => {
+    // Google's code, state and scope leave the address bar whatever happens next
+    window.history.replaceState({}, document.title, window.location.pathname + '?tab=social');
+    if (callback.kind === 'error') {
+      toast.error(describeGoogleCallbackError(callback.error));
+      return;
+    }
+
+    setConnecting(true);
+    const result = await completeGmailConnect(callback);
+    setConnecting(false);
+    if (!result.ok) {
+      toast.error(result.message);
+      return;
+    }
+
+    toast.success(`Gmail connected for ${result.email}`);
+    await checkGmailConnection();
+    // Settings shows the connected address on the Gmail card
+    window.dispatchEvent(new CustomEvent('gmail-connected', { detail: { email: result.email } }));
+  };
 
   const initiateGmailOAuth = async () => {
     if (!practiceOAuthApp) {
@@ -188,113 +155,14 @@ export const GmailOAuthSettings: React.FC = () => {
     }
 
     setConnecting(true);
-
-    // If we already have an OAuth code in the URL, process it
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    
-    if (code) {
-      // Process the OAuth code directly here
-      try {
-        // Exchange code for tokens
-        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            code,
-            client_id: practiceOAuthApp.client_id,
-            client_secret: practiceOAuthApp.client_secret,
-            redirect_uri: GMAIL_REDIRECT_URI,
-            grant_type: 'authorization_code',
-          }),
-        });
-
-        if (!tokenResponse.ok) {
-          const error = await tokenResponse.text();
-          throw new Error(`Token exchange failed: ${error}`);
-        }
-
-        const tokens = await tokenResponse.json();
-
-        // Get user info
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            Authorization: `Bearer ${tokens.access_token}`,
-          },
-        });
-
-        const userInfo = await userInfoResponse.json();
-
-        // Save credentials
-        const credentialData = {
-          practice_id: practiceId,
-          provider: 'google',
-          email: userInfo.email,
-          refresh_token: tokens.refresh_token,
-          access_token: tokens.access_token,
-          token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-          scopes: tokens.scope?.split(' ') || [],
-          metadata: {
-            name: userInfo.name,
-            picture: userInfo.picture,
-            verified_email: userInfo.verified_email,
-          },
-          connected_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        const { error: saveError } = await supabase
-          .from('practice_oauth_credentials')
-          .insert(credentialData);
-
-        if (!saveError) {
-          toast.success('Gmail connected successfully!');
-          // Clear URL and refresh
-          window.history.replaceState({}, document.title, window.location.pathname + '?tab=social');
-          await checkGmailConnection();
-          
-          // Emit custom event to notify other components
-          const event = new CustomEvent('gmail-connected', { 
-            detail: { 
-              email: userInfo.email,
-              name: userInfo.name,
-              picture: userInfo.picture 
-            } 
-          });
-          window.dispatchEvent(event);
-        } else {
-          console.error('Save error:', saveError);
-          toast.error('Failed to save credentials');
-        }
-      } catch (err: any) {
-        console.error('OAuth processing error:', err);
-        toast.error(err.message);
-      } finally {
-        setConnecting(false);
-      }
-    } else {
-      // No code, initiate OAuth flow
-      const stateData = {
-        practice_id: practiceId,
-        redirect_origin: window.location.origin
-      };
-      const state = btoa(JSON.stringify(stateData));
-
-      // Create OAuth URL
-      const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
-      authUrl.searchParams.append('client_id', practiceOAuthApp.client_id);
-      authUrl.searchParams.append('redirect_uri', GMAIL_REDIRECT_URI);
-      authUrl.searchParams.append('response_type', 'code');
-      authUrl.searchParams.append('scope', SCOPES);
-      authUrl.searchParams.append('access_type', 'offline');
-      authUrl.searchParams.append('prompt', 'consent');
-      authUrl.searchParams.append('state', state);
-
-      // Direct redirect (no popup) for better reliability
-      window.location.href = authUrl.toString();
+    // The server signs the sign-in for this practice and person; Google then sends the browser back to Settings
+    const start = await startGmailConnect(practiceId);
+    if (!start.ok) {
+      setConnecting(false);
+      toast.error(start.message);
+      return;
     }
+    window.location.assign(start.url);
   };
 
   const disconnectGmail = async () => {
@@ -400,7 +268,7 @@ export const GmailOAuthSettings: React.FC = () => {
                   variant="outline"
                   className="text-red-600 border-red-300 hover:bg-red-50"
                 >
-                  <Icon icon="solar:unlink-bold" className="w-4 h-4 mr-2" />
+                  <Icon icon="solar:link-broken-bold" className="w-4 h-4 mr-2" />
                   Disconnect
                 </Button>
               </div>
@@ -417,19 +285,19 @@ export const GmailOAuthSettings: React.FC = () => {
                     </p>
                     <ul className="text-sm text-amber-700 mt-2 space-y-1">
                       <li className="flex items-center gap-2">
-                        <Icon icon="solar:check-bold" className="w-4 h-4" />
+                        <Icon icon="solar:check-circle-bold" className="w-4 h-4" />
                         Welcome emails for new patients
                       </li>
                       <li className="flex items-center gap-2">
-                        <Icon icon="solar:check-bold" className="w-4 h-4" />
+                        <Icon icon="solar:check-circle-bold" className="w-4 h-4" />
                         Appointment confirmations and reminders
                       </li>
                       <li className="flex items-center gap-2">
-                        <Icon icon="solar:check-bold" className="w-4 h-4" />
+                        <Icon icon="solar:check-circle-bold" className="w-4 h-4" />
                         Lab results notifications
                       </li>
                       <li className="flex items-center gap-2">
-                        <Icon icon="solar:check-bold" className="w-4 h-4" />
+                        <Icon icon="solar:check-circle-bold" className="w-4 h-4" />
                         Follow-up care instructions
                       </li>
                     </ul>
@@ -595,13 +463,14 @@ export const GmailOAuthSettings: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={async () => {
+              // Never the tokens: only the address and dates of each connection
               const { data, error } = await supabase
                 .from('practice_oauth_credentials')
-                .select('*')
+                .select(GMAIL_CONNECTION_COLUMNS)
                 .eq('practice_id', practiceId)
                 .eq('provider', 'google');
-              
-              console.log('OAuth Credentials:', data);
+
+              console.log('Gmail connections found:', data?.length ?? 0);
               console.log('Error:', error);
               
               if (data && data.length > 0) {

@@ -5,7 +5,14 @@ import Icon, { SolarIcons } from '../../ui/Icon';
 import Button from '../../ui/Button';
 import { useAuthStore } from '../../../stores/authStore';
 import toast from 'react-hot-toast';
+import { format } from 'date-fns';
 import DateInput from '../../ui/DateInput';
+import { describeDbError } from './staffUtils';
+import { formatNad } from '../../../utils/billing/money';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+
+const CONFIGS_NOT_LOADED =
+  "This employee's current benefits and deductions could not be loaded, so nothing can be saved yet (saving would switch them off). Close this window and open it again.";
 
 interface Benefit {
   id: string;
@@ -45,13 +52,19 @@ interface Props {
 }
 
 export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onClose, userId, userName }) => {
+  // Escape closes this window, as its X does
+  useEscapeToClose(isOpen, onClose);
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [basicSalary, setBasicSalary] = useState('');
-  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split('T')[0]);
+  // Local date (toISOString() gives yesterday's date before 02:00 in Namibia)
+  const [effectiveFrom, setEffectiveFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [selectedBenefits, setSelectedBenefits] = useState<Record<string, { value?: number; enabled: boolean }>>({});
   const [selectedDeductions, setSelectedDeductions] = useState<Record<string, { value?: number; enabled: boolean }>>({});
   const [selectedBonuses, setSelectedBonuses] = useState<string[]>([]);
+  // Saving replaces the employee's benefits and deductions, so it waits until the current ones are known: after a
+  // failed load an empty list would be saved and every benefit and deduction switched off
+  const [configsLoad, setConfigsLoad] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [bankDetails, setBankDetails] = useState({
     bank_name: '',
     account_number: '',
@@ -166,11 +179,18 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
     const fetchConfigurations = async () => {
       if (!isOpen || !userId) return;
 
-      const { data: configs } = await supabase
+      setConfigsLoad('loading');
+      const { data: configs, error: configsError } = await supabase
         .from('employee_salary_configurations')
         .select('*')
         .eq('user_id', userId)
         .eq('is_active', true);
+
+      if (configsError) {
+        setConfigsLoad('failed');
+        toast.error(CONFIGS_NOT_LOADED);
+        return;
+      }
 
       if (configs) {
         const benefitConfigs: Record<string, { value?: number; enabled: boolean }> = {};
@@ -197,6 +217,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
         setSelectedDeductions(deductionConfigs);
         setSelectedBonuses(bonusConfigs);
       }
+      setConfigsLoad('ready');
     };
 
     fetchConfigurations();
@@ -242,49 +263,83 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Update user banking details
-      const { error: userError } = await supabase
-        .from('users')
-        .update({
-          bank_name: bankDetails.bank_name,
-          account_number: bankDetails.account_number,
-          branch_code: bankDetails.branch_code,
-          swift_code: bankDetails.swift_code,
-          account_type: bankDetails.account_type
-        })
-        .eq('id', userId);
+      if (configsLoad !== 'ready') throw new Error(CONFIGS_NOT_LOADED);
+      // Validate before writing anything, so a bad value cannot leave the employee without a salary
+      const salaryAmount = parseFloat(basicSalary);
+      if (!Number.isFinite(salaryAmount) || salaryAmount <= 0) {
+        throw new Error('Enter a basic salary greater than zero');
+      }
+      if (!effectiveFrom) {
+        throw new Error('Choose the date the salary takes effect');
+      }
 
-      if (userError) throw userError;
+      let bankingWarning: string | null = null;
+      const bankingChanged = !!userData && (
+        (userData.bank_name || '') !== bankDetails.bank_name ||
+        (userData.account_number || '') !== bankDetails.account_number ||
+        (userData.branch_code || '') !== bankDetails.branch_code ||
+        (userData.swift_code || '') !== bankDetails.swift_code ||
+        (userData.account_type || 'savings') !== bankDetails.account_type
+      );
 
-      // Deactivate current salary
-      await supabase
+      if (bankingChanged) {
+        const { data: bankRows, error: userError } = await supabase
+          .from('users')
+          .update({
+            bank_name: bankDetails.bank_name || null,
+            account_number: bankDetails.account_number || null,
+            branch_code: bankDetails.branch_code || null,
+            swift_code: bankDetails.swift_code || null,
+            account_type: bankDetails.account_type || null
+          })
+          .eq('id', userId)
+          .select('id');
+
+        if (userError) throw userError;
+        // Row-level security can silently skip another user's row; report it instead of claiming success
+        if (!bankRows || bankRows.length === 0) {
+          bankingWarning = 'Banking details were not saved: your account is not permitted to change them.';
+        }
+      }
+
+      // Retire the current salary, then add the new one (one active salary per employee).
+      // If the insert fails, the previous salary is restored so nobody is left without one.
+      const { data: retiredSalaries, error: retireError } = await supabase
         .from('employee_salaries')
         .update({ is_active: false })
         .eq('user_id', userId)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .select('id');
 
-      // Create new salary record
+      if (retireError) throw retireError;
+
       const { error: salaryError } = await supabase
         .from('employee_salaries')
         .insert({
           user_id: userId,
-          basic_salary: parseFloat(basicSalary),
+          basic_salary: salaryAmount,
           effective_from: effectiveFrom,
           is_active: true,
           created_by: user?.id
         });
 
-      if (salaryError) throw salaryError;
+      if (salaryError) {
+        const retiredIds = (retiredSalaries || []).map(salary => salary.id);
+        if (retiredIds.length > 0) {
+          await supabase.from('employee_salaries').update({ is_active: true }).in('id', retiredIds);
+        }
+        throw salaryError;
+      }
 
-      // Deactivate current configurations
-      await supabase
-        .from('employee_salary_configurations')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('is_active', true);
-
-      // Insert new configurations
-      const configs = [];
+      // Build the new benefit/deduction/bonus configuration
+      const configs: Array<{
+        user_id: string;
+        benefit_id?: string;
+        deduction_id?: string;
+        bonus_configuration_id?: string;
+        custom_value?: number;
+        is_active: boolean;
+      }> = [];
 
       // Benefits
       Object.entries(selectedBenefits).forEach(([benefitId, config]) => {
@@ -319,22 +374,46 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
         });
       });
 
+      // Replace the configuration; restore the previous rows if the insert fails so the
+      // employee's benefits and deductions are never silently wiped
+      const { data: retiredConfigs, error: retireConfigError } = await supabase
+        .from('employee_salary_configurations')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .select('id');
+
+      if (retireConfigError) throw retireConfigError;
+
       if (configs.length > 0) {
         const { error: configError } = await supabase
           .from('employee_salary_configurations')
           .insert(configs);
 
-        if (configError) throw configError;
+        if (configError) {
+          const retiredIds = (retiredConfigs || []).map(config => config.id);
+          if (retiredIds.length > 0) {
+            await supabase.from('employee_salary_configurations').update({ is_active: true }).in('id', retiredIds);
+          }
+          throw configError;
+        }
       }
+
+      return { bankingWarning };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['employee-salaries'] });
+      queryClient.invalidateQueries({ queryKey: ['current-salary'] });
       queryClient.invalidateQueries({ queryKey: ['user-details'] });
-      toast.success('Employee remuneration updated successfully');
+      queryClient.invalidateQueries({ queryKey: ['staff-details'] });
+      toast.success('Employee remuneration updated');
+      if (result?.bankingWarning) {
+        toast.error(result.bankingWarning, { duration: 8000 });
+      }
       onClose();
     },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to update remuneration');
+    onError: (error) => {
+      toast.error(describeDbError(error, 'Could not update remuneration'));
     }
   });
 
@@ -349,7 +428,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
               <h2 className="text-2xl font-bold text-gray-900">Configure Employee Salary</h2>
               <p className="text-gray-600 mt-1">{userName}</p>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button type="button" onClick={onClose} aria-label="Close" className="text-gray-500 hover:text-gray-700">
               <Icon icon={SolarIcons.closeCircle} className="w-6 h-6" />
             </button>
           </div>
@@ -446,7 +525,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
             {/* Benefits */}
             <div className="bg-green-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Icon icon={SolarIcons.gift} className="w-5 h-5 text-green-600" />
+                <Icon icon="solar:gift-bold-duotone" className="w-5 h-5 text-green-600" />
                 Benefits & Allowances
               </h3>
 
@@ -477,7 +556,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                               <label className="font-medium text-gray-900">{benefit.name}</label>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-sm text-gray-600">
-                                  {benefit.type === 'percentage' ? `${benefit.value}%` : `NAD ${benefit.value}`}
+                                  {benefit.type === 'percentage' ? `${benefit.value}%` : formatNad(Number(benefit.value))}
                                   {' of '}
                                   {benefit.base_calculation.replace('_', ' ')}
                                 </span>
@@ -492,7 +571,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                               <div className="text-right">
                                 <p className="text-sm text-gray-600">Amount</p>
                                 <p className="font-semibold text-green-600">
-                                  NAD {displayValue.toFixed(2)}
+                                  {formatNad(displayValue)}
                                 </p>
                               </div>
                             )}
@@ -529,7 +608,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
             {/* Deductions */}
             <div className="bg-red-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Icon icon={SolarIcons.moneyBag} className="w-5 h-5 text-red-600" />
+                <Icon icon="solar:money-bag-bold-duotone" className="w-5 h-5 text-red-600" />
                 Deductions
               </h3>
 
@@ -560,7 +639,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                               <label className="font-medium text-gray-900">{deduction.name}</label>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-sm text-gray-600">
-                                  {deduction.type === 'percentage' ? `${deduction.value}%` : `NAD ${deduction.value}`}
+                                  {deduction.type === 'percentage' ? `${deduction.value}%` : formatNad(Number(deduction.value))}
                                   {' of '}
                                   {deduction.base_calculation.replace('_', ' ')}
                                 </span>
@@ -575,7 +654,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                               <div className="text-right">
                                 <p className="text-sm text-gray-600">Amount</p>
                                 <p className="font-semibold text-red-600">
-                                  NAD {displayValue.toFixed(2)}
+                                  {formatNad(displayValue)}
                                 </p>
                               </div>
                             )}
@@ -612,7 +691,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
             {/* Bonuses */}
             <div className="bg-yellow-50 rounded-lg p-4">
               <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Icon icon={SolarIcons.star} className="w-5 h-5 text-yellow-600" />
+                <Icon icon="solar:star-bold-duotone" className="w-5 h-5 text-yellow-600" />
                 Bonus Eligibility
               </h3>
 
@@ -639,7 +718,7 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
                           <label className="font-medium text-gray-900">{bonus.name}</label>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="text-sm text-gray-600">
-                              {bonus.type === 'percentage' ? `${bonus.value}%` : `NAD ${bonus.value}`}
+                              {bonus.type === 'percentage' ? `${bonus.value}%` : formatNad(Number(bonus.value))}
                               {' of '}
                               {bonus.base_calculation.replace('_', ' ')}
                             </span>
@@ -663,31 +742,31 @@ export const EnhancedEmployeeRemunerationModal: React.FC<Props> = ({ isOpen, onC
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Basic Salary:</span>
-                  <span className="font-medium">NAD {parseFloat(basicSalary || '0').toFixed(2)}</span>
+                  <span className="font-medium">{formatNad(parseFloat(basicSalary || '0') || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Benefits:</span>
                   <span className="font-medium text-green-600">
-                    + NAD {benefits.reduce((sum, benefit) => {
+                    + {formatNad(benefits.reduce((sum, benefit) => {
                       if (selectedBenefits[benefit.id]?.enabled) {
                         const customValue = selectedBenefits[benefit.id]?.value;
                         const value = customValue || calculateValue(benefit.type, benefit.value, benefit.base_calculation);
                         return sum + value;
                       }
                       return sum;
-                    }, 0).toFixed(2)}
+                    }, 0))}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Deductions:</span>
                   <span className="font-medium text-red-600">
-                    - NAD {calculateTotalDeductions().toFixed(2)}
+                    - {formatNad(calculateTotalDeductions())}
                   </span>
                 </div>
                 <div className="border-t pt-2 flex justify-between">
-                  <span className="font-semibold">Net Salary:</span>
+                  <span className="font-semibold">Net Salary (before PAYE and Social Security):</span>
                   <span className="font-bold text-lg text-purple-600">
-                    NAD {calculateNetSalary().toFixed(2)}
+                    {formatNad(calculateNetSalary())}
                   </span>
                 </div>
               </div>

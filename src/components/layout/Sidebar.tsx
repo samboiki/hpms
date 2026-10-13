@@ -3,11 +3,22 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { cn } from '../../utils/cn';
 import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
+import { useScreenAccess } from '../../hooks/useScreenAccess';
+import { sidebarShowsPath } from '../../utils/auth/screenAccess';
 import { useTheme } from '../../stores/themeStore';
 import { unreadMessagesService } from '../../services/unreadMessagesService';
 import { NotificationBadge } from '../ui/NotificationBadge';
 import { supabase } from '../../lib/supabase';
 import { motion } from 'framer-motion';
+import { APP_COLOR, SECTION_COLORS } from '../../config/sectionColors';
+import { isOptometryPractice } from '../../utils/billing/tariffRules';
+import { prefetchPage } from '../../pageLoaders';
+
+/** A page's code starts downloading when the pointer rests on, a finger touches, or the keyboard reaches its link */
+const prefetchLinkTarget = (event: React.SyntheticEvent) => {
+  const link = (event.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+  if (link) prefetchPage(link.pathname);
+};
 
 interface SidebarProps {
   collapsed: boolean;
@@ -28,10 +39,11 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggleFullscreen,
   onOpenPatients
 }) => {
-  const { isSuperAdmin, canManagePractices, user, selectedPracticeId } = useAuthStore();
+  const { isSuperAdmin, user, selectedPracticeId } = useAuthStore();
+  // Who the practice lets open Finance and Stock (Settings > Users > Screen access)
+  const screenAccess = useScreenAccess();
   const { currentTheme } = useTheme();
   const location = useLocation();
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [practiceData, setPracticeData] = useState<any>(null);
 
@@ -76,7 +88,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Patients', 
       path: '/patients', 
       isRoute: true, 
-      bgGradient: 'bg-gradient-to-r from-purple-500 to-indigo-600',
+      bgGradient: SECTION_COLORS.patients.iconBox,
       iconColor: 'text-white'
     },
     { 
@@ -84,16 +96,18 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Encounters', 
       path: '/encounters', 
       isRoute: true, 
-      bgGradient: 'bg-gradient-to-br from-cyan-500 to-blue-500',
+      bgGradient: SECTION_COLORS.encounters.iconBox,
       iconColor: 'text-white'
     },
-    { 
-      icon: 'solar:letter-bold-duotone', 
-      label: 'Messages', 
-      path: '/communications', 
-      isRoute: true, 
-      badge: unreadCount > 0 ? unreadCount : undefined, 
-      bgGradient: 'bg-gradient-to-br from-amber-500 to-orange-600',
+    {
+      icon: 'solar:letter-bold-duotone',
+      label: 'Messages',
+      path: '/communications',
+      // The badge counts unread staff messages: with some waiting, the link opens the Messaging tab that holds them
+      to: unreadCount > 0 ? '/communications?tab=messaging' : '/communications',
+      isRoute: true,
+      badge: unreadCount > 0 ? unreadCount : undefined,
+      bgGradient: SECTION_COLORS.messages.iconBox,
       iconColor: 'text-white'
     },
     { 
@@ -101,15 +115,41 @@ const Sidebar: React.FC<SidebarProps> = ({
       label: 'Finance', 
       path: '/finance', 
       isRoute: true, 
-      bgGradient: 'bg-gradient-to-r from-cyan-500 to-cyan-600',
+      bgGradient: SECTION_COLORS.finance.iconBox,
       iconColor: 'text-white'
     },
+    { 
+      // Medicines and consumables: deliveries, dispensing, stock take (proposals/2026-10-07-dispensing-and-stock.sql)
+      icon: 'solar:box-bold-duotone', 
+      label: 'Stock',
+      path: '/stock',
+      isRoute: true,
+      bgGradient: SECTION_COLORS.stock.iconBox,
+      iconColor: 'text-white'
+    },
+    // Optometry practices only: lab orders, frames, the optometry reports and benefit notes (not a section: app purple)
+    ...(isOptometryPractice(practiceData?.practice_type) ? [{
+      icon: 'solar:glasses-bold-duotone',
+      label: 'Optometry',
+      path: '/optometry',
+      isRoute: true,
+      bgGradient: APP_COLOR.iconBox,
+      iconColor: 'text-white'
+    }] : []),
   ];
 
-  const adminItems = [
-    { icon: 'solar:crown-bold-duotone', label: 'Manage Practices', path: '/admin/practices' },
-    { icon: 'solar:dollar-circle-bold-duotone', label: 'Tariff Management', path: '/admin/tariffs' },
-  ];
+  // Every practice administrator manages the practice's own tariff list, co-payments and levies (Admin > Tariffs);
+  // the rest of Administration is for OneHealth support and practice managers
+  // Manage Practices and the blueprint open for OneHealth support only (the pages refuse anyone else, also a practice
+  // administrator flagged "can manage practices"): never a link that ends at "Access Denied"
+  const showAdministration = isSuperAdmin();
+  const showTariffs = showAdministration || user?.role === 'admin';
+  const adminItems: Array<{ icon: string; label: string; path: string; practiceAdmins: boolean; badge?: number }> = [
+    { icon: 'solar:crown-bold-duotone', label: 'Manage Practices', path: '/admin/practices', practiceAdmins: false },
+    { icon: 'solar:dollar-bold-duotone', label: 'Tariffs', path: '/admin/tariffs', practiceAdmins: true },
+    // OneHealth support keeps each fund's claim rules; practice administrators read them and keep their own notes
+    { icon: 'solar:shield-plus-bold-duotone', label: 'Medical aid funds', path: '/admin/funds', practiceAdmins: true },
+  ].filter(item => showAdministration || item.practiceAdmins);
 
   return (
     <div 
@@ -129,6 +169,8 @@ const Sidebar: React.FC<SidebarProps> = ({
             "flex items-center gap-3 transition-opacity",
             isActive ? "" : "hover:opacity-90"
           )}
+          title={collapsed && !isMobile ? 'Dashboard' : undefined}
+          aria-label={collapsed && !isMobile ? 'Dashboard' : undefined}
         >
           {({ isActive }) => (
             <motion.div 
@@ -167,21 +209,24 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             onClick={onMobileClose}
             className="p-2 rounded-md text-white/80 hover:text-white md:hidden"
+            title="Close menu"
+            aria-label="Close menu"
           >
             <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
           </button>
         )}
       </div>
 
-      <nav className="flex-1 flex flex-col p-2 overflow-y-auto">
+      <nav className="flex-1 flex flex-col p-2 overflow-y-auto" onMouseOver={prefetchLinkTarget} onFocus={prefetchLinkTarget} onTouchStart={prefetchLinkTarget}>
         {/* Main Navigation Section */}
         <div className="flex-1">
-          {navItems.map((item) => {
+          {/* Finance and Stock are hidden from roles the practice has not given access */}
+          {navItems.filter((item) => sidebarShowsPath(user, item.path, screenAccess)).map((item) => {
             if (item.isRoute) {
               return (
                 <NavLink
                   key={item.path}
-                  to={item.path}
+                  to={'to' in item && item.to ? item.to : item.path}
                   className={({ isActive }) => cn(
                     "flex items-center px-4 py-3 rounded-xl mb-2 transition-all duration-200 min-h-[48px] group",
                     "hover:bg-white/15 hover:shadow-lg hover:scale-[1.02]",
@@ -189,6 +234,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     collapsed && !isMobile && "justify-center"
                   )}
                   onClick={isMobile ? onMobileClose : undefined}
+                  // The collapsed bar hides the unread badge: its tooltip and screen-reader name carry the count
+                  title={collapsed && !isMobile ? (item.badge ? `${item.label} (${item.badge} unread)` : item.label) : undefined}
+                  aria-label={collapsed && !isMobile ? (item.badge ? `${item.label} (${item.badge} unread)` : item.label) : undefined}
                 >
                   {({ isActive }) => (
                     <>
@@ -236,7 +284,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           })}
 
           {/* Admin Section */}
-          {(isSuperAdmin() || canManagePractices()) && (
+          {showTariffs && (
             <>
               {(!collapsed || isMobile) && (
                 <div className="px-3 py-2 mt-4 mb-2">
@@ -256,6 +304,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                     collapsed && !isMobile && "justify-center"
                   )}
                   onClick={isMobile ? onMobileClose : undefined}
+                  // The collapsed bar hides the unread badge: its tooltip and screen-reader name carry the count
+                  title={collapsed && !isMobile ? (item.badge ? `${item.label} (${item.badge} unread)` : item.label) : undefined}
+                  aria-label={collapsed && !isMobile ? (item.badge ? `${item.label} (${item.badge} unread)` : item.label) : undefined}
                 >
                   <Icon icon={item.icon} className="w-6 h-6" />
                   {(!collapsed || isMobile) && (
@@ -271,6 +322,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               ))}
               
               {/* System Blueprint - Premium Feature */}
+              {showAdministration && (
               <NavLink
                 to="/admin/blueprint"
                 className={({ isActive }) => cn(
@@ -280,6 +332,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                   collapsed && !isMobile && "justify-center"
                 )}
                 onClick={isMobile ? onMobileClose : undefined}
+                title={collapsed && !isMobile ? 'System Blueprint' : undefined}
+                aria-label={collapsed && !isMobile ? 'System Blueprint' : undefined}
               >
                 {({ isActive }) => (
                   <>
@@ -290,7 +344,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       "p-2 rounded-xl relative z-10",
                       isActive ? "bg-gradient-to-br from-purple-500 to-blue-600" : ""
                     )}>
-                      <Icon icon="solar:blueprint-bold-duotone" className={cn("w-6 h-6", isActive ? "text-white" : "text-white")} />
+                      <Icon icon="solar:document-text-bold-duotone" className={cn("w-6 h-6", isActive ? "text-white" : "text-white")} />
                     </div>
                     {(!collapsed || isMobile) && (
                       <>
@@ -303,6 +357,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                   </>
                 )}
               </NavLink>
+              )}
             </>
           )}
         </div>
@@ -319,6 +374,8 @@ const Sidebar: React.FC<SidebarProps> = ({
               collapsed && !isMobile && "justify-center"
             )}
             onClick={isMobile ? onMobileClose : undefined}
+            title={collapsed && !isMobile ? 'Settings' : undefined}
+            aria-label={collapsed && !isMobile ? 'Settings' : undefined}
           >
             <Icon icon="solar:settings-bold-duotone" className="w-6 h-6" />
             {(!collapsed || isMobile) && (
@@ -335,6 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 collapsed && !isMobile && "justify-center"
               )}
               title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
                 <Icon icon="solar:quit-full-screen-bold-duotone" className="w-6 h-6" />
@@ -349,45 +407,27 @@ const Sidebar: React.FC<SidebarProps> = ({
             </button>
           )}
 
-          {/* Collapse Toggle */}
-          <button
-            onClick={onToggle}
-            className={cn(
-              "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
-              collapsed && !isMobile && "justify-center"
-            )}
-            title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {collapsed ? (
-              <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
-            ) : (
-              <>
+          {/* Collapse Toggle (desktop only: the mobile menu cannot collapse, so the button did nothing there) */}
+          {!isMobile && (
+            <button
+              onClick={onToggle}
+              className={cn(
+                "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
+                collapsed && "justify-center"
+              )}
+              title={collapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {collapsed ? (
                 <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
-                {(!collapsed || isMobile) && <span className="ml-3 text-sm font-medium">Collapse Sidebar</span>}
-              </>
-            )}
-          </button>
-
-          {/* Theme Toggle */}
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className={cn(
-              "w-full flex items-center px-4 py-3 rounded-xl mb-2 text-white/90 hover:bg-white/15 hover:shadow-lg hover:scale-[1.02] transition-all duration-200 min-h-[48px]",
-              collapsed && !isMobile && "justify-center"
-            )}
-            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDarkMode ? (
-              <Icon icon="solar:sun-2-bold-duotone" className="w-6 h-6" />
-            ) : (
-              <Icon icon="solar:moon-stars-bold-duotone" className="w-6 h-6" />
-            )}
-            {(!collapsed || isMobile) && (
-              <span className="ml-3 text-sm font-medium">
-                {isDarkMode ? "Switch to Light" : "Switch to Dark"}
-              </span>
-            )}
-          </button>
+              ) : (
+                <>
+                  <Icon icon="solar:sidebar-minimalistic-bold-duotone" className="w-6 h-6" />
+                  <span className="ml-3 text-sm font-medium">Collapse Sidebar</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </nav>
 

@@ -7,6 +7,13 @@ import EditLabRequest from './EditLabRequest';
 import EnterLabResults from './EnterLabResults';
 import EditLabResults from './EditLabResults';
 import UploadLabDocument from './UploadLabDocument';
+import LabResultReleaseButton from './LabResultReleaseButton';
+import { getResultStatus } from '../../utils/labResultStatus';
+import toast from 'react-hot-toast';
+
+// The Add Visit screen passes an empty visitId until the visit exists, and a lab request saved
+// with visit_id "" is rejected by the database, so creating one is blocked with this reason
+const NEW_VISIT_HINT = 'Save the visit first, then open it again to add lab requests.';
 
 interface LabResultsTableProps {
   patientId: string;
@@ -84,15 +91,15 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
             .eq('lab_request_id', request.id)
             .order('test_name');
           
-          if (!resultsError && results) {
-            resultsMap[request.id] = results;
-          }
+          if (resultsError) throw resultsError;
+          resultsMap[request.id] = results || [];
         }
         
         setLabResults(resultsMap);
       }
     } catch (error) {
       console.error('Error fetching lab requests:', error);
+      toast.error('Could not load lab requests and results. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -109,7 +116,12 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
   };
 
   const handleDeleteRequest = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this lab request?')) return;
+    const request = labRequests.find(r => r.id === id);
+    const lab = request?.lab_facility ? ` to ${request.lab_facility}` : '';
+    const date = request ? ` from ${format(new Date(request.request_date), 'dd MMM yyyy')}` : '';
+    const resultCount = labResults[id]?.length ?? 0;
+    const withResults = resultCount > 0 ? ` and its ${resultCount} result${resultCount === 1 ? '' : 's'}` : '';
+    if (!window.confirm(`Delete the lab request${lab}${date}${withResults}? This cannot be undone.`)) return;
     
     setDeletingId(id);
     try {
@@ -120,10 +132,11 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
 
       if (error) throw error;
       
+      toast.success('Lab request deleted');
       await fetchLabRequests();
     } catch (error) {
       console.error('Error deleting lab request:', error);
-      alert('Failed to delete lab request');
+      toast.error('Failed to delete lab request. Please try again.');
     } finally {
       setDeletingId(null);
     }
@@ -149,22 +162,6 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
-
-  const getResultStatus = (value: string, range: string | null): string => {
-    if (!range || !value) return 'normal';
-    
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return 'normal';
-    
-    const rangeMatch = range.match(/(\d+\.?\d*)\s*-\s*(\d+\.?\d*)/);
-    if (rangeMatch) {
-      const [, min, max] = rangeMatch;
-      if (numValue < parseFloat(min)) return 'low';
-      if (numValue > parseFloat(max)) return 'high';
-    }
-    
-    return 'normal';
   };
 
   const getResultStatusColor = (status: string) => {
@@ -193,28 +190,38 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
       {/* Header */}
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold text-gray-900">Lab Requests & Results</h3>
-        <button
-          type="button"
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New Lab Request</span>
-        </button>
+        {/* A disabled button shows no tooltip, so the wrapper carries the reason */}
+        <span title={visitId === '' ? NEW_VISIT_HINT : undefined} className={visitId === '' ? 'cursor-not-allowed' : undefined}>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            disabled={visitId === ''}
+            className={`flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50 ${visitId === '' ? 'pointer-events-none' : ''}`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>New Lab Request</span>
+          </button>
+        </span>
       </div>
 
       {/* Lab Requests Table */}
       {labRequests.length === 0 ? (
         <div className="bg-gray-50 rounded-lg p-8 text-center">
           <FileText className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <p className="text-gray-600">No lab requests found</p>
-          <button
-            type="button"
-            onClick={() => setShowCreateModal(true)}
-            className="mt-4 text-cyan-600 hover:text-cyan-700 font-medium"
-          >
-            Create first lab request
-          </button>
+          {visitId === '' ? (
+            <p className="text-gray-600">{NEW_VISIT_HINT}</p>
+          ) : (
+            <>
+              <p className="text-gray-600">No lab requests yet</p>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(true)}
+                className="mt-4 text-cyan-600 hover:text-cyan-700 font-medium"
+              >
+                Create first lab request
+              </button>
+            </>
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -265,7 +272,7 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium capitalize ${getStatusColor(request.status)}`}>
                           {getStatusIcon(request.status)}
                           {request.status}
                         </span>
@@ -287,15 +294,17 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                                 type="button"
                                 onClick={() => setShowUploadModal(request.id)}
                                 className="text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                                title="Upload the lab report; the results are read from it automatically"
                               >
                                 <Upload className="w-4 h-4" />
-                                AI Extract
+                                Upload Report
                               </button>
                               <span className="text-gray-400">|</span>
                               <button
                                 type="button"
                                 onClick={() => setShowEditModal(request)}
                                 className="text-gray-600 hover:text-gray-700 font-medium"
+                                aria-label="Edit lab request"
                                 title="Edit Request"
                               >
                                 <Edit2 className="w-4 h-4" />
@@ -335,10 +344,10 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                                 type="button"
                                 onClick={() => setShowUploadModal(request.id)}
                                 className="text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-                                title="Add more results via AI"
+                                title="Upload another lab report to add more results"
                               >
                                 <Upload className="w-4 h-4" />
-                                AI Extract
+                                Upload Report
                               </button>
                             </>
                           )}
@@ -348,6 +357,7 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                             onClick={() => handleDeleteRequest(request.id)}
                             disabled={deletingId === request.id}
                             className="text-red-600 hover:text-red-700 font-medium disabled:opacity-50"
+                            aria-label="Delete lab request"
                             title="Delete Request"
                           >
                             {deletingId === request.id ? (
@@ -389,6 +399,15 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                                       </td>
                                       <td className={`px-6 py-3 text-sm ${getResultStatusColor(status)}`}>
                                         {result.test_value} {result.test_unit}
+                                        {/* Spelled out as well as coloured, so an abnormal result is not missed */}
+                                        {status !== 'normal' && (
+                                          <span
+                                            className={`ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-semibold ${status === 'high' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}
+                                            title={`Outside the reference range ${result.reference_range ?? ''}`.trim()}
+                                          >
+                                            {status === 'high' ? 'High' : 'Low'}
+                                          </span>
+                                        )}
                                       </td>
                                       <td className="px-6 py-3 text-sm text-gray-600">
                                         {result.reference_range || '-'}
@@ -398,6 +417,8 @@ export default function LabResultsTable({ patientId, visitId }: LabResultsTableP
                                 })}
                               </tbody>
                             </table>
+                            {/* Patient app: results are shown to the patient only after release */}
+                            <LabResultReleaseButton requestId={request.id} results={results} onChanged={fetchLabRequests} />
                           </div>
                         </td>
                       </tr>

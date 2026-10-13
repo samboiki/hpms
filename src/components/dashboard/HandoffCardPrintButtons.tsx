@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Icon } from '@iconify/react';
 import { documentGenerationService } from '../../services/documentGenerationService';
 import { documentStatusService } from '../../services/documentStatusService';
+import { RECORDS_BUCKET, openRecord } from '../../services/recordFiles';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
+import { latestDocumentByType } from './handoffDocuments';
 
 interface HandoffCardPrintButtonsProps {
   visitId: string;
@@ -23,7 +25,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
 }) => {
   const { user } = useAuthStore();
   const [generatingDocs, setGeneratingDocs] = useState<Record<string, boolean>>({});
-  const [existingDocs, setExistingDocs] = useState<Record<string, string>>({});
+  // Where each document is stored; a link is made only when it is opened
+  const [existingDocs, setExistingDocs] = useState<Record<string, { path: string; bucket: string | null }>>({});
   const [availableData, setAvailableData] = useState<Record<string, boolean>>({
     prescription: false,
     leave_form: false,
@@ -47,6 +50,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     
     // Also keep a fallback poll every 10 seconds (less frequent)
     const interval = setInterval(() => {
+      // Nobody sees the buttons while the app is in a background tab: skip (the realtime updates above still arrive)
+      if (document.hidden) return;
       checkExistingDocuments();
       checkAvailableData();
     }, 10000);
@@ -60,15 +65,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
   const checkExistingDocuments = async () => {
     try {
       const docs = await documentGenerationService.getVisitDocuments(visitId);
-      const docMap: Record<string, string> = {};
-      
-      docs.forEach(doc => {
-        if (doc.document_type && doc.file_path) {
-          docMap[doc.document_type] = documentGenerationService.getDocumentUrl(doc.file_path);
-        }
-      });
-      
-      setExistingDocs(docMap);
+      // The newest copy of each document (each visit save stores a new one): the visit as it is now
+      setExistingDocs(latestDocumentByType(docs));
     } catch (error) {
       console.error('Error checking existing documents:', error);
     }
@@ -76,29 +74,25 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
 
   const checkAvailableData = async () => {
     try {
-      // Check prescription data
-      const { data: medications } = await supabase
-        .from('medications')
-        .select('*')
-        .eq('visit_id', visitId)
-        .limit(1);
-      
-      // Check leave form data
-      const { data: leaveForm } = await (supabase as any)
-        .from('leave_forms')
-        .select('*')
-        .eq('visit_id', visitId)
-        .maybeSingle();
-      
-      // Check invoice data
-      const { data: invoice } = await supabase
-        .from('invoices_enhanced')
-        .select(`
-          *,
-          invoice_services (*)
-        `)
-        .eq('visit_id', visitId)
-        .maybeSingle();
+      // Is there a prescription, a leave form, an invoice with lines? Only whether they exist is needed, so ids only,
+      // asked for together (this runs every 10 seconds for each handed-off visit)
+      const [{ data: medications }, { data: leaveForm }, { data: invoice }] = await Promise.all([
+        supabase
+          .from('medications')
+          .select('id')
+          .eq('visit_id', visitId)
+          .limit(1),
+        (supabase as any)
+          .from('leave_forms')
+          .select('id')
+          .eq('visit_id', visitId)
+          .maybeSingle(),
+        supabase
+          .from('invoices_enhanced')
+          .select('id, invoice_services (id)')
+          .eq('visit_id', visitId)
+          .maybeSingle()
+      ]);
       
       setAvailableData({
         prescription: medications && medications.length > 0,
@@ -128,8 +122,12 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
 
   const handleGenerateDocument = async (docType: 'prescription' | 'leave_form' | 'invoice') => {
     // If document already exists, just open it
-    if (existingDocs[docType]) {
-      window.open(existingDocs[docType], '_blank');
+    const existing = existingDocs[docType];
+    if (existing) {
+      openRecord(existing.path, existing.bucket).catch(error => {
+        console.error(`Error opening ${docType}:`, error);
+        toast.error('The document could not be opened. Please try again.');
+      });
       return;
     }
 
@@ -202,25 +200,13 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
 
       if (documents.length > 0) {
         const generatedDoc = documents[0];
-        if (generatedDoc.publicUrl) {
+        if (generatedDoc.filePath) {
           // Update existing docs cache
-          setExistingDocs(prev => ({ ...prev, [docType]: generatedDoc.publicUrl! }));
-          
-          // Open the document
-          console.log('Opening document:', generatedDoc.publicUrl);
-          const newWindow = window.open(generatedDoc.publicUrl, '_blank');
-          
-          // If popup was blocked, create a link and click it
-          if (!newWindow || newWindow.closed || typeof newWindow.closed == 'undefined') {
-            const link = document.createElement('a');
-            link.href = generatedDoc.publicUrl;
-            link.target = '_blank';
-            link.download = `${docType}_${new Date().getTime()}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-          }
-          
+          setExistingDocs(prev => ({ ...prev, [docType]: { path: generatedDoc.filePath, bucket: RECORDS_BUCKET } }));
+
+          // Open the document (a short-lived link; a blocked pop-up falls back to a link click)
+          await openRecord(generatedDoc.filePath, RECORDS_BUCKET);
+
           // Notify parent component
           onDocumentGenerated?.();
           
@@ -239,6 +225,13 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
     }
   };
 
+  // A button is only enabled once its document exists, so the tooltip says why it is greyed out
+  const buttonTitle = (docType: 'prescription' | 'leave_form' | 'invoice', name: string) => {
+    if (existingDocs[docType]) return `Print ${name}`;
+    if (availableData[docType]) return `No ${name} document yet: open the visit to create it`;
+    return `No ${name} for this visit`;
+  };
+
   return (
     <div className={`flex items-center ${showLabels ? 'gap-2' : 'gap-1'}`} onClick={(e) => e.stopPropagation()}>
       {/* Prescription Button */}
@@ -251,7 +244,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.prescription}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.prescription ? 'bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-blue-50 rounded-md transition-colors'} group relative`}
-        title="Print Prescription"
+        title={buttonTitle('prescription', 'prescription')}
+        aria-label={buttonTitle('prescription', 'prescription')}
       >
         <Icon icon="solar:medical-kit-bold-duotone" className={`w-5 h-5 ${existingDocs.prescription ? 'text-blue-600 group-hover:text-blue-700' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.prescription ? 'text-blue-700' : 'text-gray-500'}`}>Prescription</span>}
@@ -270,7 +264,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.leave_form}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.leave_form ? 'bg-orange-50 hover:bg-orange-100 border border-orange-200 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-orange-50 rounded-md transition-colors'} group relative`}
-        title="Print Leave Form"
+        title={buttonTitle('leave_form', 'leave form')}
+        aria-label={buttonTitle('leave_form', 'leave form')}
       >
         <Icon icon="solar:document-medicine-bold-duotone" className={`w-5 h-5 ${existingDocs.leave_form ? 'text-orange-600 group-hover:text-orange-700' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.leave_form ? 'text-orange-700' : 'text-gray-500'}`}>Leave Form</span>}
@@ -289,7 +284,8 @@ export const HandoffCardPrintButtons: React.FC<HandoffCardPrintButtonsProps> = (
         }}
         disabled={!existingDocs.invoice}
         className={`${showLabels ? `px-3 py-2 ${existingDocs.invoice ? 'bg-[#00a7ad]/10 hover:bg-[#00a7ad]/20 border border-[#00a7ad]/30 hover:scale-105 hover:shadow-md' : 'bg-gray-100 border border-gray-200 opacity-50 cursor-not-allowed'} rounded-lg flex items-center gap-2 transition-all` : 'p-1.5 hover:bg-[#00a7ad]/10 rounded-md transition-colors'} group relative`}
-        title="Print Invoice"
+        title={buttonTitle('invoice', 'invoice')}
+        aria-label={buttonTitle('invoice', 'invoice')}
       >
         <Icon icon="solar:wallet-bold-duotone" className={`w-5 h-5 ${existingDocs.invoice ? 'text-[#00a7ad] group-hover:text-[#00959a]' : 'text-gray-400'}`} />
         {showLabels && <span className={`text-sm font-medium ${existingDocs.invoice ? 'text-[#00a7ad]' : 'text-gray-500'}`}>Invoice</span>}

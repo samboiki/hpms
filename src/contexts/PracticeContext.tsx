@@ -51,22 +51,24 @@ export const PracticeProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         setUserId(user.id);
         
-        // First try to get practice_id from user metadata
-        let currentPracticeId = user.user_metadata?.practice_id;
-        let currentUserRole = user.user_metadata?.role;
-        
-        // If not found in metadata, try to get from users table
+        // The users table is the source of truth for practice and role. user_metadata can be edited
+        // by the user themselves, so it is only a fallback when the profile has no practice.
+        let currentPracticeId: string | undefined;
+        let currentUserRole: string | undefined;
+        const { data: userData, error: dbUserError } = await supabase
+          .from('users')
+          .select('practice_id, role')
+          .eq('id', user.id)
+          .single();
+
+        if (!dbUserError && userData) {
+          currentPracticeId = userData.practice_id || undefined;
+          currentUserRole = userData.role || undefined;
+        }
+
         if (!currentPracticeId) {
-          const { data: userData, error: dbUserError } = await supabase
-            .from('users')
-            .select('practice_id, role')
-            .eq('id', user.id)
-            .single();
-          
-          if (!dbUserError && userData) {
-            currentPracticeId = userData.practice_id;
-            currentUserRole = userData.role;
-          }
+          currentPracticeId = user.user_metadata?.practice_id;
+          currentUserRole = currentUserRole || user.user_metadata?.role;
         }
         
         if (!currentPracticeId) {

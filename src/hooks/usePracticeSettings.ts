@@ -81,10 +81,14 @@ export const usePracticeSettings = () => {
   const [settings, setSettings] = useState<PracticeSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, currentPractice } = useAuthStore();
+  const { user, selectedPracticeId } = useAuthStore();
+  // Same rule as the dashboard and Finance page: the practice a super admin switched to, else the
+  // user's own. This used to read `currentPractice`, which the auth store never had, so settings
+  // never loaded and everything they guard (recording vitals, SMS/email limits) showed as unavailable.
+  const practiceId = selectedPracticeId || user?.practice_id || null;
 
   const loadPracticeSettings = async () => {
-    if (!currentPractice?.id) {
+    if (!practiceId) {
       setLoading(false);
       return;
     }
@@ -97,7 +101,7 @@ export const usePracticeSettings = () => {
       const { data: practiceData, error: practiceError } = await supabase
         .from('practices')
         .select('id, max_users, max_patients')
-        .eq('id', currentPractice.id)
+        .eq('id', practiceId)
         .single();
 
       if (practiceError) throw practiceError;
@@ -106,7 +110,7 @@ export const usePracticeSettings = () => {
       const { data: featuresData, error: featuresError } = await supabase
         .from('practice_features')
         .select('*')
-        .eq('practice_id', currentPractice.id);
+        .eq('practice_id', practiceId);
 
       if (featuresError) throw featuresError;
 
@@ -117,7 +121,7 @@ export const usePracticeSettings = () => {
           *,
           service_plan:service_plans(*)
         `)
-        .eq('practice_id', currentPractice.id)
+        .eq('practice_id', practiceId)
         .eq('status', 'active');
 
       if (subscriptionsError) throw subscriptionsError;
@@ -126,7 +130,7 @@ export const usePracticeSettings = () => {
       const { data: smsData, error: smsError } = await supabase
         .from('practice_sms_subscriptions')
         .select('*')
-        .eq('practice_id', currentPractice.id)
+        .eq('practice_id', practiceId)
         .eq('is_active', true)
         .single();
 
@@ -137,7 +141,7 @@ export const usePracticeSettings = () => {
         const emailResult = await supabase
           .from('practice_email_subscriptions')
           .select('*')
-          .eq('practice_id', currentPractice.id)
+          .eq('practice_id', practiceId)
           .eq('is_active', true)
           .single();
         emailData = emailResult.data;
@@ -157,17 +161,18 @@ export const usePracticeSettings = () => {
       const labFeature = features.find(f => f.feature_key === 'lab_integration');
       const mediaFeature = features.find(f => f.feature_key === 'media_requests');
 
-      const canRecordVitals = vitalsFeature?.is_enabled || 
-        subscriptions.some(s => s.service_plan?.plan_type === 'feature' && 
-          s.service_plan?.features.includes('vitals_recording'));
+      // A plan without a features list must not throw: that failed the whole load and locked every feature
+      const planIncludesFeature = (feature: string) =>
+        subscriptions.some(s => {
+          const planFeatures = s.service_plan?.features;
+          return s.service_plan?.plan_type === 'feature' && Array.isArray(planFeatures) && planFeatures.includes(feature);
+        });
 
-      const canTrackLab = labFeature?.is_enabled || 
-        subscriptions.some(s => s.service_plan?.plan_type === 'feature' && 
-          s.service_plan?.features.includes('lab_requests'));
+      const canRecordVitals = !!vitalsFeature?.is_enabled || planIncludesFeature('vitals_recording');
 
-      const canTrackMedia = mediaFeature?.is_enabled || 
-        subscriptions.some(s => s.service_plan?.plan_type === 'feature' && 
-          s.service_plan?.features.includes('imaging_requests'));
+      const canTrackLab = !!labFeature?.is_enabled || planIncludesFeature('lab_requests');
+
+      const canTrackMedia = !!mediaFeature?.is_enabled || planIncludesFeature('imaging_requests');
 
       const canUseSMS = !!smsSubscription || 
         subscriptions.some(s => s.service_plan?.plan_type === 'sms');
@@ -188,7 +193,7 @@ export const usePracticeSettings = () => {
       const emailRemaining = Math.max(0, emailLimit - emailUsed);
 
       const practiceSettings: PracticeSettings = {
-        practiceId: currentPractice.id,
+        practiceId,
         maxUsers: practiceData.max_users || 0,
         maxPatients: practiceData.max_patients || 0,
         features,
@@ -303,7 +308,7 @@ export const usePracticeSettings = () => {
 
   useEffect(() => {
     loadPracticeSettings();
-  }, [currentPractice?.id]);
+  }, [practiceId]);
 
   return {
     settings,

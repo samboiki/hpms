@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { decidePlatformAccess, deniedResponse } from '../_shared/callerAccess.ts'
 
 // SECURITY: This function processes EACH practice separately
 // It ensures complete data isolation between practices
@@ -45,6 +46,11 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
+
+  // Only the platform (a scheduled job or n8n, with the service role key) may run it: it creates follow-up
+  // visits for every practice that switched automation on
+  const access = decidePlatformAccess(req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'))
+  if (!access.allowed) return deniedResponse(access, corsHeaders)
 
   console.log('🚀 Follow-up automation engine started');
 

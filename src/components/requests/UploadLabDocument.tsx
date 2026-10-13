@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { RECORDS_BUCKET, currentPracticeId, recordLink, recordPath } from '../../services/recordFiles';
 import { Upload, FileText, Loader2, Wand2 } from 'lucide-react';
+import { geminiExtractLabResults, isGeminiConfigured } from '../../lib/geminiClient';
+import toast from 'react-hot-toast';
 
 interface UploadLabDocumentProps {
   requestId: string;
@@ -27,43 +30,37 @@ export default function UploadLabDocument({
     setExtractionError('');
 
     try {
-      // Get patient ID from request
+      // Get patient ID (and the practice) from request
       const { data: request } = await supabase
         .from('lab_requests')
-        .select('patient_id')
+        .select('patient_id, practice_id')
         .eq('id', requestId)
         .single();
 
       if (!request) throw new Error('Request not found');
 
-      // Upload to Supabase storage
-      const fileName = `lab-results/${request.patient_id}/${Date.now()}_${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('documents')
+      // The report is a patient record: the private bucket, in the practice's folder
+      const fileName = recordPath(request.practice_id || currentPracticeId(), 'lab-results', request.patient_id, `${Date.now()}_${file.name}`);
+      const { error: uploadError } = await supabase.storage
+        .from(RECORDS_BUCKET)
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      // Create signed URL for private bucket access
-      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('documents')
-        .createSignedUrl(fileName, 3600); // 1 hour expiry
-
-      if (signedUrlError || !signedUrlData?.signedUrl) {
-        throw new Error('Failed to create signed URL');
-      }
-
-      // Update lab request with media URL
-      await supabase
+      // The request keeps the path, never a link: a short-lived link is made whenever the report is opened
+      const { error: requestUpdateError } = await supabase
         .from('lab_requests')
         .update({
-          media_url: signedUrlData.signedUrl,
+          media_url: fileName,
           media_type: file.type
         })
         .eq('id', requestId);
 
-      // Start extraction automatically
-      await extractResults(signedUrlData.signedUrl, file.type);
+      if (requestUpdateError) throw requestUpdateError;
+
+      // Start extraction automatically — pass file Blob directly so Gemini
+      // doesn't have to re-fetch through a signed URL (avoids CORS/expiry races)
+      await extractResults(fileName, file.type, file);
 
     } catch (error) {
       console.error('Upload error:', error);
@@ -73,29 +70,46 @@ export default function UploadLabDocument({
     }
   };
 
-  const extractResults = async (mediaUrl: string, fileType: string) => {
+  // mediaPath: where the report is stored; a link that works for a few minutes is made only if it must be fetched
+  const extractResults = async (mediaPath: string, fileType: string, fileBlob?: Blob) => {
     setIsExtracting(true);
     setExtractionError('');
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
-          imageUrl: mediaUrl,
-          fileType: fileType,
-          extractionType: 'results'
-        })
-      });
+      let results: Array<{ testName: string; testValue: string; testUnit?: string; referenceRange?: string }> = [];
 
-      if (!response.ok) {
-        throw new Error('AI extraction failed');
+      // Path A — Gemini Flash (handles PDF + image natively, free tier)
+      if (isGeminiConfigured()) {
+        console.log('✨ Extracting lab results with Gemini 1.5 Flash');
+        const gem = await geminiExtractLabResults({
+          fileBlob,
+          fileUrl: fileBlob ? undefined : await recordLink(mediaPath),
+          mimeType: fileType,
+        });
+        results = gem.results;
+      } else {
+        // Path B — legacy Supabase Edge Function (needs OPENAI_API_KEY in secrets); it fetches the report by link
+        const mediaUrl = await recordLink(mediaPath);
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+          },
+          body: JSON.stringify({
+            imageUrl: mediaUrl,
+            fileType: fileType,
+            extractionType: 'results'
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('AI extraction failed');
+        }
+
+        const payload = await response.json();
+        results = payload.results || [];
       }
-
-      const { results } = await response.json();
       
       if (results && results.length > 0) {
         // Check if there are existing results
@@ -128,11 +142,15 @@ export default function UploadLabDocument({
           if (resultsError) throw resultsError;
 
           // Update request status to completed if it's not already
-          await supabase
+          const { error: statusError } = await supabase
             .from('lab_requests')
             .update({ status: 'completed' })
             .eq('id', requestId);
 
+          if (statusError) throw statusError;
+
+          // Values are read automatically and can be misread, so ask for a check against the report
+          toast.success(`Added ${newTestResults.length} result${newTestResults.length === 1 ? '' : 's'} from the report. Please check them against the original.`);
           onExtractionComplete();
           onClose();
         } else {
@@ -160,8 +178,8 @@ export default function UploadLabDocument({
           }
         }}>
         <div className="p-6 border-b border-gray-100">
-          <h2 className="text-2xl font-bold text-gray-900">AI Extract Lab Results</h2>
-          <p className="text-gray-600 mt-1">Upload document to extract and add new test results</p>
+          <h2 className="text-2xl font-bold text-gray-900">Upload Lab Report</h2>
+          <p className="text-gray-600 mt-1">The test results are read from the report and added to this request</p>
         </div>
 
         <div className="p-6">
@@ -192,10 +210,10 @@ export default function UploadLabDocument({
               <>
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                 <p className="text-sm font-medium text-gray-900 mb-1">
-                  Drop your lab results here
+                  Choose the lab report to upload
                 </p>
                 <p className="text-xs text-gray-600 mb-4">
-                  or click to browse
+                  A PDF or a clear photo of the report
                 </p>
                 <label className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg cursor-pointer hover:bg-cyan-700 transition-colors">
                   <Upload className="w-4 h-4" />

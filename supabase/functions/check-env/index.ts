@@ -1,4 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { decidePlatformAccess, deniedResponse } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,6 +11,10 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Debug tool that prints the start of the Resend key: the service role key only (the owner should delete it)
+  const access = decidePlatformAccess(req.headers.get('Authorization'), Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'));
+  if (!access.allowed) return deniedResponse(access, corsHeaders);
 
   try {
     // Check environment variables

@@ -4,7 +4,8 @@ import {
   Upload,
   FileText,
   Image,
-  File,
+  // Renamed: a plain `File` import shadows the browser File constructor used for camera photos
+  File as FileIcon,
   X,
   CheckCircle2,
   AlertTriangle,
@@ -19,8 +20,11 @@ import {
   ZoomOut
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { RECORDS_BUCKET, currentPracticeId, recordPath } from '../../services/recordFiles';
 import { toast } from 'react-hot-toast';
+import { format } from 'date-fns';
 import FormModal from './FormModal';
+import { documentDisplayName } from './documentDisplayName';
 
 interface EnhancedDocumentUploadModalProps {
   isOpen: boolean;
@@ -185,10 +189,17 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         });
       }
       
+      // Keep the stream first so Stop / closing the modal can always turn the camera off
+      streamRef.current = stream;
+
+      if (!videoRef.current) {
+        stopCamera();
+        throw new Error('The camera preview could not be shown.');
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        streamRef.current = stream;
-        
+
         // Wait for video to load
         videoRef.current.onloadedmetadata = () => {
           console.log('✅ Camera stream loaded');
@@ -201,7 +212,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         console.log('✅ Camera started successfully');
       }
     } catch (error) {
-      setIsCameraLoading(false);
+      // Also releases a stream that was obtained before the failure, so the camera light goes off
+      stopCamera();
       console.error('❌ Camera access failed:', error);
       
       let errorMessage = 'Camera access failed. ';
@@ -256,7 +268,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         id: Math.random().toString(36).substring(2),
         dataUrl,
         blob,
-        title: `${DOCUMENT_TYPES.find(t => t.value === selectedDocumentType)?.label || 'Photo'} - ${new Date().toLocaleString()}`,
+        title: `${DOCUMENT_TYPES.find(t => t.value === selectedDocumentType)?.label || 'Photo'} - ${format(new Date(), 'd MMM yyyy HH:mm')}`,
         processed: false
       };
 
@@ -337,7 +349,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
 
   const getFileIcon = (mimeType: string) => {
     const typeInfo = ALLOWED_TYPES[mimeType as keyof typeof ALLOWED_TYPES];
-    return typeInfo ? typeInfo.icon : File;
+    return typeInfo ? typeInfo.icon : FileIcon;
   };
 
   const getFileColor = (mimeType: string) => {
@@ -371,10 +383,11 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
     console.log('🎫 Session token available:', !!session.access_token);
     
     // Skip bucket listing check - just try to upload directly
-    console.log('📁 Proceeding with upload to documents bucket...');
-    
+    console.log('📁 Proceeding with upload to the private records bucket...');
+
     const fileExt = file.name.split('.').pop();
-    const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+    // A patient record: the private bucket, in the practice's folder (no public link)
+    const fileName = recordPath(currentPracticeId(), 'patient-documents', patientId, `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`);
     
     console.log('📁 Storage path:', fileName);
     
@@ -390,7 +403,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
     try {
       console.log('🔄 Uploading to Supabase Storage...');
       const { data, error } = await supabase.storage
-        .from('documents')
+        .from(RECORDS_BUCKET)
         .upload(fileName, file, {
           cacheControl: '3600',
           upsert: false
@@ -413,10 +426,11 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         
         if (error.message.includes('bucket') && error.message.includes('not found')) {
           console.error('🚨 BUCKET ACCESS ERROR - documents bucket may not be accessible');
-          throw new Error('documents storage bucket is not accessible. Please contact administrator.');
+          throw new Error('Document storage is not available. Please contact your administrator.');
         }
-        
-        throw new Error(error.message);
+
+        // Raw storage errors are technical; the details are logged above
+        throw new Error('The file could not be uploaded. Please try again.');
       }
 
       console.log('✅ File uploaded to storage successfully:', data.path);
@@ -451,7 +465,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
       patient_id: patientId,
       visit_id: visitId,
       file_name: storagePath.split('/').pop(),
-      original_name: file.name,
+      // The title staff type for each file: document lists show it and downloads are named after it
+      original_name: documentDisplayName(title, file.name),
       file_type: file.type.split('/')[1],
       file_size: file.size,
       mime_type: file.type,
@@ -481,10 +496,11 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
       
       if (error.message.includes('row-level security policy')) {
         console.error('🚨 RLS POLICY VIOLATION - Run FIX_DOCUMENTS_RLS_POLICY.sql to fix this');
-        throw new Error('Permission denied. Please contact administrator to fix database permissions.');
+        throw new Error('You do not have permission to add documents for this patient. Please contact your administrator.');
       }
-      
-      throw new Error(error.message);
+
+      // Raw database errors are technical; the details are logged above
+      throw new Error('The file was uploaded but could not be added to the patient record. Please try again.');
     }
 
     console.log('✅ Metadata saved successfully:', data);
@@ -631,6 +647,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         await saveFileMetadata(file, storagePath, capturedImage.title, capturedImage.dataUrl);
         
         successCount++;
+        // Photos have no upload status: drop uploaded ones so retrying after a partial failure cannot add duplicates
+        setCapturedImages(prev => prev.filter(img => img.id !== capturedImage.id));
         toast.success(`${capturedImage.title} uploaded successfully`);
         
       } catch (error) {
@@ -736,7 +754,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <div>
-                <h3 className="font-medium text-red-800">Authentication Required</h3>
+                <h3 className="font-medium text-red-800">Sign-in required</h3>
                 <p className="text-sm text-red-600 mt-1">
                   You must be logged in to upload documents. Please log in and try again.
                 </p>
@@ -749,7 +767,7 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
         {!authChecked && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-[#01b9d4]" />
-            <span className="ml-2 text-gray-600">Checking authentication...</span>
+            <span className="ml-2 text-gray-600">Checking your sign-in...</span>
           </div>
         )}
 
@@ -759,7 +777,11 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
             {/* Tab Navigation */}
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
               <button
-                onClick={() => setActiveTab('upload')}
+                onClick={() => {
+                  // The preview unmounts with the camera tab, so turn the camera off rather than leave it running
+                  stopCamera();
+                  setActiveTab('upload');
+                }}
                 className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === 'upload'
                     ? 'bg-white text-[#01b9d4] shadow-sm'
@@ -853,6 +875,14 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
 
                 {/* Camera Interface */}
                 <div className="bg-black rounded-lg overflow-hidden relative">
+                  {/* Always mounted: startCamera attaches the stream while "Starting camera..." is showing */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={isCameraActive ? 'w-full aspect-video' : 'hidden'}
+                  />
                   {!isCameraActive && !isCameraLoading ? (
                     <div className="aspect-video flex items-center justify-center">
                       <button
@@ -873,27 +903,21 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
                       </div>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full aspect-video"
-                      />
-                      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-3">
-                        <button
-                          onClick={capturePhoto}
-                          className="w-16 h-16 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-lg"
-                        >
-                          <div className="w-12 h-12 bg-[#01b9d4] rounded-full" />
-                        </button>
-                        <button
-                          onClick={stopCamera}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                        >
-                          Stop
-                        </button>
-                      </div>
+                    <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-3">
+                      <button
+                        onClick={capturePhoto}
+                        className="w-16 h-16 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors shadow-lg"
+                        aria-label="Take photo"
+                        title="Take photo"
+                      >
+                        <div className="w-12 h-12 bg-[#01b9d4] rounded-full" />
+                      </button>
+                      <button
+                        onClick={stopCamera}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                      >
+                        Stop
+                      </button>
                     </div>
                   )}
                 </div>
@@ -956,6 +980,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
                       onClick={addTag}
                       disabled={isUploading}
                       className="px-3 py-2 bg-[#01b9d4] text-white rounded-lg hover:bg-[#01a5c4] transition-colors disabled:opacity-50"
+                      aria-label="Add tag"
+                      title="Add tag"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
@@ -972,6 +998,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
                             <button
                               onClick={() => removeTag(tag)}
                               className="hover:text-cyan-600"
+                              aria-label={`Remove tag ${tag}`}
+                              title="Remove tag"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -1060,6 +1088,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
                             <button
                               onClick={() => removeFile(uploadFile.id)}
                               className="p-1 hover:bg-gray-200 rounded transition-colors"
+                              aria-label={`Remove ${uploadFile.file.name} from the upload list`}
+                              title="Remove from list"
                             >
                               <X className="w-4 h-4 text-gray-500" />
                             </button>
@@ -1111,6 +1141,8 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
                         <button
                           onClick={() => removeCapturedImage(image.id)}
                           className="p-1 hover:bg-gray-200 rounded transition-colors"
+                          aria-label="Remove this photo"
+                          title="Remove photo"
                         >
                           <X className="w-4 h-4 text-gray-500" />
                         </button>
@@ -1154,8 +1186,9 @@ const EnhancedDocumentUploadModal: React.FC<EnhancedDocumentUploadModalProps> = 
             <button
               disabled
               className="flex-1 px-4 py-2 bg-gray-300 text-gray-500 rounded-lg cursor-not-allowed"
+              title="Sign in again to upload documents"
             >
-              Login Required
+              Sign-in Required
             </button>
           )}
         </div>

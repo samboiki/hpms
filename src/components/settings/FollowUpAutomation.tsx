@@ -4,6 +4,8 @@ import { supabase } from '../../lib/supabase';
 import type { Database } from '../../types/database.types';
 import { useAuthStore } from '../../stores/authStore';
 import toast from 'react-hot-toast';
+import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 type FollowUpTemplate = Database['public']['Tables']['follow_up_templates']['Row'];
 
@@ -15,6 +17,21 @@ interface TemplateStep {
   notes_template: string;
   services_to_schedule: string[];
 }
+
+/** One line of the generate-follow-up-templates stream. */
+interface GenerationStreamEvent {
+  type: 'progress' | 'result' | 'error';
+  stage?: string;
+  message?: string;
+  templatesGenerated?: number;
+  templates?: unknown[];
+  error?: string;
+}
+
+const TRIGGER_TYPE_LABELS: Record<string, string> = {
+  DIAGNOSIS: 'Diagnosis',
+  TARIFF_CODE: 'Tariff Code'
+};
 
 export default function FollowUpAutomation() {
   const { user } = useAuthStore();
@@ -124,54 +141,61 @@ export default function FollowUpAutomation() {
 
       const newValue = !isAutomationEnabled;
       
-      const { error } = await supabase
+      const { data: changed, error } = await supabase
         .from('practices')
         .update({ is_follow_up_automation_enabled: newValue })
-        .eq('id', practiceId);
+        .eq('id', practiceId)
+        .select('id');
 
       if (error) throw error;
+      // A refused change updates no row and reports no error: the switch would flip and be off again on reload
+      ensureRowsUpdated(changed, 'The automatic follow-up visits setting');
 
       setIsAutomationEnabled(newValue);
       toast.success(newValue ? 'Automation enabled' : 'Automation disabled');
     } catch (error) {
       console.error('Error toggling automation:', error);
-      toast.error('Failed to update automation setting');
+      toast.error(describeDbError(error, 'The automation setting could not be changed'));
     }
   }, [isAutomationEnabled, practiceId]);
 
-  const deleteTemplate = useCallback(async (templateId: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+  const deleteTemplate = useCallback(async (templateId: string, templateName: string) => {
+    if (!window.confirm(`Delete the follow-up template "${templateName}"? This cannot be undone.`)) return;
 
     try {
-      const { error } = await supabase
+      const { data: removed, error } = await supabase
         .from('follow_up_templates')
         .delete()
-        .eq('id', templateId);
+        .eq('id', templateId)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(removed, 'The template');
 
       toast.success('Template deleted successfully');
       fetchTemplates();
     } catch (error) {
       console.error('Error deleting template:', error);
-      toast.error('Failed to delete template');
+      toast.error(describeDbError(error, 'The template could not be deleted'));
     }
   }, [fetchTemplates]);
 
   const toggleTemplateActive = useCallback(async (templateId: string, currentStatus: boolean) => {
     try {
-      const { error } = await supabase
+      const { data: changed, error } = await supabase
         .from('follow_up_templates')
         .update({ is_active: !currentStatus })
-        .eq('id', templateId);
+        .eq('id', templateId)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(changed, 'The template');
 
       toast.success(currentStatus ? 'Template deactivated' : 'Template activated');
       fetchTemplates();
     } catch (error) {
       console.error('Error toggling template status:', error);
-      toast.error('Failed to update template status');
+      toast.error(describeDbError(error, 'The template could not be changed'));
     }
   }, [fetchTemplates]);
 
@@ -217,13 +241,14 @@ export default function FollowUpAutomation() {
 
       // Call Edge Function with streaming response
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      // The signed-in user's token: the function only generates for active staff of their practice
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
       
       const response = await fetch(`${supabaseUrl}/functions/v1/generate-follow-up-templates`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           practiceId,
@@ -235,7 +260,11 @@ export default function FollowUpAutomation() {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // Said in plain words (the status number goes to the console with the error)
+        console.error('generate-follow-up-templates answered', response.status);
+        throw new Error(response.status === 403 || response.status === 401
+          ? 'your account is not allowed to generate templates'
+          : response.status === 404 ? 'this is not switched on yet' : 'the service did not answer');
       }
 
       const reader = response.body?.getReader();
@@ -255,26 +284,30 @@ export default function FollowUpAutomation() {
           
           for (const line of lines) {
             if (line.trim()) {
+              let data: GenerationStreamEvent;
               try {
-                const data = JSON.parse(line);
-                
-                if (data.type === 'progress') {
-                  let icon = '🔍';
-                  if (data.stage === 'prioritization') icon = '📊';
-                  else if (data.stage === 'ai_generation') icon = '🤖';
-                  else if (data.stage === 'completion') icon = '✨';
-                  
-                  toast.loading(
-                    `${icon} ${data.message}${data.templatesGenerated ? ` (${data.templatesGenerated} templates so far)` : ''}`, 
-                    { id: progressToast }
-                  );
-                } else if (data.type === 'result') {
-                  finalTemplates = data.templates;
-                } else if (data.type === 'error') {
-                  throw new Error(data.error);
-                }
+                data = JSON.parse(line);
               } catch (e) {
                 console.error('Error parsing stream data:', e);
+                continue;
+              }
+
+              if (data.type === 'progress') {
+                let icon = '🔍';
+                if (data.stage === 'prioritization') icon = '📊';
+                else if (data.stage === 'ai_generation') icon = '🤖';
+                else if (data.stage === 'completion') icon = '✨';
+
+                toast.loading(
+                  `${icon} ${data.message}${data.templatesGenerated ? ` (${data.templatesGenerated} templates so far)` : ''}`,
+                  { id: progressToast }
+                );
+              } else if (data.type === 'result') {
+                finalTemplates = data.templates ?? [];
+              } else if (data.type === 'error') {
+                // Thrown outside the JSON.parse guard so it reaches the outer catch; it used to be
+                // swallowed here and the user was told "0 templates created" instead
+                throw new Error(data.error || 'The template generator reported an error');
               }
             }
           }
@@ -292,6 +325,7 @@ export default function FollowUpAutomation() {
 
         let successCount = 0;
         let skipCount = 0;
+        let failCount = 0;
 
         toast.loading(`💾 Saving ${finalTemplates.length} templates to database...`, { id: progressToast });
 
@@ -326,22 +360,33 @@ export default function FollowUpAutomation() {
           if (!insertError) {
             successCount++;
             existingTriggers.add(triggerKey); // Prevent duplicates within this batch
+          } else {
+            failCount++;
+            console.error('Error saving generated template:', insertError);
           }
         }
 
-        const message = skipCount > 0 
-          ? `✨ AI Generation Complete! ${successCount} templates created, ${skipCount} duplicates skipped`
-          : `✨ AI Generation Complete! ${successCount} templates created`;
-        
-        toast.success(message, { id: progressToast, duration: 5000 });
-        
+        if (failCount > 0) {
+          toast.error(
+            `${successCount} templates created, but ${failCount} could not be saved. Please try again.`,
+            { id: progressToast, duration: 8000 }
+          );
+        } else {
+          const message = skipCount > 0
+            ? `✨ AI Generation Complete! ${successCount} templates created, ${skipCount} duplicates skipped`
+            : `✨ AI Generation Complete! ${successCount} templates created`;
+
+          toast.success(message, { id: progressToast, duration: 5000 });
+        }
+
         fetchTemplates();
       } else {
         toast.error('No templates generated', { id: progressToast });
       }
     } catch (error) {
       console.error('Error generating AI templates:', error);
-      toast.error('Failed to generate AI templates', { id: progressToast });
+      const reason = error instanceof Error && error.message ? `: ${error.message}` : '';
+      toast.error(`Failed to generate AI templates${reason}`, { id: progressToast });
     } finally {
       setAiGenerating(false);
     }
@@ -361,7 +406,7 @@ export default function FollowUpAutomation() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <Icon icon="solar:spinner-bold-duotone" className="w-12 h-12 animate-spin mx-auto text-gray-400" />
+          <Icon icon="solar:refresh-bold-duotone" className="w-12 h-12 animate-spin mx-auto text-gray-400" />
           <p className="text-gray-500 mt-4">Loading follow-up automation settings...</p>
         </div>
       </div>
@@ -409,7 +454,7 @@ export default function FollowUpAutomation() {
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900">Backend Automation Engine</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Automatic Follow-up Visits</h3>
             <p className="text-sm text-gray-600 mt-1">
               When enabled, the system will automatically create follow-up visits based on completed visit data
             </p>
@@ -420,6 +465,7 @@ export default function FollowUpAutomation() {
               className="sr-only peer"
               checked={isAutomationEnabled}
               onChange={toggleAutomation}
+              aria-label="Create follow-up visits automatically"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
           </label>
@@ -437,7 +483,7 @@ export default function FollowUpAutomation() {
                 disabled={aiGenerating}
                 className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Icon icon={aiGenerating ? "solar:spinner-bold-duotone" : "solar:magic-stick-3-bold-duotone"} 
+                <Icon icon={aiGenerating ? "solar:refresh-bold-duotone" : "solar:magic-stick-3-bold-duotone"} 
                       className={`w-5 h-5 ${aiGenerating ? 'animate-spin' : ''}`} />
                 {aiGenerating ? 'Generating...' : '✨ Generate AI Suggestions'}
               </button>
@@ -457,7 +503,7 @@ export default function FollowUpAutomation() {
 
         {loading ? (
           <div className="p-6 text-center">
-            <Icon icon="solar:spinner-bold-duotone" className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin mx-auto text-gray-400" />
             <p className="text-gray-500 mt-2">Loading templates...</p>
           </div>
         ) : templates.length === 0 ? (
@@ -511,7 +557,7 @@ export default function FollowUpAutomation() {
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-orange-100 text-orange-800'
                           }`}>
-                            {template.trigger_type}
+                            {TRIGGER_TYPE_LABELS[template.trigger_type] ?? template.trigger_type}
                           </span>
                           <span className="text-gray-700">{template.trigger_value}</span>
                         </div>
@@ -522,6 +568,7 @@ export default function FollowUpAutomation() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
                           onClick={() => toggleTemplateActive(template.id, template.is_active)}
+                          title={template.is_active ? 'Click to stop using this template' : 'Click to start using this template'}
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium cursor-pointer transition-colors ${
                             template.is_active 
                               ? 'bg-green-100 text-green-800 hover:bg-green-200' 
@@ -542,7 +589,7 @@ export default function FollowUpAutomation() {
                           Edit
                         </button>
                         <button
-                          onClick={() => deleteTemplate(template.id)}
+                          onClick={() => deleteTemplate(template.id, template.template_name)}
                           className="text-red-600 hover:text-red-900"
                         >
                           Delete
@@ -584,6 +631,8 @@ interface TemplateModalProps {
 }
 
 function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalProps) {
+  // Escape closes the template window, as its Cancel does
+  useEscapeToClose(true, onClose);
   const existingSteps = template?.steps as TemplateStep[] | null;
   
   const [formData, setFormData] = useState({
@@ -771,6 +820,8 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
                         <button
                           type="button"
                           onClick={() => removeStep(index)}
+                          aria-label={`Remove step ${step.step_number}`}
+                          title="Remove step"
                           className="text-red-600 hover:text-red-700"
                         >
                           <Icon icon="solar:trash-bin-minimalistic-bold-duotone" className="w-4 h-4" />
@@ -895,7 +946,7 @@ function TemplateModal({ template, practiceId, onClose, onSave }: TemplateModalP
               disabled={saving}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {saving && <Icon icon="solar:spinner-bold-duotone" className="w-4 h-4 animate-spin" />}
+              {saving && <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />}
               {template ? 'Update Template' : 'Create Template'}
             </button>
           </div>

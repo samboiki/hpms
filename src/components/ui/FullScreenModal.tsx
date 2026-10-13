@@ -8,13 +8,16 @@ interface FullScreenModalProps {
   onClose: () => void;
   children: React.ReactNode;
   modalId?: string;
+  /** False for screens where a stray Escape would throw away typed work (a visit): they close with their own buttons */
+  closeOnEscape?: boolean;
 }
 
-const FullScreenModal: React.FC<FullScreenModalProps> = ({ 
-  isOpen, 
-  onClose, 
+const FullScreenModal: React.FC<FullScreenModalProps> = ({
+  isOpen,
+  onClose,
   children,
-  modalId = 'fullscreen-modal'
+  modalId = 'fullscreen-modal',
+  closeOnEscape = true
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -68,7 +71,7 @@ const FullScreenModal: React.FC<FullScreenModalProps> = ({
 
   // Handle ESC key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !closeOnEscape) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -86,7 +89,7 @@ const FullScreenModal: React.FC<FullScreenModalProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown, true);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, closeOnEscape]);
 
   // Create portal root if it doesn't exist
   useEffect(() => {

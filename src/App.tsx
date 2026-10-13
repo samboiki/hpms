@@ -1,77 +1,71 @@
 // Testing automatic deployment for onehealth-practice - 2025-08-05
-import React, { useEffect, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Suspense, useEffect, useState } from 'react';
 import { supabase } from './lib/supabase';
-import Dashboard from './pages/Dashboard';
-import Patients from './pages/Patients';
-import PatientDetail from './pages/PatientDetail';
-import Settings from './pages/Settings';
-import Communications from './pages/Communications';
-import TestCommunication from './pages/TestCommunication';
-import TestSMSSend from './pages/TestSMSSend';
-import TestSMSDirectSend from './pages/TestSMSDirectSend';
-import WorkingSMSTest from './pages/WorkingSMSTest';
-import TestSMSWithAuth from './pages/TestSMSWithAuth';
-import Encounters from './pages/Encounters';
-import Layout from './components/layout/Layout';
+import { lazyPage, lazyPatientScreen } from './components/layout/lazyScreen';
 import Login from './pages/auth/Login';
-import { useAuthStoreFast as useAuthStore } from './stores/authStoreFast';
-import NotFound from './pages/NotFound';
-import PracticeProfile from './pages/PracticeProfile';
-import EnhancedPracticeProfile from './pages/EnhancedPracticeProfile';
-import Inventory from './pages/Inventory';
-import PracticesManagement from './pages/admin/PracticesManagement';
-import TariffManagement from './pages/admin/TariffManagement';
-import SystemBlueprint from './pages/admin/SystemBlueprint';
-import BillingWorkflow from './pages/BillingWorkflow';
-import Finance from './pages/Finance';
-import { Toaster } from 'react-hot-toast';
-import { PracticeTariffsProvider } from './contexts/PracticeTariffsContext';
-import { PracticeProvider } from './contexts/PracticeContext';
-import ThemeProvider from './components/providers/ThemeProvider';
-import EmergencySchemaExporter from './emergency-schema-exporter';
-import { automationProcessingService } from './services/automationProcessingService';
-import UniversalCallback from './pages/oauth/UniversalCallback';
-import TestCursor from './pages/TestCursor';
-import { CacheWarmer } from './components/CacheWarmer';
-import { RoutePrefetcher } from './components/RoutePrefetcher';
-import TestCache from './pages/TestCache';
-import TestQueryProtection from './pages/TestQueryProtection';
-import TestModalClick from './pages/TestModalClick';
-import { PerformanceMonitor } from './components/PerformanceMonitor';
+import { useAuthStore } from './stores/authStore';
+import { isPrevisitLocation } from './utils/clinical/previsitQuestions';
+
+// The signed-in staff app (providers, layout, Dashboard and every staff route) is its own download, so the sign-in
+// screen opens without first fetching the Dashboard and the diary. It is warmed while the sign-in form is in use.
+const loadStaffApp = () => import('./StaffApp');
+const StaffApp = lazyPage(loadStaffApp);
+
+// Screens loaded when opened (lazyScreen.tsx): if the connection fails on the way, the screen tries again and then says
+// "This page could not load" with "Try again", never an empty screen
+// The patient app (cell number + SMS code logins) is loaded only when a patient signs in
+const PatientPortalApp = lazyPatientScreen(() => import('./patientPortal/PatientPortalApp'));
+// A patient's questions before a visit, opened from an SMS link without signing in (parity B17)
+const PrevisitQuestionnairePage = lazyPatientScreen(() => import('./pages/PrevisitQuestionnairePage'));
+
+/** Starts downloading the staff app once the sign-in form is in use (or after a short pause), so signing in is instant */
+function useWarmStaffApp(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    let warmed = false;
+    const warm = () => {
+      if (warmed) return;
+      warmed = true;
+      loadStaffApp().catch(() => undefined); // a failed warm-up is retried when the staff app is opened
+    };
+    const timer = window.setTimeout(warm, 2500);
+    document.addEventListener('focusin', warm, { once: true });
+    document.addEventListener('pointerdown', warm, { once: true });
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('focusin', warm);
+      document.removeEventListener('pointerdown', warm);
+    };
+  }, [active]);
+}
 
 function App() {
-  const { isAuthenticated, login } = useAuthStore();
+  const { isAuthenticated, login, sessionKind } = useAuthStore();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
-        login(session.user.email!, '');
-        
-        // Start automatic automation processing when user is authenticated
-        // Don't await to prevent blocking
-        automationProcessingService.start().catch(error => {
-          console.error('Failed to start automation service:', error);
-        });
+        // Keep the spinner until the saved session is restored, so the login form doesn't flash on every reload
+        login(session.user.email!, '').finally(() => setIsLoading(false));
+        // Automations are sent by the server's sender (supabase/functions/process-automation-queue), never by a browser
       } else {
-        // Stop processing when user logs out
-        automationProcessingService.stop();
+        // A patient whose session ended (signed out, expired) goes back to the sign-in screen
+        useAuthStore.setState({ sessionKind: null });
+        setIsLoading(false);
       }
-      setIsLoading(false);
     });
 
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        login(session.user.email!, '');
-        // Don't await to prevent blocking
-        automationProcessingService.start().catch(error => {
-          console.error('Failed to start automation service:', error);
-        });
+        // Download the staff app while the saved session is restored, not after
+        loadStaffApp().catch(() => undefined);
+        login(session.user.email!, '').finally(() => setIsLoading(false));
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }).catch(error => {
       console.error('Error getting session:', error);
       setIsLoading(false);
@@ -80,15 +74,38 @@ function App() {
     // Cleanup subscription
     return () => {
       subscription.unsubscribe();
-      automationProcessingService.stop();
     };
   }, [login]);
 
-  if (isLoading) {
+  useWarmStaffApp(!isLoading && !isAuthenticated && sessionKind !== 'patient');
+
+  const spinner = (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+    </div>
+  );
+
+  // #/q/<link code>: a patient answers their booking's questions without signing in, whoever is signed in on this device.
+  // The page talks only to previsit_questionnaire(), which shows that booking's questions and nothing else
+  if (isPrevisitLocation(window.location)) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-      </div>
+      <Suspense fallback={spinner}>
+        <PrevisitQuestionnairePage />
+      </Suspense>
+    );
+  }
+
+  if (isLoading) {
+    return spinner;
+  }
+
+  // A patient (cell number + SMS code) only ever gets the patient app: no staff route, layout or data loader
+  // below is mounted for them, and every address outside /me leads to the patient app (portalRouting.ts)
+  if (sessionKind === 'patient') {
+    return (
+      <Suspense fallback={spinner}>
+        <PatientPortalApp />
+      </Suspense>
     );
   }
 
@@ -97,65 +114,9 @@ function App() {
   }
 
   return (
-    <PracticeProvider>
-      <ThemeProvider>
-        <PracticeTariffsProvider>
-          <CacheWarmer />
-          <RoutePrefetcher />
-          <PerformanceMonitor />
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-              success: {
-                style: {
-                  background: '#10b981',
-                },
-              },
-              error: {
-                style: {
-                  background: '#ef4444',
-                },
-              },
-            }}
-          />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/test-cursor" element={<TestCursor />} />
-            <Route path="/test-cache" element={<TestCache />} />
-            <Route path="/test-protection" element={<TestQueryProtection />} />
-            <Route path="/test-modal-click" element={<TestModalClick />} />
-            <Route path="/oauth/universal-callback" element={<UniversalCallback />} />
-            <Route path="/api/oauth/callback" element={<UniversalCallback />} />
-            <Route path="/" element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="patients" element={<Patients />} />
-              <Route path="patients/:patientId/visit/:visitId" element={<PatientDetail />} />
-              <Route path="encounters" element={<Encounters />} />
-              <Route path="communications" element={<Communications />} />
-              <Route path="test-communication" element={<TestCommunication />} />
-              <Route path="test-sms-send" element={<TestSMSSend />} />
-              <Route path="test-sms-direct" element={<TestSMSDirectSend />} />
-              <Route path="working-sms-test" element={<WorkingSMSTest />} />
-              <Route path="test-sms-auth" element={<TestSMSWithAuth />} />
-              <Route path="finance" element={<Finance />} />
-              <Route path="billing/workflow" element={<BillingWorkflow />} />
-              <Route path="practice-profile" element={<EnhancedPracticeProfile />} />
-              <Route path="admin/practices" element={<PracticesManagement />} />
-              <Route path="admin/tariffs" element={<TariffManagement />} />
-              <Route path="admin/blueprint" element={<SystemBlueprint />} />
-              <Route path="settings" element={<Settings />} />
-              <Route path="emergency-export" element={<EmergencySchemaExporter />} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </PracticeTariffsProvider>
-      </ThemeProvider>
-    </PracticeProvider>
+    <Suspense fallback={spinner}>
+      <StaffApp />
+    </Suspense>
   );
 }
 

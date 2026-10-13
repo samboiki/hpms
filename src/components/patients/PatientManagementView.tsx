@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { format } from 'date-fns';
@@ -14,6 +14,17 @@ interface Patient {
   cell_number?: string;
   date_of_birth?: string;
   gender?: string;
+  id_number?: string;
+  system_patient_reference_number?: number;
+  /** The old file number (paper file or previous system) */
+  legacy_account_number?: string | null;
+  marital_status?: string;
+  occupation?: string;
+  employer?: string;
+  home_language?: string;
+  home_address?: string;
+  postal_address?: string;
+  postal_code?: string;
   blood_type?: string;
   allergies?: string;
   chronic_conditions?: string;
@@ -39,6 +50,7 @@ interface Patient {
   }[];
   // Added fields for visits data
   total_visits?: number;
+  visits?: { id: string; branch_id?: string | null }[];
   practice?: {
     id: string;
     name: string;
@@ -56,11 +68,41 @@ import { toast } from 'react-hot-toast';
 import ComprehensivePatientModal from './ComprehensivePatientModal';
 import { usePractice } from '../../contexts/PracticeContext';
 import { getMedicalAidLogo } from '../../utils/medicalAidLogos';
+import { patientSearchFields, patientSearchRank, type PatientSearchRank } from '../../utils/patientSearch';
+import { patientFileStatus } from '../../utils/patients/temporaryPatient';
+import { bulkSmsOutcome, bulkSmsSummary, personalizePatientMessage } from './bulkMessage';
+import { branchPatientCounts as countPatientsAtPlaces, seenAtBranch } from './branchFilter';
+import { normalizePhoneNumber } from './patientContact';
 import { supabase } from '../../lib/supabase';
 import { usePatientSettings } from '../../hooks/usePatientSettings';
 import { ProfessionalSmsModal } from '../messages/ProfessionalSmsModal';
 import { ProfessionalEmailModal } from '../messages/ProfessionalEmailModal';
 import { communicationService } from '../../services/communicationService';
+import { AddToListButton } from '../patientLists/AddToListButton';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
+import { MoreMenu } from '../ui/MoreMenu';
+import { PossibleDuplicatesDialog } from './duplicates/PossibleDuplicatesDialog';
+import { FundMoveDialog } from './fundMove/FundMoveDialog';
+import { patientReferenceLabel } from '../../utils/patients/patientNumbers';
+import { patientExportRow } from './patientListExport';
+
+// Deep-link contract for this page:
+//   /patients?patientId=<id>&tab=<tab>
+//   /patients?patientId=<id>&visitId=<id>&action=edit-visit
+//   /patients?patientId=<id>&tab=overview&noteId=<id>   (a note: Notes on the Overview scrolls to it)
+//   /patients?action=add   (dashboard "Add Patient": opens the registration form)
+type PatientDetailTab = 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes';
+// 'teeth' (the tooth chart) shows for dental practices only; the quote and invoice "Teeth chart" links open it.
+// 'eyes' (prescriptions, lab orders) shows for optometry practices only; the lab order list links to it.
+const PATIENT_DETAIL_TABS: readonly PatientDetailTab[] = ['overview', 'encounters', 'medications', 'media', 'lab', 'imaging', 'billing', 'audit', 'teeth', 'eyes'];
+const DEEP_LINK_PARAMS = ['patientId', 'tab', 'visitId', 'action', 'returnTo', 'noteId'] as const;
+
+// The delete buttons used to confirm and then report "Patient deleted successfully" without
+// deleting anything. Really removing patients needs a decision on keeping their clinical and
+// billing records first, so the buttons stay visible but disabled with this reason.
+const DELETE_UNAVAILABLE_REASON =
+  "Deleting patients isn't available from this list, so their medical and billing records are kept.";
 
 // Export the PatientManagementView component
 export const PatientManagementView: React.FC = () => {
@@ -68,6 +110,7 @@ export const PatientManagementView: React.FC = () => {
   const {
     patients = [],
     isLoading: loadingStore,
+    error: patientsError,
     fetchPatients,
     fetchPatientsWithVisits
   } = usePatientsStoreNew();
@@ -83,7 +126,61 @@ export const PatientManagementView: React.FC = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isPatientDetailOpen, setIsPatientDetailOpen] = useState(false);
-  
+  const [detailDefaultTab, setDetailDefaultTab] = useState<PatientDetailTab | undefined>(undefined);
+  const [detailVisitIdToEdit, setDetailVisitIdToEdit] = useState<string | null>(null);
+  // Stays false until the first patient fetch for this practice has settled
+  const [hasInitialLoadSettled, setHasInitialLoadSettled] = useState(false);
+  // More > Possible duplicates: merging files is for the practice's administrators (the database checks it again)
+  const isAdministrator = useAuthStore(state => state.user?.role === 'admin');
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  // More > Move to another fund (parity A21): administrators only too
+  const [showFundMove, setShowFundMove] = useState(false);
+
+  // Open the patient modal from URL params (see deep-link contract above).
+  // The modal fetches the patient by id, so it works even if the patient is not in the loaded list.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkPatientId = searchParams.get('patientId');
+  const deepLinkTab = searchParams.get('tab');
+  const deepLinkVisitId = searchParams.get('visitId');
+  const deepLinkAction = searchParams.get('action');
+  const deepLinkNoteId = searchParams.get('noteId');
+  // Set when a doctor arrives from a consultation started on the dashboard
+  const cameFromDashboard = searchParams.get('returnTo') === 'dashboard';
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!deepLinkPatientId) return;
+    const visitIdToEdit = deepLinkAction === 'edit-visit' && deepLinkVisitId ? deepLinkVisitId : null;
+    const requestedTab = PATIENT_DETAIL_TABS.find(tab => tab === deepLinkTab);
+    setSelectedPatientId(deepLinkPatientId);
+    setDetailDefaultTab(requestedTab ?? (visitIdToEdit ? 'encounters' : 'overview'));
+    setDetailVisitIdToEdit(visitIdToEdit);
+    setIsPatientDetailOpen(true);
+  }, [deepLinkPatientId, deepLinkTab, deepLinkVisitId, deepLinkAction]);
+
+  // ?action=add opens the registration form, then the param is dropped (replace) so a refresh or
+  // Back doesn't open it again. A patient link (?patientId=) takes precedence.
+  useEffect(() => {
+    if (deepLinkAction !== 'add' || deepLinkPatientId) return;
+    setIsAddModalOpen(true);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('action');
+    setSearchParams(nextParams, { replace: true });
+  }, [deepLinkAction, deepLinkPatientId, searchParams, setSearchParams]);
+
+  const closePatientDetail = () => {
+    setIsPatientDetailOpen(false);
+    setSelectedPatientId(null);
+    setDetailDefaultTab(undefined);
+    setDetailVisitIdToEdit(null);
+    // Drop the deep-link params without a reload; replace so Back doesn't reopen the modal
+    if (DEEP_LINK_PARAMS.some(key => searchParams.has(key))) {
+      const nextParams = new URLSearchParams(searchParams);
+      DEEP_LINK_PARAMS.forEach(key => nextParams.delete(key));
+      setSearchParams(nextParams, { replace: true });
+    }
+  };
+
   // Local state for filtering and sorting
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPatients, setSelectedPatients] = useState<string[]>([]);
@@ -101,7 +198,7 @@ export const PatientManagementView: React.FC = () => {
   const [messageType, setMessageType] = useState<'sms' | 'email'>('sms');
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [branches, setBranches] = useState<{ id: string; name: string; practice_id: string }[]>([]);
-  const [branchPatientCounts, setBranchPatientCounts] = useState<Record<string, number>>({});
+  const [allPatientsCount, setAllPatientsCount] = useState(0);
   const [practiceName, setPracticeName] = useState<string>('');
   
   // SMS and Email modal states
@@ -164,55 +261,38 @@ export const PatientManagementView: React.FC = () => {
     const fetchBranchesAndCounts = async () => {
       if (!practiceId) return;
       
-      // Fetch branches
-      const { data: branchData, error: branchError } = await supabase
-        .from('branches')
-        .select('id, name, practice_id')
-        .eq('practice_id', practiceId)
-        .order('name');
+      // Branches, the practice name and the patient count are independent: asked for together (one round-trip, not three)
+      const [{ data: branchData, error: branchError }, { data: practiceData }, { count: mainCount }] = await Promise.all([
+        supabase
+          .from('branches')
+          .select('id, name, practice_id')
+          .eq('practice_id', practiceId)
+          .order('name'),
+        supabase
+          .from('practices')
+          .select('name')
+          .eq('id', practiceId)
+          .single(),
+        // Count for "All Branches" (all patients); each place's count follows the filter (branchFilter.ts)
+        supabase
+          .from('patients')
+          .select('*', { count: 'exact', head: true })
+          .eq('practice_id', practiceId)
+      ]);
       
       if (branchData && !branchError) {
         setBranches(branchData);
       }
+      if (branchError) {
+        console.error('Error loading branches:', branchError);
+        toast.error('Could not load your branches, so the branch filter may be incomplete.');
+      }
       
-      // Fetch practice name
-      const { data: practiceData } = await supabase
-        .from('practices')
-        .select('name')
-        .eq('id', practiceId)
-        .single();
-        
       if (practiceData) {
         setPracticeName(practiceData.name);
       }
       
-      // Fetch patient counts per branch
-      const counts: Record<string, number> = {};
-      
-      // Count for main practice (all patients)
-      const { count: mainCount } = await supabase
-        .from('patients')
-        .select('*', { count: 'exact', head: true })
-        .eq('practice_id', practiceId);
-      
-      counts['main'] = mainCount || 0;
-      
-      // Count patients per branch based on their last visit
-      if (branchData) {
-        for (const branch of branchData) {
-          const { data: visitData } = await supabase
-            .from('visits')
-            .select('patient_id')
-            .eq('branch_id', branch.id)
-            .order('visit_date', { ascending: false });
-          
-          // Get unique patients for this branch
-          const uniquePatients = new Set(visitData?.map(v => v.patient_id) || []);
-          counts[branch.id] = uniquePatients.size;
-        }
-      }
-      
-      setBranchPatientCounts(counts);
+      setAllPatientsCount(mainCount || 0);
     };
     
     fetchBranchesAndCounts();
@@ -231,96 +311,117 @@ export const PatientManagementView: React.FC = () => {
       return;
     }
     
-    fetchPatients();
-    
+    // Track when the initial fetches have settled so we never flash "0 results"/empty state while loading
+    let cancelled = false;
+    let enhancedFetchTimer: ReturnType<typeof setTimeout> | undefined;
+    setHasInitialLoadSettled(false);
+    const initialFetches: Promise<unknown>[] = [fetchPatients()];
+
     // Also try the enhanced method
     if (fetchPatientsWithVisits) {
-      setTimeout(() => {
-        fetchPatientsWithVisits();
-      }, 1000);
+      initialFetches.push(new Promise<void>(resolve => {
+        enhancedFetchTimer = setTimeout(() => {
+          fetchPatientsWithVisits().finally(resolve);
+        }, 1000);
+      }));
     }
+
+    Promise.allSettled(initialFetches).then(() => {
+      if (!cancelled) setHasInitialLoadSettled(true);
+    });
+
+    return () => {
+      cancelled = true;
+      if (enhancedFetchTimer) clearTimeout(enhancedFetchTimer);
+    };
   }, [practiceId]);
 
-  // Filter patients based on search and filters
-  const filteredPatients = (aiFilteredPatients || patients).filter(patient => {
-    // If AI search is active and we have filtered results, use those
-    if (showAiSearch && aiFilteredPatients) {
-      // AI has already filtered, but we can still apply additional filters
-      // like branch, gender, etc. on top of AI results
-    }
-    
-    // Search filter (only for non-AI search)
-    if (searchQuery && !showAiSearch) {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch = 
-        patient.first_name?.toLowerCase().includes(searchLower) ||
-        patient.last_name?.toLowerCase().includes(searchLower) ||
-        (patient.patient_id || patient.id)?.toLowerCase().includes(searchLower) ||
-        patient.email?.toLowerCase().includes(searchLower) ||
-        patient.cell_number?.toLowerCase().includes(searchLower);
-      
-      if (!matchesSearch) return false;
-    }
-    
-    // Gender filter
-    if (genderFilter && patient.gender?.toLowerCase() !== genderFilter.toLowerCase()) {
-      return false;
-    }
-    
-    // Status filter - Active means had a visit within the threshold period
-    // Only apply if explicitly filtering, don't filter by default
-    if (statusFilter && statusFilter !== '') {
-      const isActive = patient.last_visit_date ? 
-        new Date(patient.last_visit_date) > new Date(Date.now() - inactiveThreshold * 24 * 60 * 60 * 1000) : false;
-      
-      if (statusFilter === 'active' && !isActive) return false;
-      if (statusFilter === 'inactive' && isActive) return false;
-    }
-    
-    // Branch filter - filter by last visit branch
-    if (branchFilter && branchFilter !== 'main') {
-      // For branch filtering, we need to check if patient has visited this branch
-      // This is a simplified check - in production you'd want to optimize this
-      return false; // Will be handled by proper filtering logic
-    }
-    
-    // Medical aid filter
-    if (medicalAidFilter) {
-      const hasMedicalAid = patient.medical_aid_details && patient.medical_aid_details.length > 0;
-      if (medicalAidFilter === 'with_aid' && !hasMedicalAid) return false;
-      if (medicalAidFilter === 'without_aid' && hasMedicalAid) return false;
-    }
-    
-    return true;
-  });
+  // Typing in the search box stays instant: the list is filtered and sorted from the deferred search text, and only
+  // again when the patients, the search or a filter or the order changes (not on every render of this page)
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const { filteredPatients, sortedPatients } = useMemo(() => {
+    // How well each patient matches the search: exact first, then starts-with, then contains (src/utils/patientSearch.ts)
+    const searchRanks = new Map<string, PatientSearchRank>();
 
-  // Sort patients
-  const sortedPatients = [...filteredPatients].sort((a, b) => {
-    let compareValue = 0;
-    
-    switch (sortField) {
-      case 'name':
-        compareValue = `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
-        break;
-      case 'age':
-        const ageA = a.date_of_birth ? new Date().getFullYear() - new Date(a.date_of_birth).getFullYear() : 0;
-        const ageB = b.date_of_birth ? new Date().getFullYear() - new Date(b.date_of_birth).getFullYear() : 0;
-        compareValue = ageA - ageB;
-        break;
-      case 'joined':
-        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-        compareValue = dateA - dateB;
-        break;
-      case 'lastVisit':
-        const visitA = a.last_visit_date ? new Date(a.last_visit_date).getTime() : 0;
-        const visitB = b.last_visit_date ? new Date(b.last_visit_date).getTime() : 0;
-        compareValue = visitA - visitB;
-        break;
-    }
-    
-    return sortOrder === 'asc' ? compareValue : -compareValue;
-  });
+    // Filter patients based on search and filters
+    const filteredPatients = (aiFilteredPatients || patients).filter(patient => {
+      // If AI search is active and we have filtered results, use those
+      if (showAiSearch && aiFilteredPatients) {
+        // AI has already filtered, but we can still apply additional filters
+        // like branch, gender, etc. on top of AI results
+      }
+
+      // Search filter (only for non-AI search): names, ID number, OneHealth reference, cell, email, the Eminance account
+      // number ("1234" finds 0001234) and membership numbers
+      if (deferredSearchQuery && !showAiSearch) {
+        const rank = patientSearchRank(patientSearchFields(patient), deferredSearchQuery);
+        if (rank === null) return false;
+        searchRanks.set(patient.id, rank);
+      }
+      
+      // Gender filter
+      if (genderFilter && patient.gender?.toLowerCase() !== genderFilter.toLowerCase()) {
+        return false;
+      }
+      
+      // Status filter - Active means had a visit within the threshold period
+      // Only apply if explicitly filtering, don't filter by default
+      if (statusFilter && statusFilter !== '') {
+        const isActive = patient.last_visit_date ? 
+          new Date(patient.last_visit_date) > new Date(Date.now() - inactiveThreshold * 24 * 60 * 60 * 1000) : false;
+        
+        if (statusFilter === 'active' && !isActive) return false;
+        if (statusFilter === 'inactive' && isActive) return false;
+      }
+      
+      // Branch filter: patients seen at the selected branch, or at the practice itself ('main')
+      if (branchFilter && !seenAtBranch(patient.visits, branchFilter)) return false;
+      
+      // Medical aid filter
+      if (medicalAidFilter) {
+        const hasMedicalAid = patient.medical_aid_details && patient.medical_aid_details.length > 0;
+        if (medicalAidFilter === 'with_aid' && !hasMedicalAid) return false;
+        if (medicalAidFilter === 'without_aid' && hasMedicalAid) return false;
+      }
+      
+      return true;
+    });
+
+    // Sort patients: when searching, exact matches first, then starts-with, then contains; the chosen order within each
+    const sortedPatients = [...filteredPatients].sort((a, b) => {
+      const byRank = (searchRanks.get(a.id) ?? 0) - (searchRanks.get(b.id) ?? 0);
+      if (byRank !== 0) return byRank;
+      let compareValue = 0;
+
+      switch (sortField) {
+        case 'name':
+          compareValue = `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+          break;
+        case 'age':
+          const ageA = a.date_of_birth ? new Date().getFullYear() - new Date(a.date_of_birth).getFullYear() : 0;
+          const ageB = b.date_of_birth ? new Date().getFullYear() - new Date(b.date_of_birth).getFullYear() : 0;
+          compareValue = ageA - ageB;
+          break;
+        case 'joined':
+          const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+          compareValue = dateA - dateB;
+          break;
+        case 'lastVisit':
+          const visitA = a.last_visit_date ? new Date(a.last_visit_date).getTime() : 0;
+          const visitB = b.last_visit_date ? new Date(b.last_visit_date).getTime() : 0;
+          compareValue = visitA - visitB;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+    return { filteredPatients, sortedPatients };
+  }, [aiFilteredPatients, patients, showAiSearch, deferredSearchQuery, genderFilter, statusFilter, inactiveThreshold, branchFilter, medicalAidFilter, sortField, sortOrder]);
+
+  const hasActiveFilters = Boolean(genderFilter || medicalAidFilter || statusFilter || branchFilter);
+  // The number beside each place in the branch window: the patients choosing it shows
+  const branchPatientCounts = useMemo(() => countPatientsAtPlaces(patients, branches.map(branch => branch.id)), [patients, branches]);
 
   // Pagination calculations
   const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
@@ -353,75 +454,9 @@ export const PatientManagementView: React.FC = () => {
         : [...selectedPatients, patientId]
     );
   };
-  
-  // Delete patient function
-  const deletePatient = async (patientId: string) => {
-    // This would need to be implemented with the actual delete API
-    // After deletion, refresh the patients list
-    await fetchPatients();
-  };
 
-  // Handle bulk delete
-  const handleBulkDelete = async () => {
-    if (selectedPatients.length === 0) return;
-    
-    const confirmed = await toast.promise(
-      new Promise((resolve) => {
-        toast.custom(
-          (t) => (
-            <div className="bg-white rounded-lg shadow-lg p-4 max-w-md">
-              <p className="text-gray-800 mb-4">
-                Are you sure you want to delete {selectedPatients.length} patient{selectedPatients.length > 1 ? 's' : ''}?
-              </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    resolve(false);
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    resolve(true);
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ),
-          { duration: Infinity }
-        );
-      }),
-      {
-        loading: 'Processing...',
-        success: 'Operation completed',
-        error: 'Operation cancelled'
-      }
-    );
-
-    if (confirmed) {
-      try {
-        await Promise.all(selectedPatients.map(id => deletePatient(id)));
-        setSelectedPatients([]);
-        toast.success(`Successfully deleted ${selectedPatients.length} patient${selectedPatients.length > 1 ? 's' : ''}`);
-      } catch {
-        toast.error('Failed to delete some patients');
-      }
-    }
-  };
-
-  // Handle bulk messaging
-  const handleBulkMessage = () => {
-    if (selectedPatients.length === 0) return;
-    // Implementation for bulk messaging
-    toast.info('Bulk messaging feature coming soon!');
-  };
+  // Bulk messaging is the envelope button: it sends to the selected patients, or to the whole
+  // filtered list when none are selected (see getSmsRecipients / getEmailRecipients)
 
   // Get recipients for SMS/Email
   const getSmsRecipients = () => {
@@ -430,7 +465,8 @@ export const PatientManagementView: React.FC = () => {
       ? filteredPatients.filter(p => selectedPatients.includes(p.id))
       : filteredPatients;
     
-    return targetPatients.filter(p => p.cell_number && p.cell_number.trim() !== '');
+    // Only numbers that can be dialled: the gateway turns e.g. "811234567" into +81... (Japan)
+    return targetPatients.filter(p => normalizePhoneNumber(p.cell_number) !== null);
   };
 
   const getEmailRecipients = () => {
@@ -453,10 +489,14 @@ export const PatientManagementView: React.FC = () => {
       
       let successCount = 0;
       let failureCount = 0;
+      // Patients who replied STOP are skipped on purpose; once the SMS bundle is used up nobody else gets one
+      let optedOutCount = 0;
+      let limitReached = false;
       const processedPatients = new Set<string>(); // Track processed patient IDs
       
       // Send to each recipient individually (allowing multiple SMS to same number)
       for (const recipient of uniqueRecipients) {
+        if (limitReached) break;
         try {
           // Additional safeguard - check if this specific patient already processed
           if (processedPatients.has(recipient.id)) {
@@ -471,10 +511,14 @@ export const PatientManagementView: React.FC = () => {
           
           const result = await communicationService.sendSMS({
             practiceId: practiceId!,
-            recipientPhone: recipient.cell_number!,
+            // International form (+264...), so the gateway cannot misread a local number
+            recipientPhone: normalizePhoneNumber(recipient.cell_number) ?? recipient.cell_number!,
             messageContent: personalizedMessage,
-            messageType: 'bulk_message',
-            patientId: recipient.id
+            messageType: 'custom',
+            patientId: recipient.id,
+            // A message to many patients is a campaign: the gateway skips patients who replied STOP
+            // ('custom' alone counts as a message typed to one patient, which they still receive)
+            metadata: { bulkSend: true }
           });
           
           // Also check if the result contains success indicators even if success is false
@@ -483,8 +527,14 @@ export const PatientManagementView: React.FC = () => {
              result.error.includes('"statusCode":200') && 
              result.error.includes('"cost":'));
           
-          if (isActuallySuccessful) {
+          const outcome = isActuallySuccessful ? 'sent' : bulkSmsOutcome(result);
+          if (outcome === 'sent') {
             successCount++;
+          } else if (outcome === 'opted_out') {
+            optedOutCount++;
+          } else if (outcome === 'limit_reached') {
+            limitReached = true;
+            processedPatients.delete(recipient.id);
           } else {
             failureCount++;
           }
@@ -500,14 +550,16 @@ export const PatientManagementView: React.FC = () => {
       }
       
       // Show results
+      const notTriedCount = limitReached ? new Set(uniqueRecipients.map(r => r.id)).size - processedPatients.size : 0;
+      const summary = bulkSmsSummary({ sent: successCount, optedOut: optedOutCount, failed: failureCount, notTried: notTriedCount });
       
-      if (successCount > 0 && failureCount === 0) {
-        toast.success(`SMS sent successfully to all ${successCount} patients`, {
+      if (summary.tone === 'success') {
+        toast.success(summary.text, {
           duration: 5000,
           icon: '✅'
         });
-      } else if (successCount > 0 && failureCount > 0) {
-        toast(`SMS sent to ${successCount} patients, failed for ${failureCount} patients`, {
+      } else if (summary.tone === 'warning') {
+        toast(summary.text, {
           icon: '⚠️',
           style: {
             background: '#f59e0b',
@@ -515,7 +567,7 @@ export const PatientManagementView: React.FC = () => {
           },
         });
       } else {
-        toast.error(`Failed to send SMS to all ${failureCount} patients`);
+        toast.error(summary.text);
       }
       
       // Clear state on success
@@ -550,34 +602,10 @@ export const PatientManagementView: React.FC = () => {
     });
   };
 
-  // Process template variables for a specific patient
-  const processTemplateVariables = (text: string, targetPatient: any): string => {
-    const firstName = targetPatient?.first_name || 'John';
-    const lastName = targetPatient?.last_name || 'Smith';
-    const fullName = `${firstName} ${lastName}`;
-    
-    const variables: Record<string, string> = {
-      '{{patientName}}': fullName,
-      '{{patientFirstName}}': firstName,
-      '{{patientLastName}}': lastName,
-      '{{practiceName}}': practiceName || 'Your Practice',
-      '{{practicePhone}}': '',
-      '{{practiceEmail}}': '',
-      '{{currentDate}}': new Date().toLocaleDateString(),
-      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      '{{birthdayOffer}}': '15% off your next visit',
-      '{{referralBonus}}': '$50 credit',
-      '{{reviewLink}}': 'https://g.page/r/healthcare/review',
-      '{{programName}}': 'Wellness Wednesday',
-    };
-
-    let processedText = text;
-    Object.entries(variables).forEach(([key, value]) => {
-      processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
-    });
-    
-    return processedText;
-  };
+  // Fill in this patient's name (and the practice name); variables without a real value are
+  // dropped, so no patient is sent "John Smith", an invented offer or a fake review link
+  const processTemplateVariables = (text: string, targetPatient: { first_name?: string | null; last_name?: string | null }): string =>
+    personalizePatientMessage(text, targetPatient, practiceName);
 
   // Handle bulk email sending (called by ProfessionalEmailModal)
   const handleSendEmail = async (allRecipients: any[], subject: string, message: string, attachments?: File[]) => {
@@ -682,31 +710,24 @@ export const PatientManagementView: React.FC = () => {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const targetPatients = selectedPatients.length > 0 
+      const targetPatients = selectedPatients.length > 0
         ? filteredPatients.filter(p => selectedPatients.includes(p.id))
         : filteredPatients;
-      
-      const exportData = targetPatients.map(patient => ({
-        'Patient ID': patient.patient_id || patient.id,
-        'Name': `${patient.first_name} ${patient.last_name}`,
-        'Date of Birth': patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd/MM/yyyy') : '',
-        'Gender': patient.gender || '',
-        'Phone': patient.cell_number || '',
-        'Email': patient.email || '',
-        'Medical Aid': patient.medical_aid_details?.[0]?.provider || 'None',
-        'Medical Aid Number': patient.medical_aid_details?.[0]?.membership_number || '',
-        'Blood Type': patient.blood_type || '',
-        'Allergies': patient.allergies || '',
-        'Chronic Conditions': patient.chronic_conditions || '',
-        'Last Visit': patient.last_visit_date ? format(new Date(patient.last_visit_date), 'dd/MM/yyyy') : 'Never'
-      }));
+      if (targetPatients.length === 0) {
+        toast.error('No patients to export. Clear the filters or select patients first.');
+        return;
+      }
+
+      const exportData = targetPatients.map(patient => patientExportRow(patient));
 
       const csv = [
         Object.keys(exportData[0]).join(','),
-        ...exportData.map(row => Object.values(row).map(val => `"${val}"`).join(','))
+        // Quotes inside a value are doubled (CSV rule); otherwise a name or note with a " shifts the columns
+        ...exportData.map(row => Object.values(row).map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
       ].join('\n');
 
-      const blob = new Blob([csv], { type: 'text/csv' });
+      // The byte-order mark makes Excel read the file as UTF-8 (accented names stay readable)
+      const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -733,60 +754,6 @@ export const PatientManagementView: React.FC = () => {
     e.stopPropagation();
     setSelectedPatient(patient);
     setIsEditModalOpen(true);
-  };
-
-  // Handle delete
-  const handleDelete = async (patientId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    
-    const confirmed = await toast.promise(
-      new Promise((resolve) => {
-        toast.custom(
-          (t) => (
-            <div className="bg-white rounded-lg shadow-lg p-4 max-w-md">
-              <p className="text-gray-800 mb-4">
-                Are you sure you want to delete this patient?
-              </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    resolve(false);
-                  }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    toast.dismiss(t.id);
-                    resolve(true);
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ),
-          { duration: Infinity }
-        );
-      }),
-      {
-        loading: 'Processing...',
-        success: 'Operation completed',
-        error: 'Operation cancelled'
-      }
-    );
-
-    if (confirmed) {
-      try {
-        await deletePatient(patientId);
-        toast.success('Patient deleted successfully');
-      } catch {
-        toast.error('Failed to delete patient');
-      }
-    }
   };
 
   // Handle AI search toggle
@@ -820,8 +787,11 @@ export const PatientManagementView: React.FC = () => {
 
   // Render patient card
   const renderPatientCard = (patient: Patient) => {
-    const age = patient.date_of_birth 
-      ? Math.floor((new Date().getTime() - new Date(patient.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+    // A file booked with a name and cell only has a placeholder birthday: no age until it is completed
+    const fileStatus = patientFileStatus(patient);
+    const reference = patientReferenceLabel(patient.system_patient_reference_number);
+    const age = fileStatus.dateOfBirth
+      ? Math.floor((new Date().getTime() - new Date(fileStatus.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
       : null;
     
     const joinedDate = patient.created_at ? new Date(patient.created_at) : null;
@@ -831,59 +801,17 @@ export const PatientManagementView: React.FC = () => {
     return (
       <motion.div
         key={patient.id}
-        layout
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.9 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.15 }}
         whileHover={{ y: -2 }}
         className="group relative bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-200"
         onClick={() => handlePatientClick(patient)}
       >
 
-        {/* Activity Indicator - Top Right */}
-        <div className="absolute top-3 right-3">
-          {(() => {
-            const daysSinceVisit = patient.last_visit_date ? 
-              Math.floor((Date.now() - new Date(patient.last_visit_date).getTime()) / (24 * 60 * 60 * 1000)) : null;
-            
-            return (
-              <div className="relative group">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md`}
-                  style={{
-                    backgroundColor: isActive ? '#009292' : '#9ca3af'
-                  }}
-                >
-                  {daysSinceVisit !== null ? (
-                    daysSinceVisit === 0 ? 'Now' : 
-                    daysSinceVisit < 0 ? 'New' :
-                    daysSinceVisit < 30 ? `${daysSinceVisit}d` : 
-                    daysSinceVisit < 365 ? `${Math.floor(daysSinceVisit / 30)}m` : 
-                    `${Math.floor(daysSinceVisit / 365)}y`
-                  ) : 'N/A'}
-                </div>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Quick actions */}
-        <div className="absolute top-16 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <button
-            onClick={(e) => handleEdit(patient, e)}
-            className="p-1.5 bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
-          >
-            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4 text-cyan-600" />
-          </button>
-          <button
-            onClick={(e) => handleDelete(patient.id, e)}
-            className="p-1.5 bg-white rounded-lg shadow-sm hover:shadow-md transition-all"
-          >
-            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 text-red-600" />
-          </button>
-        </div>
-
-        <div className="p-6 cursor-pointer">
-          {/* Header */}
+        <div className="p-4 sm:p-5 cursor-pointer">
+          {/* Header: avatar, name and age, then the last-visit badge in the same row (it used to float
+              over the name and age) */}
           <div className="flex items-start gap-4 mb-4">
             <div className="relative inline-flex items-center justify-center">
               <div 
@@ -910,14 +838,14 @@ export const PatientManagementView: React.FC = () => {
                 {patient.first_name[0]?.toUpperCase()}{patient.last_name[0]?.toUpperCase()}
               </div>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <h3 className={`font-semibold flex items-center gap-2 ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
-                {patient.first_name} {patient.last_name}
-                {patient.gender && (
-                  <Icon 
-                    icon={patient.gender === 'male' ? 'solar:men-bold-duotone' : 'solar:women-bold-duotone'} 
-                    className={`w-4 h-4 ${
-                      isActive 
+                <span className="truncate" title={`${patient.first_name} ${patient.last_name}`}>{patient.first_name} {patient.last_name}</span>
+                {fileStatus.gender && (
+                  <Icon
+                    icon={patient.gender === 'male' ? 'solar:men-bold-duotone' : 'solar:women-bold-duotone'}
+                    className={`w-4 h-4 flex-none ${
+                      isActive
                         ? (patient.gender === 'male' ? 'text-blue-500' : 'text-pink-500')
                         : 'text-gray-400'
                     }`}
@@ -926,13 +854,46 @@ export const PatientManagementView: React.FC = () => {
               </h3>
               <p className={`text-sm ${isActive ? 'text-gray-500' : 'text-gray-400'}`}>
                 {age !== null ? `${age} years` : 'Age unknown'}
+                {/* The OneHealth reference: on claims and statements, and searchable */}
+                {reference && <span className="tabular-nums"> · Ref {reference}</span>}
               </p>
+              {fileStatus.incomplete && (
+                <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">File not complete</span>
+              )}
               {patient.practice?.name && (
                 <p className={`text-xs font-medium mt-1 ${isActive ? 'text-purple-600' : 'text-gray-400'}`}>
                   {patient.practice.name}
                 </p>
               )}
             </div>
+            {/* Activity indicator: time since the last visit */}
+            {(() => {
+              const daysSinceVisit = patient.last_visit_date ?
+                Math.floor((Date.now() - new Date(patient.last_visit_date).getTime()) / (24 * 60 * 60 * 1000)) : null;
+
+              return (
+                <div
+                  className="flex-none w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-md"
+                  style={{
+                    backgroundColor: isActive ? '#009292' : '#9ca3af'
+                  }}
+                  title={
+                    daysSinceVisit === null ? 'Never visited' :
+                    daysSinceVisit === 0 ? 'Visited today' :
+                    daysSinceVisit < 0 ? 'Future visit' :
+                    `Last visit ${daysSinceVisit} days ago`
+                  }
+                >
+                  {daysSinceVisit !== null ? (
+                    daysSinceVisit === 0 ? 'Now' :
+                    daysSinceVisit < 0 ? 'New' :
+                    daysSinceVisit < 30 ? `${daysSinceVisit}d` :
+                    daysSinceVisit < 365 ? `${Math.floor(daysSinceVisit / 30)}m` :
+                    `${Math.floor(daysSinceVisit / 365)}y`
+                  ) : 'N/A'}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Contact info */}
@@ -945,8 +906,8 @@ export const PatientManagementView: React.FC = () => {
             )}
             {patient.email && (
               <div className={`flex items-center gap-2 text-sm ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>
-                <Icon icon="solar:letter-bold-duotone" className="w-4 h-4 text-gray-400" />
-                <span className="truncate">{patient.email}</span>
+                <Icon icon="solar:letter-bold-duotone" className="w-4 h-4 flex-none text-gray-400" />
+                <span className="truncate min-w-0" title={patient.email}>{patient.email}</span>
               </div>
             )}
           </div>
@@ -1014,17 +975,41 @@ export const PatientManagementView: React.FC = () => {
             )}
           </div>
 
-          {/* Footer */}
+          {/* Footer: details, then the quick actions (always visible: they used to appear only on hover,
+              over the contact details, and were unreachable on touch screens) */}
           <div className="pt-4 border-t border-gray-100">
-            <div className="flex items-center justify-between text-sm text-gray-500">
-              <div>
+            <div className="flex items-center justify-between gap-3 text-sm text-gray-500">
+              <div className="min-w-0">
                 <p>Joined: {joinedDate ? format(joinedDate, 'dd MMM yyyy') : 'Unknown'}</p>
                 <div className="flex items-center gap-2">
                   <Icon icon="solar:health-bold-duotone" className="w-4 h-4 text-purple-500" />
-                  <p>{patient.total_visits || 0} visits</p>
+                  <p>{patient.total_visits || 0} {patient.total_visits === 1 ? 'visit' : 'visits'}</p>
                 </div>
               </div>
-              <Icon icon="solar:arrow-right-bold-duotone" className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
+              <div className="flex flex-none items-center gap-1">
+                <button
+                  type="button"
+                  onClick={(e) => handleEdit(patient, e)}
+                  className="p-2.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="Edit patient"
+                  aria-label={`Edit ${patient.first_name} ${patient.last_name}`}
+                >
+                  <Icon icon="solar:pen-bold-duotone" className="w-5 h-5 text-cyan-600" />
+                </button>
+                {/* The wrapper carries the tooltip (a disabled button shows none) and keeps the click
+                    from opening the patient */}
+                <span title={DELETE_UNAVAILABLE_REASON} className="cursor-not-allowed" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    disabled
+                    aria-label={`Delete unavailable: ${DELETE_UNAVAILABLE_REASON}`}
+                    className="p-2.5 rounded-lg opacity-40 pointer-events-none"
+                  >
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5 text-red-600" />
+                  </button>
+                </span>
+                <Icon icon="solar:arrow-right-bold-duotone" className="w-5 h-5 text-gray-400 group-hover:text-purple-600 transition-colors" aria-hidden="true" />
+              </div>
             </div>
           </div>
         </div>
@@ -1034,8 +1019,11 @@ export const PatientManagementView: React.FC = () => {
 
   // Render patient row
   const renderPatientRow = (patient: Patient) => {
-    const age = patient.date_of_birth 
-      ? Math.floor((new Date().getTime() - new Date(patient.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
+    // A file booked with a name and cell only has a placeholder birthday: no age until it is completed
+    const fileStatus = patientFileStatus(patient);
+    const reference = patientReferenceLabel(patient.system_patient_reference_number);
+    const age = fileStatus.dateOfBirth
+      ? Math.floor((new Date().getTime() - new Date(fileStatus.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 365.25))
       : null;
     
     const isSelected = selectedPatients.includes(patient.id);
@@ -1045,16 +1033,15 @@ export const PatientManagementView: React.FC = () => {
     return (
       <motion.tr
         key={patient.id}
-        layout
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
         className={`hover:bg-gray-50 transition-colors cursor-pointer ${
           isSelected ? 'bg-cyan-50' : ''
         }`}
         onClick={() => handlePatientClick(patient)}
       >
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div 
             className="flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-lg cursor-pointer"
             onClick={(e) => {
@@ -1065,6 +1052,7 @@ export const PatientManagementView: React.FC = () => {
             <input
               type="checkbox"
               checked={isSelected}
+              aria-label={`Select ${patient.first_name} ${patient.last_name}`}
               onChange={(e) => {
                 e.stopPropagation();
                 handleSelectPatient(patient.id);
@@ -1073,7 +1061,7 @@ export const PatientManagementView: React.FC = () => {
             />
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-3">
             <div className="relative inline-flex items-center justify-center">
               <div 
@@ -1104,6 +1092,11 @@ export const PatientManagementView: React.FC = () => {
               <div className={`font-medium ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
                 {patient.first_name} {patient.last_name}
               </div>
+              {/* The OneHealth reference: on claims and statements, and searchable */}
+              {reference && <div className="text-xs text-gray-500 tabular-nums">Ref {reference}</div>}
+              {fileStatus.incomplete && (
+                <span className="mt-0.5 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">File not complete</span>
+              )}
               {patient.practice?.name && (
                 <div className={`text-xs font-medium mt-0.5 ${isActive ? 'text-purple-600' : 'text-gray-400'}`}>
                   {patient.practice.name}
@@ -1112,9 +1105,9 @@ export const PatientManagementView: React.FC = () => {
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-2">
-            {patient.gender && (
+            {fileStatus.gender && (
               <Icon 
                 icon={patient.gender === 'male' ? 'solar:men-bold-duotone' : 'solar:women-bold-duotone'} 
                 className={`w-4 h-4 ${
@@ -1129,7 +1122,7 @@ export const PatientManagementView: React.FC = () => {
             </span>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div className="space-y-1">
             {patient.cell_number && (
               <div className={`flex items-center gap-2 text-sm ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>
@@ -1140,12 +1133,12 @@ export const PatientManagementView: React.FC = () => {
             {patient.email && (
               <div className={`flex items-center gap-2 text-sm ${isActive ? 'text-gray-600' : 'text-gray-400'}`}>
                 <Icon icon="solar:letter-bold-duotone" className="w-4 h-4 text-gray-400" />
-                <span className="truncate block max-w-[200px]">{patient.email}</span>
+                <span className="truncate block max-w-[180px]" title={patient.email}>{patient.email}</span>
               </div>
             )}
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           {patient.medical_aid_details && patient.medical_aid_details.length > 0 ? (
             <div className="flex items-center gap-3">
               {patient.medical_aid_details[0].medical_aid_provider?.logo_url ? (
@@ -1164,11 +1157,14 @@ export const PatientManagementView: React.FC = () => {
                   <Icon icon="solar:shield-plus-bold-duotone" className="w-5 h-5 text-purple-600" />
                 </div>
               )}
-              <div>
+              <div className="min-w-0">
                 <div className={`text-sm font-medium ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
                   {patient.medical_aid_details[0].provider}
                 </div>
-                <div className={`text-xs ${isActive ? 'text-gray-500' : 'text-gray-400'}`}>
+                <div
+                  className={`text-xs max-w-[180px] truncate ${isActive ? 'text-gray-500' : 'text-gray-400'}`}
+                  title={[patient.medical_aid_details[0].membership_number, patient.medical_aid_details[0].scheme].filter(Boolean).join(' • ')}
+                >
                   {patient.medical_aid_details[0].membership_number}
                   {patient.medical_aid_details[0].scheme && ` • ${patient.medical_aid_details[0].scheme}`}
                 </div>
@@ -1178,7 +1174,8 @@ export const PatientManagementView: React.FC = () => {
             <span className="text-sm text-gray-400">No medical aid</span>
           )}
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        {/* Joined: shown from 2xl so the table fits a laptop screen with Actions in view */}
+        <td className="hidden 2xl:table-cell px-4 py-3 whitespace-nowrap">
           <div>
             <div className={`text-sm ${isActive ? 'text-gray-900' : 'text-gray-400'}`}>
               {patient.created_at ? format(new Date(patient.created_at), 'dd MMM yyyy') : 'Unknown'}
@@ -1198,7 +1195,7 @@ export const PatientManagementView: React.FC = () => {
             )}
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-3">
             {/* Innovative Activity Indicator */}
             <div className="relative">
@@ -1240,32 +1237,40 @@ export const PatientManagementView: React.FC = () => {
                 {patient.last_visit_date ? format(new Date(patient.last_visit_date), 'dd MMM yyyy') : 'Never visited'}
               </div>
               <div className={`text-xs ${isActive ? 'text-gray-500' : 'text-gray-400'}`}>
-                {patient.total_visits || 0} total visits
+                {patient.total_visits || 0} total {patient.total_visits === 1 ? 'visit' : 'visits'}
               </div>
             </div>
           </div>
         </td>
-        <td className="px-6 py-4 whitespace-nowrap">
+        <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-2">
             <button
               onClick={(e) => handleEdit(patient, e)}
               className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Edit patient"
+              aria-label={`Edit ${patient.first_name} ${patient.last_name}`}
             >
               <Icon icon="solar:pen-bold-duotone" className="w-4 h-4 text-cyan-600" />
             </button>
-            <button
-              onClick={(e) => handleDelete(patient.id, e)}
-              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 text-red-600" />
-            </button>
+            <span title={DELETE_UNAVAILABLE_REASON} className="cursor-not-allowed" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                disabled
+                aria-label={`Delete unavailable: ${DELETE_UNAVAILABLE_REASON}`}
+                className="p-1.5 rounded-lg opacity-40 pointer-events-none"
+              >
+                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4 text-red-600" />
+              </button>
+            </span>
           </div>
         </td>
       </motion.tr>
     );
   };
 
-  const loading = loadingStore || isSearching;
+  // Show the loading state until the initial fetch has settled, and on refetches only while
+  // there is nothing to show yet (keeps an already-rendered list visible during background refreshes)
+  const loading = isSearching || (patients.length === 0 && (loadingStore || !hasInitialLoadSettled));
 
   // CRITICAL SECURITY CHECK
   if (!practiceId) {
@@ -1283,7 +1288,7 @@ export const PatientManagementView: React.FC = () => {
   return (
     <div>
       {/* Single Container for Search, Actions and Table */}
-      <div className="bg-white rounded-none sm:rounded-2xl shadow-lg border border-gray-200 border-x-0 sm:border-x overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
         {/* Header with Search and Actions */}
         <div className="p-4 sm:p-6">
           {/* Top Row - Actions Only */}
@@ -1300,6 +1305,7 @@ export const PatientManagementView: React.FC = () => {
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                   title="List View"
+                  aria-label="List view"
                 >
                   <Icon icon="solar:list-bold-duotone" className="w-5 h-5" />
                 </button>
@@ -1311,6 +1317,7 @@ export const PatientManagementView: React.FC = () => {
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                   title="Grid View"
+                  aria-label="Grid view"
                 >
                   <Icon icon="solar:widget-2-bold-duotone" className="w-5 h-5" />
                 </button>
@@ -1331,9 +1338,21 @@ export const PatientManagementView: React.FC = () => {
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
                 title={`Send Message to ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''}`}
+                aria-label="Send an SMS or email to the selected patients, or to everyone in the list"
               >
                 <Icon icon="solar:letter-bold-duotone" className="w-5 h-5" />
               </button>
+
+              {/* Add to list: the ticked patients, or everyone shown when nobody is ticked (as Message) */}
+              <AddToListButton
+                practiceId={practiceId}
+                patientIds={(selectedPatients.length > 0
+                  ? filteredPatients.filter(p => selectedPatients.includes(p.id))
+                  : filteredPatients
+                ).map(p => p.id)}
+                scope={selectedPatients.length > 0 ? 'selected' : 'shown'}
+                onAdded={() => setSelectedPatients([])}
+              />
 
               {/* Export Buttons */}
               <button
@@ -1345,6 +1364,7 @@ export const PatientManagementView: React.FC = () => {
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 } ${isExporting || filteredPatients.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title={`Export ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''} to CSV`}
+                aria-label="Export patients to CSV"
               >
                 <Icon icon="solar:document-text-bold-duotone" className="w-5 h-5" />
               </button>
@@ -1353,40 +1373,27 @@ export const PatientManagementView: React.FC = () => {
                   setIsExporting(true);
                   try {
                     // Export to Excel logic here
-                    const targetPatients = selectedPatients.length > 0 
+                    const targetPatients = selectedPatients.length > 0
                       ? filteredPatients.filter(p => selectedPatients.includes(p.id))
                       : filteredPatients;
-                    
+                    if (targetPatients.length === 0) {
+                      toast.error('No patients to export. Clear the filters or select patients first.');
+                      return;
+                    }
+
                     const exportData = targetPatients.map(patient => ({
-                      'Patient ID': patient.patient_id || patient.id,
-                      'Name': `${patient.first_name} ${patient.last_name}`,
-                      'Date of Birth': patient.date_of_birth ? format(new Date(patient.date_of_birth), 'dd/MM/yyyy') : '',
-                      'Gender': patient.gender || '',
-                      'Phone': patient.cell_number || '',
-                      'Email': patient.email || '',
-                      'Medical Aid': patient.medical_aid_details?.[0]?.provider || 'None',
-                      'Medical Aid Number': patient.medical_aid_details?.[0]?.membership_number || '',
-                      'Blood Type': patient.blood_type || '',
-                      'Allergies': patient.allergies || '',
-                      'Chronic Conditions': patient.chronic_conditions || '',
-                      'Last Visit': patient.last_visit_date ? format(new Date(patient.last_visit_date), 'dd/MM/yyyy') : 'Never',
+                      ...patientExportRow(patient),
                       'Joined Date': patient.created_at ? format(new Date(patient.created_at), 'dd/MM/yyyy') : ''
                     }));
                     
-                    // Convert to Excel format (simplified CSV for now)
-                    const csv = [
-                      Object.keys(exportData[0]).join(','),
-                      ...exportData.map(row => Object.values(row).map(val => `"${val}"`).join(','))
-                    ].join('\n');
+                    // A real workbook: Excel refuses CSV text saved under an .xlsx name as corrupt.
+                    // Loaded on demand so the spreadsheet library isn't downloaded with the patient list
+                    const XLSX = await import('xlsx');
+                    const worksheet = XLSX.utils.json_to_sheet(exportData);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, 'Patients');
+                    XLSX.writeFile(workbook, `patients_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
 
-                    const blob = new Blob([csv], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `patients_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    
                     toast.success('Patients exported to Excel successfully');
                   } catch {
                     toast.error('Failed to export patients');
@@ -1401,9 +1408,21 @@ export const PatientManagementView: React.FC = () => {
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 } ${isExporting || filteredPatients.length === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title={`Export ${selectedPatients.length > 0 ? selectedPatients.length + ' Selected' : filteredPatients.length} Patient${(selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length) !== 1 ? 's' : ''} to Excel`}
+                aria-label="Export patients to Excel"
               >
                 <Icon icon="solar:file-bold-duotone" className="w-5 h-5" />
               </button>
+
+              {/* More: the duplicate finder, for administrators */}
+              {isAdministrator && (
+                <MoreMenu
+                  menuLabel="More patient actions"
+                  items={[
+                    { label: 'Possible duplicates', icon: 'solar:users-group-two-rounded-bold-duotone', onSelect: () => setShowDuplicates(true) },
+                    { label: 'Move to another fund', icon: 'solar:transfer-horizontal-bold-duotone', onSelect: () => setShowFundMove(true) }
+                  ]}
+                />
+              )}
 
               {/* Add Patient Button - Mobile optimized */}
               <button
@@ -1541,34 +1560,43 @@ export const PatientManagementView: React.FC = () => {
                 <Icon icon="solar:alt-arrow-down-bold-duotone" className="w-3 h-3" />
               </button>
 
-              {/* Clear All Filters */}
-              {(genderFilter || medicalAidFilter || statusFilter || branchFilter) && (
-                <button
-                  onClick={() => {
-                    setGenderFilter('');
-                    setMedicalAidFilter('');
-                    setStatusFilter('');
-                    setBranchFilter('');
-                  }}
-                  className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-all flex items-center gap-1"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
-                  Clear Filters
-                </button>
-              )}
+              {/* Clear All Filters: always rendered (hidden when unused) so the row never reflows */}
+              <button
+                onClick={() => {
+                  setGenderFilter('');
+                  setMedicalAidFilter('');
+                  setStatusFilter('');
+                  setBranchFilter('');
+                }}
+                aria-hidden={!hasActiveFilters}
+                tabIndex={hasActiveFilters ? 0 : -1}
+                className={`px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-opacity flex items-center gap-1 ${
+                  hasActiveFilters ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
+                Clear Filters
+              </button>
 
               {/* Results Count */}
               <div className="ml-auto flex items-center gap-4 text-sm">
-                <div className="text-gray-500">
+                {loading ? (
+                  <div className="text-gray-500 flex items-center gap-1.5" role="status" aria-live="polite">
+                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 text-cyan-600 animate-spin" />
+                    Loading patients...
+                  </div>
+                ) : (
+                <div className="text-gray-500 tabular-nums">
                   <span className="font-semibold text-gray-900">
                     {selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length}
-                  </span> {selectedPatients.length > 0 ? 'selected' : 'results'}
+                  </span> {selectedPatients.length > 0 ? 'selected' : (filteredPatients.length === 1 ? 'result' : 'results')}
                   {selectedPatients.length > 0 && (
                     <span className="text-xs text-purple-600 ml-1">
                       (from {filteredPatients.length} total)
                     </span>
                   )}
                 </div>
+                )}
               </div>
             </div>
 
@@ -1604,7 +1632,8 @@ export const PatientManagementView: React.FC = () => {
                           searchPatients(aiSearchQuery);
                         }
                       }}
-                      placeholder={showAiSearch ? "Describe patients in natural language..." : "Search by name or medical aid number..."}
+                      placeholder={showAiSearch ? "Describe patients in natural language..." : "Search by name, ID, cell, reference, old file or medical aid number..."}
+                      aria-label={showAiSearch ? 'Describe the patients to find' : 'Search patients'}
                       className="relative w-full pl-12 pr-4 py-3.5 bg-transparent text-base text-gray-800 placeholder-gray-600 focus:outline-none focus:placeholder-gray-500 transition-colors duration-300"
                       disabled={isAiSearching}
                     />
@@ -1637,6 +1666,7 @@ export const PatientManagementView: React.FC = () => {
                   }}
                   className={`relative group ${showAiSearch ? 'ring-2 ring-purple-500 rounded-xl' : ''}`}
                   title={showAiSearch ? "Switch to regular search" : "Enable AI search"}
+                  aria-label={showAiSearch ? "Switch to regular search" : "Enable AI search"}
                 >
                   <div className="absolute -inset-0.5 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl opacity-0 group-hover:opacity-75 blur transition duration-500"></div>
                   <div className={`relative px-4 py-3.5 rounded-xl transition-all ${
@@ -1690,6 +1720,7 @@ export const PatientManagementView: React.FC = () => {
                                 }}
                                 className="text-purple-600 hover:text-purple-700 transition-colors"
                                 title="Clear search"
+                                aria-label="Clear AI search"
                               >
                                 <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                               </button>
@@ -1735,7 +1766,7 @@ export const PatientManagementView: React.FC = () => {
                                   {aiFilteredPatients.length} result{aiFilteredPatients.length !== 1 ? 's' : ''}
                                 </div>
                                 <div className="px-2 py-1 bg-indigo-100 text-indigo-700 rounded-md text-xs font-medium">
-                                  <Icon icon="solar:search-minimalistic-bold-duotone" className="w-3 h-3 inline mr-1" />
+                                  <Icon icon="solar:magnifer-bold-duotone" className="w-3 h-3 inline mr-1" />
                                   AI-powered search
                                 </div>
                                 <div className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-xs font-medium">
@@ -1791,21 +1822,65 @@ export const PatientManagementView: React.FC = () => {
           </div>
         </div>
         
-        {/* Content with divider */}
+        {/* Content with divider. At least one screen tall, so a filter that shortens the list can't
+            shrink the page under the user's scroll position and make the header jump. */}
         <div className="border-t border-gray-200">
-          <div className="p-6">
+          <div className="p-4 sm:p-6 min-h-screen">
           {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 text-cyan-600 animate-spin" />
+              <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading patients">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-4 p-3 rounded-xl border border-gray-100 animate-pulse">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 bg-gray-200 rounded w-1/3" />
+                      <div className="h-3 bg-gray-100 rounded w-1/4" />
+                    </div>
+                    <div className="hidden md:block h-3 bg-gray-100 rounded w-24" />
+                    <div className="hidden md:block h-3 bg-gray-100 rounded w-20" />
+                  </div>
+                ))}
+                <span className="sr-only">Loading patients...</span>
+              </div>
+            ) : patientsError && patients.length === 0 ? (
+              // A failed load used to fall through to "No patients found - add your first patient".
+              // Only shown while nothing is loaded, so an already-loaded list is never hidden.
+              <div className="py-12 text-center" role="alert">
+                <Icon icon="solar:danger-triangle-bold-duotone" className="w-16 h-16 text-amber-500 mx-auto mb-4" aria-hidden="true" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Couldn't load patients</h3>
+                <p className="text-gray-500 mb-6">Check your connection and try again.</p>
+                <button
+                  type="button"
+                  onClick={() => void fetchPatientsWithVisits()}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-600 hover:shadow-lg transition-all"
+                >
+                  <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5" aria-hidden="true" />
+                  Try again
+                </button>
               </div>
             ) : filteredPatients.length === 0 ? (
               <div className="py-12 text-center">
                 <Icon icon="solar:user-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No patients found</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {searchQuery || hasActiveFilters ? 'No patients match' : 'No patients found'}
+                </h3>
                 <p className="text-gray-500 mb-6">
-                  {searchQuery ? 'Try adjusting your search or filters' : 'Get started by adding your first patient'}
+                  {searchQuery || hasActiveFilters ? 'Try adjusting your search or filters' : 'Get started by adding your first patient'}
                 </p>
-                {!searchQuery && (
+                {hasActiveFilters && (
+                  <button
+                    onClick={() => {
+                      setGenderFilter('');
+                      setMedicalAidFilter('');
+                      setStatusFilter('');
+                      setBranchFilter('');
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                  >
+                    <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
+                    Clear filters
+                  </button>
+                )}
+                {!searchQuery && !hasActiveFilters && (
                   <button
                     onClick={() => setIsAddModalOpen(true)}
                     className="inline-flex items-center justify-center rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 hover:shadow-lg hover:shadow-purple-500/20 hover:scale-[1.02] px-4 py-2 animate-scale-in bg-gradient-to-r from-purple-500 to-indigo-600 text-white mx-auto"
@@ -1822,21 +1897,23 @@ export const PatientManagementView: React.FC = () => {
                 </AnimatePresence>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl">
-                <div className="overflow-x-auto">
+              // One scroll container (rounded corners clip to it): on narrower desktops the table scrolls
+              // sideways instead of having its last columns cut off
+              <div className="overflow-x-auto rounded-xl">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-6 py-3 text-left rounded-tl-xl">
+                        <th className="px-4 py-3 text-left rounded-tl-xl">
                           <input
                             type="checkbox"
                             checked={isAllSelected}
+                            aria-label="Select every patient in the list"
                             onChange={selectAllPatients}
                             className="w-5 h-5 text-purple-600 bg-white border-gray-300 rounded focus:ring-purple-500"
                           />
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                           onClick={() => handleSort('name')}
                         >
                           <div className="flex items-center gap-1">
@@ -1845,7 +1922,7 @@ export const PatientManagementView: React.FC = () => {
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                           onClick={() => handleSort('age')}
                         >
                           <div className="flex items-center gap-1">
@@ -1853,14 +1930,14 @@ export const PatientManagementView: React.FC = () => {
                             <Icon icon="solar:sort-bold-duotone" className="w-4 h-4" />
                           </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contact
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Medical Aid
                         </th>
-                        <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                        <th
+                          className="hidden 2xl:table-cell px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                           onClick={() => handleSort('joined')}
                         >
                           <div className="flex items-center gap-1">
@@ -1869,7 +1946,7 @@ export const PatientManagementView: React.FC = () => {
                           </div>
                         </th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
+                          className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
                           onClick={() => handleSort('lastVisit')}
                         >
                           <div className="flex items-center gap-1">
@@ -1877,7 +1954,7 @@ export const PatientManagementView: React.FC = () => {
                             <Icon icon="solar:sort-bold-duotone" className="w-4 h-4" />
                           </div>
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-xl">
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider rounded-tr-xl">
                           Actions
                         </th>
                       </tr>
@@ -1888,12 +1965,11 @@ export const PatientManagementView: React.FC = () => {
                       </AnimatePresence>
                     </tbody>
                   </table>
-                </div>
               </div>
             )}
             
             {/* Pagination Controls */}
-            {filteredPatients.length > itemsPerPage && (
+            {!loading && filteredPatients.length > itemsPerPage && (
         <div className="mt-6 px-6 pb-6">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600">
@@ -1990,7 +2066,31 @@ export const PatientManagementView: React.FC = () => {
         title="Add New Patient"
         size="xl"
       >
-        <AddPatientForm onClose={() => setIsAddModalOpen(false)} />
+        <AddPatientForm
+          onCreated={(patient) => {
+            // Open the new patient's record so reception can book or check them in straight away
+            setSelectedPatientId(patient.id);
+            setDetailDefaultTab('overview');
+            setDetailVisitIdToEdit(null);
+            setIsPatientDetailOpen(true);
+          }}
+          onSuccess={() => {
+            // This used to pass an onClose prop the form never calls, so after a successful
+            // registration the form stayed open with no confirmation and the list didn't refresh
+            setIsAddModalOpen(false);
+            toast.success('Patient registered');
+            void fetchPatients();
+            if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
+          }}
+          onUseExisting={(patient) => {
+            // The duplicate check found the person's file: open it instead of registering them twice
+            setIsAddModalOpen(false);
+            setSelectedPatientId(patient.id);
+            setDetailDefaultTab('overview');
+            setDetailVisitIdToEdit(null);
+            setIsPatientDetailOpen(true);
+          }}
+        />
       </FormModal>
 
       <FormModal
@@ -2000,11 +2100,31 @@ export const PatientManagementView: React.FC = () => {
         size="xl"
       >
         {selectedPatient && (
-          <EditPatientForm 
-            patient={selectedPatient}
-            onClose={() => {
+          <EditPatientForm
+            patientId={selectedPatient.id}
+            initialData={{
+              first_name: selectedPatient.first_name,
+              last_name: selectedPatient.last_name,
+              email: selectedPatient.email,
+              cell_number: selectedPatient.cell_number,
+              date_of_birth: selectedPatient.date_of_birth,
+              gender: selectedPatient.gender,
+              marital_status: selectedPatient.marital_status || '',
+              occupation: selectedPatient.occupation || '',
+              employer: selectedPatient.employer || '',
+              home_language: selectedPatient.home_language || '',
+              home_address: selectedPatient.home_address || '',
+              postal_address: selectedPatient.postal_address || '',
+              postal_code: selectedPatient.postal_code || '',
+              // Read with the list: a change saved since then is shown before it could be overwritten
+              updated_at: selectedPatient.updated_at
+            }}
+            // Called after a save and by the form's Cancel button
+            onSuccess={() => {
               setIsEditModalOpen(false);
               setSelectedPatient(null);
+              void fetchPatients();
+              if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
             }}
           />
         )}
@@ -2014,11 +2134,44 @@ export const PatientManagementView: React.FC = () => {
       {selectedPatientId && isPatientDetailOpen && (
         <ComprehensivePatientModal
           isOpen={isPatientDetailOpen}
-          onClose={() => {
-            setIsPatientDetailOpen(false);
-            setSelectedPatientId(null);
-          }}
+          onClose={closePatientDetail}
           patientId={selectedPatientId}
+          defaultDetailTab={detailDefaultTab}
+          visitIdToEdit={detailVisitIdToEdit}
+          backAction={cameFromDashboard ? { label: 'Back to dashboard', onClick: () => navigate('/') } : undefined}
+          focusNoteId={deepLinkNoteId}
+        />
+      )}
+
+      {/* More > Possible duplicates (administrators) */}
+      {showDuplicates && (
+        <PossibleDuplicatesDialog
+          practiceId={practiceId}
+          onClose={() => setShowDuplicates(false)}
+          // A merge archives a file and an undo brings it back: the list reads the files again (not from the cache)
+          onFilesChanged={() => {
+            if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
+            else void fetchPatients();
+          }}
+          onOpenPatient={(patientId) => {
+            setShowDuplicates(false);
+            setSelectedPatientId(patientId);
+            setDetailDefaultTab('overview');
+            setDetailVisitIdToEdit(null);
+            setIsPatientDetailOpen(true);
+          }}
+        />
+      )}
+
+      {/* More > Move to another fund (administrators) */}
+      {showFundMove && (
+        <FundMoveDialog
+          practiceId={practiceId}
+          onClose={() => setShowFundMove(false)}
+          onPatientsChanged={() => {
+            if (fetchPatientsWithVisits) void fetchPatientsWithVisits();
+            else void fetchPatients();
+          }}
         />
       )}
 
@@ -2064,7 +2217,7 @@ export const PatientManagementView: React.FC = () => {
               <p className="text-sm text-gray-600">
                 <span className="font-semibold text-gray-900">
                   {selectedPatients.length > 0 ? selectedPatients.length : filteredPatients.length}
-                </span> patients selected
+                </span> {selectedPatients.length > 0 ? 'patients selected' : 'patients in the current list (none selected)'}
                 {selectedPatients.length > 0 && (
                   <span className="text-xs text-purple-600 ml-2">
                     (from {filteredPatients.length} total)
@@ -2163,7 +2316,7 @@ export const PatientManagementView: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-600">
-                {branchPatientCounts['main'] || 0}
+                {allPatientsCount}
               </span>
               {!branchFilter && (
                 <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-purple-600" />
@@ -2192,7 +2345,7 @@ export const PatientManagementView: React.FC = () => {
             </div>
             <div className="flex items-center gap-3">
               <span className="text-sm font-medium text-gray-600">
-                {branchPatientCounts['main'] || 0}
+                {branchPatientCounts.main || 0}
               </span>
               {branchFilter === 'main' && (
                 <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-purple-600" />
@@ -2215,7 +2368,7 @@ export const PatientManagementView: React.FC = () => {
               }`}
             >
               <div className="flex items-center gap-3">
-                <Icon icon="solar:building-bold-duotone" className="w-5 h-5" />
+                <Icon icon="solar:buildings-2-bold-duotone" className="w-5 h-5" />
                 <div>
                   <span className="font-medium">{branch.name}</span>
                   <span className="text-xs text-gray-500 block">Branch location</span>

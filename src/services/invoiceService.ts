@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import {
   ServiceSelection,
@@ -8,74 +9,107 @@ import {
   MedicalAidCoverage,
   PaymentRecord
 } from '../types/billing';
+import { verifyLineAmounts } from '../utils/billing/pricing';
+import { formatServiceDate, isValidDateKey, todayKey } from '../utils/billing/dates';
+import { formatNad, hasAtMostDecimals, toCents } from '../utils/billing/money';
+import { buildInvoiceLineRows, type InvoiceLineRow } from '../utils/billing/invoiceLineRow';
+import { billingRightsProblem, defaultTreatingPractitionerId } from '../utils/billing/invoiceRights';
+import { PROVISIONAL_NUMBER_ATTEMPTS, isInvoiceNumberClash, provisionalInvoiceNumber } from '../utils/billing/invoiceNumber';
+import { copayFor, shareOf } from '../utils/billing/lineSplit';
+import { loadPatientFundKey } from './fundPricingService';
+import { loadCopayRules } from './invoiceContextService';
+import { loadInvoicingSetup } from './invoicingSetup';
+
+const TARIFF_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Problems that would put a wrong price or date on an invoice, one message per problem, naming the code.
+ * Checked before anything is written: every line must come from the tariff list, a code that
+ * cannot be multiplied has quantity 1, total = unit price x quantity to the cent, a discount is a
+ * real amount no larger than the line, and a line's own service date is a real date, not in the future.
+ */
+export function findInvoiceLineProblems(services: ServiceSelection[], options: { today?: string } = {}): string[] {
+  if (services.length === 0) return ['There are no services to bill.'];
+  const today = options.today ?? todayKey();
+  return services.flatMap(service => {
+    const problems: string[] = [];
+    if (!TARIFF_ID_PATTERN.test(service.tariffId ?? '')) {
+      problems.push(`Code ${service.code} is not linked to a tariff in the tariff list, so its price cannot be verified.`);
+    }
+    if (service.canBeMultiplied === false && service.quantity !== 1) {
+      problems.push(`Code ${service.code} is billed once per line but has quantity ${service.quantity}.`);
+    }
+    // A line with its own limit (8109: one per clinical staff member, at most 3)
+    if (service.maxQuantity !== undefined && service.quantity > service.maxQuantity) {
+      problems.push(`Code ${service.code} allows at most ${service.maxQuantity} on one line but has quantity ${service.quantity}.`);
+    }
+    const amounts = verifyLineAmounts(service.unitPrice, service.quantity, service.totalPrice);
+    if (!amounts.ok) problems.push(`Code ${service.code}: ${amounts.message}.`);
+    const discount = service.discountAmount ?? 0;
+    if (discount !== 0) {
+      if (typeof discount !== 'number' || !Number.isFinite(discount) || discount < 0 || !hasAtMostDecimals(discount, 2)) {
+        problems.push(`Code ${service.code}: the discount must be an amount in N$ with at most 2 decimals.`);
+      } else if (amounts.ok && toCents(discount) > toCents(amounts.total)) {
+        problems.push(`Code ${service.code}: the discount ${formatNad(discount)} is more than the line (${formatNad(amounts.total)}).`);
+      }
+    }
+    // Funds refuse a claim dated in the future, and a wrong date would put the service on another day's account
+    if (service.serviceDate) {
+      if (!isValidDateKey(service.serviceDate)) problems.push(`Code ${service.code}: the service date "${service.serviceDate}" is not a valid date.`);
+      else if (service.serviceDate > today) problems.push(`Code ${service.code}: the service date ${formatServiceDate(service.serviceDate)} is in the future.`);
+    }
+    return problems;
+  });
+}
+
+/** Lines whose stored split differs from the one sent: the database applied its old "medical aid pays all" rule. */
+export function changedSplits(sent: readonly InvoiceLineRow[], stored: ReadonlyArray<{ code?: string | null; medical_aid_covered?: number | string | null; patient_portion?: number | string | null }>): string[] {
+  const cents = (value: number | string | null | undefined) => toCents(Number(value ?? 0) || 0);
+  const remaining = [...stored];
+  return sent.flatMap(row => {
+    const index = remaining.findIndex(item => item.code === row.code && cents(item.medical_aid_covered) + cents(item.patient_portion) === toCents(row.total_price));
+    const match = index >= 0 ? remaining.splice(index, 1)[0] : undefined;
+    if (!match) return [];
+    return cents(match.patient_portion) === toCents(row.patient_portion) ? [] : [row.code];
+  });
+}
+
+// issue_date/due_date are DATE columns in the practice's local calendar. toISOString() is UTC, so
+// invoices created between 00:00 and 02:00 in Namibia (UTC+2) were dated the previous day/month.
+const toLocalDateKey = (date: Date): string => format(date, 'yyyy-MM-dd');
 
 export class InvoiceService {
   /**
-   * Validate current user can create invoices (must be doctor)
+   * Who is raising the invoice: any active staff member with billing rights (administrator, doctor, nurse,
+   * receptionist; invoiceRights.ts). This is not the treating practitioner, who is recorded separately.
    */
-  private async validatePractitioner(): Promise<{ id: string; role: string; name: string }> {
-    console.log('👨‍⚕️ Validating practitioner permissions...');
-    
-    // Get current user from auth
+  private async validateBillingUser(): Promise<{ id: string; role: string; name: string; practiceId: string | null; isActive: boolean }> {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       throw new Error('Authentication required. Please log in to create invoices.');
     }
-    
-    console.log('🔍 Found authenticated user:', user.id, user.email);
-    
-    // First try to get user details from users table
-    let userData = null;
-    try {
-      const { data, error: userError } = await supabase
-        .from('users')
-        .select('id, role, full_name, email')
-        .eq('id', user.id)
-        .single();
-        
-      if (!userError && data) {
-        userData = data;
-        console.log('📋 Found user in users table:', userData);
-      }
-    } catch (err) {
-      console.log('⚠️ Users table not available or user not found, using auth metadata');
-    }
-    
-    // If no user data from users table, check auth metadata for role
-    let userRole = 'doctor'; // Default to doctor for admin users
-    let userName = user.email || 'Unknown User';
-    
-    if (userData) {
-      userRole = userData.role;
-      userName = userData.full_name || userData.email;
-    } else {
-      // Check auth metadata for role
-      const metadata = user.user_metadata || user.app_metadata || {};
-      userRole = metadata.role || 'doctor'; // Default for admin@onehealth.local
-      userName = metadata.full_name || metadata.name || user.email || 'Unknown User';
-      
-      // Special case for admin@onehealth.local - always allow
-      if (user.email === 'admin@onehealth.local') {
-        userRole = 'doctor';
-        userName = 'System Administrator';
-      }
-    }
-    
-    console.log('📋 Practitioner details:', { role: userRole, name: userName });
-    
-    // Check if user is a doctor
-    if (userRole !== 'doctor') {
-      const errorMsg = `Access denied: Only doctors can create invoices. Current role: ${userRole}`;
-      console.error('🚫', errorMsg);
-      throw new Error(errorMsg);
-    }
-    
-    console.log('✅ Practitioner validated:', userName, '(', userRole, ')');
-    
+
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('id, role, full_name, email, is_active, practice_id')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profileError) console.warn('Staff profile could not be read; using the sign-in role:', profileError.message);
+
+    // Without a staff profile the sign-in role is used, as before. user_metadata is editable by the user, so it can
+    // only ever be one of the clinical or front-desk roles (as in authStore), never admin
+    const metadataRole = String((user.user_metadata ?? {}).role ?? '').toLowerCase();
+    const role = profile?.role ?? (['doctor', 'nurse', 'receptionist'].includes(metadataRole) ? metadataRole : 'doctor');
+    const isActive = profile?.is_active !== false;
+    const problem = billingRightsProblem({ role, is_active: isActive });
+    if (problem) throw new Error(problem);
+
     return {
       id: user.id,
-      role: userRole,
-      name: userName
+      role,
+      name: profile?.full_name || profile?.email || user.email || 'Unknown user',
+      practiceId: profile?.practice_id ?? null,
+      isActive
     };
   }
 
@@ -89,23 +123,19 @@ export class InvoiceService {
     dueDate?: string;
     notes?: string;
     practiceId?: string;
+    /** The treating practitioner; the visit's practitioner when absent */
+    practitionerId?: string | null;
   }): Promise<any> {
-    console.log('🏭 InvoiceService.createInvoice starting...');
-    console.log('📋 Parameters:', params);
-    
     try {
-      // Validate practitioner before proceeding
-      const practitioner = await this.validatePractitioner();
-      console.log('✅ Practitioner validation passed:', practitioner.name);
-      
-      // Convert to the format expected by createInvoiceWithServices
+      // Convert to the format expected by createInvoiceWithServices (it checks who may raise invoices)
       const invoiceData = {
         patientId: params.patientId,
         visitId: params.visitId,
         practiceId: params.practiceId,
+        practitionerId: params.practitionerId ?? null,
         notes: params.notes
       };
-      
+
       return await this.createInvoiceWithServices(invoiceData, params.services);
     } catch (error) {
       console.error('💥 Error in createInvoice:', error);
@@ -147,6 +177,9 @@ export class InvoiceService {
         patientId: request.patientId,
         visitId: request.visitId,
         practiceId: request.practiceId,
+        medicalAidId: request.medicalAidId,
+        practitionerId: request.practitionerId ?? null,
+        billPatientOnly: request.billPatientOnly === true,
         notes: request.notes
       };
       console.log('📋 Invoice data:', invoiceData);
@@ -261,7 +294,7 @@ export class InvoiceService {
           patient_id: params.patientId,
           visit_id: params.visitId,
           practice_id: params.practiceId,
-          issue_date: new Date().toISOString().split('T')[0],
+          issue_date: toLocalDateKey(new Date()),
           due_date: this.calculateDueDate(),
           subtotal: params.calculation.subtotal,
           tax: params.calculation.tax,
@@ -290,7 +323,7 @@ export class InvoiceService {
             patient_id: params.patientId,
             visit_id: params.visitId,
             practice_id: params.practiceId,
-            issue_date: new Date().toISOString().split('T')[0],
+            issue_date: toLocalDateKey(new Date()),
             due_date: this.calculateDueDate(),
             subtotal: params.calculation.subtotal,
             tax: params.calculation.tax,
@@ -308,32 +341,14 @@ export class InvoiceService {
         data = result.data;
         error = result.error;
       } catch (fallbackError) {
-        console.warn('Standard invoices table not available, creating mock invoice:', fallbackError);
-        
-        // Create mock invoice for testing
-        data = {
-          id: crypto.randomUUID(),
-          invoice_number: params.invoiceNumber,
-          patient_id: params.patientId,
-          visit_id: params.visitId,
-          practice_id: params.practiceId,
-          issue_date: new Date().toISOString().split('T')[0],
-          due_date: this.calculateDueDate(),
-          subtotal: params.calculation.subtotal,
-          tax: params.calculation.tax,
-          total: params.calculation.total,
-          medical_aid_total: params.calculation.medicalAidTotal,
-          patient_total: params.calculation.patientTotal,
-          payment_status: 'pending',
-          notes: params.notes,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        error = null;
+        // Never return a made-up invoice: the visit would look billed while nothing was saved
+        console.error('Invoice could not be saved:', fallbackError);
+        throw new Error(`Invoice not created: ${fallbackError instanceof Error ? fallbackError.message : 'the connection to the database failed'}`);
       }
     }
 
     if (error) throw error;
+    if (!data) throw new Error('Invoice not created: the database did not return the new invoice');
 
     return {
       id: data.id,
@@ -437,256 +452,166 @@ export class InvoiceService {
   }
 
   /**
-   * Create invoice with services using new table structure
+   * Creates the invoice and its lines.
+   * - Who raises it: any staff member with billing rights (validateBillingUser); the treating practitioner is
+   *   recorded on the invoice and its lines (the visit's practitioner unless another is chosen).
+   * - Every line is checked and priced (buildInvoiceLineRow) BEFORE anything is written, so a refused line never
+   *   leaves an empty invoice behind.
+   * - The number: provisional (INV + yymm + 5 digits) until the database numbers invoices per practice in sequence
+   *   (proposals/2026-10-07-invoicing.sql); a provisional number that is already taken is retried, not a failure.
+   * - The fund/patient split follows the patient's medical aid record and the practice's co-payment for the fund.
    */
   private async createInvoiceWithServices(
-    invoiceData: any,
+    invoiceData: {
+      patientId: string;
+      visitId: string;
+      practiceId?: string | null;
+      medicalAidId?: string;
+      practitionerId?: string | null;
+      notes?: string;
+      /** A cash-only account, confirmed by staff: every line is the patient's, so nothing is claimed */
+      billPatientOnly?: boolean;
+    },
     services: ServiceSelection[]
   ): Promise<any> {
     try {
-      console.log('💾 Creating invoice record...');
-      console.log('📋 Invoice data:', invoiceData);
-      
-      // Validate practitioner before creating invoice
-      const practitioner = await this.validatePractitioner();
-      
-      // Generate invoice number using simple JavaScript (avoid database complexity)
-      console.log('🔢 Generating invoice number...');
-      const now = new Date();
-      const year = now.getFullYear().toString().slice(-2);
-      const month = (now.getMonth() + 1).toString().padStart(2, '0');
-      const timestamp = now.getTime().toString().slice(-5);
-      const invoiceNumber = `INV${year}${month}${timestamp}`;
-      console.log('📄 Generated invoice number:', invoiceNumber);
-      
-      // Create the invoice with explicit invoice_number (simplified)
-      const invoiceInsert: any = {
-        invoice_number: invoiceNumber,
+      const raiser = await this.validateBillingUser();
+
+      // Check every line before anything is written, so a wrong price never reaches an invoice
+      // (a rejected request also no longer leaves an empty invoice behind)
+      const lineProblems = findInvoiceLineProblems(services);
+      if (lineProblems.length > 0) {
+        throw new Error(`Invoice not created. ${lineProblems.join(' ')}`);
+      }
+
+      const [setup, visitResult, fundLoad] = await Promise.all([
+        loadInvoicingSetup(),
+        supabase.from('visits').select('id, visit_date, doctor_id, practice_id').eq('id', invoiceData.visitId).maybeSingle(),
+        loadPatientFundKey({ patientId: invoiceData.patientId })
+      ]);
+      if (visitResult.error) console.warn('The visit could not be read; the invoice is dated today:', visitResult.error.message);
+      const visit = visitResult.data;
+      const practiceId = invoiceData.practiceId || visit?.practice_id || raiser.practiceId || null;
+      const practitionerId =
+        invoiceData.practitionerId ??
+        defaultTreatingPractitionerId({ visitPractitionerId: visit?.doctor_id, raiser: { id: raiser.id, role: raiser.role, is_active: raiser.isActive } });
+
+      // Medical aid or private is decided by the patient's medical aid record. Some screens flag every line as
+      // medical aid, which left private patients with nothing to pay; the screen's flags are only used when the
+      // record cannot be read.
+      const frontendSaysMedicalAid = services.some(service => service.medicalAidCovered === true);
+      // A cash-only account (account_flags, confirmed on the visit's Billing tab) is billed as private: nothing claimed
+      const hasMedicalAid = invoiceData.billPatientOnly ? false : invoiceData.medicalAidId ? true : fundLoad.hasMedicalAid ?? frontendSaysMedicalAid;
+      if (fundLoad.hasMedicalAid === null) console.warn('Medical aid lookup failed; using the billing screen flags:', fundLoad.error);
+      const copay = hasMedicalAid ? await loadCopayRules(practiceId) : { rules: [], error: null };
+      if (copay.error) console.warn('Co-payment rules could not be read; the fund is billed the whole line:', copay.error);
+      // The fund's co-payment (a percentage or a fixed amount per line) and its levy (once per invoice)
+      const share = shareOf(hasMedicalAid ? copayFor(copay.rules, fundLoad.fund) : null);
+
+      // Priced and checked before the invoice exists (the invoice id is filled in after the insert)
+      const lineContext = {
+        hasMedicalAid,
+        ...share,
+        lineDetails: setup.lineDetails,
+        // Each line's ICD-10 codes and a changed fee, once the database stores them
+        lineCodes: setup.lineCodes,
+        // Who pays a line when one side pays all of it, and its authorisation number (line-portions update)
+        linePortions: setup.linePortions,
+        // The surfaces of a line's one tooth and the quadrant (dental; line-teeth update)
+        lineTeeth: setup.lineTeeth,
+        // A line's own referral, its assistant and anaesthetist (referrals update)
+        linePeople: setup.linePeople,
+        // The promotion a line's discount came from and the prepaid package it was paid from (billing extras update)
+        lineExtras: setup.lineExtras,
+        defaultServiceDate: visit?.visit_date ?? toLocalDateKey(new Date()),
+        defaultPractitionerId: practitionerId
+      };
+      // All lines at once, so the levy is charged once per invoice
+      const draftRows = buildInvoiceLineRows(services, { ...lineContext, invoiceId: '' });
+
+      const invoiceInsert: Record<string, unknown> = {
         patient_id: invoiceData.patientId,
         visit_id: invoiceData.visitId,
-        practitioner_id: practitioner.id, // Link to the doctor creating the invoice
+        // The treating practitioner (productivity and the claim); who raised it is created_by
+        practitioner_id: practitionerId,
         due_date: this.calculateDueDate(),
         notes: invoiceData.notes,
-        issue_date: new Date().toISOString().split('T')[0],
+        issue_date: toLocalDateKey(new Date()),
         payment_status: 'pending'
       };
-      
-      console.log('👨‍⚕️ Invoice will be created by:', practitioner.name, '(', practitioner.role, ')');
-      
-      // Only add practice_id if it exists
-      if (invoiceData.practiceId) {
-        invoiceInsert.practice_id = invoiceData.practiceId;
-      }
-      
-      console.log('📋 Final invoice insert data:', invoiceInsert);
-      
-      let invoice, invoiceError;
-      
-      try {
-        const result = await supabase
+      if (practiceId) invoiceInsert.practice_id = practiceId;
+      if (setup.createdBy) invoiceInsert.created_by = raiser.id;
+
+      type CreatedInvoice = { id: string; invoice_number: string; [key: string]: unknown };
+      let invoice: CreatedInvoice | null = null;
+      for (let attempt = 0; attempt < PROVISIONAL_NUMBER_ATTEMPTS && !invoice; attempt += 1) {
+        const { data, error } = await supabase
           .from('invoices_enhanced')
-          .insert([invoiceInsert])
+          .insert([{ ...invoiceInsert, invoice_number: provisionalInvoiceNumber(new Date(), attempt) } as never])
           .select()
           .single();
-        
-        invoice = result.data;
-        invoiceError = result.error;
-      } catch (err) {
-        console.error('❌ Supabase insert failed, trying fallback:', err);
-        invoiceError = err;
-      }
-
-      if (invoiceError) {
-        console.error('❌ Invoice creation error:', invoiceError);
-        console.log('🔄 Attempting to create mock invoice for testing...');
-        
-        // Create a mock invoice for testing purposes
-        invoice = {
-          id: crypto.randomUUID(),
-          invoice_number: invoiceNumber,
-          patient_id: invoiceData.patientId,
-          visit_id: invoiceData.visitId,
-          practice_id: invoiceData.practiceId,
-          practitioner_id: practitioner.id,
-          issue_date: new Date().toISOString().split('T')[0],
-          due_date: this.calculateDueDate(),
-          payment_status: 'pending',
-          notes: invoiceData.notes,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-        
-        console.log('✅ Created mock invoice for testing:', invoice);
-      }
-
-      console.log('✅ Invoice created:', invoice);
-
-      // Then create invoice services
-      console.log('💼 Creating invoice services...');
-      console.log('🔍 Input services data:', services);
-      
-      // Validate and filter services with proper tariff IDs
-      const validServices = services.filter(service => {
-        const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(service.tariffId);
-        if (!isValidUuid) {
-          console.error(`❌ Invalid tariff ID for service ${service.code}: "${service.tariffId}" - not a valid UUID`);
-          return false;
+        if (error && isInvoiceNumberClash(error) && attempt < PROVISIONAL_NUMBER_ATTEMPTS - 1) continue;
+        if (error || !data) {
+          // Never continue with a made-up invoice: the visit would look billed while nothing was saved
+          throw new Error(`Invoice not created: ${error?.message || 'the database did not return the new invoice'}`);
         }
-        return true;
-      });
+        invoice = data as unknown as CreatedInvoice;
+      }
+      if (!invoice) throw new Error('Invoice not created: no free invoice number was found. Try again.');
 
-      console.log(`✅ Valid services: ${validServices.length} out of ${services.length}`);
-
-      if (validServices.length === 0) {
-        throw new Error('No valid services found. All services have invalid tariff IDs. Please ensure services are selected from the tariff database.');
+      // All lines were checked above; lines without a tariff are never dropped silently (the invoice would differ from the screen)
+      const invoiceId = invoice.id;
+      const invoiceServices = draftRows.map(row => ({ ...row, invoice_id: invoiceId }));
+      const { data: insertedServices, error: servicesError } = await supabase
+        .from('invoice_services')
+        .insert(invoiceServices as never)
+        .select('code, medical_aid_covered, patient_portion');
+      if (servicesError) {
+        throw new Error(`Invoice ${invoice.invoice_number} was created but its services could not be saved: ${servicesError.message}. Save the visit again to add them.`);
       }
 
-      // CRITICAL FIX: Trust the frontend's medical aid detection instead of re-querying
-      // The frontend already correctly detected medical aid status in the service selector
-      console.log('🔍 INVOICE SERVICE - STEP 3A: Determining medical aid status from frontend services');
-      
-      // Check if any service has medical aid coverage - this means patient has medical aid
-      const hasAnyMedicalAidCoverage = validServices.some(service => service.medicalAidCovered === true);
-      const hasMedicalAid = hasAnyMedicalAidCoverage;
-      
-      console.log('🔍 INVOICE SERVICE - STEP 3A: Frontend services with medical aid coverage:');
-      validServices.forEach((service, i) => {
-        console.log(`🔍 INVOICE SERVICE - STEP 3A: Service ${i+1} ${service.code}: medicalAidCovered=${service.medicalAidCovered}`);
-      });
-      
-      console.log('🔍 INVOICE SERVICE - STEP 3A: Medical aid status determined from frontend:', hasMedicalAid ? 'HAS MEDICAL AID' : 'NO MEDICAL AID');
-      
-      // Optional: Still do the database check for logging purposes, but don't use the result
-      try {
-        const { data: medicalAidData, error: medicalAidError } = await supabase
-          .from('medical_aid_details')
-          .select('id, provider, membership_number')
-          .eq('patient_id', invoiceData.patientId);
-        
-        console.log('🔍 INVOICE SERVICE - STEP 3A: Database check (for verification only):', { 
-          dbFoundMedicalAid: !!(medicalAidData && medicalAidData.length > 0),
-          frontendFoundMedicalAid: hasMedicalAid,
-          data: medicalAidData 
-        });
-        
-        if (medicalAidData && medicalAidData.length > 0 && !hasMedicalAid) {
-          console.warn('⚠️ MISMATCH: Database has medical aid but frontend didn\'t detect it');
-        } else if ((!medicalAidData || medicalAidData.length === 0) && hasMedicalAid) {
-          console.warn('⚠️ MISMATCH: Frontend detected medical aid but database query failed (likely RLS issue)');
-        }
-      } catch (err) {
-        console.log('⚠️ Database medical aid check failed (using frontend detection):', err.message);
+      // The database may still apply its old rule (the medical aid pays every line in full) until the invoicing
+      // update is applied: say so instead of showing a co-payment that was not kept
+      const warnings: string[] = [];
+      const overridden = changedSplits(invoiceServices, insertedServices ?? []);
+      if (overridden.length > 0) {
+        warnings.push(
+          `The co-payment on ${overridden.join(', ')} was not kept: the database still bills the whole line to the medical aid. ` +
+            'Apply the invoicing database update (proposals/2026-10-07-invoicing.sql) to bill co-payments.'
+        );
       }
 
-      console.log('🔍 INVOICE SERVICE - STEP 3: Preparing services for database insertion');
-      console.log('🔍 INVOICE SERVICE - STEP 3: Medical aid status determined as:', hasMedicalAid);
-      console.log('🔍 INVOICE SERVICE - STEP 3: Services received from frontend:');
-      validServices.forEach((service, i) => {
-        console.log(`🔍 INVOICE SERVICE - STEP 3: Service ${i+1}:`, {
-          code: service.code,
-          frontendMedicalAidCovered: service.medicalAidCovered,
-          frontendCoveragePercentage: service.coveragePercentage,
-          totalPrice: service.totalPrice
-        });
-      });
-
-      const invoiceServices = validServices.map(service => {
-        const mappedService = {
-          invoice_id: invoice.id,
-          tariff_id: service.tariffId,
-          code: service.code,
-          description: service.description,
-          quantity: service.quantity,
-          unit_price: service.unitPrice,
-          total_price: service.totalPrice,
-          medical_aid_covered: hasMedicalAid ? service.totalPrice : 0, // Medical aid covers 100% or nothing
-          patient_portion: hasMedicalAid ? 0 : service.totalPrice, // Patient pays nothing if medical aid covers it
-          notes: service.notes || '',
-          tooth_number: service.teethNumbers ? service.teethNumbers.join(',') : null // <<<< NEW: Store tooth numbers as comma-separated string
-        };
-
-        console.log('🔍 INVOICE SERVICE - STEP 3: Mapped service for database:', {
-          code: mappedService.code,
-          total_price: mappedService.total_price,
-          medical_aid_covered: mappedService.medical_aid_covered,
-          patient_portion: mappedService.patient_portion,
-          hasMedicalAidWhenMapping: hasMedicalAid
-        });
-
-        return mappedService;
-      });
-
-      console.log('📦 Valid services to insert:', invoiceServices);
-      
-      console.log('🔍 INVOICE SERVICE - STEP 4: About to insert services into database');
-      console.log('🔍 INVOICE SERVICE - STEP 4: Final services data being sent to Supabase:', JSON.stringify(invoiceServices, null, 2));
-
-      try {
-        const { data: insertedServices, error: servicesError } = await supabase
-          .from('invoice_services')
-          .insert(invoiceServices)
-          .select('*');
-
-        if (servicesError) {
-          console.error('❌ INVOICE SERVICE - STEP 4: Services creation error:', servicesError);
-          throw new Error(`Failed to create invoice services: ${servicesError.message}. Please check that all selected services have valid tariff codes.`);
-        } else {
-          console.log('✅ INVOICE SERVICE - STEP 4: Services created successfully');
-          console.log('🔍 INVOICE SERVICE - STEP 4: Services returned from database:');
-          insertedServices?.forEach((service, i) => {
-            console.log(`🔍 INVOICE SERVICE - STEP 4: Returned service ${i+1}:`, {
-              code: service.code,
-              total_price: service.total_price,
-              medical_aid_covered: service.medical_aid_covered,
-              patient_portion: service.patient_portion,
-              created_at: service.created_at
-            });
-
-            if (service.patient_portion > 0 && hasMedicalAid) {
-              console.error('🚨 PROBLEM DETECTED: Medical aid patient is being charged N$', service.patient_portion, 'for service', service.code);
-            } else if (service.patient_portion === 0 && hasMedicalAid) {
-              console.log('✅ CORRECT: Medical aid patient pays N$ 0.00 for service', service.code);
-            }
-          });
-        }
-      } catch (err) {
-        console.error('❌ INVOICE SERVICE - STEP 4: Services insert failed:', err);
-        throw new Error(`Failed to insert invoice services: ${err.message}`);
-      }
-
-      // Return the complete invoice with updated totals (calculated by triggers)
-      console.log('🔄 Fetching updated invoice...');
+      // The totals are worked out by the database from the lines
       const { data: updatedInvoice, error: fetchError } = await supabase
         .from('invoices_enhanced')
         .select('*')
-        .eq('id', invoice.id)
+        .eq('id', invoiceId)
         .single();
 
-      if (fetchError) {
-        console.error('❌ Fetch updated invoice error:', fetchError);
-        // Don't throw - return the original invoice if fetch fails
-        console.log('⚠️ Using original invoice data');
+      if (fetchError || !updatedInvoice) {
+        console.error('The new invoice could not be read back; showing the amounts of its lines:', fetchError);
+        const sum = (pick: (row: InvoiceLineRow) => number) => invoiceServices.reduce((total, row) => total + toCents(pick(row)), 0) / 100;
         return {
-          id: invoice.id,
-          invoiceNumber: invoice.invoice_number || `INV${Date.now()}`,
-          patientId: invoice.patient_id,
-          visitId: invoice.visit_id,
-          practiceId: invoice.practice_id,
+          id: invoiceId,
+          invoiceNumber: invoice.invoice_number,
+          patientId: invoiceData.patientId,
+          visitId: invoiceData.visitId,
+          practiceId,
           issueDate: invoice.issue_date,
           dueDate: invoice.due_date,
-          subtotal: services.reduce((sum, s) => sum + s.totalPrice, 0),
-          tax: services.reduce((sum, s) => sum + s.totalPrice, 0) * 0.15,
-          total: services.reduce((sum, s) => sum + s.totalPrice, 0) * 1.15,
+          subtotal: sum(row => row.total_price),
+          tax: 0,
+          total: sum(row => row.total_price),
           paymentStatus: invoice.payment_status,
-          medicalAidAmount: 0,
-          patientAmount: services.reduce((sum, s) => sum + s.totalPrice, 0) * 1.15,
+          medicalAidAmount: sum(row => row.medical_aid_covered),
+          patientAmount: sum(row => row.patient_portion),
           notes: invoice.notes,
           createdAt: invoice.created_at,
-          updatedAt: invoice.updated_at
+          updatedAt: invoice.updated_at,
+          practitionerId,
+          warnings
         };
       }
-
-      console.log('✅ Updated invoice fetched:', updatedInvoice);
 
       return {
         id: updatedInvoice.id,
@@ -704,48 +629,13 @@ export class InvoiceService {
         patientAmount: updatedInvoice.patient_total,
         notes: updatedInvoice.notes,
         createdAt: updatedInvoice.created_at,
-        updatedAt: updatedInvoice.updated_at
+        updatedAt: updatedInvoice.updated_at,
+        practitionerId,
+        warnings
       };
     } catch (error) {
-      console.error('💥 Error creating invoice with services:', error);
+      console.error('Error creating invoice with services:', error);
       throw error;
-    }
-  }
-
-  /**
-   * Generate unique invoice number
-   */
-  private async generateInvoiceNumber(practiceId: string): Promise<string> {
-    const year = new Date().getFullYear().toString().slice(-2);
-    const month = (new Date().getMonth() + 1).toString().padStart(2, '0');
-    
-    try {
-      // Get the last invoice number for this practice - FIXED: removed ambiguous column reference
-      const { data, error } = await supabase
-        .from('invoices_enhanced')
-        .select('invoice_number')
-        .eq('practice_id', practiceId)
-        .like('invoice_number', `INV${year}${month}%`)
-        .order('invoice_number', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.warn('Error fetching last invoice number:', error);
-        // Continue with default numbering if query fails
-      }
-
-      let nextNumber = 1;
-      if (data && data.length > 0) {
-        const lastNumber = data[0].invoice_number;
-        const numberPart = lastNumber.slice(-5); // Last 5 digits
-        nextNumber = parseInt(numberPart) + 1;
-      }
-
-      return `INV${year}${month}${nextNumber.toString().padStart(5, '0')}`;
-    } catch (error) {
-      console.warn('Invoice number generation failed, using timestamp:', error);
-      // Fallback to timestamp-based numbering
-      return `INV${year}${month}${Date.now().toString().slice(-5)}`;
     }
   }
 
@@ -755,7 +645,7 @@ export class InvoiceService {
   private calculateDueDate(paymentTermsDays: number = 30): string {
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + paymentTermsDays);
-    return dueDate.toISOString().split('T')[0];
+    return toLocalDateKey(dueDate);
   }
 
   /**
@@ -870,7 +760,7 @@ export class InvoiceService {
       medicalAidStatus: data.medical_aid_status,
       medicalAidAmount: data.medical_aid_total,
       patientAmount: data.patient_total,
-      notes: data.notes,
+      notes: data.notes ?? undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at
     };
@@ -960,7 +850,7 @@ export class InvoiceService {
       };
 
       if (invoices) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = toLocalDateKey(new Date());
         
         invoices.forEach(invoice => {
           stats.totalAmount += invoice.total || 0;

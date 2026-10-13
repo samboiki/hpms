@@ -1,4 +1,6 @@
 // Medical Aid Logo Mapping for Namibian Medical Aid Providers
+import { identifyFund } from './remittance/funds';
+
 export const medicalAidLogos: Record<string, string> = {
   // Database providers with available logos
   'Namibia Medical Care': '/images/medical-aids/nmc-logo.png',
@@ -87,3 +89,45 @@ export const commonMedicalAidSchemes: Record<string, string[]> = {
 export const getSchemesForProvider = (provider: string): string[] => {
   return commonMedicalAidSchemes[provider] || ['Standard', 'Comprehensive', 'Essential'];
 };
+
+/** A fund as medical_aid_providers holds it (name, short name, fund code, logo) */
+export interface FundLogoEntry {
+  name: string;
+  shortName: string | null;
+  reference: string | null;
+  logoUrl: string | null;
+}
+
+// Some stored logo links have a double slash after the bucket name
+const cleanLogoUrl = (url: string): string =>
+  url.trim().replace('/storage/v1/object/public/medical-aid-logos//', '/storage/v1/object/public/medical-aid-logos/');
+
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** The app's own image of a well-known fund: the name itself, or the name as a whole word ("Bonitas Medical Fund") */
+function bundledLogo(text: string): string | null {
+  const lower = text.toLowerCase();
+  const specific = Object.entries(medicalAidLogos).filter(([, logo]) => logo !== defaultMedicalAidLogo);
+  const hit = specific.find(([key]) => key.toLowerCase() === lower)
+    ?? specific.find(([key]) => key.length >= 3 && new RegExp(`(^|[^a-z0-9])${escapeRegExp(key.toLowerCase())}([^a-z0-9]|$)`).test(lower));
+  return hit ? hit[1] : null;
+}
+
+/**
+ * The logo of a medical aid as named on a patient file or in Finance ("NHP", "Namibia Health Plan (NHP)", "PSEMAS"),
+ * the same picture the Patients page shows: the fund's logo from medical_aid_providers, matched by fund code where the
+ * fund is known (MAG1 is PSEMAS: utils/remittance/funds.ts), else by name; else the app's own image of a well-known
+ * fund. Null when there is no real logo: the caller shows a plain shield, never a placeholder or another fund's logo.
+ */
+export function resolveMedicalAidLogo(name: string | null | undefined, funds: readonly FundLogoEntry[]): string | null {
+  const text = (name ?? '').trim();
+  if (text.length < 2) return null;
+  const lower = text.toLowerCase();
+  const withLogo = funds.filter(fund => fund.logoUrl?.trim());
+  const known = identifyFund(text);
+  const match = (known ? withLogo.find(fund => identifyFund(fund.reference, fund.shortName, fund.name) === known) : undefined)
+    ?? withLogo.find(fund => [fund.name, fund.shortName, fund.reference].some(value => value?.trim().toLowerCase() === lower));
+  if (match?.logoUrl) return cleanLogoUrl(match.logoUrl);
+  // A claim file's code ("NHPM") finds the app's own image through the fund's name
+  return bundledLogo(text) ?? (known ? bundledLogo(known.label) : null);
+}

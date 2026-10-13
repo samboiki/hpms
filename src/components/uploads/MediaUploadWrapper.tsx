@@ -16,6 +16,7 @@ import {
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { useAuthStore } from '../../stores/authStore';
+import { RECORDS_BUCKET, currentPracticeId, recordPath } from '../../services/recordFiles';
 
 interface MediaUploadWrapperProps {
   patientId: string;
@@ -51,7 +52,6 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
 }) => {
   const [showUploadOptions, setShowUploadOptions] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
@@ -175,7 +175,6 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
       }
       
       toast.error(errorMessage);
-      alert(errorMessage); // Also show alert in case toast isn't working
       setShowUploadOptions(true);
     } finally {
       setIsCameraLoading(false);
@@ -240,7 +239,9 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
   };
 
   // Upload files to storage
-  const uploadFilesToStorage = async () => {
+  // The category is passed in rather than read from state: state set in the same click
+  // isn't visible yet, which saved every upload as "other"
+  const uploadFilesToStorage = async (category: string) => {
     setIsUploading(true);
     
     try {
@@ -255,11 +256,12 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
         
         // Generate unique file name
         const fileExt = file.name.split('.').pop();
-        const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-        
+        // A patient record: the private bucket, in the practice's folder (no public link)
+        const fileName = recordPath(currentPracticeId(), 'patient-media', patientId, `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`);
+
         // Upload to storage
         const { data: storageData, error: storageError } = await supabase.storage
-          .from('documents')
+          .from(RECORDS_BUCKET)
           .upload(fileName, file, {
             cacheControl: '3600',
             upsert: false
@@ -273,7 +275,7 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
         console.log('✅ File uploaded to storage:', storageData);
 
         // Find the selected category to get the database category
-        const categoryInfo = MEDIA_CATEGORIES.find(cat => cat.value === selectedCategory);
+        const categoryInfo = MEDIA_CATEGORIES.find(cat => cat.value === category);
         const dbCategory = categoryInfo?.dbCategory || 'other';
         
         // Save to database
@@ -286,16 +288,16 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
           file_type: fileExt,
           mime_type: file.type,
           storage_path: fileName,
-          storage_bucket: 'documents',
+          storage_bucket: RECORDS_BUCKET,
           title: file.name,
           category: dbCategory, // Use the mapped database category
-          subcategory: selectedCategory, // Store the specific type as subcategory
+          subcategory: category, // Store the specific type as subcategory
           description: null,
           tags: null,
           metadata: {
             originalName: file.name,
             uploadedAt: new Date().toISOString(),
-            specificType: selectedCategory // Also store in metadata for reference
+            specificType: category // Also store in metadata for reference
           },
           is_sensitive: false,
           uploaded_by: session.user.id
@@ -312,7 +314,7 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
         if (dbError) {
           console.error('❌ Database insert error:', dbError);
           // Try to cleanup uploaded file
-          await supabase.storage.from('documents').remove([fileName]);
+          await supabase.storage.from(RECORDS_BUCKET).remove([fileName]);
           throw new Error(`Database insert failed: ${dbError.message}`);
         }
 
@@ -334,7 +336,6 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
       
       // Reset state
       setPendingFiles([]);
-      setSelectedCategory('');
       setShowCategoryModal(false);
       
     } catch (error) {
@@ -348,12 +349,23 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
   // Process upload with category
   const handleCategorySelect = async (category: string) => {
     console.log('📂 Category selected:', category);
-    setSelectedCategory(category);
     setShowCategoryModal(false);
-    
+
     // Start upload
-    await uploadFilesToStorage();
+    await uploadFilesToStorage(category);
   };
+
+  // The Add Visit screen passes an empty visitId until the visit is saved; saving a file with
+  // visit_id "" is rejected by the database, so say what to do instead of failing after the upload
+  if (visitId === '') {
+    return (
+      <div className="border-2 border-dashed border-gray-200 rounded-lg p-8 text-center bg-gray-50">
+        <Upload className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <p className="text-gray-600 font-medium">Save the visit first</p>
+        <p className="text-sm text-gray-500 mt-1">Then open it again to add photos and documents.</p>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -395,8 +407,11 @@ const MediaUploadWrapper: React.FC<MediaUploadWrapperProps> = ({
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-gray-800">Choose Upload Method</h2>
                   <button
+                    type="button"
                     onClick={() => setShowUploadOptions(false)}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Close"
+                    title="Close"
                   >
                     <X className="w-5 h-5 text-gray-500" />
                   </button>

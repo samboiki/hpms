@@ -3,6 +3,8 @@ import { useDropzone } from 'react-dropzone';
 import { Upload, Loader2, Wand2 } from 'lucide-react';
 import Button from '../ui/Button';
 import { supabase } from '../../lib/supabase';
+import { RECORDS_BUCKET, currentPracticeId, recordLink, recordPath } from '../../services/recordFiles';
+import { geminiExtractLabResults, isGeminiConfigured } from '../../lib/geminiClient';
 
 interface LabResultUploadProps {
   onUpload: (data: {
@@ -26,13 +28,13 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
       setIsProcessing(true);
       setError(null);
 
-      // First upload the file to get a URL
+      // First store the report: a patient record, so the private bucket, in the practice's folder
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random().toString(36).substring(2)}${Date.now()}.${fileExt}`;
-      const filePath = `lab-results/${fileName}`;
+      const filePath = recordPath(currentPracticeId(), 'lab-results', fileName);
 
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media')
+      const { error: uploadError } = await supabase.storage
+        .from(RECORDS_BUCKET)
         .upload(filePath, file);
 
       if (uploadError) {
@@ -40,31 +42,48 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
         throw new Error('Failed to upload image');
       }
 
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
+      // Path A — Gemini Flash (PDF + image native support, free tier)
+      // Path B — legacy Supabase Edge Function (requires OPENAI_API_KEY secret)
+      let result: any;
+      if (isGeminiConfigured()) {
+        console.log('✨ Extracting with Gemini 1.5 Flash');
+        const gem = await geminiExtractLabResults({
+          fileBlob: file,
+          mimeType: file.type,
+        });
+        // Map Gemini's testValue/testUnit shape to this component's value/unit shape
+        result = {
+          results: gem.results.map(r => ({
+            testName: r.testName,
+            value: r.testValue,
+            unit: r.testUnit ?? '',
+            referenceRange: r.referenceRange ?? '',
+            status: 'normal',
+          })),
+        };
+      } else {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
+          method: 'POST',
+          headers: {
+            // The signed-in user's token: extract-text only reads documents for active staff
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            // The reading service fetches the report through a link that works for a few minutes, made now
+            imageUrl: await recordLink(filePath),
+            fileType: file.type
+          })
+        });
 
-      // Call the edge function to process the image
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-text`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          imageUrl: publicUrl,
-          fileType: file.type
-        })
-      });
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('Processing error:', errorData);
+          throw new Error('Failed to process image');
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Processing error:', errorData);
-        throw new Error('Failed to process image');
+        result = await response.json();
       }
-
-      const result = await response.json();
 
       // Handle the response from the updated edge function
       if (result.results && Array.isArray(result.results) && result.results.length > 0) {
@@ -92,7 +111,7 @@ const LabResultUpload: React.FC<LabResultUploadProps> = ({ onUpload }) => {
         };
         onUpload(labData);
       }
-      setPreview(publicUrl);
+      // The preview stays the local copy shown on drop: the stored report has no public link
     } catch (err) {
       console.error('Error processing lab result:', err);
       // Provide default data even when processing fails

@@ -1,471 +1,275 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, DollarSign, Save, X } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { Card } from '../../components/ui/Card';
-import { Button } from '../../components/ui/Button';
-import { Badge } from '../../components/ui/Badge';
+import { isDentalPractice } from '../../utils/billing/tariffRules';
+import type { PaidBy } from '../../utils/billing/lineSplit';
+import type { OwnTariffRow } from '../../utils/billing/practiceTariffs';
+import {
+  loadFundContractRecords,
+  loadFundTariffRecords,
+  loadInfectionControlStaff,
+  loadPracticeTypeId,
+  type FundContractRecord,
+  type FundTariffRecord
+} from '../../services/fundPricingService';
+import { loadOwnTariffs, loadTariffPortions } from '../../services/practiceTariffService';
+import { loadInvoicingSetup } from '../../services/invoicingSetup';
+import { fundOptions, type FundOption, type PracticeTariffRecord } from '../../components/tariffs/tariffAdmin';
+import FundSchedulesPanel from '../../components/tariffs/FundSchedulesPanel';
+import ScheduleImportPanel from '../../components/tariffs/ScheduleImportPanel';
+import FundContractsPanel from '../../components/tariffs/FundContractsPanel';
+import PracticeTariffPanel from '../../components/tariffs/PracticeTariffPanel';
+import CopaymentPanel from '../../components/billing/CopaymentPanel';
+import PromotionsPackagesPanel from '../../components/billingExtras/PromotionsPackagesPanel';
 
-interface Tariff {
-  id: string;
-  practice_id: string;
-  service_name: string;
-  service_code: string;
-  category: string;
-  description: string;
-  base_price: number;
-  currency: string;
-  is_active: boolean;
-  medical_aid_pricing: Record<string, number>;
-  created_at: string;
-  updated_at: string;
+type Tab = 'funds' | 'import' | 'contracts' | 'tariff';
+
+interface PageData {
+  practiceName: string;
+  practiceType: string;
+  practiceTypeId: string | null;
+  /** The shared list of the practice type (practice_tariffs): fund prices and imports compare with it */
+  tariffRows: PracticeTariffRecord[];
+  /** The practice's own codes (practice_own_tariffs), merged over the shared list on the Practice tariff tab */
+  ownTariffs: { rows: OwnTariffRow[]; enabled: boolean };
+  /** Who pays new lines of each code; `editable` once invoice lines can keep it (line-portions update) */
+  portions: { map: Map<string, PaidBy>; editable: boolean };
+  fundRows: FundTariffRecord[];
+  fundsEnabled: boolean;
+  contracts: FundContractRecord[];
+  funds: FundOption[];
+  infectionControlStaff: number;
 }
 
-interface TariffFormData {
-  service_name: string;
-  service_code: string;
-  category: string;
-  description: string;
-  base_price: number;
-  is_active: boolean;
-  medical_aid_pricing: Record<string, number>;
-}
+type Load = { status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; data: PageData };
 
+const TARIFF_COLUMNS =
+  'id, code, description, price, unit, is_active, effective_from, effective_to, can_be_multiplied, requires_tooth_number, business_rule_formula, example_calculation, notes';
+
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: 'funds', label: 'Fund prices', icon: 'solar:tag-price-bold-duotone' },
+  { key: 'import', label: 'Import a schedule', icon: 'solar:upload-bold-duotone' },
+  { key: 'contracts', label: 'Contracts and co-payments', icon: 'solar:diploma-verified-bold-duotone' },
+  { key: 'tariff', label: 'Practice tariff', icon: 'solar:list-bold-duotone' }
+];
+
+const isTab = (value: string | null): value is Tab => TABS.some(item => item.key === value);
+
+/**
+ * Tariffs: the practice tariff of the practice type (NAMAF benchmark) with the practice's own codes and prices, the
+ * funds' own prices (for example PSEMAS), contracts priced as a percentage of a schedule, co-payments and levies, and
+ * imports of schedule files. Billing uses these through fundPricing.ts: a medical aid patient is billed the fund's
+ * price where it has one, everyone else the practice tariff (the practice's own price where it has one).
+ * Other screens link straight to a tab with ?tab= (the visit's Billing tab opens the co-payments).
+ */
 const TariffManagement: React.FC = () => {
   const { user, selectedPracticeId } = useAuthStore();
-  const [tariffs, setTariffs] = useState<Tariff[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingTariff, setEditingTariff] = useState<Tariff | null>(null);
-  const [formData, setFormData] = useState<TariffFormData>({
-    service_name: '',
-    service_code: '',
-    category: 'Consultation',
-    description: '',
-    base_price: 0,
-    is_active: true,
-    medical_aid_pricing: {}
-  });
-
-  const practiceId = selectedPracticeId || user?.practice_id;
-
-  const categories = [
-    'Consultation',
-    'Laboratory',
-    'Radiology',
-    'Procedure',
-    'Medication',
-    'Other'
-  ];
-
-  const medicalAids = [
-    { name: 'PSEMAS', key: 'psemas' },
-    { name: 'NMC', key: 'nmc' },
-    { name: 'Old Mutual', key: 'old_mutual' },
-    { name: 'Bonitas', key: 'bonitas' },
-    { name: 'Discovery', key: 'discovery' }
-  ];
+  const practiceId = selectedPracticeId || user?.practice_id || null;
+  const isSuperAdmin = user?.is_super_admin === true;
+  const canEditPractice = isSuperAdmin || user?.role === 'admin';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const tab: Tab = isTab(requestedTab) ? requestedTab : 'funds';
+  const setTab = (next: Tab) =>
+    setSearchParams(
+      current => {
+        const params = new URLSearchParams(current);
+        params.set('tab', next);
+        return params;
+      },
+      { replace: true }
+    );
+  const [load, setLoad] = useState<Load>({ status: 'loading' });
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = useCallback(() => setReloadKey(key => key + 1), []);
 
   useEffect(() => {
-    if (practiceId) {
-      fetchTariffs();
+    if (!practiceId) {
+      setLoad({ status: 'error', message: 'No practice is selected. Choose a practice first.' });
+      return;
     }
-  }, [practiceId]);
-
-  const fetchTariffs = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('practice_tariffs')
-        .select('*')
-        .eq('practice_id', practiceId)
-        .order('category', { ascending: true })
-        .order('service_name', { ascending: true });
-
-      if (error) throw error;
-      setTariffs(data || []);
-    } catch (error) {
-      console.error('Error fetching tariffs:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveTariff = async () => {
-    try {
-      if (editingTariff) {
-        // Update existing tariff
-        const { error } = await supabase
-          .from('practice_tariffs')
-          .update({
-            ...formData,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', editingTariff.id);
-
-        if (error) throw error;
-      } else {
-        // Create new tariff
-        const { error } = await supabase
-          .from('practice_tariffs')
-          .insert({
-            ...formData,
-            practice_id: practiceId
-          });
-
-        if (error) throw error;
+    let cancelled = false;
+    const run = async () => {
+      const { data: practice, error: practiceError } = await supabase
+        .from('practices')
+        .select('id, name, practice_type')
+        .eq('id', practiceId)
+        .maybeSingle();
+      // The database's own wording goes to the console; staff get what to do
+      if (practiceError) {
+        console.error('Tariffs: reading the practice failed', practiceError);
+        throw new Error('Could not read the practice. Please refresh the page.');
       }
+      const practiceType = practice?.practice_type?.trim();
+      if (!practiceType) throw new Error('The practice type is not set, so its tariff list is unknown.');
+      const [practiceTypeId, tariffs, providers, fundLoad, contracts, infectionControlStaff, own, portions, setup] = await Promise.all([
+        loadPracticeTypeId(practiceType),
+        supabase.from('practice_tariffs_with_types').select(TARIFF_COLUMNS).eq('practice_type_name', practiceType),
+        supabase.from('medical_aid_providers').select('name, short_name, medical_aid_reference').order('name'),
+        loadFundTariffRecords(practiceType),
+        loadFundContractRecords(practiceId),
+        loadInfectionControlStaff(practiceId),
+        loadOwnTariffs(practiceId),
+        loadTariffPortions(practiceId),
+        loadInvoicingSetup()
+      ]);
+      if (tariffs.error || providers.error || portions.error) console.error('Tariffs: loading failed', tariffs.error ?? providers.error ?? portions.error);
+      if (tariffs.error) throw new Error('Could not load the tariff list. Please refresh the page.');
+      if (providers.error) throw new Error('Could not load the medical aid funds. Please refresh the page.');
+      if (portions.error) throw new Error('Could not read who pays each code. Please refresh the page.');
+      return {
+        practiceName: practice?.name ?? '',
+        practiceType,
+        practiceTypeId,
+        tariffRows: (tariffs.data ?? []) as PracticeTariffRecord[],
+        ownTariffs: own,
+        portions: { map: portions.portions, editable: setup.linePortions === true },
+        fundRows: fundLoad.rows,
+        fundsEnabled: fundLoad.enabled,
+        contracts,
+        funds: fundOptions(providers.data ?? [], fundLoad.rows),
+        infectionControlStaff
+      };
+    };
+    setLoad(current => (current.status === 'ready' ? current : { status: 'loading' }));
+    run()
+      .then(data => {
+        if (!cancelled) setLoad({ status: 'ready', data });
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) setLoad({ status: 'error', message: error instanceof Error ? error.message : 'The tariffs could not be loaded.' });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [practiceId, reloadKey]);
 
-      await fetchTariffs();
-      handleCloseModal();
-    } catch (error) {
-      console.error('Error saving tariff:', error);
-    }
-  };
-
-  const handleDeleteTariff = async (tariffId: string) => {
-    if (!confirm('Are you sure you want to delete this tariff?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('practice_tariffs')
-        .delete()
-        .eq('id', tariffId);
-
-      if (error) throw error;
-      await fetchTariffs();
-    } catch (error) {
-      console.error('Error deleting tariff:', error);
-    }
-  };
-
-  const handleCloseModal = () => {
-    setShowCreateModal(false);
-    setEditingTariff(null);
-    setFormData({
-      service_name: '',
-      service_code: '',
-      category: 'Consultation',
-      description: '',
-      base_price: 0,
-      is_active: true,
-      medical_aid_pricing: {}
-    });
-  };
-
-  const handleEditTariff = (tariff: Tariff) => {
-    setEditingTariff(tariff);
-    setFormData({
-      service_name: tariff.service_name,
-      service_code: tariff.service_code,
-      category: tariff.category,
-      description: tariff.description,
-      base_price: tariff.base_price,
-      is_active: tariff.is_active,
-      medical_aid_pricing: tariff.medical_aid_pricing || {}
-    });
-    setShowCreateModal(true);
-  };
-
-  const filteredTariffs = tariffs.filter(tariff => {
-    const matchesSearch = tariff.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tariff.service_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         tariff.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || tariff.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleMedicalAidPriceChange = (medicalAidKey: string, price: number) => {
-    setFormData(prev => ({
-      ...prev,
-      medical_aid_pricing: {
-        ...prev.medical_aid_pricing,
-        [medicalAidKey]: price
-      }
-    }));
-  };
+  const data = load.status === 'ready' ? load.data : null;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Tariff Management</h1>
-              <p className="text-gray-600 mt-1">Manage service pricing and medical aid tariffs</p>
-            </div>
-            <Button 
-              onClick={() => setShowCreateModal(true)}
-              className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Tariff
-            </Button>
-          </div>
+      <div className="border-b bg-white shadow-sm">
+        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold text-gray-900">Tariffs</h1>
+          <p className="mt-1 text-gray-600">
+            {data
+              ? `${data.practiceName ? `${data.practiceName}: ` : ''}the ${data.practiceType} practice tariff, the funds' own prices and contracts`
+              : 'The practice tariff, the funds\' own prices and contracts'}
+          </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters */}
-        <Card className="p-6 mb-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search tariffs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                />
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+        {load.status === 'loading' && (
+          <div className="flex items-center justify-center py-16" role="status">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[#01b9d4]" />
+            <span className="ml-3 text-gray-600">Loading the tariffs...</span>
+          </div>
+        )}
+
+        {load.status === 'error' && (
+          <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+            <Icon icon="solar:danger-triangle-bold-duotone" className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+            <div className="flex-1">{load.message}</div>
+            <button type="button" onClick={reload} className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-red-700 hover:bg-red-100">
+              Try again
+            </button>
+          </div>
+        )}
+
+        {data && (
+          <>
+            {!data.fundsEnabled && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800" role="status">
+                <Icon icon="solar:info-circle-bold-duotone" className="mt-0.5 h-5 w-5 flex-shrink-0" aria-hidden="true" />
+                <span>
+                  Fund prices are not switched on yet: the database change in proposals/2026-10-07-fund-tariffs.sql has not been applied. Until then every
+                  patient is billed the practice tariff, as before.
+                </span>
               </div>
-            </div>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+            )}
+
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Tariff sections">
+              {TABS.map(item => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === item.key}
+                  onClick={() => setTab(item.key)}
+                  className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                    tab === item.key ? 'bg-[#01b9d4] text-white shadow-sm' : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon icon={item.icon} className="h-4 w-4" aria-hidden="true" />
+                  {item.label}
+                </button>
               ))}
-            </select>
-          </div>
-        </Card>
+            </div>
 
-        {/* Tariffs Table */}
-        <Card className="overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Service
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Code
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Category
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Base Price
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#01b9d4] mx-auto"></div>
-                    </td>
-                  </tr>
-                ) : filteredTariffs.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
-                      No tariffs found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredTariffs.map((tariff) => (
-                    <tr key={tariff.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">{tariff.service_name}</div>
-                          <div className="text-sm text-gray-500">{tariff.description}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tariff.service_code}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className="bg-blue-100 text-blue-800">
-                          {tariff.category}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {tariff.currency} {tariff.base_price.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={tariff.is_active ? 
-                          'bg-green-100 text-green-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }>
-                          {tariff.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleEditTariff(tariff)}
-                            className="text-[#01b9d4] hover:text-[#0196be]"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTariff(tariff.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+            <div role="tabpanel" aria-label={TABS.find(item => item.key === tab)?.label}>
+              {tab === 'funds' && (
+                <FundSchedulesPanel
+                  practiceId={practiceId as string}
+                  practiceType={data.practiceType}
+                  isSuperAdmin={isSuperAdmin}
+                  canEditPractice={canEditPractice}
+                  funds={data.funds}
+                  tariffRows={data.tariffRows}
+                  fundRows={data.fundRows}
+                  contracts={data.contracts}
+                  onChanged={reload}
+                />
+              )}
+              {tab === 'import' && (
+                <ScheduleImportPanel
+                  practiceId={practiceId as string}
+                  practiceType={data.practiceType}
+                  practiceTypeId={data.practiceTypeId}
+                  isSuperAdmin={isSuperAdmin}
+                  canEditPractice={canEditPractice}
+                  fundsEnabled={data.fundsEnabled}
+                  funds={data.funds}
+                  tariffRows={data.tariffRows}
+                  fundRows={data.fundRows}
+                  onImported={reload}
+                />
+              )}
+              {tab === 'contracts' && (
+                <div className="space-y-6">
+                  <FundContractsPanel
+                    practiceId={practiceId as string}
+                    practiceType={data.practiceType}
+                    dental={isDentalPractice(data.practiceType)}
+                    canEditPractice={canEditPractice}
+                    fundsEnabled={data.fundsEnabled}
+                    funds={data.funds}
+                    contracts={data.contracts}
+                    infectionControlStaff={data.infectionControlStaff}
+                    onChanged={reload}
+                  />
+                  <CopaymentPanel practiceId={practiceId as string} canEdit={canEditPractice} funds={data.funds} />
+                  {/* Promotions and prepaid packages (parity D18, D17) */}
+                  <PromotionsPackagesPanel practiceId={practiceId as string} canEdit={canEditPractice} />
+                </div>
+              )}
+              {tab === 'tariff' && (
+                <PracticeTariffPanel
+                  practiceType={data.practiceType}
+                  tariffRows={data.tariffRows}
+                  practiceId={practiceId as string}
+                  canEdit={canEditPractice}
+                  ownTariffs={data.ownTariffs}
+                  portions={data.portions}
+                  onChanged={reload}
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
-
-      {/* Create/Edit Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {editingTariff ? 'Edit Tariff' : 'Create New Tariff'}
-              </h2>
-              <button onClick={handleCloseModal} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
-              <div className="space-y-6">
-                {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Service Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.service_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, service_name: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Service Code *
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.service_code}
-                      onChange={(e) => setFormData(prev => ({ ...prev, service_code: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category *
-                    </label>
-                    <select
-                      value={formData.category}
-                      onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                    >
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Base Price (NAD) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.base_price}
-                      onChange={(e) => setFormData(prev => ({ ...prev, base_price: parseFloat(e.target.value) || 0 }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    rows={3}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                  />
-                </div>
-
-                {/* Medical Aid Pricing */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Medical Aid Pricing</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {medicalAids.map(aid => (
-                      <div key={aid.key}>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {aid.name} (NAD)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={formData.medical_aid_pricing[aid.key] || ''}
-                          onChange={(e) => handleMedicalAidPriceChange(aid.key, parseFloat(e.target.value) || 0)}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#01b9d4] focus:border-transparent"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    id="is_active"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                    className="h-4 w-4 text-[#01b9d4] focus:ring-[#01b9d4] border-gray-300 rounded"
-                  />
-                  <label htmlFor="is_active" className="ml-2 block text-sm text-gray-700">
-                    Active tariff
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
-              <Button variant="outline" onClick={handleCloseModal}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSaveTariff}
-                className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {editingTariff ? 'Update' : 'Create'} Tariff
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { X, Calendar, Clock, User, Phone, Mail, FileText, Check, XCircle, Edit2,
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 interface AppointmentActionModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export default function AppointmentActionModal({
       onClose();
     } catch (error) {
       console.error('Error updating appointment:', error);
-      alert('Failed to update appointment status');
+      toast.error('Failed to update appointment status');
     } finally {
       setIsUpdating(false);
     }
@@ -72,17 +73,17 @@ export default function AppointmentActionModal({
       if (error) throw error;
       
       onUpdate();
-      alert('Notes updated successfully');
+      toast.success('Notes updated');
     } catch (error) {
       console.error('Error updating notes:', error);
-      alert('Failed to update notes');
+      toast.error('Failed to update notes');
     } finally {
       setIsUpdating(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this appointment?')) return;
+    if (!window.confirm('Delete this appointment? This cannot be undone.')) return;
     
     setIsUpdating(true);
     try {
@@ -95,9 +96,10 @@ export default function AppointmentActionModal({
       
       onUpdate();
       onClose();
+      toast.success('Appointment deleted');
     } catch (error) {
       console.error('Error deleting appointment:', error);
-      alert('Failed to delete appointment');
+      toast.error('Failed to delete appointment');
     } finally {
       setIsUpdating(false);
     }
@@ -146,6 +148,8 @@ export default function AppointmentActionModal({
                 <button
                   onClick={onClose}
                   className="text-white hover:bg-white/20 p-2 rounded-lg transition-colors"
+                  title="Close"
+                  aria-label="Close"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -192,7 +196,7 @@ export default function AppointmentActionModal({
                   <div>
                     <span className="text-gray-600">Date:</span>
                     <span className="ml-2 font-medium">
-                      {format(new Date(appointment.date), 'EEEE, MMMM d, yyyy')}
+                      {format(new Date(appointment.date), 'EEEE, d MMMM yyyy')}
                     </span>
                   </div>
                   <div>
@@ -280,7 +284,10 @@ export default function AppointmentActionModal({
                       </button>
                     )}
                     <button
-                      onClick={() => handleStatusChange('cancelled')}
+                      onClick={() => {
+                        if (!window.confirm('Cancel this appointment?')) return;
+                        handleStatusChange('cancelled');
+                      }}
                       disabled={isUpdating}
                       className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
@@ -309,7 +316,10 @@ export default function AppointmentActionModal({
                       </button>
                     )}
                     <button
-                      onClick={() => handleStatusChange('cancelled')}
+                      onClick={() => {
+                        if (!window.confirm('Cancel this visit? It is already in progress.')) return;
+                        handleStatusChange('cancelled');
+                      }}
                       disabled={isUpdating}
                       className="flex-1 px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >

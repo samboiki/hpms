@@ -145,7 +145,8 @@ const TimesheetPDFGeneratorOptimized: React.FC<TimesheetPDFGeneratorOptimizedPro
       
     } catch (error) {
       console.error('❌ PDF generation failed:', error);
-      toast.error(`Failed to generate PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // The reason is in the console; "Unknown error" or a library message tells staff nothing
+      toast.error('The timesheet PDF could not be made. Please try again.');
     } finally {
       onGenerating?.(false);
       setGenerating(false);
@@ -569,7 +570,7 @@ const TimesheetPDFGeneratorOptimized: React.FC<TimesheetPDFGeneratorOptimizedPro
               textAlign: 'center'
             }}
           >
-            Generated on {format(new Date(), 'MMM dd, yyyy HH:mm')}
+            Generated on {format(new Date(), 'd MMM yyyy HH:mm')}
             {practice.license_number && ` • License: ${practice.license_number}`}
             {practice.tax_number && ` • Tax No: ${practice.tax_number}`}
           </div>

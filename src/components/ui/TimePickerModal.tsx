@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon, { SolarIcons } from './Icon';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface TimePickerModalProps {
   isOpen: boolean;
@@ -17,6 +18,8 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({
   initialTime = '09:00',
   title = 'Select Time'
 }) => {
+  // Escape closes the time picker, as its X does
+  useEscapeToClose(isOpen, onClose);
   const [hours, setHours] = useState(9);
   const [minutes, setMinutes] = useState(0);
   const [period, setPeriod] = useState<'AM' | 'PM'>('AM');
@@ -72,7 +75,9 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900">{title}</h3>
               <button
+                type="button"
                 onClick={onClose}
+                aria-label="Close"
                 className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
               >
                 <Icon icon={SolarIcons.close} className="w-6 h-6 text-gray-500" />

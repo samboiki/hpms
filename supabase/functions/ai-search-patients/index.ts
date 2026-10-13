@@ -1,6 +1,7 @@
 /// <reference types="https://deno.land/x/types/index.d.ts" />
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { decideStaffAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,6 +56,12 @@ serve(async (req) => {
       );
     }
     
+    // Only signed-in, active staff may search: the schema lookups below run with the service role key and every
+    // search spends the OpenAI key. Patient app logins have no staff row and are refused.
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const access = decideStaffAccess(await loadCaller(supabase, req.headers.get('Authorization'), SUPABASE_SERVICE_ROLE_KEY));
+    if (!access.allowed) return deniedResponse(access, corsHeaders);
+
     // Parse request body
     const { query } = await req.json();
     console.log('Search query:', query);
@@ -71,9 +78,6 @@ serve(async (req) => {
         }
       );
     }
-    
-    // Create Supabase client
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     
     // Fetch database schema dynamically
     console.log('Fetching database schema...');

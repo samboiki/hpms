@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '@iconify/react';
 import { supabase } from '../../lib/supabase';
 import { usePractice } from '../../contexts/PracticeContext';
@@ -7,6 +7,10 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { toast } from 'react-hot-toast';
+import { formatNad } from '../../utils/billing/money';
+import type { VisitFocus } from '../../utils/encounters/encounterLinks';
+import { onePerVisit, paymentStatusText } from '../../utils/encounters/encounterRows';
+import { visitTypeName } from '../../utils/encounters/encounterAnalytics';
 
 interface EncounterRecord {
   visit_id: string;
@@ -41,20 +45,49 @@ interface EncounterRecord {
   pending_imaging_requests: number;
 }
 
-export const EncountersView: React.FC = () => {
+const ENCOUNTERS_PAGE_SIZE = 1000;
+
+// encounters_view is not in the generated database types, so the few query methods used here are described directly
+interface EncountersQuery extends PromiseLike<{ data: EncounterRecord[] | null; error: { message: string } | null }> {
+  eq(column: string, value: string): EncountersQuery;
+  in(column: string, values: readonly string[]): EncountersQuery;
+  is(column: string, value: null): EncountersQuery;
+  lte(column: string, value: string): EncountersQuery;
+  gte(column: string, value: string): EncountersQuery;
+  or(filters: string): EncountersQuery;
+  order(column: string, options: { ascending: boolean }): EncountersQuery;
+  range(from: number, to: number): EncountersQuery;
+}
+
+interface EncountersViewProps {
+  /** The visits a figure on Analytics opened: the list shows exactly these, with the way back */
+  focus?: VisitFocus | null;
+  onBackToAnalytics?: () => void;
+  /** Leaves the figure's visits for the whole list */
+  onShowAll?: () => void;
+}
+
+/** A figure's visits are read by id, this many a request (keeps the request address short) */
+const FOCUS_CHUNK = 100;
+
+export const EncountersView: React.FC<EncountersViewProps> = ({ focus = null, onBackToAnalytics, onShowAll }) => {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const { practiceId } = usePractice();
   const navigate = useNavigate();
   const [encounters, setEncounters] = useState<EncounterRecord[]>([]);
+  // How many view rows were read (the next page starts there; the list itself keeps one row per visit)
+  const rowsReadRef = useRef(0);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [branchFilter, setBranchFilter] = useState<string>('all');
   const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([]);
-  const [sortField, setSortField] = useState<keyof EncounterRecord>('sequential_number');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  // Newest visits first: the sequential number is a practice-wide counter that does not follow visit dates
+  const [sortField, setSortField] = useState<keyof EncounterRecord>('visit_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -63,32 +96,92 @@ export const EncountersView: React.FC = () => {
       fetchBranches();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [practiceId, statusFilter, branchFilter]);
+  }, [practiceId, statusFilter, branchFilter, focus]);
 
-  const fetchEncounters = async () => {
+  // Another figure's visits (or the whole list again) start on the first page
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [focus]);
+
+  // A figure's visits, read by id. The view repeats a visit that has two invoices or two medical aid rows, so each
+  // visit is listed once and the list matches the figure's number
+  const fetchFocusedEncounters = async (ids: readonly string[]): Promise<EncounterRecord[]> => {
+    const rows: EncounterRecord[] = [];
+    for (let start = 0; start < ids.length; start += FOCUS_CHUNK) {
+      let query = supabase.from('encounters_view' as never).select('*') as unknown as EncountersQuery;
+      if (practiceId) query = query.eq('practice_id', practiceId);
+      const { data, error } = await query.in('visit_id', ids.slice(start, start + FOCUS_CHUNK));
+      if (error) throw new Error(error.message);
+      rows.push(...(data ?? []));
+    }
+    return onePerVisit(rows);
+  };
+
+  // The server returns at most 1,000 rows per request, so the list loads the newest visits first and older ones on
+  // request. Status and branch are filtered by the server, so every filter reaches past the first 1,000 visits.
+  // All stops at today; upcoming bookings are under Scheduled, soonest first.
+  const fetchEncounters = async (append = false) => {
     try {
       setIsLoading(true);
-      setLoading(true);
-      
+      if (!append) setLoading(true);
+
+      if (focus) {
+        try {
+          setEncounters(await fetchFocusedEncounters(focus.visitIds));
+        } catch (focusError) {
+          console.error('Error fetching the visits of a figure:', focusError);
+          setEncounters([]);
+          toast.error('The visits could not be loaded. Please try again.');
+        }
+        setHasMore(false);
+        return;
+      }
+
+      const scheduledOnly = statusFilter === 'scheduled';
+      // Rows read so far (the list keeps one row per visit, so its length can be shorter)
+      const from = append ? rowsReadRef.current : 0;
       let query = supabase
-        .from('encounters_view')
-        .select('*')
-        .order('sequential_number', { ascending: true });
+        .from('encounters_view' as never)
+        .select('*') as unknown as EncountersQuery;
 
       if (practiceId) {
         query = query.eq('practice_id', practiceId);
       }
+      if (statusFilter !== 'all') {
+        query = query.eq('visit_status', statusFilter);
+      }
+      if (!scheduledOnly) {
+        query = query.lte('visit_date', format(new Date(), 'yyyy-MM-dd'));
+      } else {
+        // Coming up: from today, not yet in the waiting room (old bookings nobody marked stay under All)
+        query = query.gte('visit_date', format(new Date(), 'yyyy-MM-dd')).or('is_checked_in.is.null,is_checked_in.eq.false');
+      }
+      if (branchFilter === 'main') {
+        query = query.is('branch_id', null);
+      } else if (branchFilter !== 'all') {
+        query = query.eq('branch_id', branchFilter);
+      }
 
-      const { data, error } = await query;
+      const { data, error } = await query
+        .order('visit_date', { ascending: scheduledOnly })
+        .order('sequential_number', { ascending: scheduledOnly })
+        .range(from, from + ENCOUNTERS_PAGE_SIZE - 1);
 
       if (error) {
         console.error('Error fetching encounters:', error);
+        // An empty list read as "No encounters found": say the visits did not load
+        toast.error('The visits could not be loaded. Please try again.');
         return;
       }
 
-      setEncounters(data || []);
+      const page = data || [];
+      rowsReadRef.current = from + page.length;
+      // One row per visit: the view repeats a visit with two invoices or two medical aid rows
+      setEncounters(previous => onePerVisit(append ? [...previous, ...page] : page));
+      setHasMore(page.length === ENCOUNTERS_PAGE_SIZE);
     } catch (error) {
       console.error('Error:', error);
+      toast.error('The visits could not be loaded. Please try again.');
     } finally {
       setLoading(false);
       setIsLoading(false);
@@ -116,16 +209,18 @@ export const EncountersView: React.FC = () => {
   };
 
 
-  const getPaymentStatusBadge = (status: string | null) => {
+  const getPaymentStatusBadge = (status: string | null, hasInvoice: boolean) => {
+    const text = paymentStatusText(status, hasInvoice);
     switch (status) {
       case 'paid':
-        return { text: 'Paid', class: 'bg-green-100 text-green-700' };
+        return { text, class: 'bg-green-100 text-green-700' };
       case 'pending':
-        return { text: 'Pending', class: 'bg-yellow-100 text-yellow-700' };
+      case 'partial':
+        return { text, class: 'bg-yellow-100 text-yellow-700' };
       case 'overdue':
-        return { text: 'Overdue', class: 'bg-red-100 text-red-700' };
+        return { text, class: 'bg-red-100 text-red-700' };
       default:
-        return { text: 'N/A', class: 'bg-gray-100 text-gray-600' };
+        return { text, class: 'bg-gray-100 text-gray-600' };
     }
   };
 
@@ -153,24 +248,28 @@ export const EncountersView: React.FC = () => {
     // Apply search filter
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
+      // Any of these can be empty in the view (a crash before); the visit's own number in the list is searched too
+      const has = (value: unknown) => String(value ?? '').toLowerCase().includes(search);
       filtered = filtered.filter((encounter) =>
-        encounter.patient_name.toLowerCase().includes(search) ||
-        encounter.medical_aid_name.toLowerCase().includes(search) ||
-        encounter.medical_aid_number.toLowerCase().includes(search) ||
-        encounter.chief_complaint.toLowerCase().includes(search) ||
-        encounter.template_name.toLowerCase().includes(search) ||
-        encounter.system_sequence_visit_number.toString().includes(search) ||
-        encounter.visit_type.toLowerCase().includes(search)
+        has(encounter.patient_name) ||
+        has(encounter.medical_aid_name) ||
+        has(encounter.medical_aid_number) ||
+        has(encounter.chief_complaint) ||
+        has(encounter.template_name) ||
+        has(encounter.system_sequence_visit_number) ||
+        has(encounter.sequential_number) ||
+        has(encounter.visit_type) ||
+        has(visitTypeName(encounter.visit_type))
       );
     }
 
-    // Apply status filter
-    if (statusFilter !== 'all') {
+    // Apply status filter (a figure's visits are already chosen)
+    if (!focus && statusFilter !== 'all') {
       filtered = filtered.filter((encounter) => encounter.visit_status === statusFilter);
     }
 
     // Apply branch filter
-    if (branchFilter !== 'all') {
+    if (!focus && branchFilter !== 'all') {
       if (branchFilter === 'main') {
         filtered = filtered.filter((encounter) => !encounter.branch_id);
       } else {
@@ -252,7 +351,7 @@ export const EncountersView: React.FC = () => {
     });
 
     return filtered;
-  }, [encounters, searchTerm, statusFilter, branchFilter, sortField, sortDirection]);
+  }, [encounters, searchTerm, statusFilter, branchFilter, sortField, sortDirection, focus]);
 
   const paginatedEncounters = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -276,21 +375,42 @@ export const EncountersView: React.FC = () => {
     }
   };
 
+  // The visit, opened over the patient's file (read by PatientManagementView)
+  const openVisit = (visitId: string, patientId: string) => {
+    if (!patientId || !visitId) return;
+    const params = new URLSearchParams({ patientId, visitId, action: 'edit-visit' });
+    navigate(`/patients?${params.toString()}`);
+  };
+
+  // The patient's file on its visits, where every visit of this list belongs
+  const openPatientFile = (patientId: string) => {
+    if (!patientId) return;
+    navigate(`/patients?${new URLSearchParams({ patientId, tab: 'encounters' }).toString()}`);
+  };
+
   const handleRowClick = (visitId: string, patientId: string, e: React.MouseEvent) => {
-    // Don't navigate if clicking on checkbox or action buttons
+    // Don't navigate if clicking on checkbox or action buttons (the buttons open what they say)
     const target = e.target as HTMLElement;
     if (target.closest('input[type="checkbox"]') || target.closest('button')) {
       return;
     }
-    
-    // Navigate to patient modal with visit edit action
-    navigate(`/patients?patientId=${patientId}&visitId=${visitId}&action=edit-visit`);
+    openVisit(visitId, patientId);
   };
+
+  // The ticked visits, when some are ticked (the tick boxes did nothing before); otherwise every visit the filters show
+  const rowsToExport = () =>
+    selectedRows.size > 0 ? filteredAndSortedEncounters.filter(encounter => selectedRows.has(encounter.visit_id)) : filteredAndSortedEncounters;
 
   const exportToCSV = () => {
     try {
+      const rows = rowsToExport();
+      // Nothing to export is said, not an empty file reported as exported
+      if (rows.length === 0) {
+        toast.error('There are no visits to export');
+        return;
+      }
       // Prepare data for export
-      const exportData = filteredAndSortedEncounters.map(encounter => ({
+      const exportData = rows.map(encounter => ({
         'Visit #': encounter.sequential_number,
         'System Visit #': encounter.system_sequence_visit_number,
         'Visit Date': encounter.visit_date ? format(new Date(encounter.visit_date), 'yyyy-MM-dd HH:mm') : '',
@@ -303,7 +423,7 @@ export const EncountersView: React.FC = () => {
         'Chief Complaint': encounter.chief_complaint,
         'Total Bill': encounter.total_bill?.toFixed(2) || '0.00',
         'Invoice Number': encounter.invoice_number || '',
-        'Payment Status': encounter.payment_status || 'Pending',
+        'Payment Status': paymentStatusText(encounter.payment_status, !!encounter.invoice_number),
         'Template': encounter.template_name || '',
         'Branch': encounter.branch_name || 'Main',
         'Duration (min)': encounter.duration_minutes || '',
@@ -345,8 +465,13 @@ export const EncountersView: React.FC = () => {
 
   const exportToExcel = () => {
     try {
+      const rows = rowsToExport();
+      if (rows.length === 0) {
+        toast.error('There are no visits to export');
+        return;
+      }
       // Prepare data for export
-      const exportData = filteredAndSortedEncounters.map(encounter => ({
+      const exportData = rows.map(encounter => ({
         'Visit #': encounter.sequential_number,
         'System Visit #': encounter.system_sequence_visit_number,
         'Visit Date': encounter.visit_date ? format(new Date(encounter.visit_date), 'yyyy-MM-dd HH:mm') : '',
@@ -359,7 +484,7 @@ export const EncountersView: React.FC = () => {
         'Chief Complaint': encounter.chief_complaint,
         'Total Bill': encounter.total_bill || 0,
         'Invoice Number': encounter.invoice_number || '',
-        'Payment Status': encounter.payment_status || 'Pending',
+        'Payment Status': paymentStatusText(encounter.payment_status, !!encounter.invoice_number),
         'Template': encounter.template_name || '',
         'Branch': encounter.branch_name || 'Main',
         'Duration (min)': encounter.duration_minutes || '',
@@ -420,6 +545,41 @@ export const EncountersView: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* A figure's visits from Analytics: what they are, and the way back */}
+      {focus && (
+        <div role="status" className="flex flex-col gap-3 rounded-xl bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-start gap-2 text-sm text-blue-900">
+            <Icon icon="solar:filter-bold-duotone" className="mt-0.5 h-5 w-5 flex-none text-blue-600" aria-hidden="true" />
+            <span>
+              Showing the {focus.visitIds.length === 1 ? 'visit' : `${focus.visitIds.length.toLocaleString()} visits`} counted under{' '}
+              <strong>{focus.label}</strong>
+              {encounters.length < focus.visitIds.length ? ` (${encounters.length.toLocaleString()} found)` : ''}.
+            </span>
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {onBackToAnalytics && (
+              <button
+                type="button"
+                onClick={onBackToAnalytics}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2"
+              >
+                <Icon icon="solar:alt-arrow-left-bold-duotone" className="h-4 w-4" aria-hidden="true" />
+                Back to analytics
+              </button>
+            )}
+            {onShowAll && (
+              <button
+                type="button"
+                onClick={onShowAll}
+                className="rounded-lg bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+              >
+                Show all visits
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modern Header with Search */}
       <motion.div 
         initial={{ opacity: 0, y: -10 }}
@@ -447,7 +607,7 @@ export const EncountersView: React.FC = () => {
                 />
               </div>
               <button
-                onClick={fetchEncounters}
+                onClick={() => fetchEncounters()}
                 className="p-3 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-all"
                 title="Refresh"
               >
@@ -471,6 +631,9 @@ export const EncountersView: React.FC = () => {
 
             {/* Modern Filter Pills */}
             <div className="flex flex-wrap gap-6">
+              {/* Status and branch filters: not for a figure's visits, which are already chosen */}
+              {!focus && (
+                <>
               {/* Status Filter */}
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Status</p>
@@ -486,6 +649,9 @@ export const EncountersView: React.FC = () => {
                       key={status.value}
                       onClick={() => {
                         setStatusFilter(status.value);
+                        // Match the order the server loads: upcoming bookings soonest first, everything else newest first
+                        setSortField('visit_date');
+                        setSortDirection(status.value === 'scheduled' ? 'asc' : 'desc');
                         setCurrentPage(1);
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
@@ -501,12 +667,15 @@ export const EncountersView: React.FC = () => {
                       {status.label}
                       {statusFilter === status.value && (
                         <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                          {status.value === 'all' ? encounters.length : encounters.filter(e => e.visit_status === status.value).length}
+                          {status.value === 'all' ? encounters.length : encounters.filter(e => e.visit_status === status.value).length}{hasMore ? '+' : ''}
                         </span>
                       )}
                     </button>
                   ))}
                 </div>
+                {statusFilter !== 'scheduled' && (
+                  <p className="mt-1.5 text-[11px] text-gray-400">Shows visits up to today. Upcoming bookings are under Scheduled.</p>
+                )}
               </div>
 
               {/* Branch Filter */}
@@ -527,7 +696,7 @@ export const EncountersView: React.FC = () => {
                     All Branches
                     {branchFilter === 'all' && (
                       <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                        {encounters.length}
+                        {encounters.length}{hasMore ? '+' : ''}
                       </span>
                     )}
                   </button>
@@ -546,7 +715,7 @@ export const EncountersView: React.FC = () => {
                     Main
                     {branchFilter === 'main' && (
                       <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                        {encounters.filter(e => !e.branch_id).length}
+                        {encounters.filter(e => !e.branch_id).length}{hasMore ? '+' : ''}
                       </span>
                     )}
                   </button>
@@ -567,18 +736,20 @@ export const EncountersView: React.FC = () => {
                       {branch.name}
                       {branchFilter === branch.id && (
                         <span className="ml-1.5 bg-white/20 px-1.5 py-0.5 rounded-full text-[10px]">
-                          {encounters.filter(e => e.branch_id === branch.id).length}
+                          {encounters.filter(e => e.branch_id === branch.id).length}{hasMore ? '+' : ''}
                         </span>
                       )}
                     </button>
                   ))}
                 </div>
               </div>
+                </>
+              )}
 
               {/* Stats */}
               <div className="ml-auto flex items-center gap-4 text-sm">
                 <div className="text-gray-500">
-                  <span className="font-semibold text-gray-900">{filteredAndSortedEncounters.length}</span> results
+                  <span className="font-semibold text-gray-900">{filteredAndSortedEncounters.length}{hasMore ? '+' : ''}</span> results
                 </div>
               </div>
             </div>
@@ -728,7 +899,7 @@ export const EncountersView: React.FC = () => {
                 </tr>
               ) : null}
               {paginatedEncounters.map((encounter, index) => {
-                const paymentInfo = getPaymentStatusBadge(encounter.payment_status);
+                const paymentInfo = getPaymentStatusBadge(encounter.payment_status, !!encounter.invoice_number);
                 return (
                   <motion.tr
                     key={encounter.visit_id}
@@ -754,12 +925,12 @@ export const EncountersView: React.FC = () => {
                     <td className="px-2 py-2">
                       <div className="text-xs">
                         <div className="font-medium text-gray-900">
-                          {encounter.visit_date ? format(new Date(encounter.visit_date), 'dd MMM') : '-'}
+                          {encounter.visit_date ? format(new Date(encounter.visit_date), 'd MMM yyyy') : '-'}
                         </div>
                         {encounter.schedule_date && encounter.schedule_date !== encounter.visit_date && (
                           <div className="text-gray-500">
                             <Icon icon="solar:calendar-linear" className="inline w-3 h-3 mr-0.5" />
-                            {format(new Date(encounter.schedule_date), 'dd MMM')}
+                            {format(new Date(encounter.schedule_date), 'd MMM yyyy')}
                           </div>
                         )}
                       </div>
@@ -779,7 +950,7 @@ export const EncountersView: React.FC = () => {
                     </td>
                     <td className="px-2 py-2">
                       <div className="text-xs">
-                        <div className="font-medium text-gray-900 truncate max-w-[150px]">
+                        <div className="font-medium text-gray-900 truncate max-w-[150px]" title={encounter.patient_name}>
                           {encounter.patient_name}
                         </div>
                         <div className="text-gray-500">Visit #{encounter.system_sequence_visit_number}</div>
@@ -793,7 +964,7 @@ export const EncountersView: React.FC = () => {
                         encounter.visit_type === 'emergency' ? 'bg-red-100 text-red-700' :
                         'bg-gray-100 text-gray-700'
                       }`}>
-                        {encounter.visit_type}
+                        {visitTypeName(encounter.visit_type)}
                       </span>
                     </td>
                     <td className="px-2 py-2">
@@ -823,7 +994,7 @@ export const EncountersView: React.FC = () => {
                       <div className="text-xs">
                         {encounter.medical_aid_name !== 'No Medical Aid' ? (
                           <>
-                            <div className="font-medium text-gray-700 truncate max-w-[120px]">
+                            <div className="font-medium text-gray-700 truncate max-w-[120px]" title={encounter.medical_aid_name}>
                               {encounter.medical_aid_name}
                             </div>
                             <div className="text-gray-500">{encounter.medical_aid_number}</div>
@@ -836,8 +1007,8 @@ export const EncountersView: React.FC = () => {
                     <td className="px-2 py-2 text-right">
                       <div className="text-xs">
                         {encounter.total_bill > 0 ? (
-                          <div className="font-semibold text-gray-900">
-                            R{encounter.total_bill >= 1000 ? 
+                          <div className="font-semibold text-gray-900 tabular-nums" title={formatNad(Number(encounter.total_bill) || 0)}>
+                            N${encounter.total_bill >= 1000 ?
                               `${(encounter.total_bill / 1000).toFixed(1)}k` : 
                               encounter.total_bill.toFixed(0)
                             }
@@ -855,16 +1026,22 @@ export const EncountersView: React.FC = () => {
                     <td className="pl-2 pr-4 py-2">
                       <div className="flex items-center justify-center gap-1">
                         <button
+                          type="button"
+                          onClick={() => openVisit(encounter.visit_id, encounter.patient_id)}
                           className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-all"
-                          title="View Details"
+                          title="Open the visit"
+                          aria-label="Open the visit"
                         >
-                          <Icon icon="solar:eye-linear" className="w-4 h-4" />
+                          <Icon icon="solar:eye-linear" className="w-4 h-4" aria-hidden="true" />
                         </button>
                         <button
+                          type="button"
+                          onClick={() => openPatientFile(encounter.patient_id)}
                           className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-all"
-                          title="More Options"
+                          title="Open the patient's file"
+                          aria-label="Open the patient's file"
                         >
-                          <Icon icon="solar:menu-dots-linear" className="w-4 h-4" />
+                          <Icon icon="solar:menu-dots-linear" className="w-4 h-4" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -966,6 +1143,25 @@ export const EncountersView: React.FC = () => {
                 </nav>
               </div>
             </div>
+          </div>
+        )}
+
+        {hasMore && (
+          <div className="px-4 py-3 flex flex-wrap items-center justify-center gap-3 border-t border-gray-100 text-sm text-gray-500">
+            <span>
+              {statusFilter === 'scheduled'
+                ? `Showing the first ${encounters.length.toLocaleString()} scheduled visits, soonest first.`
+                : `Showing the ${encounters.length.toLocaleString()} most recent visits. Search and filters cover these.`}
+            </span>
+            <button
+              type="button"
+              onClick={() => fetchEncounters(true)}
+              disabled={isLoading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-gray-700 font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Icon icon="solar:history-bold-duotone" className="w-4 h-4" aria-hidden="true" />
+              {isLoading ? 'Loading...' : statusFilter === 'scheduled' ? 'Load more' : 'Load older visits'}
+            </button>
           </div>
         )}
     </div>

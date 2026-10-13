@@ -2,6 +2,8 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0';
 import { generateEmailHTML, generateEmailText, EmailTemplateData } from './email-template-generator.ts';
 import { TemplateProcessor } from './template-processor.ts';
+import { decidePracticeAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts';
+import { maskEmail } from '../_shared/logMask.ts';
 
 interface EmailAttachment {
   filename: string;
@@ -61,7 +63,7 @@ serve(async (req) => {
     console.log('=== EMAIL GATEWAY REQUEST DEBUG ===');
     console.log('Request data received:', {
       practiceId: requestData.practiceId,
-      recipientEmail: requestData.recipientEmail,
+      recipient: maskEmail(requestData.recipientEmail),
       emailType: requestData.emailType,
       hasHtmlContent: !!requestData.htmlContent,
       hasTextContent: !!requestData.textContent,
@@ -77,7 +79,7 @@ serve(async (req) => {
     });
 
     const {
-      practiceId,
+      practiceId: requestedPracticeId,
       recipientEmail,
       recipientName,
       senderEmail = defaultSenderEmail,
@@ -96,6 +98,14 @@ serve(async (req) => {
       templateId,
       templateVariables = []
     } = requestData;
+
+    // Who may send: the platform's own functions (service role key) or signed-in, active staff of the practice the
+    // email is sent for (with none named, their own practice). The public anon key alone is not enough: the email
+    // goes out through the practice's Gmail or sender name and is charged to its email bundle.
+    const caller = await loadCaller(supabase, req.headers.get('Authorization'), supabaseServiceKey);
+    const access = decidePracticeAccess(caller, requestedPracticeId);
+    if (!access.allowed) return deniedResponse(access, corsHeaders);
+    const practiceId = access.practiceId;
 
     // Process template if templateId is provided
     let finalSubject = subject;

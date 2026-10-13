@@ -20,19 +20,44 @@ import {
   UserCheck,
   Info
 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import FullScreenModal from '../ui/FullScreenModal';
 import { Patient } from '../../stores/patientsStoreNew';
-import { usePractice } from '../../contexts/PracticeContext';
+import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../lib/supabase';
+import {
+  communicationService,
+  getCommunicationErrorMessage,
+  type SMSMessageType
+} from '../../services/communicationService';
+import { formatMessageDate, getSmsLength } from './messageText';
 
 interface EnhancedSmsModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient?: Patient | null;
+  patientId?: string;
+  visitId?: string;
   patientName?: string;
   patientPhone?: string;
+  /** Optional override. When omitted the modal sends through the centralized SMS gateway itself. */
   onSend?: (phone: string, message: string) => void;
   isSending?: boolean;
 }
+
+interface PracticeContactInfo {
+  name: string;
+  contact_phone: string | null;
+  contact_email: string | null;
+}
+
+// Any {{variable}} left after substitution has no real value and must be edited before sending
+const PLACEHOLDER_PATTERN = /\{\{\s*\w+\s*\}\}/g;
+
+const TEMPLATE_MESSAGE_TYPES: Record<string, SMSMessageType> = {
+  'appointment-reminder': 'appointment_reminder',
+  'follow-up': 'follow_up'
+};
 
 interface SmsTemplate {
   id: string;
@@ -48,7 +73,8 @@ const smsTemplates: SmsTemplate[] = [
     id: 'appointment-reminder',
     name: 'Appointment Reminder',
     category: 'Appointments',
-    content: 'Hi {{patientName}}, this is a reminder about your appointment on {{date}} at {{time}} with Dr. {{doctor}}. Please arrive 15 minutes early. Reply CONFIRM to confirm or CANCEL to cancel.',
+    // No "Reply CONFIRM/CANCEL": replies to practice SMS are not read by the app, so a patient's cancellation would be lost
+    content: 'Hi {{patientName}}, this is a reminder about your appointment on {{date}} at {{time}} with {{doctor}}. Please arrive 15 minutes early. If you need to reschedule, please call us on {{practicePhone}}.',
     icon: Calendar,
     color: 'blue'
   },
@@ -114,6 +140,8 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   isOpen,
   onClose,
   patient,
+  patientId,
+  visitId,
   patientName,
   patientPhone,
   onSend,
@@ -126,7 +154,33 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   const [showTemplates, setShowTemplates] = useState(false);
   const [isEditing, setIsEditing] = useState(true);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const { practiceData } = usePractice();
+  const [isSendingInternal, setIsSendingInternal] = useState(false);
+  const [practiceData, setPracticeData] = useState<PracticeContactInfo | null>(null);
+  const { user, selectedPracticeId } = useAuthStore();
+  const practiceId = selectedPracticeId || user?.practice_id || null;
+  const sending = isSending || isSendingInternal;
+
+  // PracticeContext exposes no practice details, so load the real name/contact for {{practice*}} variables
+  useEffect(() => {
+    if (!isOpen || !practiceId) return;
+    let cancelled = false;
+    supabase
+      .from('practices')
+      .select('name, contact_phone, contact_email')
+      .eq('id', practiceId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.warn('Could not load practice details for SMS variables:', error.message);
+          return;
+        }
+        setPracticeData(data);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, practiceId]);
 
   useEffect(() => {
     if (patient?.cell_number) {
@@ -148,30 +202,28 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
   ];
 
   const replaceVariables = (text: string): string => {
-    const firstName = patient?.first_name || patientName?.split(' ')[0] || 'John';
-    const lastName = patient?.last_name || patientName?.split(' ')[1] || 'Smith';
-    const fullName = patient ? `${patient.first_name} ${patient.last_name}` : (patientName || 'John Smith');
+    const nameParts = (patientName || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = patient?.first_name || nameParts[0] || '';
+    const lastName = patient?.last_name || nameParts.slice(1).join(' ') || '';
+    const fullName = `${firstName} ${lastName}`.trim();
     
+    // Only real values are substituted. Template fields with no known value ({{date}}, {{time}},
+    // {{doctor}}, {{amount}}, {{pharmacy}}, ...) stay as placeholders for the user to fill in;
+    // previously they went out to patients as made-up values ("2:00 PM", "Dr. Smith", "N$500.00").
     const variables: Record<string, string> = {
       '{{patientName}}': fullName,
       '{{patientFirstName}}': firstName,
       '{{patientLastName}}': lastName,
-      '{{practiceName}}': practiceData?.name || 'HealthCare Clinic',
-      '{{practicePhone}}': practiceData?.contact_phone || '(555) 123-4567',
-      '{{practiceEmail}}': practiceData?.email || 'info@healthcare.com',
-      '{{currentDate}}': new Date().toLocaleDateString(),
-      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      // Legacy variables for templates
-      '{{date}}': new Date().toLocaleDateString(),
-      '{{time}}': '2:00 PM',
-      '{{doctor}}': 'Dr. Smith',
-      '{{amount}}': 'N$500.00',
-      '{{pharmacy}}': 'OneHealth Pharmacy',
-      '{{followUpInstructions}}': 'take your medication as prescribed'
+      '{{practiceName}}': practiceData?.name || user?.practices?.name || '',
+      '{{practicePhone}}': practiceData?.contact_phone || '',
+      '{{practiceEmail}}': practiceData?.contact_email || '',
+      '{{currentDate}}': formatMessageDate(new Date()),
+      '{{currentTime}}': new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     let processedText = text;
     Object.entries(variables).forEach(([key, value]) => {
+      if (!value) return;
       processedText = processedText.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
     });
     
@@ -197,18 +249,72 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
 
   const handleTemplateSelect = (template: SmsTemplate) => {
     setSelectedTemplate(template);
+    const resolvedContent = template.content ? replaceVariables(template.content) : '';
     if (template.content) {
-      setMessage(replaceVariables(template.content));
+      setMessage(resolvedContent);
     }
     setShowTemplates(false);
-    setIsEditing(template.id === 'custom');
+    // Keep the editor open when the template still has fields the user must fill in
+    setIsEditing(template.id === 'custom' || new RegExp(PLACEHOLDER_PATTERN.source).test(resolvedContent));
   };
 
-  const handleSend = () => {
-    if (phone && message && onSend) {
-      onSend(phone, message);
+  const handleSend = async () => {
+    const recipientPhone = phone.trim();
+    if (!recipientPhone || !message.trim() || sending) return;
+
+    // Send exactly what the preview shows ("Variables are automatically replaced ... when sending")
+    const finalMessage = replaceVariables(message);
+    const unresolved = finalMessage.match(PLACEHOLDER_PATTERN);
+    if (unresolved) {
+      setIsEditing(true);
+      toast.error(`Please replace ${[...new Set(unresolved)].join(', ')} before sending`);
+      return;
+    }
+
+    if (onSend) {
+      onSend(recipientPhone, finalMessage);
+      return;
+    }
+
+    if (!practiceId) {
+      toast.error('No practice selected. Please sign in again before sending SMS.');
+      return;
+    }
+
+    setIsSendingInternal(true);
+    try {
+      const result = await communicationService.sendSMS({
+        practiceId,
+        recipientPhone,
+        messageContent: finalMessage,
+        messageType: (selectedTemplate && TEMPLATE_MESSAGE_TYPES[selectedTemplate.id]) || 'custom',
+        patientId: patient?.id || patientId,
+        visitId,
+        metadata: {
+          source: 'EnhancedSmsModal',
+          templateId: selectedTemplate?.id || 'custom',
+          sentByUserId: user?.id
+        }
+      });
+
+      if (result.success) {
+        toast.success('SMS sent successfully');
+        setMessage('');
+        setSelectedTemplate(null);
+        onClose();
+      } else {
+        toast.error(getCommunicationErrorMessage('sms', result.error));
+      }
+    } catch (error) {
+      console.error('Error sending SMS:', error);
+      toast.error('Failed to send SMS. Please try again.');
+    } finally {
+      setIsSendingInternal(false);
     }
   };
+
+  // Counted on the text that is actually sent (variables filled in), as the SMS provider charges it
+  const smsLength = getSmsLength(message ? replaceVariables(message) : '');
 
   const colorClasses = {
     blue: 'from-blue-500 to-blue-600',
@@ -235,12 +341,16 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
               <div>
                 <h2 className="text-2xl font-bold">Send SMS Message</h2>
                 <p className="text-blue-100 text-sm">
-                  {patient ? `To: ${patient.first_name} ${patient.last_name}` : 'Compose new message'}
+                  {patient
+                    ? `To: ${patient.first_name} ${patient.last_name}`
+                    : patientName?.trim() ? `To: ${patientName.trim()}` : 'Compose new message'}
                 </p>
               </div>
             </div>
             <button
               onClick={onClose}
+              aria-label="Close"
+              title="Close"
               className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-colors"
             >
               <X className="w-5 h-5" />
@@ -387,7 +497,7 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                     placeholder="Type your message here..."
                   />
                   <div className="absolute bottom-3 right-3 text-xs text-gray-400">
-                    {message.length}/160 ({Math.ceil(message.length / 160)} SMS)
+                    {smsLength.used}/{smsLength.capacity} ({smsLength.parts} SMS)
                   </div>
                 </div>
                 
@@ -431,10 +541,12 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleSend}
-                  disabled={!phone || !message || isSending}
+                  disabled={!phone.trim() || !message.trim() || sending}
+                  title={!phone.trim() ? 'Enter a phone number first' : !message.trim() ? 'Type a message or choose a template first' : undefined}
+                  aria-busy={sending}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-[#01b9d5] to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {isSending ? (
+                  {sending ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white"></div>
                       Sending...
@@ -492,11 +604,11 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                   <div className="mt-6 space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Characters:</span>
-                      <span className="text-white font-medium">{message.length}</span>
+                      <span className="text-white font-medium">{smsLength.used}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">SMS Count:</span>
-                      <span className="text-white font-medium">{Math.ceil(message.length / 160)}</span>
+                      <span className="text-white font-medium">{smsLength.parts}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-400">Recipient:</span>
@@ -510,7 +622,7 @@ export const EnhancedSmsModal: React.FC<EnhancedSmsModalProps> = ({
                       <Info className="w-4 h-4 text-blue-300 flex-shrink-0 mt-0.5" />
                       <div className="text-xs text-gray-300">
                         <p className="font-medium mb-1">Live Preview</p>
-                        <p>Variables are automatically replaced with actual values when sending.</p>
+                        <p>Patient and practice details are filled in for you. Anything still shown as {'{{...}}'} must be replaced before the SMS can be sent.</p>
                       </div>
                     </div>
                   </div>

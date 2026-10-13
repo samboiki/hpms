@@ -3,12 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import Button from '../ui/Button';
 import FullScreenModal from '../ui/FullScreenModal';
-import { communicationService } from '../../services/communicationService';
+import { communicationService, getCommunicationErrorMessage } from '../../services/communicationService';
 // import { useTheme } from '../../stores/themeStore';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { usePractice } from '../../contexts/PracticeContext';
 import toast from 'react-hot-toast';
+import { findPlaceholders, getSmsLength } from '../messages/messageText';
+import { appointmentMergeValues, mergeTemplate, patientMergeValues, practiceMergeValues, type AppointmentMergeSource, type MergeValues } from '../../utils/templates/mergeFields';
+import { formatLetterDate } from '../../utils/clinical/letters';
+import { windhoekClock } from '../../utils/patientLists/listDates';
+import { patientListService } from '../../services/patientListService';
+import { loadNextBookingVideoLink } from '../../services/videoBookingService';
+import { withNextBookingVideo } from '../../utils/diary/videoBookings';
+import { practiceWebsiteUrl } from '../../utils/practiceWebsite';
 
 interface UnifiedCommunicationModalProps {
   isOpen: boolean;
@@ -67,6 +75,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
     contact_phone?: string;
     contact_email?: string;
     domain?: string;
+    website_url?: string | null;
     address?: string;
   } | null>(null);
   const [hasGmailConnected, setHasGmailConnected] = useState(false);
@@ -98,18 +107,57 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, practiceId]);
 
+  // The patient's next booking and last visit fill a template's appointment fields (the patient lists' own rules),
+  // and their title and initials its formal name; what cannot be read stays visible to fill in by hand
+  const [nextBooking, setNextBooking] = useState<AppointmentMergeSource | null>(null);
+  const [formal, setFormal] = useState<{ title: string | null; initials: string | null }>({ title: null, initials: null });
+  useEffect(() => {
+    setNextBooking(null);
+    setFormal({ title: null, initials: null });
+    if (!isOpen || !practiceId || !patient?.id) return;
+    let active = true;
+    const todayKey = windhoekClock(new Date()).dateKey;
+    // The next booking's room link fills {{videoLink}} when that booking is a video consultation
+    Promise.all([patientListService.loadFacts(practiceId, todayKey, [patient.id]), loadNextBookingVideoLink(patient.id, todayKey)])
+      .then(([facts, video]) => {
+        if (active) setNextBooking(withNextBookingVideo(facts[0] ?? null, video));
+      })
+      .catch(() => undefined);
+    void supabase
+      .from('patients')
+      .select('title, initials')
+      .eq('id', patient.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        // title and initials are newer than the generated database types
+        const row = data as unknown as { title?: string | null; initials?: string | null } | null;
+        if (active && row) setFormal({ title: row.title ?? null, initials: row.initials ?? null });
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, practiceId, patient?.id]);
+
   const fetchPracticeData = async () => {
     if (!practiceId) return;
     
     try {
       const { data, error } = await supabase
         .from('practices')
-        .select('name, contact_phone, contact_email, domain, address')
+        .select('*')
         .eq('id', practiceId)
         .single();
         
       if (data && !error) {
-        setPracticeData(data);
+        setPracticeData({
+          name: data.name,
+          contact_phone: data.contact_phone ?? undefined,
+          contact_email: data.contact_email ?? undefined,
+          domain: data.domain ?? undefined,
+          // Not in the generated types yet; present in the database (Settings > Practice saves it)
+          website_url: (data as { website_url?: string | null }).website_url ?? null,
+          address: data.address ?? undefined
+        });
       }
     } catch (error) {
       console.error('Error fetching practice data:', error);
@@ -204,37 +252,19 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
     const content = template.body || template.text_content || '';
     const subject = template.subject || '';
     
-    // Replace variables with actual data
-    const replacements: Record<string, string> = {
-      '{{patientName}}': `${patient?.first_name} ${patient?.last_name}`,
-      '{{patient_name}}': `${patient?.first_name} ${patient?.last_name}`,
-      '{{patientFirstName}}': patient?.first_name || '',
-      '{{patientLastName}}': patient?.last_name || '',
-      '{{practiceName}}': practiceData?.name || '',
-      '{{practice_name}}': practiceData?.name || '',
-      '{{practicePhone}}': practiceData?.contact_phone || '',
-      '{{practice_phone}}': practiceData?.contact_phone || '',
-      '{{practiceEmail}}': practiceData?.contact_email || '',
-      '{{practice_email}}': practiceData?.contact_email || '',
-      '{{practiceWebsite}}': practiceData?.domain ? `https://${practiceData.domain}` : '',
-      '{{practice_website}}': practiceData?.domain ? `https://${practiceData.domain}` : '',
-      '{{practiceAddress}}': practiceData?.address || '',
-      '{{practice_address}}': practiceData?.address || '',
-      '{{currentDate}}': new Date().toLocaleDateString(),
-      '{{currentTime}}': new Date().toLocaleTimeString(),
-      '{{appointmentDate}}': '', // These would be filled from actual appointment data
-      '{{appointmentTime}}': ''
+    // The merge fields of Messages > Templates (utils/templates/mergeFields.ts), filled for this patient. Only real
+    // values are filled in: a field without one (no booking for {{appointmentDate}}) stays visible so it is
+    // completed before sending, never sent blank ("your appointment on  at .")
+    const todayKey = windhoekClock(new Date()).dateKey;
+    const values: MergeValues = {
+      ...patientMergeValues({ firstName: patient?.first_name, lastName: patient?.last_name, title: formal.title, initials: formal.initials }, todayKey),
+      ...practiceMergeValues({ name: practiceData?.name, phone: practiceData?.contact_phone, email: practiceData?.contact_email, address: practiceData?.address }),
+      ...appointmentMergeValues(nextBooking),
+      today: formatLetterDate(todayKey) || null
     };
-    
-    let finalContent = content;
-    let finalSubject = subject;
-    
-    // Replace all variables
-    Object.entries(replacements).forEach(([key, value]) => {
-      const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-      finalContent = finalContent.replace(regex, value);
-      finalSubject = finalSubject.replace(regex, value);
-    });
+
+    let finalContent = mergeTemplate(content, values).text;
+    const finalSubject = mergeTemplate(subject, values).text;
     
     // Add signature for emails if not already present
     if (communicationType === 'email' && practiceData?.name) {
@@ -253,6 +283,8 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
   };
 
   const handleSend = async () => {
+    if (isSending) return;
+
     if (!practiceId) {
       toast.error('Practice ID not found');
       return;
@@ -261,6 +293,11 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
     if (communicationType === 'sms') {
       if (!message.trim() || !phoneNumber.trim()) {
         toast.error('Please enter both phone number and message content');
+        return;
+      }
+      const unfilledSms = findPlaceholders(message);
+      if (unfilledSms.length > 0) {
+        toast.error(`Please replace ${unfilledSms.join(', ')} before sending`);
         return;
       }
 
@@ -290,7 +327,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
           }, 1500);
         } else {
           setSendStatus('error');
-          toast.error(response.error || 'Failed to send SMS');
+          toast.error(getCommunicationErrorMessage('sms', response.error));
         }
       } catch (error) {
         console.error('Failed to send SMS:', error);
@@ -302,6 +339,11 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
     } else if (communicationType === 'email') {
       if (!message.trim() || !email.trim() || !subject.trim()) {
         toast.error('Please enter email address, subject, and message content');
+        return;
+      }
+      const unfilledEmail = findPlaceholders(`${subject}\n${message}`);
+      if (unfilledEmail.length > 0) {
+        toast.error(`Please replace ${unfilledEmail.join(', ')} before sending`);
         return;
       }
 
@@ -332,7 +374,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
               name: practiceData?.name,
               phone: practiceData?.contact_phone,
               email: practiceData?.contact_email,
-              website: practiceData?.domain ? `https://${practiceData.domain}` : null,
+              website: practiceWebsiteUrl(practiceData),
               address: practiceData?.address
             }
           }
@@ -347,7 +389,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
           }, 1500);
         } else {
           setSendStatus('error');
-          toast.error(response.error || 'Failed to send email');
+          toast.error(getCommunicationErrorMessage('email', response.error));
         }
       } catch (error) {
         console.error('Failed to send email:', error);
@@ -358,6 +400,8 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
       }
     }
   };
+
+  const smsLength = getSmsLength(message);
 
   return (
     <FullScreenModal
@@ -475,7 +519,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
                       value={phoneNumber}
                       onChange={(e) => setPhoneNumber(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      placeholder="+1234567890"
+                      placeholder="e.g. 081 123 4567"
                     />
                   ) : (
                     <input
@@ -529,7 +573,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
                       }
                     </select>
                   ) : (
-                    <p className="text-sm text-gray-500 italic">No templates available</p>
+                    <p className="text-sm text-gray-500 italic">No saved templates yet. Type your message below.</p>
                   )}
                 </div>
 
@@ -551,7 +595,7 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
                   />
                   {communicationType === 'sms' && (
                     <p className="text-xs text-gray-500 mt-1">
-                      {message.length} characters ({Math.ceil(message.length / 160)} SMS)
+                      {smsLength.used} characters ({smsLength.parts} SMS)
                     </p>
                   )}
                 </div>
@@ -586,9 +630,11 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
                             </div>
                             <button
                               onClick={() => removeAttachment(index)}
+                              aria-label={`Remove ${attachment.filename}`}
+                              title="Remove attachment"
                               className="p-1 hover:bg-gray-200 rounded"
                             >
-                              <Icon icon="solar:close-bold" className="w-4 h-4 text-gray-600" />
+                              <Icon icon="solar:close-circle-bold" className="w-4 h-4 text-gray-600" />
                             </button>
                           </div>
                         ))}
@@ -620,6 +666,11 @@ const UnifiedCommunicationModal: React.FC<UnifiedCommunicationModalProps> = ({
                   <Button
                     onClick={handleSend}
                     disabled={isSending || !message.trim() || (communicationType === 'email' && !subject.trim())}
+                    title={
+                      communicationType === 'email' && !subject.trim()
+                        ? 'Enter a subject first'
+                        : !message.trim() ? 'Type a message or choose a template first' : undefined
+                    }
                     className={
                       communicationType === 'sms'
                         ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white'

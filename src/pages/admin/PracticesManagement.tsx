@@ -1,34 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Settings, Users, TrendingUp, Activity, MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import { Plus, Search, Settings, Users, TrendingUp, Activity, MoreVertical } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { supabase } from '../../lib/supabase';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import SmsRepliesSwitch from '../../components/admin/SmsRepliesSwitch';
+import { loadPracticeFeatureStates, type PracticeFeatureState, type PracticeFeatureStates } from '../../services/practiceFeatureService';
+import { loadPracticeOverview, type PracticeOverview } from '../../services/practiceOverviewService';
+// Shared with the edge functions (pure TypeScript): the one home of the SMS replies feature key
+import { SMS_REPLIES_FEATURE_KEY } from '../../../supabase/functions/_shared/smsMessagePolicy.ts';
 
-interface Practice {
-  id: string;
-  slug: string;
-  name: string;
-  domain: string;
-  status: 'active' | 'inactive' | 'suspended' | 'pending';
-  subscription_tier: 'trial' | 'standard' | 'premium' | 'enterprise';
-  contact_email: string;
-  contact_phone: string;
-  city: string;
-  admin_name?: string;
-  admin_email?: string;
-  total_users: number;
-  total_patients: number;
-  appointments_last_30_days: number;
-  appointments_this_month: number;
-  created_at: string;
-}
+type Practice = PracticeOverview;
 
 const PracticesManagement: React.FC = () => {
   const { user, isSuperAdmin } = useAuthStore();
   const [practices, setPractices] = useState<Practice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  // OneHealth support's "Patients' SMS replies are collected" per practice (null until read)
+  const [smsReplies, setSmsReplies] = useState<PracticeFeatureStates | null>(null);
+  const [smsRepliesError, setSmsRepliesError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,15 +35,16 @@ const PracticesManagement: React.FC = () => {
   const fetchPractices = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('admin_practice_overview')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPractices(data || []);
+      const [overview, replies] = await Promise.all([
+        loadPracticeOverview(),
+        loadPracticeFeatureStates(SMS_REPLIES_FEATURE_KEY)
+      ]);
+      setPractices(overview);
+      if (replies.ok) setSmsReplies(replies.states);
+      else setSmsRepliesError(replies.message);
     } catch (error) {
       console.error('Error fetching practices:', error);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -78,19 +70,23 @@ const PracticesManagement: React.FC = () => {
     return colors[tier as keyof typeof colors] || colors.standard;
   };
 
+  const handleSmsRepliesSaved = (practiceId: string, state: PracticeFeatureState) =>
+    setSmsReplies((current) => ({ ...(current ?? {}), [practiceId]: state }));
+
+  // Practice columns are nullable: guard text for search and numbers for the totals
   const filteredPractices = practices.filter(practice => {
-    const matchesSearch = practice.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         practice.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         practice.contact_email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (practice.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (practice.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (practice.contact_email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = selectedStatus === 'all' || practice.status === selectedStatus;
     return matchesSearch && matchesStatus;
   });
 
   const totalStats = practices.reduce((acc, practice) => ({
     totalPractices: acc.totalPractices + 1,
-    totalUsers: acc.totalUsers + practice.total_users,
-    totalPatients: acc.totalPatients + practice.total_patients,
-    totalAppointments: acc.totalAppointments + practice.appointments_this_month
+    totalUsers: acc.totalUsers + (practice.total_users || 0),
+    totalPatients: acc.totalPatients + (practice.total_patients || 0),
+    totalAppointments: acc.totalAppointments + (practice.appointments_this_month || 0)
   }), { totalPractices: 0, totalUsers: 0, totalPatients: 0, totalAppointments: 0 });
 
   if (!isSuperAdmin()) {
@@ -114,9 +110,12 @@ const PracticesManagement: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900">Practice Management</h1>
               <p className="text-gray-600 mt-1">Manage all practices in the HPMS system</p>
             </div>
-            <Button 
+            {/* No create-practice form exists yet (showCreateModal is never rendered) */}
+            <Button
               onClick={() => setShowCreateModal(true)}
               className="bg-[#01b9d4] hover:bg-[#0196be] text-white"
+              disabled
+              title="Not available yet: new practices cannot be added from this screen"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Practice
@@ -206,6 +205,10 @@ const PracticesManagement: React.FC = () => {
           </div>
         </Card>
 
+        {smsRepliesError && (
+          <p role="alert" className="mb-6 text-sm text-red-700">{smsRepliesError}</p>
+        )}
+
         {/* Practices Grid */}
         {loading ? (
           <div className="flex justify-center items-center py-12">
@@ -221,10 +224,10 @@ const PracticesManagement: React.FC = () => {
                     <p className="text-sm text-gray-600">{practice.city}</p>
                   </div>
                   <div className="flex space-x-2">
-                    <Badge className={getStatusColor(practice.status)}>
+                    <Badge className={`${getStatusColor(practice.status)} capitalize`}>
                       {practice.status}
                     </Badge>
-                    <Badge className={getTierColor(practice.subscription_tier)}>
+                    <Badge className={`${getTierColor(practice.subscription_tier)} capitalize`}>
                       {practice.subscription_tier}
                     </Badge>
                   </div>
@@ -237,33 +240,31 @@ const PracticesManagement: React.FC = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Patients:</span>
-                    <span className="font-medium">{practice.total_patients}</span>
+                    <span className="font-medium">{practice.total_patients ?? '-'}</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Monthly Appointments:</span>
-                    <span className="font-medium">{practice.appointments_this_month}</span>
+                    <span className="font-medium">{practice.appointments_this_month ?? '-'}</span>
                   </div>
                 </div>
 
+                {/* View/edit/delete icons had no handlers and no such features exist; use the practice switcher to open a practice */}
                 <div className="border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-600">
-                      <p>Admin: {practice.admin_name || 'Not assigned'}</p>
-                      <p>{practice.admin_email}</p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="p-2 text-gray-600 hover:text-[#01b9d4] hover:bg-gray-100 rounded-lg">
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-600 hover:text-[#01b9d4] hover:bg-gray-100 rounded-lg">
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                  <div className="text-sm text-gray-600">
+                    <p>Admin: {practice.admin_name || 'Not assigned'}</p>
+                    <p>{practice.admin_email}</p>
                   </div>
                 </div>
+
+                {/* Where staff work (or while it is on): directory listings send no SMS */}
+                {smsReplies && (practice.total_users > 0 || smsReplies[practice.id]?.enabled) && (
+                  <SmsRepliesSwitch
+                    practiceId={practice.id}
+                    practiceName={practice.name}
+                    state={smsReplies[practice.id]}
+                    onSaved={handleSmsRepliesSaved}
+                  />
+                )}
               </Card>
             ))}
           </div>
@@ -274,8 +275,12 @@ const PracticesManagement: React.FC = () => {
             <div className="text-gray-400 mb-4">
               <Settings className="w-16 h-16 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No practices found</h3>
-            <p className="text-gray-600">Try adjusting your search criteria or add a new practice.</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {loadError ? 'Practices could not be loaded' : 'No practices found'}
+            </h3>
+            <p className="text-gray-600">
+              {loadError ? 'Please refresh the page to try again.' : 'Try adjusting your search or status filter.'}
+            </p>
           </Card>
         )}
       </div>

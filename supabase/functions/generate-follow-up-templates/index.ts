@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { decidePracticeAccess, deniedResponse, loadCaller } from '../_shared/callerAccess.ts'
 
 // SECURITY: This function generates templates ONLY for the specified practice
 // It does not access data from other practices
@@ -36,6 +38,14 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Generating spends the OpenAI key: signed-in, active staff of the practice only (with none named, their own).
+  // The body is read before the progress stream starts, so a refusal is a plain 401/403 answer.
+  const body = await req.json().catch(() => null)
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  const caller = await loadCaller(createClient(Deno.env.get('SUPABASE_URL') ?? '', serviceRoleKey), req.headers.get('Authorization'), serviceRoleKey)
+  const access = decidePracticeAccess(caller, body?.practiceId)
+  if (!access.allowed) return deniedResponse(access, corsHeaders)
+
   // Create a text encoder for streaming
   const encoder = new TextEncoder()
 
@@ -44,7 +54,8 @@ serve(async (req) => {
     async start(controller) {
       try {
         const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!
-        const { practiceId, practiceType, practiceTypeName, tariffs, existingTriggers } = await req.json()
+        const { practiceType, practiceTypeName, tariffs, existingTriggers } = body ?? {}
+        const practiceId = access.practiceId
 
         // Send initial progress
         controller.enqueue(encoder.encode(JSON.stringify({ 

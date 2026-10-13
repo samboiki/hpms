@@ -6,6 +6,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Icon, { SolarIcons } from '../ui/Icon';
+import { ConfirmDialog } from './UserManagement/ConfirmDialog';
+import { describeDbError, ensureRowsUpdated } from './UserManagement/staffUtils';
+import { useEscapeToClose } from '../../hooks/useEscapeToClose';
 
 interface Department {
   id: string;
@@ -24,12 +27,15 @@ interface DepartmentUser {
   full_name: string;
   job_title?: string;
   avatar?: string;
+  department?: string | null;
+  is_active?: boolean | null;
 }
 
 const DepartmentManagement: React.FC = () => {
   const { user } = useAuthStore();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [formData, setFormData] = useState({
@@ -40,17 +46,20 @@ const DepartmentManagement: React.FC = () => {
     is_active: true
   });
   const [users, setUsers] = useState<DepartmentUser[]>([]);
+  const [departmentToDelete, setDepartmentToDelete] = useState<Department | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  // Predefined department colors
-  const departmentColors = [
-    '#01b9d4', // Cyan (default)
-    '#8B5CF6', // Purple
-    '#10B981', // Green
-    '#F59E0B', // Amber
-    '#EF4444', // Red
-    '#3B82F6', // Blue
-    '#EC4899', // Pink
-    '#6366F1', // Indigo
+  // Predefined department colors (Cyan is the default), named so the colour swatches - buttons
+  // with no text - can be read out by screen readers and show a tooltip
+  const departmentColorOptions = [
+    { value: '#01b9d4', name: 'Cyan' },
+    { value: '#8B5CF6', name: 'Purple' },
+    { value: '#10B981', name: 'Green' },
+    { value: '#F59E0B', name: 'Amber' },
+    { value: '#EF4444', name: 'Red' },
+    { value: '#3B82F6', name: 'Blue' },
+    { value: '#EC4899', name: 'Pink' },
+    { value: '#6366F1', name: 'Indigo' }
   ];
 
   useEffect(() => {
@@ -83,7 +92,7 @@ const DepartmentManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, full_name, job_title, avatar')
+        .select('id, full_name, job_title, avatar, department, is_active')
         .eq('practice_id', user?.practice_id)
         .order('full_name');
 
@@ -91,38 +100,70 @@ const DepartmentManagement: React.FC = () => {
       setUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
+      // Without staff every department would show "0 members" and an empty head list
+      toast.error('Failed to load staff for departments');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    if (saving) return;
+
     if (!user?.practice_id) {
       toast.error('No practice ID found. Please refresh and try again.');
       return;
     }
-    
+
+    if (!formData.name.trim()) {
+      toast.error('Department name is required');
+      return;
+    }
+
+    setSaving(true);
     try {
       const departmentData = {
         ...formData,
+        name: formData.name.trim(),
+        // '' is not a valid uuid; "no head" must be stored as null
+        head_user_id: formData.head_user_id || null,
         practice_id: user.practice_id,
         updated_at: new Date().toISOString()
       };
 
       if (editingDepartment) {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('departments')
           .update(departmentData)
-          .eq('id', editingDepartment.id);
+          .eq('id', editingDepartment.id)
+          .select('id');
 
         if (error) throw error;
+        // The access rules skip a refused update without an error; don't report that as saved
+        ensureRowsUpdated(data, 'The department');
+
+        // Staff belong to a department by its name (users.department): a rename must take them along,
+        // or the department shows no staff and they show a department that no longer exists
+        const oldName = editingDepartment.name;
+        if (oldName && oldName !== departmentData.name) {
+          const { error: staffError } = await supabase
+            .from('users')
+            .update({ department: departmentData.name })
+            .eq('practice_id', user.practice_id)
+            .eq('department', oldName);
+          if (staffError) {
+            console.error('Error moving staff to the renamed department:', staffError);
+            toast.error(`The department was renamed, but its staff still show "${oldName}". Open each person in Users to choose the department again.`);
+          }
+        }
         toast.success('Department updated successfully');
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('departments')
-          .insert(departmentData);
+          .insert(departmentData)
+          .select('id');
 
         if (error) throw error;
+        ensureRowsUpdated(data, 'The department');
         toast.success('Department created successfully');
       }
 
@@ -130,9 +171,11 @@ const DepartmentManagement: React.FC = () => {
       setEditingDepartment(null);
       resetForm();
       loadDepartments();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error saving department:', error);
-      toast.error(error.message || 'Failed to save department');
+      toast.error(describeDbError(error, 'Failed to save department'));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -149,40 +192,44 @@ const DepartmentManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this department? This action cannot be undone.')) {
-      return;
-    }
-
+    setDeleting(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('departments')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The department');
 
       toast.success('Department deleted successfully');
+      setDepartmentToDelete(null);
       loadDepartments();
     } catch (error) {
       console.error('Error deleting department:', error);
-      toast.error('Failed to delete department');
+      toast.error(describeDbError(error, 'Failed to delete department'));
+    } finally {
+      setDeleting(false);
     }
   };
 
   const handleToggleActive = async (department: Department) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('departments')
         .update({ is_active: !department.is_active })
-        .eq('id', department.id);
+        .eq('id', department.id)
+        .select('id');
 
       if (error) throw error;
+      ensureRowsUpdated(data, 'The department');
 
       toast.success(`Department ${department.is_active ? 'deactivated' : 'activated'} successfully`);
       loadDepartments();
     } catch (error) {
       console.error('Error toggling department status:', error);
-      toast.error('Failed to update department status');
+      toast.error(describeDbError(error, 'Failed to update department status'));
     }
   };
 
@@ -196,8 +243,17 @@ const DepartmentManagement: React.FC = () => {
     });
   };
 
+  // Escape closes the department form without saving, as its X does
+  useEscapeToClose(showForm, () => {
+    setShowForm(false);
+    setEditingDepartment(null);
+    resetForm();
+  });
+
+  // Staff are linked to a department by its name (users.department); count active staff only
   const getUsersInDepartment = (departmentName: string) => {
-    return users.filter(u => u.job_title?.toLowerCase().includes(departmentName.toLowerCase()));
+    const name = departmentName.trim().toLowerCase();
+    return users.filter(u => u.is_active !== false && u.department?.trim().toLowerCase() === name);
   };
 
   if (loading) {
@@ -288,6 +344,7 @@ const DepartmentManagement: React.FC = () => {
                               : 'text-gray-400 hover:bg-gray-50'
                           }`}
                           title={department.is_active ? 'Deactivate department' : 'Activate department'}
+                          aria-label={`${department.is_active ? 'Deactivate' : 'Activate'} department ${department.name}`}
                         >
                           <Icon icon={department.is_active ? SolarIcons.checkCircle : SolarIcons.dangerCircle} className="w-4 h-4" />
                         </button>
@@ -295,13 +352,15 @@ const DepartmentManagement: React.FC = () => {
                           onClick={() => handleEdit(department)}
                           className="p-1.5 text-purple-600 hover:bg-purple-50 rounded-lg transition-all duration-200"
                           title="Edit department"
+                          aria-label={`Edit department ${department.name}`}
                         >
                           <Icon icon={SolarIcons.edit} className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(department.id)}
+                          onClick={() => setDepartmentToDelete(department)}
                           className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
                           title="Delete department"
+                          aria-label={`Delete department ${department.name}`}
                         >
                           <Icon icon={SolarIcons.trash} className="w-4 h-4" />
                         </button>
@@ -324,7 +383,7 @@ const DepartmentManagement: React.FC = () => {
                       <div className="flex items-center gap-2 text-sm">
                         <Icon icon={SolarIcons.users} className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-600">Staff:</span>
-                        <span className="font-medium text-gray-900">{usersInDept.length} members</span>
+                        <span className="font-medium text-gray-900">{usersInDept.length} {usersInDept.length === 1 ? 'member' : 'members'}</span>
                       </div>
                     </div>
                   </div>
@@ -367,6 +426,8 @@ const DepartmentManagement: React.FC = () => {
                       setEditingDepartment(null);
                       resetForm();
                     }}
+                    aria-label="Close without saving"
+                    title="Close"
                     className="p-2 hover:bg-white/20 rounded-lg transition-colors"
                   >
                     <Icon icon={SolarIcons.close} className="w-5 h-5 text-white" />
@@ -376,10 +437,11 @@ const DepartmentManagement: React.FC = () => {
               
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="department-name" className="block text-sm font-medium text-gray-700 mb-1">
                     Department Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="department-name"
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -423,11 +485,14 @@ const DepartmentManagement: React.FC = () => {
                     Department Color
                   </label>
                   <div className="grid grid-cols-8 gap-2">
-                    {departmentColors.map((color) => (
+                    {departmentColorOptions.map(({ value: color, name: colorName }) => (
                       <button
                         key={color}
                         type="button"
                         onClick={() => setFormData({ ...formData, color })}
+                        aria-label={`${colorName} department colour`}
+                        aria-pressed={formData.color === color}
+                        title={colorName}
                         className={`w-10 h-10 rounded-lg transition-all duration-200 ${
                           formData.color === color 
                             ? 'ring-2 ring-offset-2 ring-purple-500 scale-110' 
@@ -466,10 +531,11 @@ const DepartmentManagement: React.FC = () => {
                   </Button>
                   <Button
                     type="submit"
+                    isLoading={saving}
                     className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white"
                   >
-                    <Icon icon={editingDepartment ? SolarIcons.save : SolarIcons.plus} className="w-5 h-5 mr-2" />
-                    {editingDepartment ? 'Update Department' : 'Create Department'}
+                    {!saving && <Icon icon={editingDepartment ? SolarIcons.save : SolarIcons.plus} className="w-5 h-5 mr-2" />}
+                    {saving ? 'Saving...' : editingDepartment ? 'Update Department' : 'Create Department'}
                   </Button>
                 </div>
               </form>
@@ -477,6 +543,39 @@ const DepartmentManagement: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {(() => {
+        const assignedCount = departmentToDelete ? getUsersInDepartment(departmentToDelete.name).length : 0;
+        return (
+          <ConfirmDialog
+            isOpen={!!departmentToDelete}
+            tone={assignedCount > 0 ? 'warning' : 'danger'}
+            title={assignedCount > 0 ? 'Department still has staff' : 'Delete department?'}
+            message={departmentToDelete ? (
+              assignedCount > 0 ? (
+                <p>
+                  <strong>{departmentToDelete.name}</strong> has {assignedCount} active staff member{assignedCount === 1 ? '' : 's'}.
+                  Move them to another department first, or deactivate the department instead so their records stay consistent.
+                </p>
+              ) : (
+                <p><strong>{departmentToDelete.name}</strong> will be permanently deleted. This cannot be undone.</p>
+              )
+            ) : null}
+            confirmLabel={assignedCount > 0 ? (departmentToDelete?.is_active ? 'Deactivate instead' : 'Close') : 'Delete department'}
+            isLoading={deleting}
+            onConfirm={async () => {
+              if (!departmentToDelete) return;
+              if (assignedCount > 0) {
+                if (departmentToDelete.is_active) await handleToggleActive(departmentToDelete);
+                setDepartmentToDelete(null);
+                return;
+              }
+              handleDelete(departmentToDelete.id);
+            }}
+            onCancel={() => setDepartmentToDelete(null)}
+          />
+        );
+      })()}
     </div>
   );
 };

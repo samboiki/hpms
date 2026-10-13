@@ -1,22 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Phone, Mail, Calendar, Clock, MapPin, Building2, UserPlus, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { Icon } from '@iconify/react';
+import { buildBookingPatientUpdate } from './bookingPatientUpdate';
+import { useDiarySettings } from '../../hooks/useDiarySettings';
+import { PRACTITIONER_STAFF_COLUMNS, bookingPractitioners, type PractitionerStaffRow } from '../forms/bookingPractitioners';
 
 interface BookingRequestModalProps {
   isOpen: boolean;
   onClose: () => void;
   visit: any;
   onConfirm: () => void;
-}
-
-interface Doctor {
-  id: string;
-  full_name: string;
-  role: string;
 }
 
 interface Branch {
@@ -33,7 +30,11 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
   onConfirm
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  // The practice's staff and working hours give the same practitioners as the diary's columns (bookingPractitioners)
+  const [practiceId, setPracticeId] = useState<string | null>(null);
+  const [staffRows, setStaffRows] = useState<PractitionerStaffRow[]>([]);
+  const diarySettings = useDiarySettings(practiceId);
+  const doctors = useMemo(() => bookingPractitioners(staffRows, diarySettings.hours, null), [staffRows, diarySettings.hours]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [selectedDoctorId, setSelectedDoctorId] = useState('');
   const [selectedBranchId, setSelectedBranchId] = useState(visit?.branch_id || '');
@@ -60,24 +61,33 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
 
   const fetchDoctorsAndBranches = async () => {
     try {
-      // Get user's practice_id
+      // Get the signed-in user's practice_id. Without the id filter .single() fails as soon as the
+      // user can see colleagues' rows, and the doctor list stayed empty
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
       const { data: userData } = await supabase
         .from('users')
         .select('practice_id')
+        .eq('id', user.id)
         .single();
 
-      if (!userData?.practice_id) return;
+      if (!userData?.practice_id) {
+        toast.error('Could not load the practitioners for your practice. Please close and try again.');
+        return;
+      }
+      setPracticeId(userData.practice_id);
 
-      // Fetch doctors
-      const { data: doctorsData } = await supabase
+      // The practice's staff: the practitioners are the diary's (active doctors, anyone with working hours);
+      // deactivated staff can't be assigned new bookings
+      const { data: staffData } = await supabase
         .from('users')
-        .select('id, full_name, role')
+        .select(PRACTITIONER_STAFF_COLUMNS)
         .eq('practice_id', userData.practice_id)
-        .eq('role', 'doctor')
         .order('full_name');
 
-      if (doctorsData) {
-        setDoctors(doctorsData);
+      if (staffData) {
+        setStaffRows(staffData);
       }
 
       // Fetch branches
@@ -98,7 +108,7 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
 
   const handleConfirmBooking = async () => {
     if (!selectedDoctorId) {
-      toast.error('Please select a doctor');
+      toast.error('Choose the practitioner');
       return;
     }
 
@@ -109,12 +119,13 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
 
     setIsLoading(true);
     try {
-      // Update patient information if needed
-      if (visit.patient?.id) {
+      // Update patient information if needed (only filled-in fields, so nothing on file is wiped)
+      const patientUpdate = buildBookingPatientUpdate(patientData);
+      if (visit.patient?.id && Object.keys(patientUpdate).length > 0) {
         const { error: patientError } = await supabase
           .from('patients')
           .update({
-            ...patientData,
+            ...patientUpdate,
             updated_at: new Date().toISOString()
           })
           .eq('id', visit.patient.id);
@@ -153,6 +164,10 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
 
   if (!isOpen || !visit) return null;
 
+  // The scheduler passes its appointment shape (date/time/type) while raw visits use scheduled_date/
+  // scheduled_time; reading only the latter gave an invalid date, and date-fns format() threw on it
+  const bookingStart = new Date(`${visit.scheduled_date ?? visit.date}T${visit.scheduled_time ?? visit.time}`);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -187,6 +202,8 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                   <button
                     onClick={onClose}
                     className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Close"
+                    aria-label="Close"
                   >
                     <X className="w-5 h-5 text-gray-500" />
                   </button>
@@ -205,12 +222,14 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                     <div>
                       <p className="text-sm text-gray-600">Date & Time</p>
                       <p className="font-medium text-gray-900">
-                        {format(new Date(visit.scheduled_date + 'T' + visit.scheduled_time), 'MMMM d, yyyy')} at {format(new Date('2000-01-01T' + visit.scheduled_time), 'h:mm a')}
+                        {isValid(bookingStart)
+                          ? `${format(bookingStart, 'd MMMM yyyy')} at ${format(bookingStart, 'h:mm a')}`
+                          : 'Not set'}
                       </p>
                     </div>
                     <div>
                       <p className="text-sm text-gray-600">Visit Type</p>
-                      <p className="font-medium text-gray-900 capitalize">{visit.visit_type || 'Consultation'}</p>
+                      <p className="font-medium text-gray-900 capitalize">{visit.visit_type || visit.type || 'Consultation'}</p>
                     </div>
                   </div>
                   {visit.notes && (
@@ -294,18 +313,19 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Assign Doctor <span className="text-red-500">*</span>
+                      <label htmlFor="booking-request-practitioner" className="block text-sm font-medium text-gray-700 mb-1">
+                        Assign practitioner <span className="text-red-500">*</span>
                       </label>
                       <select
+                        id="booking-request-practitioner"
                         value={selectedDoctorId}
                         onChange={(e) => setSelectedDoctorId(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
-                        <option value="">Select a doctor</option>
+                        <option value="">Select a practitioner</option>
                         {doctors.map((doctor) => (
                           <option key={doctor.id} value={doctor.id}>
-                            {doctor.full_name}
+                            {doctor.label}
                           </option>
                         ))}
                       </select>
@@ -338,7 +358,7 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm text-gray-600">
                     <AlertCircle className="w-4 h-4" />
-                    <span>Patient will receive confirmation via email/SMS</span>
+                    <span>The patient is only notified if the Booking confirmation automation is on (Messages &gt; Automations)</span>
                   </div>
                   <div className="flex gap-3">
                     <button
@@ -350,6 +370,13 @@ const BookingRequestModal: React.FC<BookingRequestModalProps> = ({
                     <button
                       onClick={handleConfirmBooking}
                       disabled={isLoading || !selectedDoctorId || (branches.length > 0 && !selectedBranchId)}
+                      title={
+                        !selectedDoctorId
+                          ? 'Choose the practitioner first'
+                          : branches.length > 0 && !selectedBranchId
+                          ? 'Select a branch first'
+                          : undefined
+                      }
                       className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                       {isLoading ? (

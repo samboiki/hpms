@@ -7,6 +7,8 @@ import { cn } from '../../../utils/cn';
 import { unreadMessagesService } from '../../../services/unreadMessagesService';
 import { NotificationBadge } from '../../ui/NotificationBadge';
 import { NotificationPreferences } from '../NotificationPreferences';
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose';
+import { chatListTime } from '../../../utils/messages/chatTime';
 
 export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practiceId }) => {
   const { user } = useAuthStore();
@@ -14,6 +16,10 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   const [messages, setMessages] = useState<any[]>([]);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
+  // The realtime handlers are set up once: they read the conversation open now through these (a stale null counted
+  // the open conversation's new messages as unread and never marked them read)
+  const selectedChannelIdRef = useRef<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +71,12 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   
   // Notification preferences modal
   const [showNotificationPrefs, setShowNotificationPrefs] = useState(false);
+  // Escape closes the open window (the one on top first), as its Cancel or X does
+  useEscapeToClose(showCreateChannelModal, () => setShowCreateChannelModal(false));
+  useEscapeToClose(showManageGroupModal, () => setShowManageGroupModal(false));
+  useEscapeToClose(!!memberToRemove, () => setMemberToRemove(null));
+  useEscapeToClose(!!messageMenuId, () => setMessageMenuId(null));
+  useEscapeToClose(showNotificationPrefs, () => setShowNotificationPrefs(false));
   
   // Real-time typing subscription
   const [typingSubscription, setTypingSubscription] = useState<any>(null);
@@ -144,6 +156,13 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       typingSub.unsubscribe();
     };
   }, [practiceId, user?.id]);
+
+  useEffect(() => {
+    selectedChannelIdRef.current = selectedChannelId;
+  }, [selectedChannelId]);
+  useEffect(() => {
+    threadIdRef.current = threadId;
+  }, [threadId]);
 
   // ========== ENHANCEMENT 2: Scroll to bottom when messages change ==========
   useEffect(() => {
@@ -400,7 +419,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }
     } catch (err: any) {
       console.error('Error loading channels:', err);
-      setError(`Failed to load channels: ${err.message}`);
+      setError('Your conversations could not be loaded. Please try again.');
     } finally {
       setChannelsLoading(false);
     }
@@ -442,7 +461,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }));
       
       // Update unread count if not from current user and not in current channel
-      if (newMessage.sender_id !== user?.id && selectedChannelId !== channelId) {
+      if (newMessage.sender_id !== user?.id && selectedChannelIdRef.current !== channelId) {
         setUnreadCounts(prev => ({
           ...prev,
           [channelId]: (prev[channelId] || 0) + 1
@@ -450,7 +469,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }
       
       // If in current channel, add to messages and mark as read
-      if (selectedChannelId === channelId && threadId === newMessage.thread_id) {
+      if (selectedChannelIdRef.current === channelId && threadIdRef.current === newMessage.thread_id) {
         setMessages(prev => {
           const exists = prev.some(m => m.id === newMessage.id);
           return exists ? prev : [...prev, newMessage];
@@ -534,6 +553,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         .from('users')
         .select('id, full_name')
         .eq('practice_id', practiceId)
+        // Staff who left the practice (deactivated) are not offered
+        .or('is_active.is.null,is_active.eq.true')
         .not('id', 'in', `(${channelMembers.join(',')})`);
       
       setAvailableUsers(data || []);
@@ -545,6 +566,12 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
   // Load messages when channel selected
   const selectChannel = async (channelId: string) => {
     setSelectedChannelId(channelId);
+    selectedChannelIdRef.current = channelId;
+    // Nothing of the previous conversation stays: a message typed now cannot go into it, and its messages are not
+    // shown under this one while it loads
+    setThreadId(null);
+    threadIdRef.current = null;
+    setMessages([]);
     setError(null);
     setLoading(true);
     setMessageMenuId(null);
@@ -576,11 +603,13 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
 
     try {
       // Get thread for this channel
-      const { data: threads } = await supabase
+      const { data: threads, error: threadsError } = await supabase
         .from('internal_message_threads')
         .select('id')
         .eq('channel_id', channelId)
         .limit(1);
+      // A failed read is said, not shown as "No messages yet"
+      if (threadsError) throw threadsError;
 
       if (threads && threads.length > 0) {
         const tid = threads[0].id;
@@ -590,11 +619,12 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         threadChannelMap.current[tid] = channelId;
 
         // Load messages
-        const { data: msgs } = await supabase
+        const { data: msgs, error: messagesError } = await supabase
           .from('internal_messages')
           .select('id, content, sender_id, created_at, updated_at, is_deleted')
           .eq('thread_id', tid)
           .order('created_at');
+        if (messagesError) throw messagesError;
 
         setMessages(msgs || []);
         
@@ -641,7 +671,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                   loadUserNames([newMessage.sender_id]);
                   
                   // Only process if message is in current thread
-                  if (threadId === tid) {
+                  if (threadIdRef.current === tid) {
                     // Update last message for this channel
                     setLastMessages(prev => ({
                       ...prev,
@@ -674,7 +704,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         setSubscription(newSub);
       } else {
         // Create thread if none exists
-        const { data: newThread } = await supabase
+        const { data: newThread, error: newThreadError } = await supabase
           .from('internal_message_threads')
           .insert({
             channel_id: channelId,
@@ -683,6 +713,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
           })
           .select()
           .single();
+        if (newThreadError) throw newThreadError;
 
         if (newThread) {
           setThreadId(newThread.id);
@@ -691,7 +722,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }
     } catch (err: any) {
       console.error('Error loading messages:', err);
-      setError(`Failed to load messages: ${err.message}`);
+      setError('This conversation could not be opened. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -751,7 +782,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       }
     } catch (err: any) {
       console.error('Error sending message:', err);
-      setError(`Failed to send: ${err.message}`);
+      setError('The message could not be sent. Please try again.');
       setMessageInput(content);
     }
   };
@@ -781,7 +812,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       setEditingContent('');
     } catch (err: any) {
       console.error('Error editing message:', err);
-      setError(`Failed to edit: ${err.message}`);
+      setError('The message could not be changed. Please try again.');
     }
   };
   
@@ -802,7 +833,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       setMessageMenuId(null);
     } catch (err: any) {
       console.error('Error deleting message:', err);
-      setError(`Failed to delete: ${err.message}`);
+      setError('The message could not be deleted. Please try again.');
     }
   };
   
@@ -849,7 +880,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       setSelectedUsers([]);
     } catch (err: any) {
       console.error('Error adding users:', err);
-      setError(`Failed to add users: ${err.message}`);
+      setError('The people could not be added. Please try again.');
     }
   };
   
@@ -858,7 +889,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
     switch (type) {
       case 'direct': return 'solar:chat-round-bold-duotone';
       case 'group': return 'solar:users-group-rounded-bold-duotone';
-      case 'announcement': return 'solar:megaphone-bold-duotone';
+      case 'announcement': return 'solar:volume-loud-bold-duotone';
       default: return 'solar:chat-square-bold-duotone';
     }
   };
@@ -985,11 +1016,13 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       // Small delay to ensure channels are loaded
       setTimeout(() => {
         setSelectedChannelId(newChannel.id);
-        selectChannel(newChannel.id);
+        // The person who made the group manages it straight away (the channel list read in selectChannel can still be
+        // the one from before the group existed)
+        void selectChannel(newChannel.id).then(() => setCurrentChannelCreator(user?.id ?? null));
       }, 100);
     } catch (err: any) {
       console.error('Error creating channel:', err);
-      setError(`Failed to create channel: ${err.message}`);
+      setError('The conversation could not be started. Please try again.');
     }
   };
   
@@ -1000,6 +1033,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
         .from('users')
         .select('id, full_name, avatar')
         .eq('practice_id', practiceId)
+        .or('is_active.is.null,is_active.eq.true') // Not staff who left (deactivated)
         .neq('id', user?.id); // Exclude current user
       
       return data || [];
@@ -1014,13 +1048,16 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
     if (!selectedChannelId || !memberId) return;
     
     try {
-      const { error } = await supabase
+      const { data: removed, error } = await supabase
         .from('internal_channel_members')
         .delete()
         .eq('channel_id', selectedChannelId)
-        .eq('user_id', memberId);
+        .eq('user_id', memberId)
+        .select('user_id');
       
       if (error) throw error;
+      // A refused delete removes nothing and reports no error: no "was removed" message then
+      if (!removed || removed.length === 0) throw new Error('No member was removed');
       
       // Send system message
       const memberName = userNames[memberId] || 'A member';
@@ -1041,7 +1078,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       setMemberToRemove(null);
     } catch (err: any) {
       console.error('Error removing member:', err);
-      setError(`Failed to remove member: ${err.message}`);
+      setError('The person could not be removed from the group. Please try again.');
     }
   };
   
@@ -1067,7 +1104,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       await loadChannels();
     } catch (err: any) {
       console.error('Error deleting group:', err);
-      setError(`Failed to delete group: ${err.message}`);
+      setError('The group could not be deleted. Please try again.');
     }
   };
   
@@ -1132,7 +1169,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
       await loadChannels();
     } catch (err: any) {
       console.error('Error deleting direct message:', err);
-      setError(`Failed to delete conversation: ${err.message}`);
+      setError('The conversation could not be deleted. Please try again.');
     }
   };
 
@@ -1274,7 +1311,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                           {lastMessages[channel.id].content}
                         </p>
                         <span className="text-[10px] text-gray-400 whitespace-nowrap ml-1">
-                          {format(new Date(lastMessages[channel.id].created_at), 'HH:mm')}
+                          {chatListTime(lastMessages[channel.id].created_at)}
                         </span>
                       </div>
                     ) : (
@@ -1342,15 +1379,23 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     )}
                   </div>
                   
-                  <button
-                    onClick={() => {
-                      setShowAddUsersModal(true);
-                      loadAvailableUsers();
-                    }}
-                    className="text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    {channelMembers.length} members
-                  </button>
+                  {/* Only the group owner can change members; for everyone else this is just a count */}
+                  {channels.find(c => c.id === selectedChannelId)?.channel_type === 'group' && currentChannelCreator === user?.id ? (
+                    <button
+                      onClick={() => setShowManageGroupModal(true)}
+                      className="text-sm text-gray-600 hover:text-gray-900"
+                      title="Manage group members"
+                    >
+                      {channelMembers.length} members
+                    </button>
+                  ) : (
+                    <span
+                      className="text-sm text-gray-600"
+                      title={channelMembers.map(id => userNames[id] || 'Unknown').join(', ')}
+                    >
+                      {channelMembers.length} members
+                    </span>
+                  )}
                 </div>
                 
                 {/* Enhanced buttons */}
@@ -1406,7 +1451,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                           <div className="flex items-center gap-4 my-4">
                             <div className="flex-1 h-px bg-gray-200" />
                             <span className="text-xs text-gray-500 px-2">
-                              {format(new Date(msg.created_at), 'EEEE, MMMM d')}
+                              {format(new Date(msg.created_at), 'EEEE, d MMMM')}
                             </span>
                             <div className="flex-1 h-px bg-gray-200" />
                           </div>
@@ -1470,6 +1515,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                     />
                                     <button
                                       onClick={saveEditMessage}
+                                      aria-label="Save changes"
+                                      title="Save changes"
                                       className="p-2 text-green-600 hover:bg-green-50 rounded"
                                     >
                                       <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />
@@ -1479,6 +1526,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                         setEditingMessageId(null);
                                         setEditingContent('');
                                       }}
+                                      aria-label="Cancel editing"
+                                      title="Cancel editing"
                                       className="p-2 text-red-600 hover:bg-red-50 rounded"
                                     >
                                       <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
@@ -1512,6 +1561,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                   <div className="absolute -left-8 top-0 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => setMessageMenuId(msg.id)}
+                                      aria-label="Message options"
+                                      title="Edit or delete this message"
                                       className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
                                     >
                                       <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4 text-gray-500" />
@@ -1576,22 +1627,21 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
             {/* ========== ENHANCEMENT 10: Better input area ==========*/}
             <div className="p-4 border-t border-gray-200 bg-white">
               <div className="flex items-center gap-3">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                  <Icon icon="solar:paperclip-bold-duotone" className="w-5 h-5 text-gray-500" />
-                </button>
-                
                 <input
                   type="text"
                   value={messageInput}
                   onChange={(e) => handleInputChange(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   placeholder="Type a message..."
+                  aria-label="Message"
                   className="flex-1 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
                 
                 <button
                   onClick={sendMessage}
                   disabled={!messageInput.trim()}
+                  aria-label="Send message"
+                  title={messageInput.trim() ? 'Send message' : 'Type a message first'}
                   className={cn(
                     "p-2 rounded-lg transition-all",
                     messageInput.trim()
@@ -1632,6 +1682,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     setNewChannelMembers([]);
                     setNewChannelType('group');
                   }}
+                  aria-label="Close"
+                  title="Close"
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
@@ -1741,7 +1793,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                       : "bg-gray-100 text-gray-400 cursor-not-allowed"
                   )}
                 >
-                  Create {newChannelType === 'direct' ? 'Direct Message' : 'Channel'}
+                  Create {newChannelType === 'direct' ? 'Direct Message' : 'Group'}
                 </button>
               </div>
             </div>
@@ -1761,7 +1813,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     <Icon icon="solar:users-group-rounded-bold-duotone" className="w-6 h-6 text-amber-600" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-semibold text-gray-900">Manage</h3>
+                    <h3 className="text-xl font-semibold text-gray-900">Manage Group</h3>
                     <p className="text-sm text-gray-600 mt-0.5">
                       {channels.find(c => c.id === selectedChannelId)?.name}
                     </p>
@@ -1774,6 +1826,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                     setShowAddMembersSection(false);
                     setSelectedUsers([]);
                   }}
+                  aria-label="Close"
+                  title="Close"
                   className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
                 >
                   <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
@@ -1870,22 +1924,6 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                 ) : (
                   /* Add Members Section */
                   <div>
-                    <div className="mb-4">
-                      <div className="relative">
-                        <Icon icon="solar:magnifer-bold-duotone" className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                        <input
-                          type="text"
-                          placeholder="Search team members..."
-                          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                          onChange={(e) => {
-                            // Filter available users based on search
-                            const searchTerm = e.target.value.toLowerCase();
-                            // Implementation for search would go here
-                          }}
-                        />
-                      </div>
-                    </div>
-                    
                     {availableUsers.length === 0 ? (
                       <div className="text-center py-12">
                         <Icon icon="solar:users-group-rounded-bold-duotone" className="w-16 h-16 text-gray-300 mx-auto mb-3" />
@@ -1940,7 +1978,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
                                   : "bg-white border-gray-300"
                               )}>
                                 {isSelected && (
-                                  <Icon icon="solar:check-bold" className="w-4 h-4 text-white" />
+                                  <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-white" />
                                 )}
                               </div>
                             </div>
@@ -2058,6 +2096,7 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               
               <button
                 onClick={() => {
+                  if (!window.confirm('Delete this message? Everyone in the conversation will see "[Message deleted]" instead.')) return;
                   deleteMessage(messageMenuId);
                   setMessageMenuId(null);
                 }}
@@ -2081,6 +2120,8 @@ export const EnhancedMessagingV2: React.FC<{ practiceId: string }> = ({ practice
               <h3 className="text-xl font-semibold text-gray-900">Notification Preferences</h3>
               <button
                 onClick={() => setShowNotificationPrefs(false)}
+                aria-label="Close"
+                title="Close"
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-500" />
@@ -2117,6 +2158,7 @@ const CreateChannelMembersList: React.FC<{
         .from('users')
         .select('id, full_name, avatar')
         .eq('practice_id', practiceId)
+        .or('is_active.is.null,is_active.eq.true') // Not staff who left (deactivated)
         .neq('id', currentUserId)
         .order('full_name');
       

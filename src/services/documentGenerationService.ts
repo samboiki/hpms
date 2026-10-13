@@ -1,7 +1,11 @@
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { isSafetyNotSetUp, loadPatientSafety, printedAllergyLine } from './patientSafetyService';
+import { RECORDS_BUCKET, recordLink, recordPath } from './recordFiles';
+
+/** Allergy text is typed by staff: never let it become markup in the printed script */
+const escapePrintText = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 interface DocumentGenerationOptions {
   visitId: string;
@@ -13,9 +17,9 @@ interface DocumentGenerationOptions {
 interface GeneratedDocument {
   type: 'prescription' | 'leave_form' | 'invoice';
   documentName: string;
+  /** Path in the private bucket "records": open it with openRecord (a link is made then, never stored) */
   filePath: string;
   fileSize: number;
-  publicUrl?: string;
 }
 
 export class DocumentGenerationService {
@@ -160,7 +164,9 @@ export class DocumentGenerationService {
           switch (docType) {
             case 'prescription':
               if (hasPrescription) {
-                generatedDoc = await this.generatePrescription(visit, practice, medications, medicalAid);
+                // The pharmacist dispensing from the script sees the recorded allergies
+                const allergyLine = await this.loadAllergyLine(options.patientId);
+                generatedDoc = await this.generatePrescription(visit, practice, medications, medicalAid, allergyLine);
               } else {
                 console.log('ℹ️ Skipping prescription - no medications found');
               }
@@ -174,7 +180,7 @@ export class DocumentGenerationService {
               break;
             case 'invoice':
               if (hasInvoice) {
-                generatedDoc = await this.generateInvoice(visit, practice, invoice, medicalAid);
+                generatedDoc = await this.generateInvoice(invoice, options.practiceId);
               } else {
                 console.log('ℹ️ Skipping invoice - no invoice data found');
               }
@@ -224,9 +230,22 @@ export class DocumentGenerationService {
   }
 
   /**
+   * "Allergies: Penicillin (severe)" or "No known allergies" for the printed script; null when allergies
+   * were never recorded or cannot be read (before proposals/2026-10-07-patient-safety.sql nothing prints).
+   */
+  private async loadAllergyLine(patientId: string): Promise<string | null> {
+    try {
+      return printedAllergyLine(await loadPatientSafety(patientId));
+    } catch (error) {
+      if (!isSafetyNotSetUp(error)) console.warn('Allergies could not be read for the prescription:', error);
+      return null;
+    }
+  }
+
+  /**
    * Generate prescription PDF
    */
-  private async generatePrescription(visit: any, practice: any, medications: any[], medicalAid?: any): Promise<GeneratedDocument | null> {
+  private async generatePrescription(visit: any, practice: any, medications: any[], medicalAid?: any, allergyLine?: string | null): Promise<GeneratedDocument | null> {
     try {
       // Check if we have medications
       if (!medications || medications.length === 0) {
@@ -244,26 +263,20 @@ export class DocumentGenerationService {
       await document.fonts.ready;
       
       // Create HTML content for prescription
-      const html = this.createPrescriptionHTML(visit, practice, medications, medicalAid);
+      const html = this.createPrescriptionHTML(visit, practice, medications, medicalAid, allergyLine);
       
       // Generate PDF - A5 format for prescriptions
       const pdfBlob = await this.htmlToPDF(html, 'a5');
       
       // Upload to storage
       const fileName = `prescription_${visit.id}_${Date.now()}.pdf`;
-      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'prescriptions');
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-      
+      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'prescriptions', practice.id);
+
       return {
         type: 'prescription',
         documentName: `Prescription - ${format(new Date(), 'dd/MM/yyyy')}`,
         filePath,
-        fileSize: pdfBlob.size,
-        publicUrl
+        fileSize: pdfBlob.size
       };
     } catch (error) {
       console.error('Error generating prescription:', error);
@@ -298,19 +311,13 @@ export class DocumentGenerationService {
       
       // Upload to storage
       const fileName = `leave_form_${leaveForm.form_number || visit.id}_${Date.now()}.pdf`;
-      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'leave_forms');
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-      
+      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'leave_forms', practice.id);
+
       return {
         type: 'leave_form',
         documentName: `Leave Form - ${leaveForm.form_number || format(new Date(), 'dd/MM/yyyy')}`,
         filePath,
-        fileSize: pdfBlob.size,
-        publicUrl
+        fileSize: pdfBlob.size
       };
     } catch (error) {
       console.error('Error generating leave form:', error);
@@ -319,61 +326,26 @@ export class DocumentGenerationService {
   }
 
   /**
-   * Generate invoice PDF - using the beautiful styling from ComprehensivePatientModal
+   * The invoice as a text PDF in the NAMAF rule-008 layout: the same PDF as "Download PDF" (invoiceDocumentService),
+   * read fresh from the invoice, its lines and the practice. The earlier version was a screenshot (no text layer).
    */
-  private async generateInvoice(visit: any, practice: any, invoice: any, medicalAid: any): Promise<GeneratedDocument | null> {
+  private async generateInvoice(invoice: { id?: string; invoice_number?: string; invoice_services?: unknown[] } | null, practiceId: string): Promise<GeneratedDocument | null> {
     try {
-      if (!invoice || !invoice?.invoice_services || invoice.invoice_services.length === 0) {
-        console.log('ℹ️ No invoice data provided');
-        return null;
-      }
+      if (!invoice?.id || !invoice.invoice_services || invoice.invoice_services.length === 0) return null;
+      // The invoice PDF code loads with the first invoice printed here, not with the visit tracker's print buttons
+      const { makeInvoicePdf } = await import('./invoiceDocumentService');
+      const { doc, pdf } = await makeInvoicePdf(invoice.id);
+      const pdfBlob = pdf.output('blob');
 
-      console.log('🎯 Starting invoice PDF generation for invoice:', invoice.invoice_number);
-      
-      // Load fonts first
-      const fontLink = document.createElement('link');
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap';
-      fontLink.rel = 'stylesheet';
-      document.head.appendChild(fontLink);
-      await document.fonts.ready;
-
-      // Get medical aid provider name if available
-      let medicalAidProviderName = 'N/A';
-      if (medicalAid?.medical_aid_providers) {
-        medicalAidProviderName = medicalAid.medical_aid_providers.short_name || medicalAid.medical_aid_providers.name;
-      }
-
-      // Create patient info object
-      const patientInfo = {
-        name: `${visit.patients.first_name} ${visit.patients.last_name}`,
-        phone: visit.patients.cell_number || undefined,
-        email: visit.patients.email || undefined,
-        address: visit.patients.home_address || undefined,
-        medicalAidProvider: medicalAidProviderName,
-        membershipNumber: medicalAid?.membership_number,
-      };
-
-      // Create HTML content for invoice using the beautiful styling
-      const html = await this.createInvoiceHTMLWithBeautifulStyling(visit, practice, invoice, patientInfo, medicalAid, medicalAidProviderName);
-      
-      // Generate PDF - A4 format for invoices
-      const pdfBlob = await this.htmlToPDF(html, 'a4');
-      
       // Upload to storage
       const fileName = `invoice_${invoice.invoice_number || 'unknown'}_${Date.now()}.pdf`;
-      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'invoices');
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('documents')
-        .getPublicUrl(filePath);
-      
+      const filePath = await this.uploadToStorage(pdfBlob, fileName, 'invoices', practiceId);
+
       return {
         type: 'invoice',
-        documentName: `Invoice - ${invoice.invoice_number || 'N/A'}`,
+        documentName: `Invoice - ${doc.number || 'N/A'}`,
         filePath,
-        fileSize: pdfBlob.size,
-        publicUrl
+        fileSize: pdfBlob.size
       };
     } catch (error) {
       console.error('Error generating invoice:', error);
@@ -384,7 +356,7 @@ export class DocumentGenerationService {
   /**
    * Create prescription HTML with beautiful styling matching the invoice style
    */
-  private createPrescriptionHTML(visit: any, practice: any, medications: any[], medicalAid?: any): string {
+  private createPrescriptionHTML(visit: any, practice: any, medications: any[], medicalAid?: any, allergyLine?: string | null): string {
     const patient = visit.patients;
     const doctor = visit.users;
     const logoUrl = practice.logo_url || '';
@@ -772,8 +744,9 @@ export class DocumentGenerationService {
                 ${patient.cell_number ? `<div class="patient-detail-line">${patient.cell_number}</div>` : ''}
                 ${patient.email ? `<div class="patient-detail-line">${patient.email}</div>` : ''}
                 ${patient.home_address ? `<div class="patient-detail-line">${patient.home_address}</div>` : ''}
+                ${allergyLine ? `<div class="patient-detail-line" style="color: #b91c1c; font-weight: 700;">${escapePrintText(allergyLine)}</div>` : ''}
               </div>
-              
+
               <div class="patient-details" style="text-align: right;">
                 <div class="patient-name">${medicalAid?.medical_aid_providers?.short_name || medicalAid?.medical_aid_providers?.name || 'N/A'}</div>
                 <div class="patient-detail-line">Scheme: ${medicalAid?.scheme || 'N/A'}</div>
@@ -781,7 +754,7 @@ export class DocumentGenerationService {
               </div>
             </div>
           </div>
-          
+
           <!-- Medications Table -->
           <div class="medications-section">
             <h3 class="medications-title">PRESCRIBED MEDICATIONS</h3>
@@ -1399,317 +1372,11 @@ export class DocumentGenerationService {
   }
 
   /**
-   * Create invoice HTML using the beautiful styling from ComprehensivePatientModal
-   */
-  private async createInvoiceHTMLWithBeautifulStyling(visit: any, practice: any, invoice: any, patientInfo: any, medicalAid: any, medicalAidProviderName: string): Promise<string> {
-    // Ensure services is always an array
-    const services = Array.isArray(invoice?.invoice_services) ? invoice.invoice_services : [];
-    const primaryColor = practice.primary_color || '#01b9d4';
-    
-    // Helper functions for color manipulation
-    function hexToRgb(hex: string) {
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-      return result ? [
-        parseInt(result[1], 16),
-        parseInt(result[2], 16),
-        parseInt(result[3], 16)
-      ] : [1, 185, 212];
-    }
-    
-    function adjustBrightness(hex: string, percent: number) {
-      const [r, g, b] = hexToRgb(hex);
-      const adjust = (color: number) => Math.max(0, Math.min(255, Math.round(color * (1 + percent / 100))));
-      return `#${((1 << 24) + (adjust(r) << 16) + (adjust(g) << 8) + adjust(b)).toString(16).slice(1)}`;
-    }
-    
-    const lightColor = adjustBrightness(primaryColor, 20);
-    const darkColor = adjustBrightness(primaryColor, -15);
-    
-    // Calculate totals for the invoice
-    const calculateSubtotal = (services: any[]) => {
-      if (!Array.isArray(services) || services.length === 0) return 0;
-      return services.reduce((sum: number, s: any) => sum + (parseFloat(s?.total_price) || 0), 0);
-    };
-    
-    const subtotal = calculateSubtotal(services);
-    const patientPortion = (invoice.total || 0) - (invoice.medical_aid_covered || 0);
-    
-    // Create function to generate page HTML with beautiful styling
-    const createPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
-      // Recalculate subtotal for safety
-      const pageSubtotal = isLastPage ? subtotal : calculateSubtotal(pageServices);
-      const safePatientPortion = patientPortion || 0;
-      const safeInvoice = invoice || {};
-      return `
-        <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
-          
-          <!-- Premium Header Section -->
-          <div style="padding: 0; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start;">
-            
-            <!-- Logo and Title on Left (Stacked) -->
-            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1;">
-              ${practice.logo_url ? `
-                <div style="flex-shrink: 0;">
-                  <img src="${practice.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
-                </div>
-              ` : ''}
-              <div>
-                <div style="font-family: 'Rubik', sans-serif; font-size: 22px; font-weight: 800; color: #5f6578; letter-spacing: -0.2px;">
-                  ${practice.name}
-                </div>
-              </div>
-            </div>
-            
-            <!-- Practice Details (right aligned) -->
-            <div style="text-align: right; flex: 1; max-width: 300px;">
-              <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
-                ${practice.address ? `<div style="margin-bottom: 2px;">${practice.address}</div>` : ''}
-                <div style="margin-bottom: 2px;">${practice.city}, ${practice.country} ${practice.postal_code || ''}</div>
-                ${practice.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practice.contact_phone}</div>` : ''}
-                ${practice.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practice.contact_email}</div>` : ''}
-                ${practice.domain ? `<div>www.${practice.domain}</div>` : ''}
-              </div>
-            </div>
-          </div>
-          
-          ${pageNumber === 1 ? `
-          <!-- Refined Invoice Title Section -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px 0; border-bottom: 2px solid #d1d5db;">
-            <div style="display: flex; align-items: flex-end; gap: 15px;">
-              <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
-                <span style="color: #5f6578;">MEDICAL</span> <span style="color: #888;">INVOICE</span>
-              </div>
-              <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number || 'N/A'}</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
-              <div style="text-align: center;">
-                <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DATE PREPARED</div>
-                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${invoice.created_at ? format(new Date(invoice.created_at), 'dd MMM yyyy') : 'N/A'}</div>
-              </div>
-              <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
-              <div style="text-align: center;">
-                <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DUE DATE</div>
-                <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- PREPARED FOR Section -->
-          <div style="margin-bottom: 20px;">
-            <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px;">PREPARED FOR</h3>
-            <div style="display: flex; justify-content: space-between; gap: 25px;">
-              <!-- Patient Details -->
-              <div style="flex: 1;">
-                <div style="line-height: 1.4;">
-                  <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                    ${patientInfo.name}
-                  </div>
-                  ${patientInfo.phone ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.phone}</div>` : ''}
-                  ${patientInfo.email ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.email}</div>` : ''}
-                  ${patientInfo.address ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.address}</div>` : ''}
-                  ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Medical Aid #: ${medicalAid.membership_number}</div>` : ''}
-                </div>
-              </div>
-
-              <!-- Medical Aid Details (Right Aligned) -->
-              ${medicalAid?.scheme || medicalAidProviderName !== 'N/A' ? `
-                <div style="flex: 1; text-align: right;">
-                  <div style="line-height: 1.4;">
-                    <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                      ${medicalAidProviderName}
-                    </div>
-                    ${medicalAid?.scheme ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Scheme: ${medicalAid.scheme}</div>` : ''}
-                    ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Member: ${medicalAid.membership_number}</div>` : ''}
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-          </div>
-          ` : ''}
-
-          <!-- Service Details Section -->
-          <div style="margin-bottom: 30px;">
-            <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.3px;">SERVICES ${pageNumber > 1 ? '(CONTINUED)' : ''}</h3>
-            
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-              <thead>
-                <tr style="background: #5f6578; color: white;">
-                  <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Code</th>
-                  <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Description</th>
-                  <th style="padding: 12px 10px; text-align: center; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Qty</th>
-                  <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Unit Price</th>
-                  <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Med Aid</th>
-                  <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; text-transform: uppercase;">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${(Array.isArray(pageServices) ? pageServices : []).map((service: any, index: number) => {
-                  if (!service) return '';
-                  return `
-                  <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
-                    <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service?.code || 'N/A'}</td>
-                    <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
-                      <div style="color: #4b5563;">${service?.description || 'Service'}</div>
-                    </td>
-                    <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service?.quantity || 1}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${(parseFloat(service?.unit_price) || 0).toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(parseFloat(service?.medical_aid_covered) || 0).toFixed(2)}</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${(parseFloat(service?.total_price) || 0).toFixed(2)}</td>
-                  </tr>
-                `}).join('')}
-                
-                ${isLastPage ? `
-                <!-- Summary Rows -->
-                <tr>
-                  <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${(pageSubtotal || 0).toFixed(2)}</td>
-                </tr>
-                
-                <!-- Patient Portion Row -->
-                <tr>
-                  <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                  <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(safePatientPortion || 0).toFixed(2)}</td>
-                </tr>
-                
-                <!-- Total Row -->
-                <tr>
-                  <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Total Amount Due:</td>
-                  <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${(safeInvoice.total || 0).toFixed(2)}</td>
-                </tr>
-                ` : ''}
-              </tbody>
-            </table>
-          </div>
-
-          ${isLastPage ? `
-          <!-- Banking Details Section - Clean Format from Invoice -->
-          <div style="margin-bottom: 20px;">
-            <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">BANKING DETAILS</h3>
-            <div style="font-size: 10px; line-height: 1.5; color: #4b5563;">
-              Bank: ${practice.bank_name || 'FNB Namibia'} Account: ${practice.account_number || '11223344556'} Branch: ${practice.branch_code || '282273'}
-            </div>
-          </div>
-
-          <!-- Professional Footer -->
-          <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
-            <div style="text-align: center;">
-              <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
-                Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practice.name}</strong> For inquiries: ${practice.contact_phone} • ${practice.contact_email}
-              </p>
-              <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
-                Invoice generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
-              </div>
-            </div>
-          </div>
-          ` : ''}
-
-          <!-- Page number at bottom -->
-          <div style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af;">
-            Page ${pageNumber} of ${totalPages}
-          </div>
-        </div>
-      `;
-    };
-
-    // Smart pagination logic based on content space optimization
-    const totalServices = services.length;
-    const serviceChunks = [];
-    
-    if (totalServices <= 9) {
-      // Single page with footer - all services fit
-      serviceChunks.push(services);
-    } else if (totalServices <= 13) {
-      // 10-13 services: 10 on page 1, rest on page 2 with footer
-      serviceChunks.push(services.slice(0, 10));
-      serviceChunks.push(services.slice(10));
-    } else {
-      // 14+ services: 14 on page 1, then 20 per continuation page
-      serviceChunks.push(services.slice(0, 14));
-      
-      let remainingServices = services.slice(14);
-      while (remainingServices.length > 0) {
-        const chunkSize = 20; // Continuation pages can fit 20 services
-        serviceChunks.push(remainingServices.slice(0, chunkSize));
-        remainingServices = remainingServices.slice(chunkSize);
-      }
-    }
-    
-    const totalPages = Math.max(1, serviceChunks.length);
-    console.log(`📊 Smart pagination: ${totalServices} services split into ${totalPages} pages`);
-
-    // For single page invoices, return the HTML directly
-    if (totalPages === 1) {
-      const pageHTML = createPageHTML(services, 1, 1, true);
-      return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap');
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            body {
-              font-family: 'Montserrat', sans-serif;
-              margin: 0;
-              padding: 0;
-              background: white;
-            }
-          </style>
-        </head>
-        <body>
-          ${pageHTML}
-        </body>
-        </html>
-      `;
-    }
-
-    // For multi-page invoices, we need to combine pages
-    const pagesHTML = serviceChunks.map((chunk, index) => {
-      const pageNumber = index + 1;
-      const isLastPage = index === serviceChunks.length - 1;
-      return createPageHTML(chunk, pageNumber, totalPages, isLastPage);
-    }).join('<div style="page-break-after: always;"></div>');
-
-    return `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap');
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            font-family: 'Montserrat', sans-serif;
-            margin: 0;
-            padding: 0;
-            background: white;
-          }
-          @media print {
-            .page-break {
-              page-break-after: always;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        ${pagesHTML}
-      </body>
-      </html>
-    `;
-  }
-
-  /**
    * Convert HTML to PDF using html2canvas and jsPDF
    */
   private async htmlToPDF(html: string, format: 'a4' | 'a5' = 'a4'): Promise<Blob> {
+    // Loaded on demand so the PDF libraries (about 0.8 MB) aren't downloaded with the Dashboard
+    const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
     return new Promise((resolve, reject) => {
       // Create temporary container
       const container = document.createElement('div');
@@ -1827,13 +1494,13 @@ export class DocumentGenerationService {
   }
 
   /**
-   * Upload document to Supabase storage
+   * Upload document to the private bucket "records", under the practice: <practice id>/<folder>/<file>
    */
-  private async uploadToStorage(blob: Blob, fileName: string, folder: string): Promise<string> {
-    const filePath = `${folder}/${fileName}`;
-    
+  private async uploadToStorage(blob: Blob, fileName: string, folder: 'prescriptions' | 'leave_forms' | 'invoices', practiceId: string): Promise<string> {
+    const filePath = recordPath(practiceId, folder, fileName);
+
     const { data, error } = await supabase.storage
-      .from('documents')
+      .from(RECORDS_BUCKET)
       .upload(filePath, blob, {
         contentType: 'application/pdf',
         upsert: false
@@ -1867,6 +1534,7 @@ export class DocumentGenerationService {
         document_type: doc.type,
         document_name: doc.documentName,
         file_path: doc.filePath,
+        storage_bucket: RECORDS_BUCKET,
         file_size: doc.fileSize,
         file_type: 'application/pdf',
         generated_by: (await supabase.auth.getUser()).data.user?.id
@@ -1898,14 +1566,11 @@ export class DocumentGenerationService {
   }
 
   /**
-   * Get document URL
+   * A link to a visit document, made now and working for a few minutes (rows store the path and, since the move to
+   * the private bucket, storage_bucket 'records'; older rows point at 'documents')
    */
-  getDocumentUrl(filePath: string): string {
-    const { data } = supabase.storage
-      .from('documents')
-      .getPublicUrl(filePath);
-    
-    return data.publicUrl;
+  getDocumentUrl(filePath: string, bucket?: string | null): Promise<string> {
+    return recordLink(filePath, bucket);
   }
 }
 

@@ -30,7 +30,15 @@ export interface Visit {
   is_no_show: boolean;
   scheduled_date: string | null;
   scheduled_time: string | null;
-  
+  /** Booked length in minutes; null = the practice's default for the visit type (src/utils/diary/bookingLength.ts) */
+  duration_minutes?: number | null;
+  /** The practice's own booking status (src/utils/diary/diaryStatuses.ts); null = none */
+  diary_status_id?: string | null;
+  /** The practice's appointment type the booking was made as (src/utils/diary/appointmentTypes.ts); null = none */
+  appointment_type_id?: string | null;
+  /** A video consultation's room link (src/utils/diary/videoBookings.ts); null = seen in the rooms */
+  video_link?: string | null;
+
   // Relations
   doctor?: {
     id: string;

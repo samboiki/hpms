@@ -1,12 +1,17 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icon } from '@iconify/react';
+import { describeAppointmentType, type AppointmentType } from '../../utils/diary/appointmentTypes';
 
 interface AppointmentTypeModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (type: string) => void;
   selectedType?: string;
+  /** The practice's own appointment types (Diary settings): offered first, each with its length and daily limit */
+  practiceTypes?: AppointmentType[];
+  selectedPracticeTypeId?: string | null;
+  onSelectPracticeType?: (type: AppointmentType) => void;
 }
 
 const appointmentTypes = [
@@ -44,8 +49,12 @@ export const AppointmentTypeModal: React.FC<AppointmentTypeModalProps> = ({
   isOpen,
   onClose,
   onSelect,
-  selectedType
+  selectedType,
+  practiceTypes = [],
+  selectedPracticeTypeId = null,
+  onSelectPracticeType
 }) => {
+  const offersPracticeTypes = !!onSelectPracticeType && practiceTypes.length > 0;
   return (
     <AnimatePresence>
       {isOpen && (
@@ -76,16 +85,54 @@ export const AppointmentTypeModal: React.FC<AppointmentTypeModalProps> = ({
                     <p className="text-sm text-gray-500 mt-1">Choose the type of appointment</p>
                   </div>
                   <button
+                    type="button"
                     onClick={onClose}
+                    aria-label="Close"
                     className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
                   >
-                    <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" />
+                    <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6 text-gray-400" aria-hidden="true" />
                   </button>
                 </div>
               </div>
 
-              {/* Options */}
-              <div className="p-6">
+              {/* Options: the practice's own types first (they set the length), then the standard four */}
+              <div className="p-6 max-h-[70vh] overflow-y-auto">
+                {offersPracticeTypes && (
+                  <>
+                    <h3 className="mb-3 text-sm font-semibold text-gray-700">Your practice's appointment types</h3>
+                    <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {practiceTypes.map((type) => {
+                        const selected = selectedPracticeTypeId === type.id;
+                        return (
+                          <button
+                            type="button"
+                            key={type.id}
+                            aria-pressed={selected}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onSelectPracticeType?.(type);
+                              onClose();
+                            }}
+                            className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 ${
+                              selected ? 'border-purple-500 bg-purple-50' : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            <span className="rounded-lg bg-gray-100 p-2">
+                              <Icon icon="solar:calendar-add-bold-duotone" className="h-5 w-5 text-purple-600" aria-hidden="true" />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block font-semibold text-gray-800">{type.name}</span>
+                              <span className="block text-sm text-gray-500">{describeAppointmentType(type)}</span>
+                            </span>
+                            {selected && <Icon icon="solar:check-circle-bold-duotone" className="h-5 w-5 flex-none text-purple-500" aria-hidden="true" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <h3 className="mb-3 text-sm font-semibold text-gray-700">Standard types</h3>
+                  </>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {appointmentTypes.map((type, index) => (
                     <motion.button

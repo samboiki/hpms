@@ -19,12 +19,13 @@ import {
   Pill,
   FlaskConical
 } from 'lucide-react';
-import { format, differenceInMinutes, differenceInHours, isToday, isTomorrow } from 'date-fns';
+import { isToday } from 'date-fns';
 import { cn } from '../../utils/cn';
 import { useMessagingStore } from '../../stores/messagingStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useNotificationSubscription } from '../../hooks/useRealtimeMessaging';
 import { SystemNotification } from '../../types/internal-messaging.types';
+import { formatNotificationTime } from './notificationTime';
 
 export interface Notification {
   id: string;
@@ -121,8 +122,11 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
     }
   }, [user?.id, user?.practice_id, loadNotifications]);
   
-  // Merge prop notifications with system notifications if needed
-  const notifications = propNotifications || convertSystemNotifications(systemNotifications);
+  // The page's own items (booking requests, today's follow-ups) and the person's system notifications ("visit ready",
+  // "visit cancelled"), together: the page always passes a list, which used to hide the system notifications here
+  const systemItems = convertSystemNotifications(systemNotifications);
+  const systemIds = new Set(systemItems.map((item) => item.id));
+  const notifications = propNotifications ? [...propNotifications, ...systemItems] : systemItems;
 
   const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
@@ -151,19 +155,6 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
     }
   };
 
-  const getTimeAgo = (date: Date) => {
-    const now = new Date();
-    const diffMinutes = differenceInMinutes(now, date);
-    const diffHours = differenceInHours(now, date);
-
-    if (diffMinutes < 1) return 'Just now';
-    if (diffMinutes < 60) return `${diffMinutes}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (isToday(date)) return format(date, 'h:mm a');
-    if (isTomorrow(date)) return `Tomorrow ${format(date, 'h:mm a')}`;
-    return format(date, 'MMM d, h:mm a');
-  };
-
   const filteredNotifications = notifications.filter(notif => {
     if (filter === 'all') return true;
     if (filter === 'unread') return !notif.read;
@@ -174,21 +165,20 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
   const unreadCount = propNotifications ? notifications.filter(n => !n.read).length : unreadNotificationCount;
   const urgentCount = notifications.filter(n => n.priority === 'urgent' || n.priority === 'high').length;
   
-  // Handle mark as read - use system notifications if available
+  // A system notification is marked read in the database; the page's own items by the page
   const handleMarkAsRead = async (notificationId: string) => {
-    if (!propNotifications && systemNotifications.length > 0) {
+    if (systemIds.has(notificationId)) {
       await markNotificationRead(notificationId);
     } else if (onMarkAsRead) {
       onMarkAsRead(notificationId);
     }
   };
   
-  // Handle mark all as read
+  // Handle mark all as read: both kinds
   const handleMarkAllAsRead = async () => {
-    if (!propNotifications && systemNotifications.length > 0) {
+    if (onMarkAllAsRead) onMarkAllAsRead();
+    if (systemItems.some((item) => !item.read)) {
       await markAllSystemNotificationsRead();
-    } else if (onMarkAllAsRead) {
-      onMarkAllAsRead();
     }
   };
 
@@ -289,9 +279,21 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
                     )} />
                   )}
 
+                  {/* Opens its actions (Confirm, View Details, Start Visit) by click, or by Enter / Space from the keyboard */}
                   <div 
                     className="p-4 cursor-pointer"
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isExpanded}
                     onClick={() => {
+                      setExpandedId(isExpanded ? null : notification.id);
+                      if (!notification.read) {
+                        handleMarkAsRead(notification.id);
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget || (event.key !== 'Enter' && event.key !== ' ')) return;
+                      event.preventDefault();
                       setExpandedId(isExpanded ? null : notification.id);
                       if (!notification.read) {
                         handleMarkAsRead(notification.id);
@@ -323,7 +325,7 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs text-gray-400">
-                              {getTimeAgo(notification.time)}
+                              {formatNotificationTime(notification.time)}
                             </span>
                             <ChevronRight className={cn(
                               "w-4 h-4 text-gray-400 transition-transform",

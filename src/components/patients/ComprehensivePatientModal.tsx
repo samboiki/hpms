@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EncounterTimeline from './EncounterTimeline';
 import {
@@ -45,21 +45,20 @@ import {
   Maximize,
   Minimize,
   FileDown,
-  Send,
   ClipboardList,
   HeartPulse,
   TestTube,
   FolderOpen,
   Receipt,
-  History,
   CheckCircle2,
   Pill,
   Camera,
   Scan,
   FlaskConical
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import { formatDoctorName } from '../../utils/formatDoctorName';
 import { usePatientsStoreNew, Patient } from '../../stores/patientsStoreNew';
 import { useTheme } from '../../stores/themeStore';
 import FormModal from '../modals/FormModal';
@@ -74,13 +73,15 @@ import FullScreenAddVisitModal from '../visits/FullScreenAddVisitModal';
 import MedicalAidForm from '../forms/MedicalAidForm';
 import UnifiedCommunicationModal from '../modals/UnifiedCommunicationModal';
 import PremiumConfirmationModal from '../modals/PremiumConfirmationModal';
-import PremiumFolderTabs from './PremiumFolderTabs';
+import PatientChangeHistory from './PatientChangeHistory';
 import VitalsForm from '../forms/VitalsForm';
 import AddLabRequestForm from '../forms/AddLabRequestForm';
 import AddMediaRequestForm from '../forms/AddMediaRequestForm';
 import PremiumBillingModal from '../modals/PremiumBillingModal';
 import PatientModalHeader from './PatientModalHeader';
 import PatientModalTabs from './PatientModalTabs';
+import TeethView from '../dental/TeethView';
+import EyesView from '../optometry/EyesView';
 import PatientAnalytics from './PatientAnalytics';
 import { PatientSearchFilters } from './PatientSearchFilters';
 import { PremiumSmsModal } from '../messages/PremiumSmsModal';
@@ -101,8 +102,45 @@ import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
 import UnifiedPDFGenerator from '../billing/UnifiedPDFGenerator';
 import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import { fetchPatientDetailsOptimized } from './OptimizedPatientQueries';
+import { toPatientBillingItems } from '../../services/financialKpiService';
 import { usePatientPrefetch } from '../../hooks/usePatientPrefetch';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Icon } from '@iconify/react';
+import PatientContactActions from './PatientContactActions';
+import { PatientListsControl } from '../patientLists/PatientListsControl';
+import { PatientDispensingPanel } from '../stock/PatientDispensingPanel';
+import PatientOverviewLinks, { type OverviewVisitLink } from './PatientOverviewLinks';
+import { ClinicalAlertStrip } from './safety/ClinicalAlertStrip';
+import { PatientMessagesCard } from './PatientMessagesCard';
+import { PatientBookingsPanel } from '../appointments/diary/PatientBookingsPanel';
+import { PatientNotesPanel } from './notes/PatientNotesPanel';
+import { downloadInvoicePdf } from '../../services/invoiceDocumentService';
+import { AccountFlagBadges } from '../finance/debtors/AccountFlagBadges';
+import { PatientClaimsNotice } from '../finance/remittances/PatientClaimsNotice';
+import { VisitLettersPanel } from '../letters/VisitLettersPanel';
+import { PregnancyDueDateCard } from './pregnancy/PregnancyDueDateCard';
+import { PrivateNotesPanel } from './privateNotes/PrivateNotesPanel';
+import { PatientConsentsPanel } from '../consents/PatientConsentsPanel';
+import { RecordExportCard } from './export/RecordExportCard';
+import { InvoiceEmailSheet } from '../messages/DocumentEmailSheets';
+import PatientBillingPanel from './PatientBillingPanel';
+import { PatientQuotesPanel } from '../quotes/QuotePanels';
+import { usePatientInvoices } from './usePatientInvoices';
+import { usePatientFileAccessLog } from '../../hooks/usePatientFileAccessLog';
+import { getClinicianDisplayName } from '../telemedicine/telemedicineLinks';
+import { getVisitStage } from '../../utils/visitStage';
+import { INVOICE_LOCK_MESSAGES, loadInvoiceLock } from '../../utils/invoiceLock';
+import { getResultStatus } from '../../utils/labResultStatus';
+import { formatNad } from '../../utils/billing/money';
+import { matchesPatientSearch, patientSearchFields } from '../../utils/patientSearch';
+import { PAYMENT_METHOD_META } from '../finance/financeTheme';
+import { describeVitalReadings } from './vitalsSummary';
+import { getSingleRecipient, SEND_FAILED, SENT_ONE, type MessageRecipient, type SendOutcome } from './patientMessaging';
+import RecordImage from '../uploads/RecordImage';
+import { ImagingReportsPanel } from '../requests/ImagingReportsPanel';
+import { isCarrierVisit } from '../../utils/carrierVisits';
+import { escapeClosesADialog } from '../../hooks/useEscapeToClose';
+import { practiceWebsiteText } from '../../utils/practiceWebsite';
 
 interface MessageConfirmationData {
   type: 'sms' | 'email';
@@ -115,8 +153,12 @@ interface ComprehensivePatientModalProps {
   onClose: () => void;
   patientId?: string | null;
   onAppointmentCreated?: (appointment: any) => void;
-  defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit';
+  defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes';
   visitIdToEdit?: string | null;
+  /** Shown at the top left of the header, e.g. "Back to dashboard" when a consult was started there */
+  backAction?: { label: string; onClick: () => void };
+  /** A note of this patient to bring into view in Notes on the Overview (a follow-up opened from the dashboard) */
+  focusNoteId?: string | null;
 }
 
 interface PatientDetails {
@@ -176,9 +218,26 @@ interface Visit {
   follow_up_required?: boolean;
   follow_up_date?: string;
   notes?: string;
+  /** 'system' on a row that only carries invoices (utils/carrierVisits.ts) */
+  automation_source?: string | null;
 }
 
 const ITEMS_PER_PAGE = 12;
+
+// Tabs of FullScreenEditVisitModal that the encounter timeline buttons can open directly
+type EditVisitTab = 'general' | 'history' | 'vitals' | 'medications' | 'leave' | 'billing' | 'media' | 'laboratory' | 'imaging';
+
+// Lab request statuses that still await a result (matches the pending filter used in the DB views)
+const PENDING_LAB_STATUSES = ['pending', 'in-progress'];
+
+const formatSummaryDate = (value?: string | null): string | null => {
+  if (!value) return null;
+  const parsed = parseISO(value);
+  return isNaN(parsed.getTime()) ? null : format(parsed, 'd MMM yyyy');
+};
+
+const formatVisitTypeLabel = (value?: string | null): string =>
+  value ? value.replace(/[-_]/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) : 'Visit';
 
 // Universal Gender Icons
 const FemaleIcon = ({ className }: { className?: string }) => (
@@ -195,7 +254,7 @@ const MaleIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab, visitIdToEdit }) => {
+const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ isOpen, onClose, patientId, onAppointmentCreated, defaultDetailTab, visitIdToEdit, backAction, focusNoteId = null }) => {
   console.log('🎯 [ComprehensivePatientModal] Component rendered with props:', {
     isOpen,
     patientId,
@@ -209,8 +268,10 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Main tab state - automatically switch to details if patientId is provided
   const [activeTab, setActiveTab] = useState<'patients' | 'details'>(patientId ? 'details' : 'patients');
   const [activeMainTab, setActiveMainTab] = useState<'patients' | 'analytics'>('patients');
-  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit'>(defaultDetailTab || 'overview');
-  
+  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes'>(defaultDetailTab || 'overview');
+  // An account alert beside the name (promise to pay, credit-control notes) opens Billing at the account (when it was tapped)
+  const [accountFocusKey, setAccountFocusKey] = useState(0);
+
   // Patients list state
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddPatientModalOpen, setIsAddPatientModalOpen] = useState(false);
@@ -274,8 +335,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const modalState = usePatientModalState();
   
   // Use React Query for patient details with caching
-  const { getCachedPatientData } = usePatientPrefetch();
-  
+  const { getCachedPatientData, invalidatePatientCache } = usePatientPrefetch();
+  const queryClient = useQueryClient();
+
   const { data: patientDetailsData, isLoading: isQueryLoading, error: queryError } = useQuery({
     queryKey: ['patient-details-optimized', patientId],
     queryFn: () => fetchPatientDetailsOptimized(patientId!),
@@ -368,9 +430,12 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   
   // Additional state
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  // Tab to open FullScreenEditVisitModal on (set by the encounter timeline quick buttons)
+  const [editVisitInitialTab, setEditVisitInitialTab] = useState<EditVisitTab | undefined>(undefined);
   const [vitals, setVitals] = useState<any[]>([]);
+  // Values were only read by the removed template "AI" summary; setters still populated by the fetch
   const [labResults, setLabResults] = useState<any[]>([]);
-  const [documents, setDocuments] = useState<any[]>([]);
+  const [, setDocuments] = useState<any[]>([]);
   const [medications, setMedications] = useState<any[]>([]);
   const [imagingRequests, setImagingRequests] = useState<any[]>([]);
   const [billingData, setBillingData] = useState<any[]>([]);
@@ -387,7 +452,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   const [messageConfirmationData, setMessageConfirmationData] = useState<MessageConfirmationData | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [isSendingBulkSms, setIsSendingBulkSms] = useState(false);
-  const [isSendingBulkEmail, setIsSendingBulkEmail] = useState(false);
   const [beneficiariesCount, setBeneficiariesCount] = useState<number>(0);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [isInvoicePreviewOpen, setIsInvoicePreviewOpen] = useState(false);
@@ -403,387 +467,60 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Get practice_id from user
   const practiceId = user?.practice_id;
 
-  // Create a function to generate and download PDF directly
-  const handleDirectPrintPDF = useCallback(async (invoice: any) => {
-    if (!selectedPatientDetails) {
-      console.error('❌ No patient details available for PDF generation');
-      return;
-    }
+  // This patient's invoices at this practice (read-only): Billing tab list and the Overview balance
+  const patientInvoices = usePatientInvoices(
+    isOpen && activeTab === 'details' ? selectedPatientDetails?.id : null,
+    practiceId
+  );
+  // Who opened this file is recorded for the practice's administrators (parity Q8; never what it shows)
+  usePatientFileAccessLog(isOpen && activeTab === 'details' ? selectedPatientDetails?.id : null, 'patient_file');
+  // Named to the patient in video consults and their SMS invite
+  const clinicianName = getClinicianDisplayName(user);
+  // Billing tab invoice rows show their visit (date, number) from the visits already loaded
+  const visitsById = useMemo(() => new Map(visits.map(visit => [visit.id, visit] as const)), [visits]);
+  // A row that only carries invoices (payment plan, package, opening balance) is not an encounter: the timeline and the
+  // tab's count leave it out, while the Billing tab above still finds it by id for its invoices
+  const encounterVisits = useMemo(() => visits.filter(visit => !isCarrierVisit(visit)), [visits]);
+  // Billing invoice management (status, email, statement) stays available but collapsed
+  const [isInvoiceManagementOpen, setIsInvoiceManagementOpen] = useState(false);
+  // The invoice being emailed as a PDF (Manage invoices > Email)
+  const [emailingInvoice, setEmailingInvoice] = useState<{ id: string; number: string; total: number | null; visitId: string | null } | null>(null);
 
+  // Open any of this patient's visits in the visit screen. The visit loads itself by id, so a
+  // visit missing from the loaded list (e.g. created moments ago) still opens. A row about a medicine, a letter, a
+  // result or a report opens the visit on the tab that holds it (it opened on General before)
+  const openVisitById = (visitId: string, tab?: EditVisitTab) => {
+    setEditVisitInitialTab(tab);
+    setSelectedVisit(visits.find(visit => visit.id === visitId) ?? { id: visitId });
+    modalState.openEditVisitModal();
+  };
+
+  // Download the invoice PDF: the one NAMAF rule-008 document every screen uses (src/services/invoiceDocumentService)
+  const handleDirectPrintPDF = useCallback(async (invoice: { id: string; invoice_number?: string | null }) => {
     setIsPrintingPDF(true);
-    console.log('🎯 Starting enhanced multi-page PDF generation for invoice:', invoice.invoice_number);
-
     try {
-      // Create patient info object
-      const patientInfo = {
-        name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-        phone: selectedPatientDetails.cell_number || undefined,
-        email: selectedPatientDetails.email || undefined,
-        address: selectedPatientDetails.home_address || undefined,
-        medicalAidProvider: medicalAid?.provider,
-        membershipNumber: medicalAid?.membership_number,
-      };
-
-      // Fetch practice data directly from database
-      console.log('🔍 Fetching practice data for user:', user?.id);
-      
-      // Get user's practice_id
-      let userPracticeId = user?.practice_id;
-      if (!userPracticeId && user?.user_metadata?.practice_id) {
-        userPracticeId = user.user_metadata.practice_id;
+      const document = await downloadInvoicePdf(invoice.id);
+      if (document.missing.length > 0) {
+        toast(`Invoice ${invoice.invoice_number ?? ''} was downloaded. Still missing for NAMAF rule 008: ${document.missing.join(', ')}.`, { duration: 8000 });
       }
-      
-      if (!userPracticeId) {
-        throw new Error('No practice_id found for user. Please ensure you are logged in and associated with a practice.');
-      }
-      
-      console.log('🏥 Fetching practice details for practice_id:', userPracticeId);
-      
-      // Fetch practice details from database
-      const { data: practiceInfo, error: practiceError } = await supabase
-        .from('practices')
-        .select(`
-          id, name, slug, domain, logo_url, primary_color, secondary_color,
-          contact_email, contact_phone, address, city, country, postal_code,
-          tax_number, license_number, practice_number, hero_subtitle,
-          bank_name, account_holder_name, account_number, branch_code, swift_code, account_type
-        `)
-        .eq('id', userPracticeId)
-        .single();
-        
-      if (practiceError || !practiceInfo) {
-        console.error('Error fetching practice data:', practiceError);
-        throw new Error('Failed to fetch practice data from database.');
-      }
-      
-      console.log('✅ Practice data fetched successfully:', practiceInfo);
-      console.log('📄 Patient info for PDF:', patientInfo);
-      console.log('🏥 Practice info for PDF:', practiceInfo);
-      console.log('💰 Invoice data:', invoice);
-
-      // Fetch medical aid provider details if available
-      let medicalAidProviderName = medicalAid?.provider || 'N/A';
-      if (medicalAid?.medical_aid_provider_id) {
-        try {
-          const { data: providerData, error: providerError } = await supabase
-            .from('medical_aid_providers')
-            .select('name, short_name')
-            .eq('id', medicalAid.medical_aid_provider_id)
-            .single();
-          
-          if (!providerError && providerData) {
-            medicalAidProviderName = providerData.short_name || providerData.name;
-            console.log('✅ Medical aid provider fetched:', medicalAidProviderName);
-          }
-        } catch (error) {
-          console.log('⚠️ Could not fetch medical aid provider details:', error);
-        }
-      }
-
-      // Import jsPDF for enhanced multi-page PDF generation
-      const jsPDF = (await import('jspdf')).default;
-
-      // Load Montserrat and Rubik fonts
-      const fontLink = document.createElement('link');
-      fontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap';
-      fontLink.rel = 'stylesheet';
-      document.head.appendChild(fontLink);
-
-      // Wait for font to load
-      await document.fonts.ready;
-
-      // Get practice primary color with fallback
-      const primaryColor = practiceData?.primary_color || practiceInfo?.primary_color || '#01b9d4';
-      
-      // Generate gradient colors
-      function hexToRgb(hex: string) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? [
-          parseInt(result[1], 16),
-          parseInt(result[2], 16),
-          parseInt(result[3], 16)
-        ] : [1, 185, 212];
-      }
-      
-      function adjustBrightness(hex: string, percent: number) {
-        const [r, g, b] = hexToRgb(hex);
-        const adjust = (color: number) => Math.max(0, Math.min(255, Math.round(color * (1 + percent / 100))));
-        return `#${((1 << 24) + (adjust(r) << 16) + (adjust(g) << 8) + adjust(b)).toString(16).slice(1)}`;
-      }
-      
-      const lightColor = adjustBrightness(primaryColor, 20);
-      const darkColor = adjustBrightness(primaryColor, -15);
-      
-      // Create function to generate page HTML with your exact styling
-      const createPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
-        return `
-          <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
-            
-            <!-- Premium Header Section -->
-            <div style="padding: 0; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start;">
-              
-              <!-- Logo and Title on Left (Stacked) -->
-              <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1;">
-                ${practiceInfo.logo_url ? `
-                  <div style="flex-shrink: 0;">
-                    <img src="${practiceInfo.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
-                  </div>
-                ` : ''}
-                <div>
-                  <div style="font-family: 'Rubik', sans-serif; font-size: 22px; font-weight: 800; color: #5f6578; letter-spacing: -0.2px;">
-                    ${practiceInfo.name}
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Practice Details (right aligned) -->
-              <div style="text-align: right; flex: 1; max-width: 300px;">
-                <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
-                  ${practiceInfo.address ? `<div style="margin-bottom: 2px;">${practiceInfo.address}</div>` : ''}
-                  <div style="margin-bottom: 2px;">${practiceInfo.city}, ${practiceInfo.country} ${practiceInfo.postal_code || ''}</div>
-                  ${practiceInfo.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceInfo.contact_phone}</div>` : ''}
-                  ${practiceInfo.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceInfo.contact_email}</div>` : ''}
-                  ${practiceInfo.domain ? `<div>www.${practiceInfo.domain}</div>` : ''}
-                </div>
-              </div>
-            </div>
-            
-            ${pageNumber === 1 ? `
-            <!-- Refined Invoice Title Section -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px 0; border-bottom: 2px solid #d1d5db;">
-              <div style="display: flex; align-items: flex-end; gap: 15px;">
-                <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
-                  <span style="color: #5f6578;">MEDICAL</span> <span style="color: #888;">INVOICE</span>
-                </div>
-                <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#${invoice.invoice_number}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
-                <div style="text-align: center;">
-                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DATE PREPARED</div>
-                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(invoice.created_at), 'dd MMM yyyy')}</div>
-                </div>
-                <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
-                <div style="text-align: center;">
-                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">DUE DATE</div>
-                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), 'dd MMM yyyy')}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- PREPARED FOR Section -->
-            <div style="margin-bottom: 20px;">
-              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px;">PREPARED FOR</h3>
-              <div style="display: flex; justify-content: space-between; gap: 25px;">
-                <!-- Patient Details -->
-                <div style="flex: 1;">
-                  <div style="line-height: 1.4;">
-                    <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                      ${patientInfo.name}
-                    </div>
-                    ${patientInfo.phone ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.phone}</div>` : ''}
-                    ${patientInfo.email ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.email}</div>` : ''}
-                    ${patientInfo.address ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.address}</div>` : ''}
-                  </div>
-                </div>
-
-                <!-- Medical Aid Details (Right Aligned) -->
-                ${medicalAid?.scheme || medicalAidProviderName !== 'N/A' ? `
-                  <div style="flex: 1; text-align: right;">
-                    <div style="line-height: 1.4;">
-                      <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                        ${medicalAidProviderName}
-                      </div>
-                      ${medicalAid?.scheme ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Scheme: ${medicalAid.scheme}</div>` : ''}
-                      ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Member: ${medicalAid.membership_number}</div>` : ''}
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            </div>
-            ` : ''}
-
-            <!-- Service Details Section -->
-            <div style="margin-bottom: 30px;">
-              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.3px;">SERVICES ${pageNumber > 1 ? '(CONTINUED)' : ''}</h3>
-              
-              <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-                <thead>
-                  <tr style="background: #5f6578; color: white;">
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Code</th>
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Description</th>
-                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Qty</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Unit Price</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Med Aid</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; text-transform: uppercase;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pageServices.map((service: any, index: number) => `
-                    <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
-                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service.code || 'N/A'}</td>
-                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
-                        <div style="color: #4b5563;">${service.description}</div>
-                      </td>
-                      <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${service.unit_price.toFixed(2)}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
-                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${service.total_price.toFixed(2)}</td>
-                    </tr>
-                  `).join('')}
-                  
-                  ${isLastPage ? `
-                  <!-- Summary Rows -->
-                  <tr>
-                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${invoice.services.reduce((sum: number, s: any) => sum + s.total_price, 0).toFixed(2)}</td>
-                  </tr>
-                  
-                  <!-- Patient Portion Row -->
-                  <tr>
-                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(invoice.total - (invoice.medical_aid_covered || 0)).toFixed(2)}</td>
-                  </tr>
-                  
-                  <!-- Total Row -->
-                  <tr>
-                    <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Total Amount Due:</td>
-                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${invoice.total.toFixed(2)}</td>
-                  </tr>
-                  ` : ''}
-                </tbody>
-              </table>
-            </div>
-
-            ${isLastPage ? `
-            <!-- Compact Banking Details Section -->
-            <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
-              <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
-              <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
-                <span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name || ''}</strong></span>
-                <span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number || ''}</strong></span>
-                <span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code || ''}</strong></span>
-              </div>
-            </div>
-
-            <!-- Professional Footer -->
-            <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
-              <div style="text-align: center;">
-                <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
-                  Payment is due within 30 days. Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong> For inquiries: ${practiceInfo.contact_phone} • ${practiceInfo.contact_email}
-                </p>
-                <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
-                  Invoice generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
-                </div>
-              </div>
-            </div>
-            ` : ''}
-
-            <!-- Page number at bottom -->
-            <div style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af;">
-              Page ${pageNumber} of ${totalPages}
-            </div>
-          </div>
-        `;
-      };
-
-      // Smart pagination logic based on content space optimization
-      const totalServices = invoice.services.length;
-      const serviceChunks = [];
-      
-      if (totalServices <= 9) {
-        // Single page with footer - all services fit
-        serviceChunks.push(invoice.services);
-      } else if (totalServices <= 13) {
-        // 10-13 services: 10 on page 1, rest on page 2 with footer
-        serviceChunks.push(invoice.services.slice(0, 10));
-        serviceChunks.push(invoice.services.slice(10));
-      } else {
-        // 14+ services: 14 on page 1, then 20 per continuation page
-        serviceChunks.push(invoice.services.slice(0, 14));
-        
-        let remainingServices = invoice.services.slice(14);
-        while (remainingServices.length > 0) {
-          const chunkSize = 20; // Continuation pages can fit 20 services
-          serviceChunks.push(remainingServices.slice(0, chunkSize));
-          remainingServices = remainingServices.slice(chunkSize);
-        }
-      }
-      
-      const totalPages = Math.max(1, serviceChunks.length);
-      console.log(`📊 Smart pagination: ${totalServices} services split into ${totalPages} pages`);
-      console.log(`📊 Page breakdown:`, serviceChunks.map((chunk, i) => `Page ${i+1}: ${chunk.length} services`));
-
-      // Create PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: 'a4',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      // Import html2canvas dynamically
-      // html2canvas is already imported at the top
-
-      // Generate each page
-      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-        const pageNumber = pageIndex + 1;
-        const pageServices = serviceChunks[pageIndex] || [];
-        const isLastPage = pageIndex === totalPages - 1;
-
-        console.log(`🖼️ Generating page ${pageNumber} with ${pageServices.length} services...`);
-
-        // Create temporary container for this page
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.top = '-9999px';
-        document.body.appendChild(tempContainer);
-
-        // Set page HTML with your beautiful styling
-        tempContainer.innerHTML = createPageHTML(pageServices, pageNumber, totalPages, isLastPage);
-
-        // Generate canvas for this page
-        const canvas = await html2canvas(tempContainer.firstElementChild as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        });
-
-        // Add page to PDF
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
-
-        // Clean up
-        document.body.removeChild(tempContainer);
-      }
-
-      // Download the PDF
-      pdf.save(`invoice-${invoice.invoice_number}.pdf`);
-      
-      console.log('✅ Enhanced PDF with your original styling and proper multi-page headers/footers generated successfully!');
-
+      return true;
     } catch (error) {
-      console.error('❌ Failed to generate PDF:', error);
-      alert('Failed to generate PDF. Please try again or use the preview option.');
+      toast.error(error instanceof Error ? error.message : 'Could not create the invoice PDF. Please try again, or use Preview instead.');
+      return false;
     } finally {
       setIsPrintingPDF(false);
     }
-  }, [selectedPatientDetails, medicalAid, practiceData, practiceId]);
+  }, []);
 
   // Create a function to generate receipt (similar to invoice but for paid items)
   const handleDirectReceiptPDF = useCallback(async (invoice: any) => {
     if (!selectedPatientDetails) {
       console.error('❌ No patient details available for receipt generation');
+      return;
+    }
+    // A receipt is proof of payment, so it is only issued for an invoice marked as paid
+    if (invoice.payment_status !== 'paid') {
+      toast.error('A receipt can only be issued once this invoice is paid.');
       return;
     }
 
@@ -820,12 +557,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       // Fetch practice details from database
       const { data: practiceInfo, error: practiceError } = await supabase
         .from('practices')
-        .select(`
-          id, name, slug, domain, logo_url, primary_color, secondary_color,
-          contact_email, contact_phone, address, city, country, postal_code,
-          tax_number, license_number, practice_number, hero_subtitle,
-          bank_name, account_holder_name, account_number, branch_code, swift_code, account_type
-        `)
+        // Every column: the website the practice typed (website_url) is read when it is there, and naming a column
+        // the database lacks would fail the whole print header
+        .select('*')
         .eq('id', userPracticeId)
         .single();
         
@@ -837,6 +571,11 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       console.log('✅ Practice data fetched successfully for receipt:', practiceInfo);
       console.log('🧾 Patient info for Receipt:', patientInfo);
       console.log('🏥 Practice info for Receipt:', practiceInfo);
+      const practiceContact = [practiceInfo.contact_phone, practiceInfo.contact_email].filter(Boolean).join(' • ');
+      // As recorded when the payment was marked ("EFT", "Medical aid"); never guessed
+      const paymentMethodLabel = invoice.payment_method
+        ? (PAYMENT_METHOD_META as Record<string, { label: string }>)[invoice.payment_method]?.label ?? invoice.payment_method
+        : 'Not recorded';
 
       // Fetch medical aid provider details if available
       let medicalAidProviderName = medicalAid?.provider || 'N/A';
@@ -924,10 +663,10 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
               <div style="text-align: right; flex: 1; max-width: 300px;">
                 <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
                   ${practiceInfo.address ? `<div style="margin-bottom: 2px;">${practiceInfo.address}</div>` : ''}
-                  <div style="margin-bottom: 2px;">${practiceInfo.city}, ${practiceInfo.country} ${practiceInfo.postal_code || ''}</div>
+                  <div style="margin-bottom: 2px;">${[practiceInfo.city, practiceInfo.country].filter(Boolean).join(', ')} ${practiceInfo.postal_code || ''}</div>
                   ${practiceInfo.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceInfo.contact_phone}</div>` : ''}
                   ${practiceInfo.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceInfo.contact_email}</div>` : ''}
-                  ${practiceInfo.domain ? `<div>www.${practiceInfo.domain}</div>` : ''}
+                  ${practiceWebsiteText(practiceInfo) ? `<div>${practiceWebsiteText(practiceInfo)}</div>` : ''}
                 </div>
               </div>
             </div>
@@ -943,13 +682,13 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
               </div>
               <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
                 <div style="text-align: center;">
-                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">PAID DATE</div>
+                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">RECEIPT DATE</div>
                   <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(), 'dd MMM yyyy')}</div>
                 </div>
                 <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
                 <div style="text-align: center;">
                   <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">METHOD</div>
-                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${invoice.payment_method || 'Cash'}</div>
+                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${paymentMethodLabel}</div>
                 </div>
               </div>
             </div>
@@ -1009,9 +748,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
                         <div style="color: #4b5563;">${service.description}</div>
                       </td>
                       <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">N$ ${service.unit_price.toFixed(2)}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">N$ ${(service.medical_aid_covered || 0).toFixed(2)}</td>
-                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">N$ ${service.total_price.toFixed(2)}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">${formatNad(Number(service.unit_price) || 0)}</td>
+                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">${formatNad(Number(service.medical_aid_covered) || 0)}</td>
+                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">${formatNad(Number(service.total_price) || 0)}</td>
                     </tr>
                   `).join('')}
                   
@@ -1019,19 +758,19 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
                   <!-- Summary Rows -->
                   <tr>
                     <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">N$ ${invoice.services.reduce((sum: number, s: any) => sum + s.total_price, 0).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">${formatNad(invoice.services.reduce((sum: number, s: { total_price?: number | string | null }) => sum + (Number(s.total_price) || 0), 0))}</td>
                   </tr>
                   
                   <!-- Patient Portion Row -->
                   <tr>
                     <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">N$ ${(invoice.total - (invoice.medical_aid_covered || 0)).toFixed(2)}</td>
+                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">${formatNad((Number(invoice.total) || 0) - (Number(invoice.medical_aid_covered) || 0))}</td>
                   </tr>
                   
                   <!-- Total Row -->
                   <tr>
                     <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Amount Paid:</td>
-                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">N$ ${invoice.total.toFixed(2)}</td>
+                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">${formatNad(Number(invoice.total) || 0)}</td>
                   </tr>
                   ` : ''}
                 </tbody>
@@ -1039,24 +778,26 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
             </div>
 
             ${isLastPage ? `
-            <!-- Compact Banking Details Section -->
+            ${practiceInfo.bank_name || practiceInfo.account_number || practiceInfo.branch_code ? `
+            <!-- Compact Banking Details Section: only the details the practice has entered -->
             <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
               <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
               <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
-                <span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name || ''}</strong></span>
-                <span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number || ''}</strong></span>
-                <span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code || ''}</strong></span>
+                ${practiceInfo.bank_name ? `<span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name}</strong></span>` : ''}
+                ${practiceInfo.account_number ? `<span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number}</strong></span>` : ''}
+                ${practiceInfo.branch_code ? `<span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code}</strong></span>` : ''}
               </div>
             </div>
+            ` : ''}
 
             <!-- Professional Footer -->
             <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
               <div style="text-align: center;">
                 <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
-                  Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong> For inquiries: ${practiceInfo.contact_phone} • ${practiceInfo.contact_email}
+                  Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong>.${practiceContact ? ` For inquiries: ${practiceContact}` : ''}
                 </p>
                 <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
-                  Receipt generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © 2024
+                  Receipt generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © ${new Date().getFullYear()}
                 </div>
               </div>
             </div>
@@ -1154,7 +895,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
     } catch (error) {
       console.error('❌ Failed to generate receipt:', error);
-      alert('Failed to generate receipt. Please try again.');
+      toast.error('Could not create the receipt PDF. Please try again.');
     } finally {
       setIsPrintingPDF(false);
       setGenerationType(null);
@@ -1246,8 +987,12 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       setIsLoadingDetails(true);
       setDetailsError(null);
 
-      // Use ultra-optimized fetch function
-      const result = await fetchPatientDetailsOptimized(patientId);
+      // Through the query cache: when the file opens, this and the details query above share one load instead of
+      // each reading the patient's whole record (about 11 requests each). A refresh after a save still reads afresh.
+      const result = await queryClient.fetchQuery({
+        queryKey: ['patient-details-optimized', patientId],
+        queryFn: () => fetchPatientDetailsOptimized(patientId)
+      });
 
       // Set all data from optimized fetch
       setSelectedPatientDetails(result.patient);
@@ -1265,7 +1010,11 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       setMedicalAid(result.medicalAid);
       setDocuments(result.documents);
       setPracticeData(result.practiceData);
-      
+      // Otherwise a section that failed to load looks like one with no records
+      if (result.failedSections.length > 0) {
+        toast.error(`Some of this patient's records could not be loaded (${result.failedSections.join(', ')}). Close and reopen the file to try again.`, { id: 'patient-file-load', duration: 8000 });
+      }
+
       // SKIP ALL THE DUPLICATE QUERIES - WE ALREADY HAVE THE DATA!
       setIsLoadingDetails(false);
       return;
@@ -1687,6 +1436,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         e.preventDefault();
         modalState.toggleFullScreen();
       } else if (e.key === 'Escape') {
+        // A form open over the file (Edit patient, Send message) closes itself: the file and its typed edits stay
+        if (escapeClosesADialog()) return;
         // Check if any child modals are open first
         if (modalState.modalState.isMessageModalOpen) {
           console.log('🔧 ESC KEY DEBUG: Closing message modal instead of parent');
@@ -1743,18 +1494,132 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
   }, [searchTerm]);
 
-  // Handle opening edit visit modal when visitIdToEdit is provided
+  // Handle opening edit visit modal when visitIdToEdit is provided (deep link).
+  // Runs once per visitIdToEdit after the patient's visits have loaded, so a later
+  // refetch (e.g. after saving the visit) does not reopen the edit modal.
+  const handledVisitIdToEditRef = useRef<string | null>(null);
   useEffect(() => {
-    if (visitIdToEdit && visits.length > 0) {
-      const visitToEdit = visits.find(v => v.id === visitIdToEdit);
-      if (visitToEdit) {
-        setSelectedVisit(visitToEdit);
-        modalState.openEditVisitModal();
-        // Switch to encounters tab to show context
-        setActiveDetailTab('encounters');
-      }
+    if (!visitIdToEdit || isLoadingDetails || !selectedPatientDetails) return;
+    if (handledVisitIdToEditRef.current === visitIdToEdit) return;
+    handledVisitIdToEditRef.current = visitIdToEdit;
+
+    const visitToEdit = visits.find(v => v.id === visitIdToEdit);
+    if (visitToEdit) {
+      setEditVisitInitialTab(undefined);
+      setSelectedVisit(visitToEdit);
+      modalState.openEditVisitModal();
+      // Switch to encounters tab to show context
+      setActiveDetailTab('encounters');
+    } else {
+      toast.error('That visit could not be found for this patient.');
     }
-  }, [visitIdToEdit, visits]); // Removed modalState.openEditVisitModal from dependencies
+  }, [visitIdToEdit, visits, isLoadingDetails, selectedPatientDetails]); // Removed modalState.openEditVisitModal from dependencies
+
+  // Factual clinical summary for the Overview tab, built only from data already
+  // loaded for this patient. No AI and no inferred judgments.
+  const clinicalSummary = useMemo(() => {
+    type SummaryVisit = Visit & { doctor?: { full_name?: string | null } | null };
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const visitSortKey = (v: SummaryVisit) => `${v.visit_date ?? ''} ${v.visit_time ?? ''}`;
+
+    // Past and current (not future, not cancelled) visits, most recent first
+    const pastVisits = (visits as SummaryVisit[])
+      .filter(v => v.visit_date && v.visit_date.slice(0, 10) <= todayKey && v.status !== 'cancelled')
+      .sort((a, b) => visitSortKey(b).localeCompare(visitSortKey(a)));
+
+    const lastVisit = pastVisits[0] ?? null;
+    const diagnosisVisit = pastVisits.find(v => v.diagnosis && v.diagnosis.trim()) ?? null;
+
+    // Latest vitals row that actually has readings, dated by its visit (fallback: row created_at)
+    const visitDateById = new Map(visits.map(v => [v.id, v.visit_date] as const));
+    const latestVitalsEntry = vitals
+      .map(vital => {
+        const date: string | null = (vital.visit_id && visitDateById.get(vital.visit_id)) || vital.created_at || null;
+        const readings = describeVitalReadings(vital);
+        return { readings, date, sortKey: `${(date ?? '').slice(0, 10)}|${vital.created_at ?? ''}` };
+      })
+      .filter(entry => entry.date && entry.readings.length > 0)
+      .sort((a, b) => b.sortKey.localeCompare(a.sortKey))[0] ?? null;
+
+    return {
+      // A row that only carries invoices (payment plan, package, opening balance) is on the timeline but is not a visit
+      totalVisits: visits.filter(v => !isCarrierVisit(v)).length,
+      completedVisits: visits.filter(v => v.status === 'completed').length,
+      lastVisit: lastVisit
+        ? {
+            id: lastVisit.id,
+            date: formatSummaryDate(lastVisit.visit_date),
+            type: formatVisitTypeLabel(lastVisit.visit_type),
+            doctor: formatDoctorName(lastVisit.doctor?.full_name || lastVisit.doctor_name, 'Doctor not recorded')
+          }
+        : null,
+      diagnosis: diagnosisVisit
+        ? { text: diagnosisVisit.diagnosis?.trim() ?? '', date: formatSummaryDate(diagnosisVisit.visit_date) }
+        : null,
+      vitals: latestVitalsEntry
+        ? {
+            readings: latestVitalsEntry.readings.map(reading => reading.text),
+            // Fever, low temperature, high blood pressure and low oxygen, spelled out under the readings
+            warnings: latestVitalsEntry.readings.flatMap(reading => (reading.warning ? [reading.warning] : [])),
+            date: formatSummaryDate(latestVitalsEntry.date)
+          }
+        : null,
+      medicationsCount: medications.length,
+      pendingLabRequests: labRequests.filter(r => PENDING_LAB_STATUSES.includes(r?.status)).length
+    };
+  }, [visits, vitals, medications, labRequests]);
+
+  // Overview shortcuts. "Latest visit" is the Clinical Summary's last visit; the next appointment is
+  // the earliest visit from today on that has not started yet (scheduled or checked in, per visitStage).
+  const overviewVisitLinks = useMemo(() => {
+    type LinkVisit = Visit & {
+      scheduled_date?: string | null;
+      scheduled_time?: string | null;
+      is_cancelled?: boolean | null;
+      is_checked_in?: boolean | null;
+      is_ready?: boolean | null;
+      is_handoff?: boolean | null;
+      doctor?: { full_name?: string | null } | null;
+    };
+
+    const latest: OverviewVisitLink | null = clinicalSummary.lastVisit
+      ? {
+          id: clinicalSummary.lastVisit.id,
+          label: clinicalSummary.lastVisit.date ?? 'Date not recorded',
+          detail: [clinicalSummary.lastVisit.type, clinicalSummary.lastVisit.doctor].filter(Boolean).join(' · ')
+        }
+      : null;
+
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const next = (visits as LinkVisit[])
+      .map(visit => ({
+        visit,
+        date: (visit.scheduled_date || visit.visit_date || '').slice(0, 10),
+        time: (visit.scheduled_time || visit.visit_time || '').slice(0, 5)
+      }))
+      .filter(({ visit, date }) => {
+        const stage = getVisitStage(visit);
+        return date >= todayKey && (stage === 'scheduled' || stage === 'checked-in');
+      })
+      .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`))[0];
+
+    const nextDate = next ? parseISO(next.date) : null;
+    const nextDateLabel = next && nextDate && !isNaN(nextDate.getTime()) ? format(nextDate, 'EEE d MMM yyyy') : next?.date;
+    const upcoming: OverviewVisitLink | null = next
+      ? {
+          id: next.visit.id,
+          label: next.time ? `${nextDateLabel}, ${next.time}` : nextDateLabel ?? '',
+          detail: [
+            formatVisitTypeLabel(next.visit.visit_type),
+            formatDoctorName(next.visit.doctor?.full_name || next.visit.doctor_name, '')
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        }
+      : null;
+
+    return { latest, upcoming };
+  }, [clinicalSummary.lastVisit, visits]);
 
   // Filter options
   const filterOptions = [
@@ -1770,10 +1635,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
     
     return patients.filter((patient: Patient) => {
-      const matchesSearch = !searchTerm || 
-        `${patient.first_name} ${patient.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        patient.cell_number?.includes(searchTerm);
+      // Same search as the Patients page (names, ID number, reference, cell, email, membership), so "Smith John" finds
+      // John Smith here too
+      const matchesSearch = matchesPatientSearch(patientSearchFields(patient), searchTerm);
 
       if (statFilter) {
         if (statFilter === 'active' && !matchesSearch) return false;
@@ -1796,8 +1660,9 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
       return sortOrder === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
     } else if (sortBy === 'date') {
-      const dateA = a.date_of_birth ? new Date(a.date_of_birth).getTime() : 0;
-      const dateB = b.date_of_birth ? new Date(b.date_of_birth).getTime() : 0;
+      // The "Registered" column: when the patient was added (sorting by birth date duplicated the Age sort)
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
       return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
     } else {
       const ageA = a.date_of_birth ? calculateAge(a.date_of_birth) : 0;
@@ -1846,28 +1711,28 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
 
   const handleDelete = async (patientId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    
-    if (showDeleteConfirm === patientId) {
-      try {
-        const { error } = await supabase
-          .from('patients')
-          .delete()
-          .eq('id', patientId);
 
-        if (error) throw error;
-        
-        setShowDeleteConfirm(null);
-        // Use store directly to prevent re-render issues
-        const store = usePatientsStoreNew.getState();
-        store.fetchPatients();
-        toast.success('Patient deleted successfully');
-      } catch (error) {
-        console.error('Error deleting patient:', error);
-        toast.error('Failed to delete patient');
-      }
-    } else {
-      setShowDeleteConfirm(patientId);
-      setTimeout(() => setShowDeleteConfirm(null), 3000);
+    // The list view gave no sign that the first click had armed the delete, so ask by name instead
+    const patient = patients.find(p => p.id === patientId);
+    const patientName = patient ? `${patient.first_name} ${patient.last_name}`.trim() : 'this patient';
+    if (!window.confirm(`Delete the patient record for ${patientName}? This cannot be undone.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .delete()
+        .eq('id', patientId);
+
+      if (error) throw error;
+
+      setShowDeleteConfirm(null);
+      // Use store directly to prevent re-render issues
+      const store = usePatientsStoreNew.getState();
+      store.fetchPatients();
+      toast.success(`${patientName} deleted`);
+    } catch (error) {
+      console.error('Error deleting patient:', error);
+      toast.error(`Could not delete ${patientName}. Please try again.`);
     }
   };
 
@@ -2028,25 +1893,27 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     }
   };
 
-  // Enhanced SMS handler
-  const handleEnhancedSendSms = async (phone: string, message: string) => {
-    if (!selectedPatientDetails || !phone || !message) {
-      toast.error('Missing required information');
-      return;
+  // Enhanced SMS handler. ProfessionalSmsModal passes the recipient (the patient or their next of
+  // kin) as an object and closes only when the result says success.
+  const handleEnhancedSendSms = async (recipients: MessageRecipient[], message: string): Promise<SendOutcome> => {
+    const recipient = getSingleRecipient(recipients, 'sms');
+    if (!selectedPatientDetails || !recipient || !message) {
+      toast.error(recipient ? 'Please enter a message' : 'Enter a phone number to send the SMS to');
+      return SEND_FAILED;
     }
 
     try {
       const user = useAuthStore.getState().user;
       const practiceId = user?.practice_id || localStorage.getItem('currentPracticeId');
-      
+
       if (!practiceId) {
-        toast.error('Practice ID not found');
-        return;
+        toast.error('Your account is not linked to a practice, so the SMS was not sent.');
+        return SEND_FAILED;
       }
 
       const result = await communicationService.sendSMS({
         practiceId: practiceId as string,
-        recipientPhone: phone,
+        recipientPhone: recipient.contact,
         messageContent: message,
         messageType: 'custom',
         patientId: selectedPatientDetails.id,
@@ -2061,16 +1928,22 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         setIsProfessionalSmsModalOpen(false);
         setMessageConfirmationData({
           type: 'sms',
-          recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-          recipientContact: phone
+          recipientName: recipient.name || `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+          recipientContact: recipient.contact
         });
         setShowMessageConfirmation(true);
-      } else {
-        toast.error(`Failed to send SMS: ${result.error}`);
+        return SENT_ONE;
       }
+      toast.error(
+        result.error === 'SMS_LIMIT_REACHED'
+          ? 'The practice has used all its SMS credits, so the SMS was not sent.'
+          : `Failed to send SMS: ${result.error}`
+      );
+      return SEND_FAILED;
     } catch (error) {
       console.error('Error sending SMS:', error);
       toast.error('Failed to send SMS. Please try again.');
+      return SEND_FAILED;
     }
   };
 
@@ -2095,19 +1968,24 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     });
   };
 
-  // Enhanced Email handler
-  const handleEnhancedSendEmail = async (email: string, subject: string, message: string, attachments?: File[]) => {
-    console.log('🔥 INDIVIDUAL: HANDLE ENHANCED SEND EMAIL CALLED WITH:');
-    console.log('- email:', email);
-    console.log('- subject:', subject);
-    console.log('- message length:', message.length);
-    console.log('- attachments received:', attachments?.length || 0);
-    console.log('- attachments:', attachments?.map(f => ({ name: f.name, size: f.size, type: f.type })));
-    
-    if (!selectedPatientDetails || !email || !subject || !message) {
-      toast.error('Missing required information');
-      return;
+  // Enhanced Email handler. ProfessionalEmailModal passes the recipient as an object and closes
+  // only when the result says success.
+  const handleEnhancedSendEmail = async (
+    recipients: MessageRecipient[],
+    subject: string,
+    message: string,
+    attachments?: File[]
+  ): Promise<SendOutcome> => {
+    const recipient = getSingleRecipient(recipients, 'email');
+    if (!selectedPatientDetails || !recipient || !subject || !message) {
+      toast.error(recipient ? 'Please enter a subject and a message' : 'Enter an email address to send to');
+      return SEND_FAILED;
     }
+    if (!practiceId) {
+      toast.error('Your account is not linked to a practice, so the email was not sent.');
+      return SEND_FAILED;
+    }
+    const email = recipient.contact;
 
     try {
       // Convert File objects to base64 attachments
@@ -2134,31 +2012,35 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         console.log('🔗 No attachments provided');
       }
 
+      const recipientName = recipient.name || `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`;
       const result = await communicationService.sendEmail({
-        practiceId: practiceId!,
+        practiceId,
         recipientEmail: email,
-        recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+        recipientName,
         subject: subject,
         textContent: message,
-        emailType: 'patient_communication',
+        // 'patient_communication' is not one of the gateway's email types
+        emailType: 'custom',
         patientId: selectedPatientDetails.id,
         attachments: emailAttachments
       });
-      
+
       if (result.success) {
         setIsProfessionalEmailModalOpen(false);
         setMessageConfirmationData({
           type: 'email',
-          recipientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+          recipientName,
           recipientContact: email
         });
         setShowMessageConfirmation(true);
-      } else {
-        toast.error(result.error || 'Failed to send email');
+        return SENT_ONE;
       }
+      toast.error(result.error || 'Failed to send email');
+      return SEND_FAILED;
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error('Failed to send email. Please try again.');
+      return SEND_FAILED;
     }
   };
 
@@ -2184,12 +2066,13 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
           patient.last_name,
           patient.email || '',
           patient.cell_number || '',
-          patient.date_of_birth,
-          patient.gender,
-          patient.date_of_birth ? calculateAge(patient.date_of_birth) : 0,
+          patient.date_of_birth || '',
+          patient.gender || '',
+          // Blank, not 0, when the birth date is unknown
+          patient.date_of_birth ? calculateAge(patient.date_of_birth) : '',
           patient.marital_status || '',
           patient.occupation || ''
-        ].map(field => `"${field}"`).join(','))
+        ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
       ].join('\n');
 
       // Download CSV
@@ -2197,7 +2080,8 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `patients_export_${new Date().toISOString().split('T')[0]}.csv`);
+      // Local calendar date: toISOString() is UTC and gave yesterday's date before 02:00 in Namibia
+      link.setAttribute('download', `patients_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -2259,7 +2143,7 @@ OneHealth Medical Team`;
       : filteredPatients;
     
     if (selectedPatients.length === 0) {
-      alert('No patients selected or filtered. Please select patients or apply a filter first.');
+      toast.error('No patients selected or filtered. Please select patients or apply a filter first.');
       return;
     }
 
@@ -2431,6 +2315,37 @@ OneHealth Medical Team`;
             <div className={`relative z-10 h-full overflow-hidden flex flex-col ${
               modalState.modalState.isFullScreen ? 'max-h-none min-h-screen' : 'max-h-[95vh]'
             }`}>
+              {/* Header action bar (same gradient as the header below): way back to where the
+                  doctor came from on the left, ways to reach the patient on the right */}
+              {(backAction || (activeTab === 'details' && selectedPatientDetails)) && (
+                <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 pt-4 flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    {backAction && (
+                      <button
+                        type="button"
+                        onClick={backAction.onClick}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-semibold transition-colors"
+                      >
+                        <Icon icon="solar:arrow-left-bold-duotone" className="w-5 h-5" aria-hidden="true" />
+                        {backAction.label}
+                      </button>
+                    )}
+                  </div>
+                  {activeTab === 'details' && selectedPatientDetails && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <PatientContactActions
+                        patient={selectedPatientDetails}
+                        practiceId={practiceId}
+                        practiceName={practiceData?.name ?? user?.practices?.name}
+                        clinicianName={clinicianName}
+                      />
+                      {/* Automation lists this patient is on (birthdays, recalls...): add or remove */}
+                      <PatientListsControl practiceId={practiceId} patient={selectedPatientDetails} variant="onDark" />
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Premium Header - Dynamic based on active tab */}
               <PatientModalHeader
                 activeTab={activeTab}
@@ -2445,21 +2360,20 @@ OneHealth Medical Team`;
                 visits={visits}
                 vitals={vitals}
                 onSendMessage={() => {
-                  if (selectedPatientDetails) {
-                    setSmsTarget('patient');
-                    setIsProfessionalSmsModalOpen(true);
-                  }
+                  console.log('[Header] Send Message clicked, patient:', !!selectedPatientDetails);
+                  setSmsTarget('patient');
+                  setIsProfessionalSmsModalOpen(true);
                 }}
                 onSendEmail={() => {
-                  if (selectedPatientDetails) {
-                    setIsProfessionalEmailModalOpen(true);
-                  }
+                  console.log('[Header] Send Email clicked, patient:', !!selectedPatientDetails);
+                  setIsProfessionalEmailModalOpen(true);
                 }}
                 onEditProfile={() => {
+                  console.log('[Header] Edit clicked, patient:', !!selectedPatientDetails);
                   if (selectedPatientDetails) {
                     setSelectedPatient(selectedPatientDetails);
-                    setIsEditPatientModalOpen(true);
                   }
+                  setIsEditPatientModalOpen(true);
                 }}
                 onSmsNextOfKin={(phone: string) => {
                   if (nextOfKin || selectedPatientDetails) {
@@ -2471,8 +2385,22 @@ OneHealth Medical Team`;
                   setIsManageBeneficiariesModalOpen(true);
                 }}
                 beneficiariesCount={beneficiariesCount}
+                accountBadge={
+                  <AccountFlagBadges
+                    patientId={selectedPatientDetails?.id}
+                    practiceId={practiceId}
+                    onOpenAccount={() => {
+                      setActiveDetailTab('billing');
+                      setAccountFocusKey(Date.now());
+                    }}
+                  />
+                }
               />
 
+              {/* Allergies, clinical alert and active problems: one strip under the name, details one tap away */}
+              {activeTab === 'details' && selectedPatientDetails && (
+                <ClinicalAlertStrip patientId={selectedPatientDetails.id} practiceId={practiceId} />
+              )}
 
               {/* Tabs - Always visible */}
               <PatientModalTabs 
@@ -2486,12 +2414,13 @@ OneHealth Medical Team`;
                 }}
                 mode={activeTab === 'patients' ? 'list' : 'details'}
                 selectedPatient={selectedPatientDetails}
-                visits={visits}
+                visits={encounterVisits}
                 medications={medications}
                 media={mediaRequests}
                 lab={labRequests}
                 imaging={imagingRequests}
                 billingData={billingData}
+                practiceId={practiceId}
               />
 
               {/* Modal Content */}
@@ -2548,6 +2477,7 @@ OneHealth Medical Team`;
                                 disabled={isAiSearching || !searchTerm.trim()}
                                 className={`absolute right-3 top-1/2 transform -translate-y-1/2 p-1 bg-gradient-to-r ${currentTheme.gradients.button} text-white rounded-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm`}
                                 title="AI Search - Ask anything about your patients"
+                                aria-label="AI search"
                               >
                                 {isAiSearching ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2568,57 +2498,8 @@ OneHealth Medical Team`;
                               <span className="text-xs">Add Patient</span>
                             </button>
                             
-                            {/* Bulk Action Buttons - Illuminate when filtered */}
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => {
-                                console.log('🔧 DIRECT MESSAGE DEBUG: Button clicked, opening message modal directly');
-                                modalState.openMessageModal();
-                              }}
-                              disabled={isSendingBulkSms || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
-                              className={`px-4 py-3 sm:px-2 sm:py-1 rounded-lg transition-all flex items-center gap-2 sm:gap-1 text-sm sm:text-xs font-medium min-h-[44px] sm:min-h-0 touch-manipulation ${
-                                (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
-                                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
-                                  : 'bg-gray-100 text-gray-400 opacity-50'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                              title={selectedPatientIds.size > 0 
-                                ? `Send SMS to ${selectedPatientIds.size} selected patients`
-                                : `Send SMS to ${filteredPatients.length} filtered patients`}
-                            >
-                              {isSendingBulkSms ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <MessageSquare className="w-3 h-3" />
-                              )}
-                              <span className="text-xs">SMS</span>
-                            </motion.button>
-                            
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => {
-                                console.log('🔧 DIRECT EMAIL DEBUG: Button clicked, opening email modal directly');
-                                modalState.openEmailModal();
-                              }}
-                              disabled={isSendingBulkEmail || (selectedPatientIds.size === 0 && filteredPatients.length === 0)}
-                              className={`px-2 py-1 rounded-lg transition-all flex items-center gap-1 text-xs font-medium ${
-                                (selectedPatientIds.size > 0 || ((searchTerm || selectedFilter !== 'all' || aiFilters) && filteredPatients.length > 0))
-                                  ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md hover:shadow-lg'
-                                  : 'bg-gray-100 text-gray-400 opacity-50'
-                              } disabled:opacity-50 disabled:cursor-not-allowed`}
-                              title={selectedPatientIds.size > 0 
-                                ? `Send Email to ${selectedPatientIds.size} selected patients`
-                                : `Send Email to ${filteredPatients.length} filtered patients`}
-                            >
-                              {isSendingBulkEmail ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Send className="w-3 h-3" />
-                              )}
-                              <span className="text-xs">Email</span>
-                            </motion.button>
-                            
+                            {/* No bulk SMS/Email here: "SMS" opened a one-patient composer for whichever patient was
+                                viewed last, and "Email" opened nothing. Bulk messages are sent from the Patients page. */}
                             <motion.button
                               whileHover={{ scale: 1.05 }}
                               whileTap={{ scale: 0.95 }}
@@ -2642,6 +2523,8 @@ OneHealth Medical Team`;
                             <button
                               onClick={() => setView(view === 'grid' ? 'list' : 'grid')}
                               className="px-4 py-3 sm:px-2 sm:py-1 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 sm:gap-1 min-h-[44px] sm:min-h-0 touch-manipulation"
+                              title={view === 'grid' ? 'Show as a list' : 'Show as cards'}
+                              aria-label={view === 'grid' ? 'Show as a list' : 'Show as cards'}
                             >
                               {view === 'grid' ? <List className="w-3 h-3" /> : <LayoutGrid className="w-3 h-3" />}
                             </button>
@@ -2660,6 +2543,8 @@ OneHealth Medical Team`;
                                   setSearchTerm('');
                                 }}
                                 className="ml-auto hover:bg-white/20 rounded p-0.5"
+                                title="Clear the AI search"
+                                aria-label="Clear the AI search"
                               >
                                 <X className="w-3 h-3" />
                               </button>
@@ -2783,11 +2668,15 @@ OneHealth Medical Team`;
                                         <button
                                           onClick={(e) => handleEdit(patient, e)}
                                           className="p-1 bg-gray-100 text-gray-600 rounded-md hover:bg-[#01b9d5] hover:text-white transition-colors"
+                                          title="Edit patient"
+                                          aria-label={`Edit ${patient.first_name} ${patient.last_name}`}
                                         >
                                           <Edit className="w-3 h-3" />
                                         </button>
                                         <button
                                           onClick={(e) => handleDelete(patient.id, e)}
+                                          title="Delete patient"
+                                          aria-label={`Delete ${patient.first_name} ${patient.last_name}`}
                                           className={`p-1 rounded-md transition-colors ${
                                             showDeleteConfirm === patient.id
                                               ? 'bg-red-500 text-white'
@@ -2930,18 +2819,22 @@ OneHealth Medical Team`;
                                       {/* Registered Date */}
                                       <div className="col-span-2 flex items-center justify-between">
                                         <span className="text-sm text-gray-600">
-                                          {patient.created_at ? format(new Date(patient.created_at), 'MMM d, yyyy') : 'N/A'}
+                                          {patient.created_at ? format(new Date(patient.created_at), 'd MMM yyyy') : 'N/A'}
                                         </span>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                           <button
                                             onClick={(e) => handleEdit(patient, e)}
                                             className="p-1 bg-gray-100 text-gray-600 rounded hover:bg-[#01b9d5] hover:text-white transition-colors"
+                                            title="Edit patient"
+                                            aria-label={`Edit ${patient.first_name} ${patient.last_name}`}
                                           >
                                             <Edit className="w-3 h-3" />
                                           </button>
                                           <button
                                             onClick={(e) => handleDelete(patient.id, e)}
                                             className="p-1 bg-gray-100 text-gray-600 rounded hover:bg-red-500 hover:text-white transition-colors"
+                                            title="Delete patient"
+                                            aria-label={`Delete ${patient.first_name} ${patient.last_name}`}
                                           >
                                             <Trash2 className="w-3 h-3" />
                                           </button>
@@ -2969,6 +2862,8 @@ OneHealth Medical Team`;
                                   whileTap={{ scale: 0.95 }}
                                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                                   disabled={currentPage === 1}
+                                  title="Previous page"
+                                  aria-label="Previous page"
                                   className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                 >
                                   <ChevronLeft className="w-4 h-4" />
@@ -2999,6 +2894,8 @@ OneHealth Medical Team`;
                                   whileTap={{ scale: 0.95 }}
                                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                                   disabled={currentPage === totalPages}
+                                  title="Next page"
+                                  aria-label="Next page"
                                   className="p-2 bg-white border border-gray-200 text-gray-600 rounded-xl hover:bg-gray-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                 >
                                   <ChevronRight className="w-4 h-4" />
@@ -3047,66 +2944,157 @@ OneHealth Medical Team`;
                             <div className="relative backdrop-blur-xl bg-white/95 border border-gray-200/50 rounded-2xl shadow-xl p-6">
                               {activeDetailTab === 'overview' && (
                                 <div className="space-y-6">
-                                  {/* AI Health Intelligence Dashboard - Text Based */}
+                                  {/* Shortcuts into the rest of the patient file */}
+                                  <PatientOverviewLinks
+                                    latestVisit={overviewVisitLinks.latest}
+                                    upcomingVisit={overviewVisitLinks.upcoming}
+                                    pendingLabCount={clinicalSummary.pendingLabRequests}
+                                    balance={{
+                                      isLoading: patientInvoices.isLoading,
+                                      hasLoaded: patientInvoices.hasLoaded,
+                                      error: patientInvoices.error,
+                                      amount: patientInvoices.summary.balanceDue,
+                                      unpaidCount: patientInvoices.summary.outstandingCount,
+                                      overdueCount: patientInvoices.summary.overdueCount
+                                    }}
+                                    onOpenVisit={openVisitById}
+                                    onOpenBilling={() => setActiveDetailTab('billing')}
+                                    onOpenLab={() => setActiveDetailTab('lab')}
+                                    onRetryBalance={patientInvoices.reload}
+                                  />
+
+                                  {/* Pregnancy due date (not in dental or optometry practices) */}
+                                  {practiceId && (
+                                    <PregnancyDueDateCard practiceId={practiceId} patientId={selectedPatientDetails.id} gender={selectedPatientDetails.gender ?? null} />
+                                  )}
+
+                                  {/* Typed notes with follow-ups and a lock; credit-control notes read-only, each opening the account */}
+                                  {practiceId && (
+                                    <PatientNotesPanel
+                                      practiceId={practiceId}
+                                      patientId={selectedPatientDetails.id}
+                                      focusNoteId={selectedPatientDetails.id === patientId ? focusNoteId : null}
+                                      onOpenAccount={() => {
+                                        setActiveDetailTab('billing');
+                                        setAccountFocusKey(Date.now());
+                                      }}
+                                      onOpenEncounters={() => setActiveDetailTab('encounters')}
+                                    />
+                                  )}
+
+                                  {/* The signed-in practitioner's own private notes: nobody else reads them */}
+                                  {practiceId && <PrivateNotesPanel practiceId={practiceId} patientId={selectedPatientDetails.id} />}
+
+                                  {/* Upcoming and past bookings with reminder status; each opens its day in the diary, the visit or the invoice */}
+                                  {practiceId && (
+                                    <PatientBookingsPanel
+                                      practiceId={practiceId}
+                                      patientId={selectedPatientDetails.id}
+                                      onOpenVisit={openVisitById}
+                                      onOpenBilling={() => setActiveDetailTab('billing')}
+                                    />
+                                  )}
+
+                                  {/* Letters and sick notes (print, email, write a referral) and the messages the patient was sent */}
+                                  {practiceId && (
+                                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                                      <VisitLettersPanel
+                                        practiceId={practiceId}
+                                        patientId={selectedPatientDetails.id}
+                                        visitId={null}
+                                        patientEmail={selectedPatientDetails.email ?? null}
+                                        title="Letters and sick notes"
+                                        includeSickNotes
+                                        onOpenVisit={visitId => openVisitById(visitId, 'leave')}
+                                      />
+                                      <PatientMessagesCard practiceId={practiceId} patientId={selectedPatientDetails.id} />
+                                    </div>
+                                  )}
+
+                                  {/* Consent forms signed on the screen, and the whole record exported (PDF and documents) */}
+                                  {practiceId && (
+                                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                                      <PatientConsentsPanel practiceId={practiceId} patientId={selectedPatientDetails.id} visitId={null} onOpenVisit={visitId => openVisitById(visitId, 'leave')} />
+                                      <RecordExportCard practiceId={practiceId} patientId={selectedPatientDetails.id} />
+                                    </div>
+                                  )}
+
+                                  {/* Clinical Summary - factual, built only from records already loaded for this patient */}
                                   <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                                     <div className="flex items-center gap-3 mb-4">
-                                      <Bot className="w-6 h-6 text-gray-700" />
+                                      <ClipboardList className="w-6 h-6 text-gray-700" />
                                       <div>
-                                        <h3 className="text-xl font-semibold text-gray-900">AI Health Intelligence Dashboard</h3>
-                                        <p className="text-sm text-gray-500">Comprehensive Patient Health Analysis</p>
+                                        <h3 className="text-xl font-semibold text-gray-900">Clinical Summary</h3>
+                                        <p className="text-sm text-gray-500">From recorded visits only. Not a clinical assessment.</p>
                                       </div>
                                     </div>
-                                    
-                                    <div className="prose prose-sm max-w-none text-gray-600 space-y-4">
+
+                                    <dl className="grid grid-cols-1 md:grid-cols-2 gap-4 text-gray-600">
                                       <div>
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Patient Overview</h4>
-                                        <p className="text-sm leading-relaxed">
-                                          {selectedPatientDetails?.first_name} {selectedPatientDetails?.last_name} has been under our care with {visits.length} medical encounters recorded. 
-                                          The patient demonstrates excellent compliance with scheduled appointments and treatment protocols. 
-                                          Clinical assessments show {vitals.length > 0 ? 'stable vital signs' : 'pending vital sign measurements'} across {vitals.length} recorded measurements{vitals.length > 0 ? ', with all key indicators within normal ranges' : ''}. 
-                                          Overall prognosis is positive with continued monitoring recommended for optimal health outcomes.
-                                        </p>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Visits on record</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.totalVisits} {clinicalSummary.totalVisits === 1 ? 'visit' : 'visits'}
+                                          {clinicalSummary.totalVisits > 0 && ` (${clinicalSummary.completedVisits} completed)`}
+                                        </dd>
                                       </div>
-                                      
+
                                       <div>
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Medical Record Summary</h4>
-                                        <p className="text-sm leading-relaxed">
-                                          Total medical encounters: {visits.length} visits
-                                          {vitals.length > 0 && `, ${vitals.length} vital sign recordings`}
-                                          {labResults.length > 0 && `, ${labResults.length} laboratory results`}
-                                          {documents.length > 0 && `, ${documents.length} medical documents`}.
-                                          {visits.length > 0 && visits[0].chief_complaint && 
-                                            ` Most recent visit addressed: "${visits[0].chief_complaint}" which was managed according to established clinical protocols.`
-                                          }
-                                        </p>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Last visit</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.lastVisit
+                                            ? [clinicalSummary.lastVisit.date, clinicalSummary.lastVisit.type, clinicalSummary.lastVisit.doctor].filter(Boolean).join(' · ')
+                                            : 'No past visits recorded'}
+                                        </dd>
                                       </div>
-                                      
+
                                       <div>
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Clinical Insights</h4>
-                                        <p className="text-sm leading-relaxed">
-                                          Based on the comprehensive analysis of available medical data, the patient shows consistent healthcare engagement patterns. 
-                                          {vitals.length > 0 ? 
-                                            'Vital sign trends indicate stable physiological parameters with no concerning deviations from baseline.' :
-                                            'Initial vital sign assessment is recommended to establish baseline health parameters.'
-                                          }
-                                          {medicalAid ? 
-                                            ' Medical aid coverage is active, facilitating access to comprehensive healthcare services.' :
-                                            ' Self-pay status noted - consider medical aid enrollment for enhanced healthcare access.'
-                                          }
-                                        </p>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Most recent recorded diagnosis</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.diagnosis ? (
+                                            <>
+                                              <span className="line-clamp-3" title={clinicalSummary.diagnosis.text}>{clinicalSummary.diagnosis.text}</span>
+                                              {clinicalSummary.diagnosis.date && (
+                                                <span className="block text-xs text-gray-500 mt-0.5">Recorded {clinicalSummary.diagnosis.date}</span>
+                                              )}
+                                            </>
+                                          ) : 'No diagnosis recorded'}
+                                        </dd>
                                       </div>
-                                      
+
                                       <div>
-                                        <h4 className="text-sm font-semibold text-gray-700 mb-2">Recommendations</h4>
-                                        <p className="text-sm leading-relaxed">
-                                          Continue current management strategies with emphasis on preventive care measures. 
-                                          Maintain regular follow-up appointments to monitor health status and address any emerging concerns promptly. 
-                                          {vitals.length === 0 && 'Priority: Schedule vital signs assessment at next visit. '}
-                                          {labResults.length === 0 && 'Consider baseline laboratory screening based on patient age and risk factors. '}
-                                          Encourage continued engagement with healthcare services to maintain optimal health outcomes.
-                                        </p>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Latest vitals</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.vitals ? (
+                                            <>
+                                              <span>{clinicalSummary.vitals.readings.join(' · ')}</span>
+                                              {clinicalSummary.vitals.warnings.map(warning => (
+                                                <span key={warning} className="mt-1 flex items-center gap-1 text-xs font-semibold text-red-700">
+                                                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                                                  {warning}
+                                                </span>
+                                              ))}
+                                              {clinicalSummary.vitals.date && (
+                                                <span className="block text-xs text-gray-500 mt-0.5">Recorded {clinicalSummary.vitals.date}</span>
+                                              )}
+                                            </>
+                                          ) : 'No vitals recorded'}
+                                        </dd>
                                       </div>
-                                    </div>
+
+                                      <div>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Medications prescribed</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.medicationsCount} across all visits
+                                        </dd>
+                                      </div>
+
+                                      <div>
+                                        <dt className="text-sm font-semibold text-gray-700 mb-1">Pending lab requests</dt>
+                                        <dd className="text-sm leading-relaxed">
+                                          {clinicalSummary.pendingLabRequests}
+                                        </dd>
+                                      </div>
+                                    </dl>
                                   </div>
                                 </div>
                               )}
@@ -3120,8 +3108,8 @@ OneHealth Medical Team`;
                                     inProgressVisits: visits.filter(v => v.status === 'in-progress').length,
                                     patientName: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`
                                   })}
-                                  <EncounterTimeline 
-                                    visits={visits}
+                                  <EncounterTimeline
+                                    visits={encounterVisits}
                                     patientName={`${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`}
                                     onAddVisit={() => modalState.openAddVisitModal()}
                                   onAddVisitTabs={() => {
@@ -3131,6 +3119,12 @@ OneHealth Medical Team`;
                                   }}
                                   onEditVisit={(visit) => {
                                     console.log('Edit visit:', visit);
+                                    setEditVisitInitialTab(undefined);
+                                    setSelectedVisit(visit);
+                                    modalState.openEditVisitModal();
+                                  }}
+                                  onOpenVisitTab={(visit, tab) => {
+                                    setEditVisitInitialTab(tab);
                                     setSelectedVisit(visit);
                                     modalState.openEditVisitModal();
                                   }}
@@ -3217,6 +3211,8 @@ OneHealth Medical Team`;
                                     );
                                   }}
                                   visitCounts={visitCounts}
+                                  // Each visit card shows its bill (amount, paid or not) once the invoices have loaded
+                                  invoices={patientInvoices.hasLoaded ? patientInvoices.invoices : undefined}
                                 />
                                 </>
                               )}
@@ -3265,13 +3261,7 @@ OneHealth Medical Team`;
                                                 key={medication.id} 
                                                 className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                                 onClick={() => {
-                                                  if (medication.visit_id) {
-                                                    const visitToEdit = visits.find(v => v.id === medication.visit_id);
-                                                    if (visitToEdit) {
-                                                      setSelectedVisit(visitToEdit);
-                                                      modalState.openEditVisitModal();
-                                                    }
-                                                  }
+                                                  if (medication.visit_id) openVisitById(medication.visit_id, 'medications');
                                                 }}
                                               >
                                                 <td className="px-4 py-3 text-sm font-medium text-gray-900">{medication.medication_name}</td>
@@ -3284,7 +3274,7 @@ OneHealth Medical Team`;
                                                   </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {medication.visit?.visit_date ? format(new Date(medication.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {medication.visit?.visit_date ? format(new Date(medication.visit.visit_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                               </tr>
                                             ))
@@ -3303,6 +3293,8 @@ OneHealth Medical Team`;
                                       </table>
                                     </div>
                                   </div>
+                                  {/* Medicines dispensed from stock, scripts and repeats (practices that dispense) */}
+                                  {selectedPatientDetails?.id && <PatientDispensingPanel practiceId={practiceId} patientId={selectedPatientDetails.id} onOpenVisit={visitId => openVisitById(visitId, 'medications')} />}
                                 </div>
                               )}
 
@@ -3352,13 +3344,7 @@ OneHealth Medical Team`;
                                                 key={media.id} 
                                                 className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                                 onClick={() => {
-                                                  if (media.visit_id) {
-                                                    const visitToEdit = visits.find(v => v.id === media.visit_id);
-                                                    if (visitToEdit) {
-                                                      setSelectedVisit(visitToEdit);
-                                                      modalState.openEditVisitModal();
-                                                    }
-                                                  }
+                                                  if (media.visit_id) openVisitById(media.visit_id, 'media');
                                                 }}
                                               >
                                                 <td className="px-4 py-3">
@@ -3367,15 +3353,16 @@ OneHealth Medical Team`;
                                                   </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {media.visit?.visit_date ? format(new Date(media.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {media.visit?.visit_date ? format(new Date(media.visit.visit_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-3">
                                                   <div className="flex items-center">
                                                     {media.file_type && ['png', 'jpg', 'jpeg', 'webp'].includes(media.file_type.toLowerCase()) ? (
-                                                      <img 
-                                                        src={`${supabase.storage.from(media.storage_bucket).getPublicUrl(media.storage_path).data.publicUrl}`}
-                                                        alt={media.title || media.original_name} 
-                                                        className="w-12 h-12 object-cover rounded border cursor-pointer" 
+                                                      <RecordImage
+                                                        path={media.storage_path}
+                                                        bucket={media.storage_bucket}
+                                                        alt={media.title || media.original_name}
+                                                        className="w-12 h-12 object-cover rounded border cursor-pointer"
                                                       />
                                                     ) : (
                                                       <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded border">
@@ -3386,9 +3373,9 @@ OneHealth Medical Team`;
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-900">{media.title || media.original_name}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-700 capitalize">{media.category}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-700">{(media.file_size / 1024).toFixed(1)} KB</td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{media.file_size ? `${(media.file_size / 1024).toFixed(1)} KB` : '—'}</td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {media.created_at ? format(new Date(media.created_at), 'MMM dd, yyyy') : 'N/A'}
+                                                  {media.created_at ? format(new Date(media.created_at), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                               </tr>
                                             ))
@@ -3456,13 +3443,7 @@ OneHealth Medical Team`;
                                                 key={lab.id} 
                                                 className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                                 onClick={() => {
-                                                  if (lab.visit_id) {
-                                                    const visitToEdit = visits.find(v => v.id === lab.visit_id);
-                                                    if (visitToEdit) {
-                                                      setSelectedVisit(visitToEdit);
-                                                      modalState.openEditVisitModal();
-                                                    }
-                                                  }
+                                                  if (lab.visit_id) openVisitById(lab.visit_id, 'laboratory');
                                                 }}
                                               >
                                                 <td className="px-4 py-3">
@@ -3471,13 +3452,18 @@ OneHealth Medical Team`;
                                                   </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {lab.visit?.visit_date ? format(new Date(lab.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {lab.visit?.visit_date ? format(new Date(lab.visit.visit_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {lab.test_date ? format(new Date(lab.test_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {(lab.test_date || lab.request_date) ? format(new Date(lab.test_date || lab.request_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
-                                                <td className="px-4 py-3 text-sm text-gray-900 capitalize">{lab.test_type?.replace('_', ' ') || 'General'}</td>
-                                                <td className="px-4 py-3 text-sm text-gray-700">{lab.lab_name || 'Not specified'}</td>
+                                                {/* Lab requests have no test type column: name the tests from the results entered so far */}
+                                                <td className="px-4 py-3 text-sm text-gray-900 capitalize">
+                                                  {lab.test_type?.replace('_', ' ') ||
+                                                    [...new Set(labResults.filter(result => result.lab_request_id === lab.id).map(result => result.test_name).filter(Boolean))].join(', ') ||
+                                                    'Not specified'}
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-700">{lab.lab_name || lab.lab_facility || 'Not specified'}</td>
                                                 <td className="px-4 py-3 text-sm">
                                                   <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
                                                     lab.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -3488,13 +3474,16 @@ OneHealth Medical Team`;
                                                   </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {lab.critical_result ? (
-                                                    <span className="text-red-600 font-medium">Critical</span>
-                                                  ) : lab.is_abnormal ? (
-                                                    <span className="text-orange-600 font-medium">Abnormal</span>
-                                                  ) : (
-                                                    <span className="text-green-600">Normal</span>
-                                                  )}
+                                                  {(() => {
+                                                    // Judged from the entered values: a request with values outside their range is abnormal,
+                                                    // and one with no values is never shown as "Normal"
+                                                    const requestResults = labResults.filter(result => result.lab_request_id === lab.id);
+                                                    const outOfRange = requestResults.some(result => getResultStatus(result.test_value, result.reference_range) !== 'normal');
+                                                    if (lab.critical_result) return <span className="text-red-600 font-medium">Critical</span>;
+                                                    if (lab.is_abnormal || outOfRange) return <span className="text-orange-600 font-medium">Abnormal</span>;
+                                                    if (requestResults.length === 0) return <span className="text-gray-400">No values entered</span>;
+                                                    return <span className="text-green-600">Normal</span>;
+                                                  })()}
                                                 </td>
                                               </tr>
                                             ))
@@ -3562,13 +3551,7 @@ OneHealth Medical Team`;
                                                 key={imaging.id} 
                                                 className="hover:bg-blue-50 hover:shadow-sm transition-all duration-200 cursor-pointer"
                                                 onClick={() => {
-                                                  if (imaging.visit_id) {
-                                                    const visitToEdit = visits.find(v => v.id === imaging.visit_id);
-                                                    if (visitToEdit) {
-                                                      setSelectedVisit(visitToEdit);
-                                                      modalState.openEditVisitModal();
-                                                    }
-                                                  }
+                                                  if (imaging.visit_id) openVisitById(imaging.visit_id, 'imaging');
                                                 }}
                                               >
                                                 <td className="px-4 py-3">
@@ -3577,7 +3560,7 @@ OneHealth Medical Team`;
                                                   </span>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {imaging.visit?.visit_date ? format(new Date(imaging.visit.visit_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {imaging.visit?.visit_date ? format(new Date(imaging.visit.visit_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm">
                                                   <div className="flex items-center">
@@ -3588,7 +3571,7 @@ OneHealth Medical Team`;
                                                   </div>
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700">
-                                                  {imaging.study_date ? format(new Date(imaging.study_date), 'MMM dd, yyyy') : 'N/A'}
+                                                  {imaging.study_date ? format(new Date(imaging.study_date), 'd MMM yyyy') : 'N/A'}
                                                 </td>
                                                 <td className="px-4 py-3 text-sm text-gray-700 capitalize">{imaging.body_part || 'Not specified'}</td>
                                                 <td className="px-4 py-3 text-sm">
@@ -3599,10 +3582,11 @@ OneHealth Medical Team`;
                                                 <td className="px-4 py-3 text-sm">
                                                   <div className="flex items-center">
                                                     {imaging.file_type && ['png', 'jpg', 'jpeg', 'webp'].includes(imaging.file_type.toLowerCase()) ? (
-                                                      <img 
-                                                        src={`${supabase.storage.from(imaging.storage_bucket).getPublicUrl(imaging.storage_path).data.publicUrl}`}
-                                                        alt={imaging.title || imaging.original_name} 
-                                                        className="w-8 h-8 object-cover rounded border cursor-pointer mr-2" 
+                                                      <RecordImage
+                                                        path={imaging.storage_path}
+                                                        bucket={imaging.storage_bucket}
+                                                        alt={imaging.title || imaging.original_name}
+                                                        className="w-8 h-8 object-cover rounded border cursor-pointer mr-2"
                                                       />
                                                     ) : (
                                                       <div className="w-8 h-8 flex items-center justify-center bg-gray-100 rounded border mr-2">
@@ -3610,7 +3594,7 @@ OneHealth Medical Team`;
                                                       </div>
                                                     )}
                                                     <span className="text-xs text-gray-500">
-                                                      {(imaging.file_size / 1024).toFixed(1)} KB
+                                                      {imaging.file_size ? `${(imaging.file_size / 1024).toFixed(1)} KB` : '—'}
                                                     </span>
                                                   </div>
                                                 </td>
@@ -3631,11 +3615,66 @@ OneHealth Medical Team`;
                                       </table>
                                     </div>
                                   </div>
+                                  {/* The imaging requests with the radiologist's reports, and their labels */}
+                                  {selectedPatientDetails?.id && <ImagingReportsPanel patientId={selectedPatientDetails.id} onOpenVisit={visitId => openVisitById(visitId, 'imaging')} />}
                                 </div>
+                              )}
+
+                              {/* Dental practices: the tooth chart and treatment plan (the tab shows only for them) */}
+                              {activeDetailTab === 'teeth' && (
+                                <TeethView practiceId={practiceId} patientId={selectedPatientDetails.id} onOpenVisit={openVisitById} />
+                              )}
+
+                              {/* Optometry practices: prescriptions, lab orders, contact lenses and eye exams (the tab shows only for them) */}
+                              {activeDetailTab === 'eyes' && (
+                                <EyesView practiceId={practiceId} patientId={selectedPatientDetails.id} onOpenVisit={openVisitById} />
                               )}
 
                               {activeDetailTab === 'billing' && (
                                 <div className="space-y-6">
+                                  {/* Claims a fund did not pay that still need someone, one tap to the rejection queue */}
+                                  <PatientClaimsNotice practiceId={practiceId} patientId={selectedPatientDetails.id} />
+                                  <PatientBillingPanel
+                                    invoices={patientInvoices}
+                                    visitsById={visitsById}
+                                    patient={{
+                                      name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+                                      phone: selectedPatientDetails.cell_number,
+                                      email: selectedPatientDetails.email
+                                    }}
+                                    medicalAidProvider={medicalAid?.provider}
+                                    onOpenVisit={openVisitById}
+                                    accountFocusKey={accountFocusKey}
+                                  />
+
+                                  {/* Quotes (treatment estimates): create, send, accept and convert to an invoice */}
+                                  <PatientQuotesPanel
+                                    practiceId={practiceId}
+                                    patient={{
+                                      id: selectedPatientDetails.id,
+                                      name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+                                      phone: selectedPatientDetails.cell_number ?? null,
+                                      email: selectedPatientDetails.email ?? null
+                                    }}
+                                  />
+
+                                  {/* Existing invoice management (status changes, print, email, statement), collapsed
+                                      so the read-only account view above is what staff see first */}
+                                  <div className="rounded-xl border border-gray-200 bg-white">
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsInvoiceManagementOpen(open => !open)}
+                                      aria-expanded={isInvoiceManagementOpen}
+                                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 rounded-xl"
+                                    >
+                                      <span>
+                                        <span className="block text-sm font-semibold text-gray-900">Manage invoices</span>
+                                        <span className="block text-xs text-gray-500">Change payment status, print or email an invoice, print a statement</span>
+                                      </span>
+                                      <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isInvoiceManagementOpen ? 'rotate-180' : ''}`} />
+                                    </button>
+                                    {isInvoiceManagementOpen && (
+                                  <div className="border-t border-gray-100 p-4">
                                   <CleanInvoiceTable
                                     patientId={selectedPatientDetails.id}
                                     onVisitClick={(visitId) => {
@@ -3645,73 +3684,54 @@ OneHealth Medical Team`;
                                         modalState.openEditVisitModal();
                                       }
                                     }}
-                                    onStatusChange={async (invoiceId, newStatus) => {
+                                    onStatusChange={async (invoiceId, newStatus, paymentMethod) => {
                                       try {
+                                        if (newStatus === 'cancelled') {
+                                          const lock = await loadInvoiceLock(invoiceId);
+                                          if (lock) {
+                                            toast.error(`Can't cancel this invoice. ${INVOICE_LOCK_MESSAGES[lock]}`, { duration: 7000 });
+                                            return;
+                                          }
+                                        }
+
                                         const { error } = await supabase
                                           .from('invoices_enhanced')
-                                          .update({ payment_status: newStatus })
+                                          .update({
+                                            payment_status: newStatus,
+                                            // How it was paid feeds Finance's collections by method; cleared if no longer paid
+                                            payment_method: newStatus === 'paid' ? paymentMethod ?? null : null,
+                                            updated_at: new Date().toISOString()
+                                          })
                                           .eq('id', invoiceId);
 
                                         if (error) {
                                           console.error('Error updating invoice status:', error);
-                                          alert('Failed to update invoice status');
+                                          toast.error(`Could not update the invoice: ${error.message}`);
                                         } else {
+                                          toast.success(newStatus === 'paid' ? 'Payment recorded' : `Invoice marked ${newStatus}`);
                                           // Refresh the billing data to show updated status
                                           const { data: updatedBilling } = await supabase
                                             .from('invoices_enhanced')
                                             .select('*')
                                             .eq('patient_id', selectedPatientDetails.id);
                                           setBillingData(updatedBilling || []);
+                                          // Keep the account summary and invoice list above in step
+                                          patientInvoices.reload();
                                         }
                                       } catch (error) {
                                         console.error('Error updating invoice status:', error);
-                                        alert('Failed to update invoice status');
+                                        toast.error(error instanceof Error ? error.message : 'Could not update the invoice');
                                       }
                                     }}
-                                    onEmailInvoice={async (invoice) => {
-                                      try {
-                                        // Generate PDF blob for attachment
-                                        const pdfBlob = await generateInvoicePDF(
-                                          invoice,
-                                          {
-                                            name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-                                            phone: selectedPatientDetails.cell_number,
-                                            email: selectedPatientDetails.email,
-                                            address: selectedPatientDetails.home_address,
-                                            medicalAidProvider: medicalAid?.provider,
-                                            membershipNumber: medicalAid?.membership_number,
-                                          },
-                                          practiceData || {
-                                            id: practiceId || '',
-                                            name: 'OneHealth Medical Practice',
-                                            contact_phone: '+264 61 123 4567',
-                                            contact_email: 'info@onehealth.com.na',
-                                            address: '123 Healthcare Avenue, Windhoek, Namibia',
-                                            country: 'Namibia'
-                                          }
-                                        );
-                                        
-                                        // Create file from blob for attachment
-                                        const file = new File([pdfBlob], `invoice-${invoice.invoice_number}.pdf`, {
-                                          type: 'application/pdf'
-                                        });
-                                        
-                                        // Store invoice attachment for email modal
-                                        // Note: You'll need to modify ProfessionalEmailModal to accept attachments
-                                        window.invoiceAttachment = file;
-                                        
-                                        // Open email modal
-                                        setIsProfessionalEmailModalOpen(true);
-                                        
-                                        console.log('📧 Email invoice prepared:', {
-                                          invoice: invoice.invoice_number,
-                                          patient: selectedPatientDetails.first_name,
-                                          attachmentSize: (pdfBlob.size / 1024).toFixed(2) + ' KB'
-                                        });
-                                      } catch (error) {
-                                        console.error('Error preparing invoice for email:', error);
-                                        toast.error('Failed to prepare invoice for email');
-                                      }
+                                    onEmailInvoice={(invoice) => {
+                                      // The same PDF that Print makes goes as an attachment through the email gateway (no
+                                      // more downloading it and attaching it by hand), to the account holder or the patient
+                                      setEmailingInvoice({
+                                        id: invoice.id,
+                                        number: invoice.invoice_number,
+                                        total: Number(invoice.total) || null,
+                                        visitId: invoice.visit_id ?? null
+                                      });
                                     }}
                                     onPrintInvoice={(invoice) => {
                                       console.log('🖨️ Print invoice handler called for:', invoice.invoice_number);
@@ -3721,89 +3741,42 @@ OneHealth Medical Team`;
                                       setIsInvoiceGenerationModalOpen(true);
                                       console.log('✅ Modal state should be true now');
                                       
-                                      // Temporary test alert to ensure handler works
+                                      // If the print options window fails to open, download the invoice rather than do nothing
                                       setTimeout(() => {
                                         if (!document.querySelector('[data-testid="invoice-generation-modal"]')) {
                                           console.error('❌ Modal did not appear in DOM!');
-                                          alert('Modal not appearing. Using fallback...');
-                                          // Fallback to direct generation
-                                          const choice = window.confirm('Generate Invoice (OK) or Receipt (Cancel)?');
-                                          if (choice) {
-                                            handleDirectPrintPDF(invoice);
-                                          } else {
-                                            handleDirectReceiptPDF(invoice);
-                                          }
-                                        } else {
-                                          console.log('✅ Modal found in DOM');
+                                          toast.error('The print options did not open, so the invoice PDF is being downloaded instead.');
+                                          void handleDirectPrintPDF(invoice);
                                         }
                                       }, 100);
                                     }}
                                     onDeleteInvoice={async (invoice) => {
-                                      if (window.confirm(`Are you sure you want to delete invoice ${invoice.invoice_number}? This action cannot be undone and will also delete all associated services.`)) {
-                                        try {
-                                          console.log('🗑️ Deleting invoice:', invoice.invoice_number);
-                                          
-                                          // Delete invoice services first
-                                          const { error: servicesError } = await supabase
-                                            .from('invoice_services')
-                                            .delete()
-                                            .eq('invoice_id', invoice.id);
-                                          
-                                          if (servicesError) {
-                                            throw new Error('Failed to delete invoice services: ' + servicesError.message);
-                                          }
-                                          
-                                          // Delete the invoice
-                                          const { error: invoiceError } = await supabase
-                                            .from('invoices_enhanced')
-                                            .delete()
-                                            .eq('id', invoice.id);
-                                          
-                                          if (invoiceError) {
-                                            throw new Error('Failed to delete invoice: ' + invoiceError.message);
-                                          }
-                                          
-                                          console.log('✅ Invoice and services deleted successfully');
-                                          toast.success(`Invoice ${invoice.invoice_number} deleted successfully`);
-                                          
-                                          // Refresh billing data
-                                          const { data: updatedBilling } = await supabase
-                                            .from('invoices_enhanced')
-                                            .select('*')
-                                            .eq('patient_id', selectedPatientDetails.id);
-                                          setBillingData(updatedBilling || []);
-                                          
-                                        } catch (error) {
-                                          console.error('Error deleting invoice:', error);
-                                          toast.error('Failed to delete invoice: ' + (error as Error).message);
-                                        }
+                                      // CleanInvoiceTable has already asked, checked the invoice lock and deleted the invoice
+                                      // before calling this. Asking again here came too late: Cancel left a deleted invoice
+                                      // in the account summary above. So only report it and refresh.
+                                      toast.success(`Invoice ${invoice.invoice_number} deleted`);
+                                      patientInvoices.reload();
+                                      const { data: updatedBilling, error: billingError } = await supabase
+                                        .from('invoices_enhanced')
+                                        .select('*')
+                                        .eq('patient_id', selectedPatientDetails.id);
+                                      if (billingError) {
+                                        console.error('Error refreshing invoices after a delete:', billingError);
+                                        return;
                                       }
+                                      setBillingData(updatedBilling || []);
                                     }}
                                     isPrintingPDF={isPrintingPDF}
                                   />
+                                  </div>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 
+                              {/* Change history (tab id 'audit'): who changed the file, its visits, vitals and medical aid; administrators only */}
                               {activeDetailTab === 'audit' && (
-                                <div className="space-y-6">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <History className="w-6 h-6 text-purple-600" />
-                                      <h3 className="text-xl font-bold text-gray-900">Audit Trail</h3>
-                                      <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                                        Activity Log
-                                      </span>
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="bg-gradient-to-br from-gray-50 to-purple-50 rounded-2xl p-12 text-center border border-purple-100">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                      <History className="w-8 h-8 text-white" />
-                                    </div>
-                                    <h4 className="text-lg font-semibold text-gray-800 mb-2">Activity tracking</h4>
-                                    <p className="text-gray-600">All patient interactions and changes are logged here</p>
-                                  </div>
-                                </div>
+                                <PatientChangeHistory patientId={selectedPatientDetails.id} onOpenVisit={openVisitById} />
                               )}
                             </div>
                           </motion.div>
@@ -3826,7 +3799,15 @@ OneHealth Medical Team`;
         onClose={() => setIsAddPatientModalOpen(false)}
         title="Add New Patient"
       >
-        <AddPatientForm onSuccess={handlePatientAdded} />
+        <AddPatientForm
+          onSuccess={handlePatientAdded}
+          onUseExisting={(patient) => {
+            // The duplicate check found the person's file: show it instead of registering them twice
+            setIsAddPatientModalOpen(false);
+            setActiveTab('details');
+            void fetchPatientDetails(patient.id);
+          }}
+        />
       </FormModal>
 
       <FormModal
@@ -3853,7 +3834,9 @@ OneHealth Medical Team`;
               home_language: selectedPatient.home_language || '',
               home_address: selectedPatient.home_address || '',
               postal_address: selectedPatient.postal_address || '',
-              postal_code: selectedPatient.postal_code || ''
+              postal_code: selectedPatient.postal_code || '',
+              // Read with the list: a change saved since then is shown before it could be overwritten
+              updated_at: selectedPatient.updated_at
             }}
             onSuccess={handlePatientUpdated}
           />
@@ -3862,16 +3845,29 @@ OneHealth Medical Team`;
 
       {selectedVisit && selectedPatientDetails && (
         <FullScreenEditVisitModal
+          key={`${selectedVisit.id}-${editVisitInitialTab ?? 'general'}`}
           isOpen={modalState.modalState.isEditVisitModalOpen}
           onClose={() => {
             modalState.closeEditVisitModal();
             setSelectedVisit(null);
+            setEditVisitInitialTab(undefined);
+            // Closing a visit always lands on this patient's encounter timeline
+            setActiveDetailTab('encounters');
+            // Lab requests, files, medications or a payment added in the visit change its card's counts
+            // and bill; refresh them in the background (no loading screen)
+            invalidatePatientCache(selectedPatientDetails.id);
+            patientInvoices.reload();
           }}
           visitId={selectedVisit.id}
           patientId={selectedPatientDetails.id}
+          initialTab={editVisitInitialTab}
           onSuccess={() => {
             modalState.closeEditVisitModal();
+            setEditVisitInitialTab(undefined);
+            setActiveDetailTab('encounters');
             fetchPatientDetails(selectedPatientDetails.id);
+            // Saving a visit can create or change its invoice
+            patientInvoices.reload();
           }}
         />
       )}
@@ -3940,7 +3936,8 @@ OneHealth Medical Team`;
       >
         {selectedPatientDetails && (
           <VitalsForm
-            visitId={visits[0]?.id || ''}
+            // The latest visit, never a row that only carries invoices (utils/carrierVisits.ts)
+            visitId={encounterVisits[0]?.id || ''}
             onSuccess={() => {
               modalState.closeVitalsModal();
               fetchPatientDetails(selectedPatientDetails.id);
@@ -3987,8 +3984,9 @@ OneHealth Medical Team`;
         isOpen={modalState.modalState.isBillingModalOpen}
         onClose={() => modalState.closeBillingModal()}
         patientName={selectedPatientDetails ? `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}` : 'Patient'}
-        totalSpent={visits.length * 450 + vitals.length * 75 + 1250}
-        billingItems={[]}
+        // This patient's invoices_enhanced rows (already loaded for the Billing tab); the modal's
+        // totals are computed from these items, replacing the made-up visits*450 estimate
+        billingItems={toPatientBillingItems(billingData)}
       />
 
       {/* Premium SMS Modal */}
@@ -4112,6 +4110,17 @@ OneHealth Medical Team`;
         onSend={handleEnhancedSendEmail}
         isSending={false}
       />
+
+      {/* Email an invoice as a PDF attachment (Manage invoices > Email) */}
+      {emailingInvoice && practiceId && selectedPatientDetails && (
+        <InvoiceEmailSheet
+          open
+          onClose={() => setEmailingInvoice(null)}
+          practiceId={practiceId}
+          patientId={selectedPatientDetails.id}
+          invoice={emailingInvoice}
+        />
+      )}
 
       {/* Manage Beneficiaries Modal */}
       {selectedPatientDetails && medicalAid && (

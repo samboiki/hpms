@@ -1,6 +1,8 @@
 import React from 'react';
 import Icon, { SolarIcons } from '../../ui/Icon';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from 'recharts';
+import { formatDistanceToNow } from 'date-fns';
+import { formatRole, formatStaffName } from './staffUtils';
 
 interface UserData {
   id: string;
@@ -10,7 +12,12 @@ interface UserData {
   job_title?: string;
   department?: string;
   is_active: boolean;
+  employee_number?: string;
+  hpcsa_number?: string | null;
+  created_at?: string | null;
 }
+
+type NavigableTab = 'leave' | 'timesheets' | 'payroll';
 
 interface TeamOverviewProps {
   users: UserData[];
@@ -20,24 +27,38 @@ interface TeamOverviewProps {
     departments: number;
     onLeave: number;
     pendingRequests: number;
+    pendingLeaveRequests?: number;
+    pendingTimesheets?: number;
   };
+  onNavigate?: (tab: NavigableTab) => void;
 }
 
-export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
-  // Calculate role distribution
-  const roleDistribution = users.reduce((acc, user) => {
+interface AttentionItem {
+  key: string;
+  icon: string;
+  tone: string;
+  title: string;
+  detail: string;
+  tab?: NavigableTab;
+}
+
+export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats, onNavigate }) => {
+  const activeUsers = users.filter(u => u.is_active !== false);
+
+  // Calculate role distribution (active staff only)
+  const roleDistribution = activeUsers.reduce((acc, user) => {
     acc[user.role] = (acc[user.role] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
   const roleData = Object.entries(roleDistribution).map(([role, count]) => ({
-    name: role.charAt(0).toUpperCase() + role.slice(1),
+    name: formatRole(role),
     value: count,
-    percentage: Math.round((count / users.length) * 100)
+    percentage: Math.round((count / activeUsers.length) * 100)
   }));
 
   // Calculate department distribution
-  const departmentDistribution = users
+  const departmentDistribution = activeUsers
     .filter(u => u.department)
     .reduce((acc, user) => {
       acc[user.department!] = (acc[user.department!] || 0) + 1;
@@ -51,18 +72,70 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
 
   const COLORS = ['#8b5cf6', '#6366f1', '#3b82f6', '#14b8a6', '#f59e0b'];
 
+  const clinicalWithoutRegistration = activeUsers.filter(
+    u => (u.role === 'doctor' || u.role === 'nurse') && !u.hpcsa_number
+  );
+  const withoutEmployeeNumber = activeUsers.filter(u => !u.employee_number);
+  const inactiveCount = users.length - activeUsers.length;
+
+  const attentionItems: AttentionItem[] = [];
+  if ((stats.pendingLeaveRequests ?? 0) > 0) {
+    attentionItems.push({
+      key: 'leave',
+      icon: SolarIcons.calendar,
+      tone: 'bg-orange-100 text-orange-600',
+      title: `${stats.pendingLeaveRequests} leave request${stats.pendingLeaveRequests === 1 ? '' : 's'} awaiting approval`,
+      detail: 'Review in the Leave tab',
+      tab: 'leave'
+    });
+  }
+  if ((stats.pendingTimesheets ?? 0) > 0) {
+    attentionItems.push({
+      key: 'timesheets',
+      icon: SolarIcons.clock,
+      tone: 'bg-blue-100 text-blue-600',
+      title: `${stats.pendingTimesheets} timesheet${stats.pendingTimesheets === 1 ? '' : 's'} awaiting approval`,
+      detail: 'Review in the Timesheets tab',
+      tab: 'timesheets'
+    });
+  }
+  if (clinicalWithoutRegistration.length > 0) {
+    attentionItems.push({
+      key: 'registration',
+      icon: 'solar:diploma-verified-bold-duotone',
+      tone: 'bg-red-100 text-red-600',
+      title: `${clinicalWithoutRegistration.length} clinician${clinicalWithoutRegistration.length === 1 ? '' : 's'} missing a registration number`,
+      detail: clinicalWithoutRegistration.slice(0, 3).map(formatStaffName).join(', ') +
+        (clinicalWithoutRegistration.length > 3 ? ` +${clinicalWithoutRegistration.length - 3} more` : '')
+    });
+  }
+  if (withoutEmployeeNumber.length > 0) {
+    attentionItems.push({
+      key: 'employee-number',
+      icon: SolarIcons.userEdit,
+      tone: 'bg-gray-100 text-gray-600',
+      title: `${withoutEmployeeNumber.length} staff member${withoutEmployeeNumber.length === 1 ? '' : 's'} without an employee number`,
+      detail: 'Shown on payslips as the employee code'
+    });
+  }
+
+  const recentlyAdded = [...activeUsers]
+    .filter(u => u.created_at)
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+    .slice(0, 4);
+
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4">
+      {/* Stats Grid (two across on a phone, so no figure is cut off) */}
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-6">
           <div className="flex items-center justify-between mb-2">
             <Icon icon={SolarIcons.users} className="w-10 h-10 text-purple-600" />
-            <span className="text-3xl font-bold text-purple-900">{stats.totalEmployees}</span>
+            <span className="text-3xl font-bold text-purple-900">{stats.activeEmployees}</span>
           </div>
-          <p className="text-sm text-purple-700">Total Employees</p>
+          <p className="text-sm text-purple-700">Active Staff</p>
           <p className="text-xs text-purple-600 mt-1">
-            {stats.activeEmployees} active
+            {inactiveCount > 0 ? `${inactiveCount} inactive` : 'No inactive staff'}
           </p>
         </div>
 
@@ -73,7 +146,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
           </div>
           <p className="text-sm text-blue-700">Departments</p>
           <p className="text-xs text-blue-600 mt-1">
-            Across organization
+            With assigned staff
           </p>
         </div>
 
@@ -84,7 +157,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
           </div>
           <p className="text-sm text-green-700">On Leave</p>
           <p className="text-xs text-green-600 mt-1">
-            Currently away
+            Today
           </p>
         </div>
 
@@ -95,7 +168,7 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
           </div>
           <p className="text-sm text-orange-700">Pending Requests</p>
           <p className="text-xs text-orange-600 mt-1">
-            Requires action
+            Leave and timesheets
           </p>
         </div>
       </div>
@@ -105,41 +178,49 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
         {/* Role Distribution */}
         <div className="bg-white rounded-lg border border-gray-200 p-6">
           <h4 className="text-lg font-semibold text-gray-900 mb-4">Role Distribution</h4>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={roleData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage }) => `${name} (${percentage}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {roleData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2">
-            {roleData.map((role, index) => (
-              <div key={role.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  ></div>
-                  <span className="text-gray-700">{role.name}</span>
-                </div>
-                <span className="font-medium text-gray-900">{role.value} employees</span>
+          {roleData.length > 0 ? (
+            <>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={roleData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage }) => `${name} (${percentage}%)`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {roleData.map((entry, index) => (
+                        <Cell key={`cell-${entry.name}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
+              <div className="mt-4 space-y-2">
+                {roleData.map((role, index) => (
+                  <div key={role.name} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      ></div>
+                      <span className="text-gray-700">{role.name}</span>
+                    </div>
+                    <span className="font-medium text-gray-900">{role.value} staff</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="h-64 flex items-center justify-center">
+              <p className="text-gray-500 text-sm">No active staff yet</p>
+            </div>
+          )}
         </div>
 
         {/* Department Distribution */}
@@ -150,99 +231,96 @@ export const TeamOverview: React.FC<TeamOverviewProps> = ({ users, stats }) => {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={departmentData}>
                   <XAxis dataKey="name" />
-                  <YAxis />
+                  <YAxis allowDecimals={false} />
                   <Tooltip />
-                  <Bar dataKey="employees" fill="#8b5cf6" />
+                  <Bar dataKey="employees" name="Staff" fill="#8b5cf6" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center">
-              <p className="text-gray-500 text-sm">No department data available</p>
+              <p className="text-gray-500 text-sm">No staff are assigned to departments yet</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Recent Team Activity */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <Icon icon={SolarIcons.history} className="w-5 h-5 text-gray-600" />
-          Recent Team Activity
-        </h4>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <Icon icon={SolarIcons.userAdd} className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">New team member joined</p>
-                <p className="text-xs text-gray-600">Sarah Johnson - Nurse</p>
-              </div>
+      <div className="grid grid-cols-2 gap-6">
+        {/* Needs Attention (live data) */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Icon icon={SolarIcons.bell} className="w-5 h-5 text-orange-500" />
+            Needs Attention
+          </h4>
+          {attentionItems.length === 0 ? (
+            <div className="flex items-center gap-3 py-3 text-sm text-gray-600">
+              <Icon icon={SolarIcons.checkCircle} className="w-6 h-6 text-green-500" />
+              Nothing needs your attention right now.
             </div>
-            <span className="text-sm text-gray-500">2 days ago</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Icon icon={SolarIcons.calendar} className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">5 leave requests processed</p>
-                <p className="text-xs text-gray-600">3 approved, 2 pending</p>
-              </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {attentionItems.map(item => {
+                const content = (
+                  <>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${item.tone}`}>
+                      <Icon icon={item.icon} className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-600 truncate">{item.detail}</p>
+                    </div>
+                    {item.tab && onNavigate && (
+                      <Icon icon={SolarIcons.arrowRight} className="w-4 h-4 text-gray-400" />
+                    )}
+                  </>
+                );
+                return item.tab && onNavigate ? (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onNavigate(item.tab!)}
+                    className="w-full flex items-center gap-3 py-3 hover:bg-gray-50 rounded-lg transition-colors"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div key={item.key} className="flex items-center gap-3 py-3">
+                    {content}
+                  </div>
+                );
+              })}
             </div>
-            <span className="text-sm text-gray-500">1 week ago</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <Icon icon={SolarIcons.wallet} className="w-5 h-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Monthly payroll completed</p>
-                <p className="text-xs text-gray-600">All {stats.totalEmployees} employees paid</p>
-              </div>
-            </div>
-            <span className="text-sm text-gray-500">1 month ago</span>
-          </div>
-
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                <Icon icon={SolarIcons.clock} className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Timesheet reminder sent</p>
-                <p className="text-xs text-gray-600">To all team members</p>
-              </div>
-            </div>
-            <span className="text-sm text-gray-500">2 months ago</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Team Performance Metrics */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-gray-50 rounded-lg p-4 text-center">
-          <Icon icon={SolarIcons.chartLine} className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-gray-900">98.5%</p>
-          <p className="text-sm text-gray-600">Average Attendance</p>
+          )}
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-4 text-center">
-          <Icon icon={SolarIcons.clock} className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-gray-900">42.5</p>
-          <p className="text-sm text-gray-600">Avg Hours/Week</p>
-        </div>
-
-        <div className="bg-gray-50 rounded-lg p-4 text-center">
-          <Icon icon={SolarIcons.star} className="w-8 h-8 text-green-600 mx-auto mb-2" />
-          <p className="text-2xl font-bold text-gray-900">4.8</p>
-          <p className="text-sm text-gray-600">Team Satisfaction</p>
+        {/* Recently Added Staff (live data) */}
+        <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Icon icon={SolarIcons.history} className="w-5 h-5 text-gray-600" />
+            Recently Added Staff
+          </h4>
+          {recentlyAdded.length === 0 ? (
+            <p className="text-sm text-gray-500 py-3">No staff records yet.</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {recentlyAdded.map(member => (
+                <div key={member.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Icon icon="solar:user-plus-bold-duotone" className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{formatStaffName(member)}</p>
+                      <p className="text-xs text-gray-600">{member.job_title || formatRole(member.role)}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm text-gray-500 flex-shrink-0">
+                    {formatDistanceToNow(new Date(member.created_at!), { addSuffix: true })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

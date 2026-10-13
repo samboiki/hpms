@@ -1,4 +1,6 @@
+import { format } from 'date-fns';
 import { supabase } from '../lib/supabase';
+import { EXCLUDE_CARRIER_VISITS } from '../utils/carrierVisits';
 
 export interface PatientStats {
   total: number;
@@ -91,7 +93,10 @@ export class PatientStatsService {
         .from('visits')
         .select('patient_id')
         .in('patient_id', patientData.map(p => p.id))
-        .gte('visit_date', sixMonthsAgo.toISOString().split('T')[0]);
+        // A row that only carries invoices is not a visit
+        .or(EXCLUDE_CARRIER_VISITS)
+        // visit_date is a DATE column: compare with the local calendar date, not the UTC one
+        .gte('visit_date', format(sixMonthsAgo, 'yyyy-MM-dd'));
 
       const activePatients = visitsError 
         ? 0 

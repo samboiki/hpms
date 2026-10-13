@@ -16,6 +16,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { RECORDS_BUCKET, currentPracticeId, recordPath } from '../../services/recordFiles';
+import { STORAGE_UPLOAD_FAILED, recordSaveError } from './uploadErrors';
 
 interface FileUploadProps {
   patientId: string;
@@ -76,9 +78,20 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
 
   // Get bucket name and table name based on upload type
   const getBucketName = () => {
-    // Use the existing working 'documents' bucket for all uploads
-    // The table schemas specify the storage_bucket but we'll use the one that works
-    return 'documents';
+    // Patient records go to the private bucket (rows say so in storage_bucket); links are made when a file is opened
+    return RECORDS_BUCKET;
+  };
+
+  // The folder in the practice's part of the bucket: <practice id>/<kind>/<patient id>/<file>
+  const getRecordKind = () => {
+    switch (uploadType) {
+      case 'laboratory':
+        return 'lab-results' as const;
+      case 'imaging':
+        return 'imaging-results' as const;
+      default:
+        return 'patient-media' as const;
+    }
   };
 
   const getTableName = () => {
@@ -170,7 +183,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
 
       // Generate unique file name
       const fileExt = file.name.split('.').pop();
-      const fileName = `${patientId}/${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const fileName = recordPath(currentPracticeId(), getRecordKind(), patientId, `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`);
       const bucketName = getBucketName();
 
       console.log(`🔵 Uploading ${file.name} to bucket: ${bucketName}`);
@@ -186,7 +199,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
 
       if (storageError) {
         console.error('❌ Storage upload error:', storageError);
-        throw new Error(`Storage upload failed: ${storageError.message}`);
+        throw new Error(STORAGE_UPLOAD_FAILED);
       }
 
       console.log('✅ File uploaded to storage:', storageData);
@@ -202,7 +215,7 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
         file_type: fileExt,
         mime_type: file.type,
         storage_path: fileName,
-        storage_bucket: 'documents',
+        storage_bucket: bucketName,
         uploaded_by: session.user.id
       };
 
@@ -300,14 +313,8 @@ const FileUploadComponent: React.FC<FileUploadProps> = ({
           console.error('❌ Failed to cleanup file:', cleanupError);
         }
         
-        // Provide more specific error messages
-        if (dbError.code === 'PGRST204') {
-          throw new Error(`Column not found in table ${tableName}. This might be a schema mismatch issue.`);
-        } else if (dbError.code === '42703') {
-          throw new Error(`Database column missing: ${dbError.hint || dbError.message}`);
-        } else {
-          throw new Error(`Database insert failed: ${dbError.message}`);
-        }
+        // Plain words on screen (the database's own text is logged above)
+        throw new Error(recordSaveError(dbError));
       }
 
       console.log('✅ Database record created:', dbData);
