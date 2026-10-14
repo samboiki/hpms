@@ -4,7 +4,8 @@
  * src/utils/billing/practiceTariffs.ts and lineSplit.ts (tested); this file only loads and saves.
  *
  * loadPracticeTariffRows is the one place the screens get the tariff rows they bill from: the shared list of the
- * practice type with the practice's own codes merged in (its own version wins), each code's default portion and each
+ * practice type over the NAMAF benchmark of its discipline (namafTariffs.ts), with the practice's own codes merged in
+ * (its own version wins), each code's default portion and each
  * code's rules (code_rules: authorisation, lab work, time, recall, place of service, linked codes; codeRules.ts). Before
  * proposals/2026-10-09-practice-own-tariffs.sql is applied the own list is empty, so billing is exactly as before; before
  * proposals/2026-10-13-tariff-code-rules.sql no code has rules.
@@ -17,6 +18,8 @@ import { mergeOwnTariffs, ownTariffPayload, withDefaultPortions, type OwnTariffD
 import { TARIFF_PORTIONS_SETTING_KEY, parseTariffPortions, tariffPortionsSetting, type PaidBy } from '../utils/billing/lineSplit';
 import { withCodeRules } from '../utils/billing/codeRules';
 import { loadCodeRules, type CodeRulesLoad } from './codeRulesService';
+import { withNamafTariffs } from '../utils/billing/namafTariffs';
+import { loadPracticeNamaf } from './namafTariffService';
 
 // The generated database types do not know the new table and functions yet
 const db = supabase as unknown as SupabaseClient;
@@ -111,8 +114,9 @@ export interface PracticeTariffRowsLoad {
  */
 export async function loadPracticeTariffRows(practiceId: string | null, practiceType: string, columns = '*'): Promise<PracticeTariffRowsLoad> {
   const problems: string[] = [];
-  const [shared, own, portions, rules] = await Promise.all([
+  const [shared, namaf, own, portions, rules] = await Promise.all([
     supabase.from('practice_tariffs_with_types').select(columns).eq('practice_type_name', practiceType).order('code', { ascending: true }),
+    loadPracticeNamaf(practiceId, practiceType),
     loadOwnTariffs(practiceId).catch((error: unknown) => {
       problems.push(`${error instanceof Error ? plainWords(error.message) : "The practice's own codes could not be read"}; the shared tariff list is used.`);
       return { rows: [], enabled: false } as OwnTariffsLoad;
@@ -125,6 +129,8 @@ export async function loadPracticeTariffRows(practiceId: string | null, practice
   if (shared.error) throw new Error(`Could not load the tariff list: ${shared.error.message}`);
   if (portions.error) problems.push(`Who pays each code could not be read (${portions.error}); lines follow the fund's rules.`);
   if (rules.status === 'error') problems.push(`${rules.message}; codes are billed without their rules.`);
-  const sharedRows = ((shared.data ?? []) as unknown as PracticeTariffLike[]).filter(row => Boolean(row.id && row.code));
+  if (namaf.status === 'error') problems.push(`${plainWords(namaf.message)}; only the practice's own and shared codes are offered.`);
+  // The NAMAF benchmark of the practice's discipline lies beneath the shared list (namafTariffs.ts)
+  const sharedRows = withNamafTariffs(((shared.data ?? []) as unknown as PracticeTariffLike[]).filter(row => Boolean(row.id && row.code)), namaf.tariffs);
   return { rows: withCodeRules(withDefaultPortions(mergeOwnTariffs(sharedRows, own.rows), portions.portions), rules.rules), problems };
 }

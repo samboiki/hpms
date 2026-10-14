@@ -16,6 +16,7 @@ import type { ServiceSelection } from '../../types/billing';
 import { addDaysToKey, isValidDateKey } from '../../utils/billing/dates';
 import { formatNad, fromCents, multiplyCents, percentOfCents, sumCents, toCents } from '../../utils/billing/money';
 import { normalizeMultiplyRule } from '../../utils/billing/pricing';
+import { noFixedAmount } from '../../utils/billing/namafTariffs';
 import {
   INFECTION_CONTROL_CODE,
   MATERIAL_FACTOR_CODE,
@@ -561,7 +562,10 @@ export function repriceQuoteLines(
       problems.push(`Code ${line.code} lists several teeth on one line. Put each tooth on its own line in the quote.`);
       continue;
     }
-    const outcome = buildTariffLine(tariff, line.quantity, line.toothNumbers[0] ?? '', context.hasMedicalAid);
+    // A NAMAF code with no fixed amount (priced by rule or at cost) keeps the amount staff typed when it was quoted: the
+    // list has none to price it from, and a fund or practice price on the code (price above 0) would win instead
+    const source = noFixedAmount(tariff) && line.unitPrice > 0 ? { ...tariff, price: line.unitPrice } : tariff;
+    const outcome = buildTariffLine(source, line.quantity, line.toothNumbers[0] ?? '', context.hasMedicalAid);
     if (!outcome.ok) {
       problems.push(outcome.message);
       continue;

@@ -134,6 +134,8 @@ export interface Icd10Option {
   entry: Icd10MasterEntry | null;
   /** The line's suggested codes and the practice's usual codes */
   suggested: boolean;
+  /** Why a suggested code is offered, in plain words (shown under its description); none for the other options */
+  hint?: string;
 }
 
 /**

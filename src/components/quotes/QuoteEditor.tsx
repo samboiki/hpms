@@ -7,6 +7,8 @@ import type { ServiceSelection } from '../../types/billing';
 import { addDaysToKey, isValidDateKey, todayKey } from '../../utils/billing/dates';
 import { formatNad, fromCents } from '../../utils/billing/money';
 import { normalizeMultiplyRule, parseTariffPrice, searchTariffs } from '../../utils/billing/pricing';
+import { noFixedAmount } from '../../utils/billing/namafTariffs';
+import { parseOwnPrice } from '../../utils/billing/practiceTariffs';
 import { describePatientRate } from '../../utils/billing/patientRates';
 import { changeLineQuantity, type VisitTariff } from '../visits/visitBillingLines';
 import { describeAddedLinks } from '../visits/linkedCodeLines';
@@ -401,6 +403,8 @@ const AddCode: React.FC<AddCodeProps> = ({ billable, lines, context, dental, onC
   const [picked, setPicked] = useState<VisitTariff | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [tooth, setTooth] = useState('');
+  // A NAMAF code with no fixed amount (by rule, at cost, by arrangement) is quoted at the amount staff type
+  const [amount, setAmount] = useState('');
 
   const searchable = useMemo(
     () => billable.filter(tariff => tariff.code !== '8346').map(tariff => ({ id: tariff.id, code: tariff.code, description: tariff.description ?? '', tariff })),
@@ -409,17 +413,29 @@ const AddCode: React.FC<AddCodeProps> = ({ billable, lines, context, dental, onC
   const matches = useMemo(() => (search.trim() && !picked ? searchTariffs(searchable, search).slice(0, 8) : []), [searchable, search, picked]);
   const multipliable = picked ? normalizeMultiplyRule(picked.can_be_multiplied) !== 'NO' : false;
   const needsTooth = picked ? tariffNeedsTooth(picked) : false;
+  const typesAmount = picked ? noFixedAmount(picked) : false;
 
   const reset = () => {
     setSearch('');
     setPicked(null);
     setQuantity('1');
     setTooth('');
+    setAmount('');
   };
 
   const add = () => {
     if (!picked) return;
-    const outcome = addTariffLines(lines, { code: picked.code, quantity: Number(quantity), tooth }, context);
+    let lineContext = context;
+    if (typesAmount) {
+      const price = parseOwnPrice(amount);
+      if (price === null || price <= 0) {
+        toast.error('Enter the amount in N$, such as 450 or 450.00.');
+        return;
+      }
+      // The line is priced at the typed amount, with the visit screens' line builder as for any other code
+      lineContext = { ...context, tariffs: context.tariffs.map(tariff => (tariff.id === picked.id ? { ...tariff, price } : tariff)) };
+    }
+    const outcome = addTariffLines(lines, { code: picked.code, quantity: Number(quantity), tooth }, lineContext);
     if (outcome.status === 'refused') {
       toast.error(outcome.message, { duration: 8000 });
       return;
@@ -468,7 +484,11 @@ const AddCode: React.FC<AddCodeProps> = ({ billable, lines, context, dental, onC
                         <span className="font-semibold text-gray-900">{match.code}</span>{' '}
                         <span className="text-gray-600">{match.description}</span>
                       </span>
-                      <span className="whitespace-nowrap font-medium text-gray-900">{price !== null ? formatNad(price) : '-'}</span>
+                      {noFixedAmount(match.tariff) ? (
+                        <span className="whitespace-nowrap text-gray-500">Amount when quoted</span>
+                      ) : (
+                        <span className="whitespace-nowrap font-medium text-gray-900">{price !== null ? formatNad(price) : '-'}</span>
+                      )}
                     </button>
                   </li>
                 );
@@ -482,7 +502,18 @@ const AddCode: React.FC<AddCodeProps> = ({ billable, lines, context, dental, onC
           <p className="text-sm text-gray-900">
             <span className="font-semibold">{picked.code}</span> {picked.description ?? ''}
           </p>
-          <div className={`grid grid-cols-2 gap-2 ${dental ? 'sm:grid-cols-[6rem_6rem_auto_auto]' : 'sm:grid-cols-[6rem_auto_auto]'} sm:items-end`}>
+          {typesAmount && (
+            <p className="text-xs text-gray-600">
+              The price list has no fixed amount for this code (it is priced by rule, at cost or by arrangement). Type the amount to quote.
+            </p>
+          )}
+          <div
+            className={`grid grid-cols-2 gap-2 ${
+              dental
+                ? typesAmount ? 'sm:grid-cols-[6rem_6rem_8rem_auto_auto]' : 'sm:grid-cols-[6rem_6rem_auto_auto]'
+                : typesAmount ? 'sm:grid-cols-[6rem_8rem_auto_auto]' : 'sm:grid-cols-[6rem_auto_auto]'
+            } sm:items-end`}
+          >
             <label className={dental ? 'block' : 'col-span-2 block sm:col-span-1'}>
               <span className={labelClass}>Quantity</span>
               <input
@@ -508,6 +539,12 @@ const AddCode: React.FC<AddCodeProps> = ({ billable, lines, context, dental, onC
                   placeholder={needsTooth ? 'Required' : ''}
                   onChange={event => setTooth(event.target.value.trim())}
                 />
+              </label>
+            )}
+            {typesAmount && (
+              <label className="col-span-2 block sm:col-span-1">
+                <span className={labelClass}>Amount per unit (N$)</span>
+                <input className={inputClass} inputMode="decimal" value={amount} placeholder="e.g. 450.00" onChange={event => setAmount(event.target.value)} />
               </label>
             )}
             <button type="button" className={`${primaryButton} col-span-1`} onClick={add}>

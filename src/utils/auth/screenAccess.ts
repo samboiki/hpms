@@ -18,7 +18,9 @@ export const SCREEN_ACCESS_SETTING_KEY = 'screen_access';
  */
 export const GUARDED_SCREENS = [
   { key: 'finance', label: 'Finance', path: '/finance', icon: 'solar:wallet-money-bold-duotone', holds: 'invoices, payments, debtors, claims and reports' },
-  { key: 'stock', label: 'Stock', path: '/stock', icon: 'solar:box-bold-duotone', holds: 'medicines, deliveries, suppliers and stock counts' }
+  { key: 'stock', label: 'Stock', path: '/stock', icon: 'solar:box-bold-duotone', holds: 'medicines, deliveries, suppliers and stock counts' },
+  // Since 13 Oct 2026 (proposals/2026-10-13-inpatient-module.sql)
+  { key: 'inpatient', label: 'Inpatient', path: '/inpatient', icon: 'solar:bed-bold-duotone', holds: 'wards, beds, admitted patients, their charts and visitors' }
 ] as const;
 
 export type GuardedScreen = (typeof GUARDED_SCREENS)[number]['key'];

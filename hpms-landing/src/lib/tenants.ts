@@ -115,7 +115,7 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
     console.log('Looking for practice with domain:', mappedDomain);
 
     const { data, error } = await supabase
-      .from('practices')
+      .from('practice_listing')
       .select('*')
       .eq('domain', mappedDomain)
       .single();
@@ -181,7 +181,7 @@ export async function getPracticeByDomain(domain: string, searchParams?: URLSear
 export async function getPracticeBySlug(slug: string): Promise<Practice | null> {
   try {
     const { data, error } = await supabase
-      .from('practices')
+      .from('practice_listing')
       .select('*')
       .eq('slug', slug)
       .single();

@@ -171,3 +171,37 @@ describe("the practice's own codes and who pays them", () => {
     expect(screen.queryByLabelText('Who pays new lines of 0190')).toBeNull();
   });
 });
+
+// The NAMAF benchmark rows (namafTariffs.ts) in the table: marked as NAMAF's, a code with no fixed amount says the amount is
+// typed when billed instead of showing N$ 0.00, and a list of thousands of codes (optometry has 7,168) shows the first ones
+// with a note that a search finds the rest, so the page stays quick to open.
+describe('the NAMAF benchmark list in the practice tariff table', () => {
+  const namafRow = (code: string, description: string, price: number, noFixedAmount = false) => ({
+    ...row(code, description),
+    price,
+    effective_from: '2026-01-01',
+    namaf: { discipline: '070', tariffCode: code, validFrom: '2026-01-01', validTo: '2026-12-31' },
+    no_fixed_amount: noFixedAmount
+  });
+
+  it('marks the rows as NAMAF and shows "Typed when billed" for a code that has no fixed amount', async () => {
+    const tariffRows = [row('8101', 'Oral examination'), namafRow('0190', 'Consultation at the rooms', 521.4), namafRow('NP85CZ03D', 'ZEISS officelens Individual 1.5', 0, true)] as never;
+    render(<PracticeTariffPanel practiceType="optometry" tariffRows={tariffRows} practiceId="practice-1" canEdit={false} />);
+    expect(await screen.findByText('Typed when billed')).toBeInTheDocument();
+    expect(screen.getAllByText('NAMAF')).toHaveLength(2);
+    expect(screen.getByText('N$ 521.40')).toBeInTheDocument();
+    // The shared list's own row is not marked, and no row claims a price of N$ 0.00 for a code priced by rule
+    expect(screen.queryByText('N$ 0.00')).toBeNull();
+  });
+
+  it('draws the first 300 codes of a long list and a search finds the others', async () => {
+    const tariffRows = Array.from({ length: 350 }, (_, index) => namafRow(`NP${String(index).padStart(4, '0')}`, `Invented lens ${index}`, 0, true)) as never;
+    render(<PracticeTariffPanel practiceType="optometry" tariffRows={tariffRows} practiceId="practice-1" canEdit={false} />);
+    expect(await screen.findByText(/Showing the first 300 of 350 codes/)).toBeInTheDocument();
+    expect(screen.getAllByText('Typed when billed')).toHaveLength(300);
+
+    fireEvent.change(screen.getByPlaceholderText('Code or description'), { target: { value: 'NP0349' } });
+    expect(await screen.findByText('Invented lens 349')).toBeInTheDocument();
+    expect(screen.queryByText(/Showing the first/)).toBeNull();
+  });
+});

@@ -8,6 +8,7 @@ import EditVisitTabs from './EditVisitTabs';
 import PatientHistoryPanel from './PatientHistoryPanel';
 import { ClinicalAlertStrip } from '../patients/safety/ClinicalAlertStrip';
 import TeethChartButton from '../dental/TeethChartButton';
+import { InpatientButton } from '../inpatient/InpatientButton';
 import FormModal from '../modals/FormModal';
 import FloatingVisitTracker from '../dashboard/FloatingVisitTracker';
 import PremiumAddAppointmentForm from '../forms/PremiumAddAppointmentForm';
@@ -338,6 +339,13 @@ const FullScreenEditVisitModal: React.FC<FullScreenEditVisitModalProps> = ({
         </div>
         {/* Dental practices: the patient's tooth chart over the visit (nothing shows for other practices) */}
         <div className="flex flex-none items-center gap-2">
+          {/* Admit from this visit, or open the stay, on the Inpatient page (practices with a ward); asks first when edits are unsaved */}
+          <InpatientButton
+            patientId={patientId}
+            visitId={displayedVisitId}
+            leaveFirst={confirmLeavingEdits}
+            className="flex flex-none items-center gap-1.5 rounded-lg bg-white/20 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white motion-reduce:transition-none"
+          />
           <TeethChartButton patientId={patientId} practiceId={user?.practice_id} visitId={displayedVisitId} />
         <button
           type="button"

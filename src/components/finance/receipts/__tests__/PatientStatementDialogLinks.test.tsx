@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({ loadPatientAccount: vi.fn() }));
 vi.mock('@iconify/react', () => ({ Icon: () => null }));
 vi.mock('../arService', () => ({ ...mocks, AR_NOT_SET_UP_MESSAGE: 'Receipts are not set up' }));
 vi.mock('../../../../services/documentSettingsService', () => ({ loadDocumentSettings: vi.fn(async () => DEFAULT_DOCUMENT_SETTINGS) }));
+// The statement also reads the practice's VAT setting. Unmocked, it called the live database on every render (300-700 ms
+// each), which is what made this file fail when a full run shared the CPU; this test is about the links, not VAT.
+vi.mock('../../../../services/vatSettingsService', async () => {
+  const { NOT_VAT_REGISTERED } = await vi.importActual<typeof import('../../../../utils/billing/vat')>('../../../../utils/billing/vat');
+  return { loadVatSettings: vi.fn(async () => NOT_VAT_REGISTERED) };
+});
 vi.mock('../../debtors/debtorsService', () => ({ loadInvoiceAuthorisations: vi.fn(async () => ({})) }));
 vi.mock('../../debtors/useAccountFlags', () => ({ useAccountFlags: () => ({ flags: [] }) }));
 vi.mock('react-hot-toast', () => ({ toast: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
@@ -35,6 +41,11 @@ vi.mock('../ReceiptDetailModal', () => ({
 }));
 
 import { PatientStatementDialog } from '../PatientStatementDialog';
+
+// The statement loads in a few steps and then renders every line; in a full run the workers share the CPU, so the
+// 1 s default wait of findBy*/waitFor and the 5 s default per test are too short. Same checks, a patient timeout.
+const LOAD = { timeout: 10_000 };
+vi.setConfig({ testTimeout: 30_000 });
 
 const cash: ArReceipt = {
   id: 'rc-1', number: 'RC-000101', payerType: 'patient', patientId: 'pt1', fundName: null, payerName: null, method: 'cash',
@@ -64,29 +75,29 @@ describe('the statement opens what each line is about', () => {
   it('an invoice line opens that invoice the way the screen behind shows invoices', async () => {
     const onOpenInvoice = vi.fn();
     renderStatement({ onOpenInvoice });
-    fireEvent.click(await screen.findByRole('button', { name: /Open invoice INV-000201/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Open invoice INV-000201/ }, LOAD));
     expect(onOpenInvoice).toHaveBeenCalledWith('inv-1');
   });
 
   it('a payment line opens its receipt over the statement; a refund there reloads the statement and the account behind it', async () => {
     const onChanged = vi.fn();
     renderStatement({ onChanged });
-    fireEvent.click(await screen.findByRole('button', { name: /Open receipt RC-000101/ }));
-    expect(screen.getByText('Viewing receipt RC-000101')).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Open receipt RC-000101/ }, LOAD));
+    expect(await screen.findByText('Viewing receipt RC-000101', undefined, LOAD)).toBeInTheDocument();
     // The statement waits behind the receipt (one sheet at a time, so Escape closes only the receipt)
     expect(screen.queryByText('Statement: Example Patient')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Refund it' }));
-    await waitFor(() => expect(mocks.loadPatientAccount).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(mocks.loadPatientAccount).toHaveBeenCalledTimes(2), LOAD);
     expect(onChanged).toHaveBeenCalledTimes(1);
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
-    expect(await screen.findByText('Statement: Example Patient')).toBeInTheDocument();
+    expect(await screen.findByText('Statement: Example Patient', undefined, LOAD)).toBeInTheDocument();
   });
 
   it('with no way to open invoices given, invoice lines stay text while payments still open', async () => {
     renderStatement();
-    expect(await screen.findByRole('button', { name: /Open receipt RC-000101/ })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Open receipt RC-000101/ }, LOAD)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Open invoice/ })).toBeNull();
     expect(screen.getByText(/Invoice INV-000201/)).toBeInTheDocument();
   });

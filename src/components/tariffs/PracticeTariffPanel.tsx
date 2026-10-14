@@ -24,6 +24,7 @@ import { removeOwnTariff, saveTariffPortions } from '../../services/practiceTari
 import { describeCodeRules, hasAnyRule, type CodeRules } from '../../utils/billing/codeRules';
 import { loadCodeRules, type CodeRulesLoad } from '../../services/codeRulesService';
 import type { PracticeTariffRecord } from './tariffAdmin';
+import type { NamafTariff } from '../../utils/billing/namafTariffs';
 import OwnTariffForm from './OwnTariffForm';
 import CodeRulesForm from './CodeRulesForm';
 import TariffIncreaseForm from './TariffIncreaseForm';
@@ -48,6 +49,8 @@ interface PracticeTariffPanelProps {
 type Editing = { kind: 'new' } | { kind: 'code'; tariff: BillableTariff; shared: boolean };
 
 const dayLabel = (key: string | null): string => (key && isValidDateKey(key) ? format(parseISO(key), 'd MMM yyyy') : '-');
+/** Rows the table draws at once (a NAMAF list holds up to 7,000 codes) */
+const MAX_ROWS_SHOWN = 300;
 const RULE_LABELS: Record<string, string> = { NO: 'Once per line', YES: 'Per unit', SOMETIMES: 'Per unit (check)', PROGRESSIVE: 'Per unit (check)' };
 const FOCUS = 'focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500';
 
@@ -237,9 +240,15 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
     [tariffRows, ownRows]
   );
   const ownIds = useMemo(() => new Set((ownRows ?? []).map(row => row.id)), [ownRows]);
+  // Rows from the NAMAF benchmark list (namafTariffs.ts), and those of them without a fixed amount
+  const namafRows = useMemo(() => tariffRows.filter((row): row is PracticeTariffRecord & NamafTariff => 'namaf' in row), [tariffRows]);
+  const namafIds = useMemo(() => new Set(namafRows.map(row => row.id)), [namafRows]);
+  const noAmountIds = useMemo(() => new Set(namafRows.filter(row => row.no_fixed_amount).map(row => row.id)), [namafRows]);
   const sharedCodes = useMemo(() => new Set(tariffRows.map(row => tariffCodeKey(row.code ?? ''))), [tariffRows]);
   const { tariffs, excluded } = useMemo(() => selectBillableTariffs(rows, dateKey), [rows, dateKey]);
-  const shown = useMemo(() => searchTariffs(tariffs, search), [tariffs, search]);
+  const matches = useMemo(() => searchTariffs(tariffs, search), [tariffs, search]);
+  // A NAMAF list holds up to 7,000 codes: the table shows the first ones, a search finds the rest
+  const shown = useMemo(() => matches.slice(0, MAX_ROWS_SHOWN), [matches]);
   const exclusionSummary = (Object.entries(summarizeExclusions(excluded)) as Array<[TariffExclusionReason, number]>)
     .map(([reason, count]) => `${count} ${TARIFF_EXCLUSION_LABELS[reason]}`)
     .join(', ');
@@ -506,12 +515,15 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="truncate">{tariff.description}</span>
                       {isOwn && <span className="flex-shrink-0 rounded bg-cyan-50 px-1.5 py-0.5 text-[11px] font-semibold text-cyan-800">Practice&apos;s own</span>}
+                      {namafIds.has(tariff.id) && <span className="flex-shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-700">NAMAF</span>}
                     </span>
                   </td>
                   <td className="px-4 py-1.5">
                     <UsualIcd10Cell code={tariff.code} own={own} builtIn={builtIn} editable={codesEditable} onSave={icd10 => saveUsual(tariff.code, icd10)} />
                   </td>
-                  <td className="px-4 py-1.5 text-right font-medium text-gray-900">{formatNad(tariff.unitPrice)}</td>
+                  <td className="px-4 py-1.5 text-right font-medium text-gray-900">
+                    {noAmountIds.has(tariff.id) ? <span className="font-normal text-gray-500">Typed when billed</span> : formatNad(tariff.unitPrice)}
+                  </td>
                   <td className="px-4 py-1.5 text-gray-600">{RULE_LABELS[tariff.multiplyRule] ?? tariff.multiplyRule}</td>
                   {dental && <td className="px-4 py-1.5 text-gray-600">{tariff.requiresTooth ? 'Required' : '-'}</td>}
                   {portionsShown && (
@@ -566,6 +578,11 @@ const PracticeTariffPanel: React.FC<PracticeTariffPanelProps> = ({ practiceType,
         {shown.length === 0 && (
           <p className="p-6 text-center text-sm text-gray-500">
             {tariffs.length === 0 && ownEditable ? 'No codes yet: add your practice\'s first code with "Add a code".' : 'No codes match.'}
+          </p>
+        )}
+        {matches.length > shown.length && (
+          <p className="p-4 text-center text-sm text-gray-500" role="status">
+            Showing the first {shown.length} of {matches.length.toLocaleString('en-US')} codes. Search by code or description to find the others.
           </p>
         )}
       </div>

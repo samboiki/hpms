@@ -42,7 +42,8 @@ beforeEach(() => {
 describe('the app offers exactly the screens and roles the database accepts', () => {
   // A screen or role the app offers but set_screen_access refuses would be a box that never saves; one the database
   // accepts but the app lacks could only be changed with SQL
-  const sql = readFileSync('proposals/2026-10-08-screen-access.sql', 'utf8');
+  // The latest set_screen_access (Inpatient added on 13 Oct 2026)
+  const sql = readFileSync('proposals/2026-10-13-inpatient-module.sql', 'utf8');
 
   it('lists the same screens as set_screen_access', () => {
     expect(sqlList(sql, 'v_screens')).toEqual(GUARDED_SCREENS.map((screen) => screen.key));

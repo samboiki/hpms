@@ -1,33 +1,46 @@
+-- Applied 2026-10-13 as migration finance_ledger_2026_10_13 (version 20261013195537; stored statement md5 369b139a5a4fd30b22ed16f7b2d2ff55 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
--- PROPOSAL, NOT APPLIED: double-entry general ledger for HPMS Finance
--- File:   proposals/2026-10-finance-ledger.sql            Drafted: 2026-10-06
--- Plain-language companion: proposals/2026-10-finance-ledger.md
--- SUPERSEDED IN PART (2026-10-07): section 3 (payment_receipts, payment_allocations, credit_notes,
--- invoice_balances) and bridge_invoice_status_payment are replaced by
--- proposals/2026-10-07-receipts-and-allocations.sql. Before applying this file, remove them and post
--- the general ledger from receipts, receipt_allocations and invoice_adjustments instead.
+-- PROPOSAL: double-entry general ledger for HPMS Finance (the accounting export's books)
+-- File:   proposals/2026-10-finance-ledger.sql            Drafted: 2026-10-06, reworked 2026-10-13 (agent dbops)
+-- Plain-language companion: proposals/2026-10-finance-ledger.md (written for the 2026-10-06 draft: its receipts,
+-- allocations and credit-note tables are gone, see "Rework" below)
 --
--- This script has NOT been run against any database. It runs inside a transaction that ends in
--- ROLLBACK, so running it by mistake leaves nothing behind. To turn it into a migration: review,
--- test on a Supabase branch, then change the final ROLLBACK to COMMIT.
+-- Owner decision (13 Oct 2026): "Accounting export (proposals/2026-10-finance-ledger.sql): apply."
 --
--- Tables
---   chart_of_accounts      per-practice accounts: assets, liabilities, equity, income, expenses
---   journal_entries        one business event (invoice raised, payment received, payslip, ...)
---   journal_lines          the debits and credits of an entry; every entry must balance
---   payment_receipts       money received (cash, card, EFT, medical aid remittance)
---   payment_allocations    which invoices a receipt pays (part-payments; one remittance, many invoices)
---   credit_notes           reductions of an invoice, instead of editing or cancelling it
---   finance_posting_errors postings that failed; billing and payroll are never blocked by the ledger
+-- Rework of 13 Oct 2026 (the 6 Oct draft could not be applied as it was)
+--   - Section 3 of the draft (payment_receipts, payment_allocations, credit_notes, invoice_balances) and
+--     bridge_invoice_status_payment are removed: receipts-and-allocations (applied 7 Oct) already keeps money
+--     received in receipts / receipt_allocations and corrections in invoice_adjustments, and its own
+--     ar_invoice_status_bridge already turns "marked paid" into a receipt. The ledger now posts FROM those tables:
+--     post_receipt (bank or cash against the payer's receivable) and post_adjustment (credit notes, discounts,
+--     write-offs, journals, shortfall moves and refunds).
+--   - The books are read and managed by the practice's administrators only (users.role = 'admin'): journal lines
+--     carry each payslip's amounts, and the owner decided on 13 Oct that payslips are for administrators and the
+--     person themself (proposals/2026-10-13-payslips-admin-or-own.sql), and that money corrections are for
+--     administrators. The draft let administrators and doctors manage and every staff member read.
+--   - Every function is closed to PUBLIC and anon (Supabase grants EXECUTE to everyone by default); the posting
+--     functions are closed to signed-in users too: only the triggers and the definer functions run them.
+--   - A practice's chart of accounts is created the first time something posts for it (no trigger on practices).
+--   - Opening balances brought over from Eminance (invoices numbered OB-...) post against "Opening balances", not
+--     revenue. Write-offs post to a new "Bad debts written off" expense account.
+--   - Changes are dated in Windhoek time (ar_today()), like the rest of Finance.
+--   - Section 7 creates the books of every practice that has staff and posts their history once (finance_backfill).
 --
 -- How posting works
---   Every source record (invoice, receipt, credit note, payslip, practice expense, stock valuation)
---   has TARGET balances per account (e.g. invoice: receivables +total, revenue -total). The single
---   routine finance_sync_source() compares them with what is already POSTED for that record and posts
---   only the difference as a new, balanced journal entry. So posting is idempotent, edits post as
---   adjustments, cancellations and deletions post reversals, and posted entries are never changed.
---   The rules match the Finance page (src/services/ledgerService.ts): a cancelled invoice is void;
---   the medical aid owes its recorded portion capped at the total and the patient owes the rest.
+--   Every source record (invoice, receipt, adjustment, payslip, practice expense, stock valuation) has TARGET
+--   balances per account. finance_sync_source() compares them with what is already POSTED for that record and posts
+--   only the difference as a new, balanced journal entry. Posting is idempotent; edits post as adjustments;
+--   cancellations, reversals and deletions post reversals; posted entries are never changed. A ledger problem is
+--   written to finance_posting_errors and never stops the billing, receipt, payroll or expense save.
+--
+-- How to apply: rehearse the part between BEGIN; and ROLLBACK; (an administrator reads the trial balance and it
+--   balances per practice; a doctor and a receptionist read 0 journal lines; another practice reads 0; anon is
+--   refused; a receptionist cannot post a manual journal; a new receipt and its reversal post and net to zero), then
+--   apply it as one migration (finance_ledger_2026_10_13).
+-- Undo: DROP TRIGGER invoices_enhanced_post_ledger ON invoices_enhanced; DROP TRIGGER receipts_post_ledger ON receipts;
+--   DROP TRIGGER invoice_adjustments_post_ledger ON invoice_adjustments; DROP TRIGGER payslips_post_ledger ON payslips;
+--   DROP TRIGGER practice_expenses_post_ledger ON practice_expenses; then DROP the views trial_balance, the tables
+--   journal_lines, journal_entries, finance_posting_errors, chart_of_accounts, and the functions created below.
 --
 -- Money is numeric(14,2) in NAD. Business dates are local (Africa/Windhoek) calendar dates.
 -- =============================================================================================
@@ -35,28 +48,38 @@
 BEGIN;
 
 -- ---------------------------------------------------------------------------------------------
--- 0. Access helpers. Same rule as existing policies: a user's practice comes from public.users.
---    SECURITY DEFINER so policies on finance tables do not recurse through users' own RLS.
+-- 0. Checks before, and access helpers (SECURITY DEFINER so policies do not recurse through users' own RLS)
 -- ---------------------------------------------------------------------------------------------
+DO $$
+BEGIN
+  IF to_regclass('public.receipts') IS NULL OR to_regclass('public.invoice_adjustments') IS NULL
+     OR to_regprocedure('public.ar_today()') IS NULL THEN
+    RAISE EXCEPTION 'Stopped: apply proposals/2026-10-07-receipts-and-allocations.sql first';
+  END IF;
+  IF to_regclass('public.chart_of_accounts') IS NOT NULL OR to_regclass('public.journal_entries') IS NOT NULL THEN
+    RAISE EXCEPTION 'Stopped: the ledger tables already exist';
+  END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.finance_practice_ids()
 RETURNS SETOF uuid
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT u.practice_id FROM public.users u WHERE u.id = auth.uid() AND u.practice_id IS NOT NULL
+  SELECT u.practice_id FROM public.users u
+   WHERE u.id = auth.uid() AND u.practice_id IS NOT NULL AND u.role = 'admin' AND COALESCE(u.is_active, true)
 $$;
 COMMENT ON FUNCTION public.finance_practice_ids() IS
-  'Practices whose finance data the signed-in user may read.';
+  'Practices whose books the signed-in user may read: the practices they administer (owner, 13 Oct 2026).';
 
 CREATE OR REPLACE FUNCTION public.finance_can_manage(p_practice_id uuid)
 RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.users u
-    WHERE u.id = auth.uid() AND u.practice_id = p_practice_id AND u.role IN ('admin', 'doctor')
+    WHERE u.id = auth.uid() AND u.practice_id = p_practice_id AND u.role = 'admin' AND COALESCE(u.is_active, true)
   )
 $$;
 COMMENT ON FUNCTION public.finance_can_manage(uuid) IS
-  'True for practice admins and doctors: they may record receipts, credit notes and manual journals.';
+  'True for the practice''s administrators: they keep the chart of accounts, post manual journals and stock valuations.';
 
 -- ---------------------------------------------------------------------------------------------
 -- 1. Chart of accounts
@@ -119,8 +142,9 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
     (p_practice_id, '5200', 'Maintenance', 'expense', 'debit', 'expense_maintenance'),
     (p_practice_id, '5290', 'Other expenses', 'expense', 'debit', 'expense_other'),
     (p_practice_id, '5900', 'Expired and damaged stock written off', 'expense', 'debit', 'stock_written_off'),
-    (p_practice_id, '5950', 'Depreciation', 'expense', 'debit', 'depreciation')
-  ON CONFLICT (practice_id, code) DO NOTHING
+    (p_practice_id, '5950', 'Depreciation', 'expense', 'debit', 'depreciation'),
+    (p_practice_id, '5960', 'Bad debts written off', 'expense', 'debit', 'bad_debts')
+  ON CONFLICT DO NOTHING
 $$;
 COMMENT ON FUNCTION public.seed_default_chart_of_accounts(uuid) IS
   'Creates the standard accounts for a practice. Expense accounts mirror practice_expenses.expense_type (expense_<type>).';
@@ -136,7 +160,7 @@ CREATE TABLE public.journal_entries (
   entry_date   date NOT NULL,
   description  text NOT NULL,
   source_type  text NOT NULL CHECK (source_type IN (
-                 'invoice', 'payment_receipt', 'credit_note', 'payslip', 'practice_expense',
+                 'invoice', 'receipt', 'adjustment', 'payslip', 'practice_expense',
                  'inventory', 'manual', 'opening_balance')),
   source_id    uuid,
   source_event text NOT NULL CHECK (source_event IN ('created', 'changed', 'deleted', 'manual')),
@@ -170,7 +194,7 @@ COMMENT ON TABLE public.journal_lines IS
 
 -- Every entry must balance (checked at commit, so all lines of an entry can be inserted first)
 CREATE OR REPLACE FUNCTION public.journal_entry_must_balance()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 DECLARE
   v_entry  uuid;
   v_debit  numeric(14,2);
@@ -194,7 +218,7 @@ CREATE CONSTRAINT TRIGGER journal_lines_balanced
 
 -- A line, its entry and its account must belong to the same practice
 CREATE OR REPLACE FUNCTION public.journal_line_same_practice()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.journal_entries e WHERE e.id = NEW.journal_entry_id AND e.practice_id = NEW.practice_id)
      OR NOT EXISTS (SELECT 1 FROM public.chart_of_accounts a WHERE a.id = NEW.account_id AND a.practice_id = NEW.practice_id) THEN
@@ -209,7 +233,7 @@ CREATE TRIGGER journal_lines_same_practice
 
 -- Posted journals are append-only: corrections are new (reversing or adjusting) entries
 CREATE OR REPLACE FUNCTION public.journal_is_append_only()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN
   RAISE EXCEPTION 'Posted journals cannot be changed or deleted; post a correcting entry instead';
 END $$;
@@ -220,133 +244,9 @@ CREATE TRIGGER journal_lines_append_only BEFORE UPDATE OR DELETE ON public.journ
   FOR EACH ROW EXECUTE FUNCTION public.journal_is_append_only();
 
 -- ---------------------------------------------------------------------------------------------
--- 3. Receipts, allocations and credit notes
+-- 3. (Removed 13 Oct 2026) Receipts, allocations and credit notes live in receipts, receipt_allocations and
+--    invoice_adjustments (proposals/2026-10-07-receipts-and-allocations.sql); section 4 posts from them.
 -- ---------------------------------------------------------------------------------------------
-
-CREATE TABLE public.payment_receipts (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  practice_id        uuid NOT NULL REFERENCES public.practices(id) ON DELETE RESTRICT,
-  receipt_number     text NOT NULL,
-  received_on        date NOT NULL,
-  payer_type         text NOT NULL CHECK (payer_type IN ('medical_aid', 'patient')),
-  patient_id         uuid, -- plain reference, see journal_lines.patient_id
-  medical_aid_provider text,
-  method             text NOT NULL CHECK (method IN ('cash', 'card', 'eft', 'medical_aid_remittance', 'other')),
-  amount             numeric(14,2) NOT NULL CHECK (amount > 0),
-  deposit_account_id uuid NOT NULL REFERENCES public.chart_of_accounts(id),
-  reference          text,
-  notes              text,
-  created_from       text NOT NULL DEFAULT 'receipt' CHECK (created_from IN ('receipt', 'invoice_status', 'import')),
-  voided_at          timestamptz,
-  void_reason        text,
-  created_by         uuid,
-  created_at         timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT payment_receipts_number_unique UNIQUE (practice_id, receipt_number),
-  CONSTRAINT payment_receipts_void_reason CHECK (voided_at IS NULL OR void_reason IS NOT NULL)
-);
-COMMENT ON TABLE public.payment_receipts IS
-  'Money received, with the real payment date and method. Receipts are voided, never deleted. created_from = invoice_status marks receipts made automatically when an invoice is marked paid in the current UI.';
-
-CREATE TABLE public.payment_allocations (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  practice_id uuid NOT NULL REFERENCES public.practices(id) ON DELETE RESTRICT,
-  receipt_id  uuid NOT NULL REFERENCES public.payment_receipts(id) ON DELETE RESTRICT,
-  invoice_id  uuid NOT NULL REFERENCES public.invoices_enhanced(id) ON DELETE RESTRICT,
-  amount      numeric(14,2) NOT NULL CHECK (amount > 0),
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT payment_allocations_unique UNIQUE (receipt_id, invoice_id)
-);
-COMMENT ON TABLE public.payment_allocations IS
-  'Which invoices a receipt settles and by how much: supports part-payments and one medical aid remittance covering many invoices. Allocations are sub-ledger detail; the general ledger is posted from the receipt.';
-
-CREATE TABLE public.credit_notes (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  practice_id        uuid NOT NULL REFERENCES public.practices(id) ON DELETE RESTRICT,
-  credit_note_number text NOT NULL,
-  invoice_id         uuid NOT NULL REFERENCES public.invoices_enhanced(id) ON DELETE RESTRICT,
-  issued_on          date NOT NULL,
-  funder             text NOT NULL CHECK (funder IN ('medical_aid', 'patient')),
-  amount             numeric(14,2) NOT NULL CHECK (amount > 0),
-  reason             text NOT NULL,
-  created_by         uuid,
-  created_at         timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT credit_notes_number_unique UNIQUE (practice_id, credit_note_number)
-);
-COMMENT ON TABLE public.credit_notes IS
-  'Reduces what a funder owes on an invoice (scheme short-payment, write-off, discount) without editing the invoice, so the original charge stays on record.';
-
--- An allocation may not exceed the receipt, nor what is still owed on the invoice
-CREATE OR REPLACE FUNCTION public.payment_allocation_within_limits()
-RETURNS trigger LANGUAGE plpgsql AS $$
-DECLARE
-  v_receipt   public.payment_receipts%ROWTYPE;
-  v_invoice   public.invoices_enhanced%ROWTYPE;
-  v_allocated numeric(14,2);
-  v_settled   numeric(14,2);
-BEGIN
-  SELECT * INTO v_receipt FROM public.payment_receipts WHERE id = NEW.receipt_id FOR UPDATE;
-  SELECT * INTO v_invoice FROM public.invoices_enhanced WHERE id = NEW.invoice_id FOR UPDATE;
-  IF v_receipt.practice_id <> NEW.practice_id OR v_invoice.practice_id IS DISTINCT FROM NEW.practice_id THEN
-    RAISE EXCEPTION 'Receipt, invoice and allocation must belong to the same practice';
-  END IF;
-  SELECT COALESCE(SUM(amount), 0) INTO v_allocated
-    FROM public.payment_allocations WHERE receipt_id = NEW.receipt_id AND id <> NEW.id;
-  IF v_allocated + NEW.amount > v_receipt.amount THEN
-    RAISE EXCEPTION 'Allocations (%) exceed receipt % (%)', v_allocated + NEW.amount, v_receipt.receipt_number, v_receipt.amount;
-  END IF;
-  SELECT COALESCE(SUM(a.amount), 0) INTO v_settled
-    FROM public.payment_allocations a
-    JOIN public.payment_receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
-    WHERE a.invoice_id = NEW.invoice_id AND a.id <> NEW.id;
-  v_settled := v_settled + COALESCE((SELECT SUM(amount) FROM public.credit_notes WHERE invoice_id = NEW.invoice_id), 0);
-  IF v_settled + NEW.amount > COALESCE(v_invoice.total, 0) THEN
-    RAISE EXCEPTION 'Allocation exceeds the amount still owed on invoice %', v_invoice.invoice_number;
-  END IF;
-  RETURN NEW;
-END $$;
-
-CREATE TRIGGER payment_allocations_within_limits
-  BEFORE INSERT OR UPDATE ON public.payment_allocations
-  FOR EACH ROW EXECUTE FUNCTION public.payment_allocation_within_limits();
-
--- Receipts can only be voided after they are created (their amount and date are history)
-CREATE OR REPLACE FUNCTION public.payment_receipt_void_only()
-RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'Receipts cannot be deleted; void them instead';
-  END IF;
-  IF (to_jsonb(NEW) - 'voided_at' - 'void_reason') <> (to_jsonb(OLD) - 'voided_at' - 'void_reason')
-     OR (OLD.voided_at IS NOT NULL AND NEW.voided_at IS NULL) THEN
-    RAISE EXCEPTION 'A receipt can only be voided; record a new receipt for a different amount or date';
-  END IF;
-  RETURN NEW;
-END $$;
-
-CREATE TRIGGER payment_receipts_void_only
-  BEFORE UPDATE OR DELETE ON public.payment_receipts
-  FOR EACH ROW EXECUTE FUNCTION public.payment_receipt_void_only();
-
--- What is still owed on each invoice after receipts and credit notes
-CREATE OR REPLACE VIEW public.invoice_balances WITH (security_invoker = true) AS
-SELECT i.id AS invoice_id,
-       i.practice_id,
-       COALESCE(i.total, 0) AS total,
-       COALESCE(p.paid, 0) AS paid,
-       COALESCE(c.credited, 0) AS credited,
-       COALESCE(i.total, 0) - COALESCE(p.paid, 0) - COALESCE(c.credited, 0) AS balance
-FROM public.invoices_enhanced i
-LEFT JOIN (
-  SELECT a.invoice_id, SUM(a.amount) AS paid
-  FROM public.payment_allocations a
-  JOIN public.payment_receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
-  GROUP BY a.invoice_id
-) p ON p.invoice_id = i.id
-LEFT JOIN (
-  SELECT invoice_id, SUM(amount) AS credited FROM public.credit_notes GROUP BY invoice_id
-) c ON c.invoice_id = i.id;
-COMMENT ON VIEW public.invoice_balances IS
-  'Per-invoice balance after receipts and credit notes; replaces payment_status as the source of truth for what is owed.';
 
 -- ---------------------------------------------------------------------------------------------
 -- 4. Posting
@@ -362,7 +262,7 @@ CREATE TABLE public.finance_posting_errors (
   resolved_at   timestamptz
 );
 COMMENT ON TABLE public.finance_posting_errors IS
-  'Postings that failed (e.g. accounts not set up). The billing, payroll or expense change still saves; Finance shows these so they can be fixed and re-posted.';
+  'Postings that failed. The billing, receipt, payroll or expense change still saves; finance_backfill re-posts once the cause is fixed.';
 
 CREATE OR REPLACE FUNCTION public.finance_account(p_practice_id uuid, p_system_key text)
 RETURNS uuid
@@ -398,6 +298,11 @@ BEGIN
   -- Serialise postings for one record so two concurrent triggers cannot post the same change twice
   PERFORM pg_advisory_xact_lock(hashtext(p_source_type || ':' || p_source_id::text));
 
+  -- A practice's books are opened the first time something posts for it
+  IF NOT EXISTS (SELECT 1 FROM public.chart_of_accounts WHERE practice_id = p_practice_id) THEN
+    PERFORM public.seed_default_chart_of_accounts(p_practice_id);
+  END IF;
+
   v_has_prior := EXISTS (SELECT 1 FROM public.journal_entries WHERE source_type = p_source_type AND source_id = p_source_id);
 
   SELECT COALESCE(jsonb_agg(jsonb_build_object('account_id', account_id, 'funder', funder, 'delta', delta)), '[]'::jsonb)
@@ -428,7 +333,7 @@ BEGIN
     p_practice_id,
     -- First posting carries the business date; later changes are dated when they happen,
     -- so closed months are never altered retrospectively
-    CASE WHEN v_has_prior THEN COALESCE(p_change_date, CURRENT_DATE) ELSE p_entry_date END,
+    CASE WHEN v_has_prior THEN COALESCE(p_change_date, public.ar_today()) ELSE p_entry_date END,
     p_description,
     p_source_type,
     p_source_id,
@@ -456,11 +361,12 @@ BEGIN
   SELECT practice_id INTO v_practice FROM public.journal_entries
    WHERE source_type = p_source_type AND source_id = p_source_id LIMIT 1;
   IF v_practice IS NULL THEN RETURN NULL; END IF;
-  RETURN public.finance_sync_source(v_practice, p_source_type, p_source_id, CURRENT_DATE,
+  RETURN public.finance_sync_source(v_practice, p_source_type, p_source_id, public.ar_today(),
     initcap(replace(p_source_type, '_', ' ')) || ' deleted', '[]'::jsonb);
 END $$;
 
--- Invoice: receivables (split by funder) against revenue. Cancelled = void (all zero).
+-- Invoice: receivables (split by funder) against revenue. Cancelled = void (all zero). Opening balances brought over
+-- from Eminance (OB-...) sit against "Opening balances", not this year's revenue.
 CREATE OR REPLACE FUNCTION public.post_invoice(p_invoice_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -476,57 +382,99 @@ BEGIN
   v_total := CASE WHEN v_void THEN 0 ELSE GREATEST(round(COALESCE(v.total, 0), 2), 0) END;
   v_ma    := LEAST(GREATEST(round(COALESCE(v.medical_aid_total, 0), 2), 0), v_total);
   RETURN public.finance_sync_source(
-    v.practice_id, 'invoice', v.id, COALESCE(v.issue_date, CURRENT_DATE),
+    v.practice_id, 'invoice', v.id, COALESCE(v.issue_date, public.ar_today()),
     'Invoice ' || COALESCE(v.invoice_number, v.id::text) || CASE WHEN v_void THEN ' cancelled' ELSE '' END,
     jsonb_build_array(
       jsonb_build_object('account', 'ar_medical_aid', 'funder', 'medical_aid', 'balance', v_ma),
       jsonb_build_object('account', 'ar_patient', 'funder', 'patient', 'balance', v_total - v_ma),
-      jsonb_build_object('account', 'revenue_services', 'balance', -v_total)
+      jsonb_build_object('account', CASE WHEN COALESCE(v.invoice_number, '') LIKE 'OB-%' THEN 'opening_balances' ELSE 'revenue_services' END,
+                         'balance', -v_total)
     ),
     v.patient_id
   );
 END $$;
 
--- Receipt: bank or cash against the payer's receivable. Voided = all zero.
-CREATE OR REPLACE FUNCTION public.post_payment_receipt(p_receipt_id uuid)
+-- Receipt: bank (or cash) against the payer's receivable. A reversed receipt nets to zero, dated when reversed.
+-- Payers other than a medical aid (the patient, a company paying the patient's portion) reduce patients' receivables.
+CREATE OR REPLACE FUNCTION public.post_receipt(p_receipt_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  r        public.payment_receipts%ROWTYPE;
+  r        public.receipts%ROWTYPE;
   v_amount numeric(14,2);
+  v_funder text;
 BEGIN
-  SELECT * INTO r FROM public.payment_receipts WHERE id = p_receipt_id;
-  IF NOT FOUND THEN RETURN NULL; END IF;
-  v_amount := CASE WHEN r.voided_at IS NULL THEN r.amount ELSE 0 END;
+  SELECT * INTO r FROM public.receipts WHERE id = p_receipt_id;
+  IF NOT FOUND OR r.practice_id IS NULL THEN RETURN NULL; END IF;
+  v_amount := CASE WHEN r.reversed_at IS NULL THEN round(r.amount, 2) ELSE 0 END;
+  v_funder := CASE WHEN r.payer_type = 'medical_aid' THEN 'medical_aid' ELSE 'patient' END;
   RETURN public.finance_sync_source(
-    r.practice_id, 'payment_receipt', r.id, r.received_on,
-    'Receipt ' || r.receipt_number || CASE WHEN r.voided_at IS NOT NULL THEN ' voided' ELSE '' END,
+    r.practice_id, 'receipt', r.id, r.received_on,
+    'Receipt ' || COALESCE(r.receipt_number, r.id::text) || CASE WHEN r.reversed_at IS NOT NULL THEN ' reversed' ELSE '' END,
     jsonb_build_array(
-      jsonb_build_object('account_id', r.deposit_account_id, 'balance', v_amount),
-      jsonb_build_object('account', 'ar_' || r.payer_type, 'funder', r.payer_type, 'balance', -v_amount)
+      jsonb_build_object('account', CASE WHEN r.method = 'cash' THEN 'cash' ELSE 'bank' END, 'balance', v_amount),
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', -v_amount)
     ),
-    r.patient_id
+    r.patient_id,
+    CASE WHEN r.reversed_at IS NOT NULL THEN (r.reversed_at AT TIME ZONE 'Africa/Windhoek')::date END
   );
 END $$;
 
--- Credit note: contra-revenue against the funder's receivable.
-CREATE OR REPLACE FUNCTION public.post_credit_note(p_credit_note_id uuid)
+-- Adjustment (invoice_adjustments): credit notes and discounts reduce revenue; write-offs are bad debts; journals
+-- move the portion's receivable against revenue (signed); a shortfall moves the medical aid's portion to the
+-- patient; a refund pays money back out of bank or cash. A reversed adjustment nets to zero, dated when reversed.
+CREATE OR REPLACE FUNCTION public.post_adjustment(p_adjustment_id uuid)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  c         public.credit_notes%ROWTYPE;
+  a         public.invoice_adjustments%ROWTYPE;
+  v_amount  numeric(14,2);
+  v_funder  text;
   v_patient uuid;
+  v_targets jsonb;
 BEGIN
-  SELECT * INTO c FROM public.credit_notes WHERE id = p_credit_note_id;
-  IF NOT FOUND THEN RETURN NULL; END IF;
-  SELECT patient_id INTO v_patient FROM public.invoices_enhanced WHERE id = c.invoice_id;
+  SELECT * INTO a FROM public.invoice_adjustments WHERE id = p_adjustment_id;
+  IF NOT FOUND OR a.practice_id IS NULL THEN RETURN NULL; END IF;
+  v_amount := CASE WHEN a.reversed_at IS NULL THEN round(a.amount, 2) ELSE 0 END;
+  v_patient := COALESCE(a.patient_id, (SELECT i.patient_id FROM public.invoices_enhanced i WHERE i.id = a.invoice_id),
+                        (SELECT rc.patient_id FROM public.receipts rc WHERE rc.id = a.receipt_id));
+  IF a.kind = 'refund' THEN
+    v_funder := COALESCE((SELECT CASE WHEN rc.payer_type = 'medical_aid' THEN 'medical_aid' ELSE 'patient' END
+                            FROM public.receipts rc WHERE rc.id = a.receipt_id), 'patient');
+  ELSE
+    v_funder := COALESCE(a.portion, 'patient');
+  END IF;
+
+  v_targets := CASE a.kind
+    WHEN 'credit_note' THEN jsonb_build_array(
+      jsonb_build_object('account', 'revenue_credits', 'balance', v_amount),
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', -v_amount))
+    WHEN 'discount' THEN jsonb_build_array(
+      jsonb_build_object('account', 'revenue_credits', 'balance', v_amount),
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', -v_amount))
+    WHEN 'write_off' THEN jsonb_build_array(
+      jsonb_build_object('account', 'bad_debts', 'balance', v_amount),
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', -v_amount))
+    WHEN 'journal' THEN jsonb_build_array(
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', v_amount),
+      jsonb_build_object('account', 'revenue_services', 'balance', -v_amount))
+    WHEN 'shortfall_transfer' THEN jsonb_build_array(
+      jsonb_build_object('account', 'ar_patient', 'funder', 'patient', 'balance', v_amount),
+      jsonb_build_object('account', 'ar_medical_aid', 'funder', 'medical_aid', 'balance', -v_amount))
+    WHEN 'refund' THEN jsonb_build_array(
+      jsonb_build_object('account', 'ar_' || v_funder, 'funder', v_funder, 'balance', v_amount),
+      jsonb_build_object('account', CASE WHEN a.method = 'cash' THEN 'cash' ELSE 'bank' END, 'balance', -v_amount))
+    ELSE '[]'::jsonb
+  END;
+  IF jsonb_array_length(v_targets) = 0 THEN RETURN NULL; END IF;
+
   RETURN public.finance_sync_source(
-    c.practice_id, 'credit_note', c.id, c.issued_on, 'Credit note ' || c.credit_note_number,
-    jsonb_build_array(
-      jsonb_build_object('account', 'revenue_credits', 'balance', c.amount),
-      jsonb_build_object('account', 'ar_' || c.funder, 'funder', c.funder, 'balance', -c.amount)
-    ),
-    v_patient
+    a.practice_id, 'adjustment', a.id, COALESCE(a.effective_on, public.ar_today()),
+    initcap(replace(a.kind, '_', ' ')) || ' ' || COALESCE(a.adjustment_number, a.id::text)
+      || CASE WHEN a.reversed_at IS NOT NULL THEN ' reversed' ELSE '' END,
+    v_targets,
+    v_patient,
+    CASE WHEN a.reversed_at IS NOT NULL THEN (a.reversed_at AT TIME ZONE 'Africa/Windhoek')::date END
   );
 END $$;
 
@@ -553,8 +501,8 @@ BEGIN
   v_deduct    := CASE WHEN v_cancelled THEN 0 ELSE round(COALESCE(p.total_deductions, 0), 2) END;
   v_net_owed  := v_gross - v_deduct;
   RETURN public.finance_sync_source(
-    p.owner_practice_id, 'payslip', p.id, COALESCE(p.pay_period_end, p.payment_date, CURRENT_DATE),
-    'Payslip ' || COALESCE(p.employee_name, '') || ' ' || to_char(p.pay_period_start, 'Mon YYYY'),
+    p.owner_practice_id, 'payslip', p.id, COALESCE(p.pay_period_end, p.payment_date, public.ar_today()),
+    'Payslip ' || COALESCE(p.employee_name, '') || ' ' || COALESCE(to_char(p.pay_period_start, 'Mon YYYY'), ''),
     jsonb_build_array(
       jsonb_build_object('account', 'payroll_expense', 'balance', v_gross),
       jsonb_build_object('account', 'payroll_deductions', 'balance', -v_deduct),
@@ -579,7 +527,7 @@ DECLARE
   v_pay_from  text;
 BEGIN
   SELECT * INTO e FROM public.practice_expenses WHERE id = p_expense_id;
-  IF NOT FOUND THEN RETURN NULL; END IF;
+  IF NOT FOUND OR e.practice_id IS NULL THEN RETURN NULL; END IF;
   v_cancelled := lower(btrim(COALESCE(e.status, ''))) IN ('cancelled', 'canceled', 'void', 'voided');
   v_paid      := NOT v_cancelled AND lower(btrim(COALESCE(e.status, ''))) = 'paid';
   v_amount    := CASE WHEN v_cancelled THEN 0 ELSE round(COALESCE(e.amount, 0), 2) END;
@@ -589,7 +537,7 @@ BEGIN
   END IF;
   v_pay_from  := CASE WHEN lower(COALESCE(e.payment_method, '')) = 'cash' THEN 'cash' ELSE 'bank' END;
   RETURN public.finance_sync_source(
-    e.practice_id, 'practice_expense', e.id, COALESCE(e.expense_date, CURRENT_DATE), 'Expense: ' || e.name,
+    e.practice_id, 'practice_expense', e.id, COALESCE(e.expense_date, public.ar_today()), 'Expense: ' || COALESCE(e.name, ''),
     jsonb_build_array(
       jsonb_build_object('account', v_expense, 'balance', v_amount),
       jsonb_build_object('account', 'ap_suppliers', 'balance', CASE WHEN v_paid THEN 0 ELSE -v_amount END),
@@ -600,19 +548,16 @@ BEGIN
   );
 END $$;
 
--- Stock take: stock and equipment at cost (same valuation as the Finance page) against what was
--- expensed when bought. Run monthly (pg_cron) or from a "Post stock valuation" button.
-CREATE OR REPLACE FUNCTION public.post_inventory_valuation(p_practice_id uuid, p_as_at date)
+-- Stock take: stock and equipment at cost against what was expensed when bought. The internal routine has no caller
+-- check (finance_backfill uses it); post_inventory_valuation is the one administrators call.
+CREATE OR REPLACE FUNCTION public.finance_inventory_valuation_internal(p_practice_id uuid, p_as_at date)
 RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_stock     numeric(14,2);
   v_equipment numeric(14,2);
 BEGIN
-  IF NOT public.finance_can_manage(p_practice_id) AND COALESCE(auth.role(), '') <> 'service_role' THEN
-    RAISE EXCEPTION 'Only practice administrators can post a stock valuation';
-  END IF;
-  SELECT COALESCE(SUM(value) FILTER (WHERE category <> 'equipment'), 0),
+  SELECT COALESCE(SUM(value) FILTER (WHERE COALESCE(category, '') <> 'equipment'), 0),
          COALESCE(SUM(value) FILTER (WHERE category = 'equipment'), 0)
     INTO v_stock, v_equipment
     FROM (
@@ -635,61 +580,18 @@ BEGIN
   );
 END $$;
 
--- Bridge for the current UI: marking an invoice paid creates a receipt for what is still owed;
--- un-marking it voids that automatic receipt. Removed once receipts are recorded directly.
-CREATE OR REPLACE FUNCTION public.bridge_invoice_status_payment(p_invoice_id uuid, p_received_on date DEFAULT NULL)
-RETURNS void
+CREATE OR REPLACE FUNCTION public.post_inventory_valuation(p_practice_id uuid, p_as_at date)
+RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v          public.invoices_enhanced%ROWTYPE;
-  v_total    numeric(14,2);
-  v_ma_share numeric(14,2);
-  v_method   text;
-  v_deposit  uuid;
-  v_funder   text;
-  v_owed     numeric(14,2);
-  v_receipt  uuid;
 BEGIN
-  SELECT * INTO v FROM public.invoices_enhanced WHERE id = p_invoice_id;
-  IF NOT FOUND OR v.practice_id IS NULL THEN RETURN; END IF;
-
-  IF lower(btrim(COALESCE(v.payment_status, ''))) <> 'paid' THEN
-    UPDATE public.payment_receipts r
-       SET voided_at = now(), void_reason = 'Invoice no longer marked paid'
-     WHERE r.created_from = 'invoice_status' AND r.voided_at IS NULL
-       AND EXISTS (SELECT 1 FROM public.payment_allocations a WHERE a.receipt_id = r.id AND a.invoice_id = v.id);
-    RETURN;
+  IF NOT public.finance_can_manage(p_practice_id) THEN
+    RAISE EXCEPTION 'Only a practice administrator can post a stock valuation' USING ERRCODE = '42501';
   END IF;
-
-  v_total    := GREATEST(round(COALESCE(v.total, 0), 2), 0);
-  v_ma_share := LEAST(GREATEST(round(COALESCE(v.medical_aid_total, 0), 2), 0), v_total);
-  v_method   := CASE lower(btrim(COALESCE(v.payment_method, '')))
-                  WHEN 'cash' THEN 'cash' WHEN 'card' THEN 'card' WHEN 'eft' THEN 'eft'
-                  WHEN 'bank_transfer' THEN 'eft' WHEN 'medical_aid' THEN 'medical_aid_remittance' ELSE 'other' END;
-  v_deposit  := public.finance_account(v.practice_id, CASE WHEN v_method = 'cash' THEN 'cash' ELSE 'bank' END);
-
-  FOREACH v_funder IN ARRAY ARRAY['medical_aid', 'patient'] LOOP
-    v_owed := CASE WHEN v_funder = 'medical_aid' THEN v_ma_share ELSE v_total - v_ma_share END
-      - COALESCE((SELECT SUM(a.amount) FROM public.payment_allocations a
-                  JOIN public.payment_receipts r ON r.id = a.receipt_id AND r.voided_at IS NULL
-                  WHERE a.invoice_id = v.id AND r.payer_type = v_funder), 0)
-      - COALESCE((SELECT SUM(c.amount) FROM public.credit_notes c WHERE c.invoice_id = v.id AND c.funder = v_funder), 0);
-    IF v_owed > 0 THEN
-      INSERT INTO public.payment_receipts (practice_id, receipt_number, received_on, payer_type, patient_id, method,
-                                           amount, deposit_account_id, reference, created_from, created_by)
-      VALUES (v.practice_id,
-              'AUTO-' || COALESCE(v.invoice_number, left(v.id::text, 8)) || '-' || left(v_funder, 2) || '-' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS'),
-              COALESCE(p_received_on, (now() AT TIME ZONE 'Africa/Windhoek')::date),
-              v_funder, v.patient_id, v_method, v_owed, v_deposit, v.invoice_number, 'invoice_status', auth.uid())
-      RETURNING id INTO v_receipt;
-      INSERT INTO public.payment_allocations (practice_id, receipt_id, invoice_id, amount)
-      VALUES (v.practice_id, v_receipt, v.id, v_owed);
-    END IF;
-  END LOOP;
+  RETURN public.finance_inventory_valuation_internal(p_practice_id, p_as_at);
 END $$;
 
--- One trigger function for every source table. Ledger problems are logged, never raised, so
--- saving an invoice, payslip or expense can never fail because of the ledger.
+-- One trigger function for every source table. Ledger problems are logged, never raised, so saving an invoice,
+-- receipt, adjustment, payslip or expense can never fail because of the ledger.
 CREATE OR REPLACE FUNCTION public.finance_on_source_change()
 RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -705,15 +607,10 @@ BEGIN
       PERFORM public.finance_reverse_source(v_source, v_id);
     ELSIF v_source = 'invoice' THEN
       PERFORM public.post_invoice(v_id);
-      IF TG_OP = 'INSERT' THEN
-        PERFORM public.bridge_invoice_status_payment(v_id);
-      ELSIF OLD.payment_status IS DISTINCT FROM NEW.payment_status THEN
-        PERFORM public.bridge_invoice_status_payment(v_id);
-      END IF;
-    ELSIF v_source = 'payment_receipt' THEN
-      PERFORM public.post_payment_receipt(v_id);
-    ELSIF v_source = 'credit_note' THEN
-      PERFORM public.post_credit_note(v_id);
+    ELSIF v_source = 'receipt' THEN
+      PERFORM public.post_receipt(v_id);
+    ELSIF v_source = 'adjustment' THEN
+      PERFORM public.post_adjustment(v_id);
     ELSIF v_source = 'payslip' THEN
       PERFORM public.post_payslip(v_id);
     ELSIF v_source = 'practice_expense' THEN
@@ -729,30 +626,18 @@ END $$;
 CREATE TRIGGER invoices_enhanced_post_ledger
   AFTER INSERT OR UPDATE OR DELETE ON public.invoices_enhanced
   FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('invoice');
-CREATE TRIGGER payment_receipts_post_ledger
-  AFTER INSERT OR UPDATE ON public.payment_receipts
-  FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('payment_receipt');
-CREATE TRIGGER credit_notes_post_ledger
-  AFTER INSERT OR UPDATE OR DELETE ON public.credit_notes
-  FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('credit_note');
+CREATE TRIGGER receipts_post_ledger
+  AFTER INSERT OR UPDATE OR DELETE ON public.receipts
+  FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('receipt');
+CREATE TRIGGER invoice_adjustments_post_ledger
+  AFTER INSERT OR UPDATE OR DELETE ON public.invoice_adjustments
+  FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('adjustment');
 CREATE TRIGGER payslips_post_ledger
   AFTER INSERT OR UPDATE OR DELETE ON public.payslips
   FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('payslip');
 CREATE TRIGGER practice_expenses_post_ledger
   AFTER INSERT OR UPDATE OR DELETE ON public.practice_expenses
   FOR EACH ROW EXECUTE FUNCTION public.finance_on_source_change('practice_expense');
-
--- New practices get the standard chart of accounts
-CREATE OR REPLACE FUNCTION public.finance_seed_new_practice()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public.seed_default_chart_of_accounts(NEW.id);
-  RETURN NULL;
-END $$;
-
-CREATE TRIGGER practices_seed_chart_of_accounts
-  AFTER INSERT ON public.practices
-  FOR EACH ROW EXECUTE FUNCTION public.finance_seed_new_practice();
 
 -- Manual journal (accountant adjustments, opening balances). Lines: [{"account_id", "debit", "credit", "memo"}]
 CREATE OR REPLACE FUNCTION public.post_manual_journal(p_practice_id uuid, p_entry_date date, p_description text, p_lines jsonb)
@@ -761,7 +646,11 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_entry uuid;
 BEGIN
   IF NOT public.finance_can_manage(p_practice_id) THEN
-    RAISE EXCEPTION 'Only practice administrators can post manual journals';
+    RAISE EXCEPTION 'Only a practice administrator can post a manual journal' USING ERRCODE = '42501';
+  END IF;
+  IF NULLIF(btrim(COALESCE(p_description, '')), '') IS NULL OR p_entry_date IS NULL
+     OR jsonb_typeof(p_lines) <> 'array' OR jsonb_array_length(p_lines) < 2 THEN
+    RAISE EXCEPTION 'A journal needs a date, a description and at least two lines';
   END IF;
   INSERT INTO public.journal_entries (practice_id, entry_date, description, source_type, source_event, created_by)
   VALUES (p_practice_id, p_entry_date, p_description, 'manual', 'manual', auth.uid())
@@ -773,8 +662,7 @@ BEGIN
   RETURN v_entry; -- the deferred balance check rejects the whole journal at commit if it does not balance
 END $$;
 
--- One-off go-live: seed accounts and post every existing record for a practice. Historical invoices
--- already marked paid get an automatic receipt dated their last update (the best date available).
+-- Opens a practice's books and posts every existing record once. Safe to re-run: postings only add differences.
 CREATE OR REPLACE FUNCTION public.finance_backfill(p_practice_id uuid)
 RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -783,9 +671,16 @@ DECLARE
   v_count integer := 0;
 BEGIN
   PERFORM public.seed_default_chart_of_accounts(p_practice_id);
-  FOR r IN SELECT id, updated_at, issue_date FROM public.invoices_enhanced WHERE practice_id = p_practice_id LOOP
+  FOR r IN SELECT id FROM public.invoices_enhanced WHERE practice_id = p_practice_id LOOP
     PERFORM public.post_invoice(r.id);
-    PERFORM public.bridge_invoice_status_payment(r.id, COALESCE((r.updated_at AT TIME ZONE 'Africa/Windhoek')::date, r.issue_date));
+    v_count := v_count + 1;
+  END LOOP;
+  FOR r IN SELECT id FROM public.receipts WHERE practice_id = p_practice_id LOOP
+    PERFORM public.post_receipt(r.id);
+    v_count := v_count + 1;
+  END LOOP;
+  FOR r IN SELECT id FROM public.invoice_adjustments WHERE practice_id = p_practice_id LOOP
+    PERFORM public.post_adjustment(r.id);
     v_count := v_count + 1;
   END LOOP;
   FOR r IN SELECT s.id FROM public.payslips s JOIN public.users u ON u.id = s.user_id WHERE u.practice_id = p_practice_id LOOP
@@ -796,14 +691,14 @@ BEGIN
     PERFORM public.post_practice_expense(r.id);
     v_count := v_count + 1;
   END LOOP;
-  PERFORM public.post_inventory_valuation(p_practice_id, (now() AT TIME ZONE 'Africa/Windhoek')::date);
+  PERFORM public.finance_inventory_valuation_internal(p_practice_id, public.ar_today());
   RETURN v_count;
 END $$;
 COMMENT ON FUNCTION public.finance_backfill(uuid) IS
-  'Run once per practice at go-live (service role). Safe to re-run: postings only add differences.';
+  'Opens a practice''s books and posts its history (service role / migrations only). Safe to re-run: postings only add differences.';
 
 -- ---------------------------------------------------------------------------------------------
--- 5. Reporting views (security_invoker: the caller's RLS applies)
+-- 5. Reporting (security_invoker: the caller's RLS applies, so only the practice's administrators see figures)
 -- ---------------------------------------------------------------------------------------------
 
 CREATE OR REPLACE VIEW public.trial_balance WITH (security_invoker = true) AS
@@ -837,49 +732,94 @@ LANGUAGE sql STABLE SECURITY INVOKER SET search_path = public AS $$
 $$;
 
 -- ---------------------------------------------------------------------------------------------
--- 6. Row level security: each practice sees only its own books
+-- 6. Access: the practice's administrators read the books; journals are written only by the posting functions
 -- ---------------------------------------------------------------------------------------------
 
 ALTER TABLE public.chart_of_accounts      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_entries        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_lines          ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payment_receipts       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payment_allocations    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.credit_notes           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.finance_posting_errors ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Practice members read accounts" ON public.chart_of_accounts
+REVOKE ALL ON public.chart_of_accounts, public.journal_entries, public.journal_lines, public.finance_posting_errors,
+              public.trial_balance FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.chart_of_accounts TO authenticated;
+GRANT SELECT ON public.journal_entries, public.journal_lines, public.finance_posting_errors, public.trial_balance TO authenticated;
+GRANT ALL ON public.chart_of_accounts, public.journal_entries, public.journal_lines, public.finance_posting_errors TO service_role;
+GRANT SELECT ON public.trial_balance TO service_role;
+
+CREATE POLICY "Practice administrators read accounts" ON public.chart_of_accounts
   FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-CREATE POLICY "Practice managers add accounts" ON public.chart_of_accounts
+CREATE POLICY "Practice administrators add accounts" ON public.chart_of_accounts
   FOR INSERT TO authenticated WITH CHECK (public.finance_can_manage(practice_id));
-CREATE POLICY "Practice managers edit accounts" ON public.chart_of_accounts
+CREATE POLICY "Practice administrators edit accounts" ON public.chart_of_accounts
   FOR UPDATE TO authenticated USING (public.finance_can_manage(practice_id)) WITH CHECK (public.finance_can_manage(practice_id));
-
--- Journals: read-only for users; written only by the SECURITY DEFINER posting functions
-CREATE POLICY "Practice members read journal entries" ON public.journal_entries
+CREATE POLICY "Practice administrators read journal entries" ON public.journal_entries
   FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-CREATE POLICY "Practice members read journal lines" ON public.journal_lines
+CREATE POLICY "Practice administrators read journal lines" ON public.journal_lines
   FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-
-CREATE POLICY "Practice members read receipts" ON public.payment_receipts
-  FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-CREATE POLICY "Practice managers record receipts" ON public.payment_receipts
-  FOR INSERT TO authenticated WITH CHECK (public.finance_can_manage(practice_id));
-CREATE POLICY "Practice managers void receipts" ON public.payment_receipts
-  FOR UPDATE TO authenticated USING (public.finance_can_manage(practice_id)) WITH CHECK (public.finance_can_manage(practice_id));
-
-CREATE POLICY "Practice members read allocations" ON public.payment_allocations
-  FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-CREATE POLICY "Practice managers allocate receipts" ON public.payment_allocations
-  FOR INSERT TO authenticated WITH CHECK (public.finance_can_manage(practice_id));
-
-CREATE POLICY "Practice members read credit notes" ON public.credit_notes
-  FOR SELECT TO authenticated USING (practice_id IN (SELECT public.finance_practice_ids()));
-CREATE POLICY "Practice managers issue credit notes" ON public.credit_notes
-  FOR INSERT TO authenticated WITH CHECK (public.finance_can_manage(practice_id));
-
-CREATE POLICY "Practice managers read posting errors" ON public.finance_posting_errors
+CREATE POLICY "Practice administrators read posting errors" ON public.finance_posting_errors
   FOR SELECT TO authenticated USING (practice_id IS NOT NULL AND public.finance_can_manage(practice_id));
 
--- Change to COMMIT only when this becomes a reviewed migration
+DO $$
+DECLARE v_table text;
+BEGIN
+  IF to_regprocedure('public.portal_is_staff()') IS NOT NULL THEN
+    FOREACH v_table IN ARRAY ARRAY['chart_of_accounts', 'journal_entries', 'journal_lines', 'finance_posting_errors'] LOOP
+      EXECUTE format('CREATE POLICY portal_staff_only ON public.%I AS RESTRICTIVE FOR ALL TO authenticated
+                        USING ((SELECT public.portal_is_staff())) WITH CHECK ((SELECT public.portal_is_staff()))', v_table);
+    END LOOP;
+  END IF;
+END $$;
+
+-- Functions: nobody but signed-in users gets the few that the app may call; the posting routines are internal
+REVOKE ALL ON FUNCTION
+  public.finance_practice_ids(), public.finance_can_manage(uuid), public.seed_default_chart_of_accounts(uuid),
+  public.journal_entry_must_balance(), public.journal_line_same_practice(), public.journal_is_append_only(),
+  public.finance_account(uuid, text), public.finance_sync_source(uuid, text, uuid, date, text, jsonb, uuid, date),
+  public.finance_reverse_source(text, uuid), public.post_invoice(uuid), public.post_receipt(uuid),
+  public.post_adjustment(uuid), public.post_payslip(uuid), public.post_practice_expense(uuid),
+  public.finance_inventory_valuation_internal(uuid, date), public.post_inventory_valuation(uuid, date),
+  public.finance_on_source_change(), public.post_manual_journal(uuid, date, text, jsonb),
+  public.finance_backfill(uuid), public.trial_balance_as_at(uuid, date)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION
+  public.finance_practice_ids(), public.finance_can_manage(uuid), public.post_inventory_valuation(uuid, date),
+  public.post_manual_journal(uuid, date, text, jsonb), public.trial_balance_as_at(uuid, date)
+  TO authenticated;
+
+-- ---------------------------------------------------------------------------------------------
+-- 7. Open the books of every practice that has staff, and post their history once
+-- ---------------------------------------------------------------------------------------------
+DO $$
+DECLARE v_practice uuid;
+BEGIN
+  FOR v_practice IN SELECT DISTINCT u.practice_id FROM public.users u WHERE u.practice_id IS NOT NULL LOOP
+    PERFORM public.finance_backfill(v_practice);
+  END LOOP;
+END $$;
+
+-- ---------------------------------------------------------------------------------------------
+-- 8. Checks after
+-- ---------------------------------------------------------------------------------------------
+DO $$
+DECLARE v_off text;
+BEGIN
+  SELECT string_agg(practice_id::text, ', ') INTO v_off FROM (
+    SELECT l.practice_id FROM public.journal_lines l GROUP BY l.practice_id HAVING SUM(l.debit) <> SUM(l.credit)) x;
+  IF v_off IS NOT NULL THEN
+    RAISE EXCEPTION 'Check failed: the books do not balance for %', v_off;
+  END IF;
+  IF has_table_privilege('anon', 'public.journal_lines', 'SELECT') OR has_table_privilege('anon', 'public.chart_of_accounts', 'SELECT')
+     OR has_table_privilege('authenticated', 'public.journal_lines', 'INSERT')
+     OR has_table_privilege('authenticated', 'public.journal_entries', 'INSERT') THEN
+    RAISE EXCEPTION 'Check failed: the journals can be written directly or read by anon';
+  END IF;
+  IF has_function_privilege('anon', 'public.finance_backfill(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.finance_backfill(uuid)', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.finance_sync_source(uuid,text,uuid,date,text,jsonb,uuid,date)', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.post_manual_journal(uuid,date,text,jsonb)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Check failed: an internal posting function can be called from the app';
+  END IF;
+END $$;
+
 ROLLBACK;

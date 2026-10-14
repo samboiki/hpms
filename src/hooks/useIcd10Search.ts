@@ -8,6 +8,7 @@ import { useAuthStore } from '../stores/authStore';
 import { knownIcd10Codes, lookupIcd10Codes, practiceUsualIcd10Codes, searchIcd10Codes, type Icd10ListStatus } from '../services/icd10Service';
 import { isValidIcd10Format, normalizeIcd10 } from '../utils/billing/icd10';
 import { ICD10_SEARCH_MIN_LENGTH, icd10Options, type Icd10MasterEntry, type Icd10Option } from '../utils/billing/icd10Master';
+import { useTariffIcd10Suggestions } from './useTariffIcd10Suggestions';
 
 const SEARCH_DELAY_MS = 200;
 const LOOKUP_DELAY_MS = 150;
@@ -56,12 +57,17 @@ export interface Icd10SearchState {
   status: 'idle' | 'searching' | Icd10ListStatus;
 }
 
-/** What the code search shows for `query` while `enabled` (the box is open). */
+/**
+ * What the code search shows for `query` while `enabled` (the box is open). `tariffCode` (the code a billing line is
+ * billed with) adds that code's suggestions after the line's own suggested codes: the practice's usual code, what it
+ * billed most, then the reviewed starter codes, each with its reason (useTariffIcd10Suggestions).
+ */
 export function useIcd10Search(
   query: string,
-  { enabled, suggestedCodes = NO_CODES }: { enabled: boolean; suggestedCodes?: readonly string[] }
+  { enabled, suggestedCodes = NO_CODES, tariffCode }: { enabled: boolean; suggestedCodes?: readonly string[]; tariffCode?: string }
 ): Icd10SearchState {
   const practiceId = useAuthStore(state => state.selectedPracticeId || state.user?.practice_id || null);
+  const tariffSuggestions = useTariffIcd10Suggestions(tariffCode, enabled);
   const [usual, setUsual] = useState<string[]>([]);
   const [search, setSearch] = useState<{ query: string; status: Icd10SearchState['status']; entries: Icd10MasterEntry[] }>({
     query: '',
@@ -99,13 +105,14 @@ export function useIcd10Search(
   }, [text, enabled, searchable]);
 
   const suggestionCodes = useMemo(
-    () => [...new Set([...suggestedCodes, ...usual].map(code => normalizeIcd10(code)).filter(isValidIcd10Format))],
-    [suggestedCodes, usual]
+    () => [...new Set([...suggestedCodes, ...tariffSuggestions.map(item => item.code), ...usual].map(code => normalizeIcd10(code)).filter(isValidIcd10Format))],
+    [suggestedCodes, tariffSuggestions, usual]
   );
+  const hints = useMemo(() => new Map(tariffSuggestions.map(item => [item.code, item.reason])), [tariffSuggestions]);
   const described = useIcd10Entries(suggestionCodes, enabled);
 
   return useMemo<Icd10SearchState>(() => {
-    const suggestions = suggestionCodes.map(code => ({ code, entry: described.entries.get(code) ?? null, suggested: true }));
+    const suggestions = suggestionCodes.map(code => ({ code, entry: described.entries.get(code) ?? null, suggested: true, hint: hints.get(code) }));
     if (!searchable) {
       // One letter: the suggestions whose code starts with it
       const start = text.toUpperCase();
@@ -113,5 +120,5 @@ export function useIcd10Search(
     }
     const current = search.query === text;
     return { options: icd10Options(text, suggestions, current ? search.entries : []), status: current ? search.status : 'searching' };
-  }, [suggestionCodes, described.entries, searchable, search, text]);
+  }, [suggestionCodes, hints, described.entries, searchable, search, text]);
 }

@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration claims_standards_2026_10_13 (version 20261013194526; stored statement md5 5679ba279f6c5697bc852e60b6e2a41b = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL: the claims standard - researched fund deadlines and membership-number lengths in the fund master
 --           (parity F11, A6)

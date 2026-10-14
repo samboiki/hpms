@@ -14,7 +14,7 @@ export default function DebugPage() {
         
         // Test 1: Basic query
         const { data: practices, error } = await supabase
-          .from('practices')
+          .from('practice_listing')
           .select('*');
         
         console.log('Query result:', { practices, error });

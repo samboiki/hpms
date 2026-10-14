@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration clear_stock_avatars_2026_10_13 (version 20261013194455; stored statement md5 58f4b2b51612f29136cf1b410e698f9d = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL: remove the stock photos of strangers that older versions saved as staff pictures
 -- File:   proposals/2026-10-13-clear-stock-avatars.sql                    Drafted: 2026-10-13

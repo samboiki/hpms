@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration admin_only_money_corrections_2026_10_13 (version 20261013193847; stored statement md5 e5851429d744dde9e4d33ab65c0a17e1 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL, NOT APPLIED: refunds, payment reversals and credit notes for administrators only; no new discounts;
 --                        invoices never deleted (parity Q2, H15, Q5, D11, D19; owner decisions of 13 Oct 2026)

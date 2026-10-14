@@ -8,7 +8,6 @@
  * every table that exists when it runs, so it goes last). Files that do not exist yet are skipped.
  * Not here on purpose:
  * - 2026-10-06-data-fixes.sql: its sections are chosen one by one (the owner already applied 6c and 8);
- * - 2026-10-finance-ledger.sql: section 3 is superseded by receipts-and-allocations; the rest needs the owner's decision;
  * - 2026-10-claims.sql: check against the remittances proposal before applying;
  * - 2026-10-08-oauth-secrets-columns.sql: only after the release in which the browser stops reading OAuth secrets.
  */
@@ -274,6 +273,41 @@ export const DEFAULT_ORDER: readonly string[] = [
   // Eminance recalls also become the patient's recall (through set_patient_recall), with a backfill of earlier imports
   // (needs eminance-import and patient-recalls; replaces legacy_import_recalls and legacy_import_undo_step)
   'proposals/2026-10-13-eminance-recalls.sql',
+  // Owner decisions of 13 Oct: payslips for administrators and the person; refunds, reversals and credit notes for
+  // administrators, no new discounts, invoices never deleted (needs discounts-and-statements); cash-up per cashier
+  // (needs debtors-and-controls); patient photo and "heard about us"; Meta connections; stock photos cleared;
+  // researched claim deadlines and member-number lengths (needs fund-master)
+  'proposals/2026-10-13-payslips-admin-or-own.sql',
+  'proposals/2026-10-13-admin-only-money-corrections.sql',
+  'proposals/2026-10-13-cashier-cash-ups.sql',
+  'proposals/2026-10-13-patient-photo-and-referral-source.sql',
+  'proposals/2026-10-13-meta-connections.sql',
+  'proposals/2026-10-13-clear-stock-avatars.sql',
+  'proposals/2026-10-13-claims-standards.sql',
+  // The general ledger (accounting export), reworked 13 Oct to post from receipts and invoice_adjustments
+  'proposals/2026-10-finance-ledger.sql',
+  // Public practice listing for websites; anon no longer reads practices' bank and tax columns
+  'proposals/2026-10-13-public-practice-listing.sql',
+  // Owner step once the practice websites read practice_listing (they ask practices for select=* until redeployed)
+  'proposals/2026-10-13-close-practice-bank-fields.sql',
+  // Scheduler: pg_cron + pg_net run the reminder and automation functions every 15 minutes (Vault secrets)
+  'proposals/2026-10-13-scheduler.sql',
+  // The inpatient tables were open to the public key: closed first, then the Inpatient page's functions (replaces
+  // set_screen_access from screen-access with 'inpatient' added)
+  'proposals/2026-10-13-inpatient-access.sql',
+  'proposals/2026-10-13-inpatient-module.sql',
+  // The NAMAF 2026 benchmark list for every discipline (rows loaded from the owner's file, not in this file)
+  'proposals/2026-10-13-namaf-tariffs.sql',
+  // Each practice type's NAMAF discipline (practice_types.namaf_discipline_code) and the types that were missing
+  // (needs namaf-tariffs: the checks read namaf_tariff_disciplines)
+  'proposals/2026-10-14-practice-type-disciplines.sql',
+  // ICD-10 suggestions per tariff code: what a practice itself bills (learned_tariff_icd10) and a short reviewed starter
+  // list for NAMAF codes that name their situation (needs the ICD-10 list, practice isolation's rls_* helpers and the
+  // receipts file's ar_today; its checks read namaf_tariffs and icd10_codes when they are loaded)
+  'proposals/2026-10-14-tariff-icd10-suggestions.sql',
+  // The starter links that follow the South African ICD-10 coding standards, and the column that names the standard
+  // (needs tariff-icd10-suggestions)
+  'proposals/2026-10-14-tariff-icd10-suggestions-standards.sql',
   'proposals/2026-10-07-patient-portal.sql'
 ];
 

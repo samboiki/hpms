@@ -92,7 +92,16 @@ const Sidebar: React.FC<SidebarProps> = ({
       bgGradient: SECTION_COLORS.finance.iconBox,
       iconColor: 'text-white'
     },
-    { 
+    {
+      // Wards and beds, admitted patients, rounds, nursing, the medication chart (proposals/2026-10-13-inpatient-module.sql)
+      icon: 'solar:bed-bold-duotone',
+      label: 'Inpatient',
+      path: '/inpatient',
+      isRoute: true,
+      bgGradient: SECTION_COLORS.inpatient.iconBox,
+      iconColor: 'text-white'
+    },
+    {
       // Medicines and consumables: deliveries, dispensing, stock take (proposals/2026-10-07-dispensing-and-stock.sql)
       icon: 'solar:box-bold-duotone', 
       label: 'Stock',

@@ -374,6 +374,7 @@ const BillingLineDetails: React.FC<BillingLineDetailsProps> = ({
               required={hasMedicalAid}
               showRequiredError={hasMedicalAid}
               suggestedCodes={icd10?.suggested ? codes : undefined}
+              tariffCode={service.code}
             />
           )}
 

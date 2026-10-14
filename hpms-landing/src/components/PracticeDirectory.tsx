@@ -38,7 +38,7 @@ export default function PracticeDirectory() {
       try {
         console.log('🏥 Loading all practices...')
         const { data, error } = await supabase
-          .from('practices')
+          .from('practice_listing')
           .select('*')
           .order('name')
 

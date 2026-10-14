@@ -65,6 +65,8 @@ export interface VisitTariff {
   max_quantity?: number | null;
   /** The practice's own version of the code (Admin > Tariffs), not the shared list's */
   is_own?: boolean;
+  /** A NAMAF list code with no fixed amount (by rule or at cost): staff type the amount when billing (namafTariffs.ts) */
+  no_fixed_amount?: boolean;
   /** Who pays new lines of the code (the practice's default portion); absent: the fund's co-payment and levy */
   default_paid_by?: PaidBy | null;
   /** Set by priceForPatient when a practitioner's rate applies: the practice's list price before it */
@@ -547,7 +549,8 @@ export function priceLinesAtRate(
     const tariff = tariffs.find(item => item.id === target.tariffId);
     if (!tariff || !atPracticeListPrice(tariff)) continue;
     const listPrice = tariff.list_price ?? parseTariffPrice(tariff.price);
-    if (listPrice === null) continue;
+    // A code with no fixed amount (NAMAF: by rule or at cost) keeps the amount staff typed for it
+    if (listPrice === null || listPrice === 0) continue;
     const unitPrice = priceAtRate(listPrice, ratePercent);
     if (toCents(unitPrice) === toCents(target.unitPrice)) continue;
     const line = computeLine({

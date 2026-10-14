@@ -109,6 +109,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Icon } from '@iconify/react';
 import PatientContactActions from './PatientContactActions';
 import { PatientListsControl } from '../patientLists/PatientListsControl';
+import { InpatientButton } from '../inpatient/InpatientButton';
 import { PatientDispensingPanel } from '../stock/PatientDispensingPanel';
 import PatientOverviewLinks, { type OverviewVisitLink } from './PatientOverviewLinks';
 import { ClinicalAlertStrip } from './safety/ClinicalAlertStrip';
@@ -2353,6 +2354,11 @@ OneHealth Medical Team`;
                       />
                       {/* Automation lists this patient is on (birthdays, recalls...): add or remove */}
                       <PatientListsControl practiceId={practiceId} patient={selectedPatientDetails} variant="onDark" />
+                      {/* Admit to a ward, or open the stay (practices with a ward, staff who open Inpatient) */}
+                      <InpatientButton
+                        patientId={selectedPatientDetails.id}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-sm font-semibold transition-colors"
+                      />
                     </div>
                   )}
                 </div>

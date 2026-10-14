@@ -16,6 +16,11 @@ interface Icd10SearchInputProps {
   position?: Icd10Position;
   /** Codes offered first (the line's suggested codes); the practice's usual codes follow */
   suggestedCodes?: readonly string[];
+  /**
+   * The tariff code of the billing line this box belongs to: the codes suggested for it (the practice's usual code, what
+   * the practice billed most with it, reviewed starter codes) follow the line's own, each with its reason. Only offered.
+   */
+  tariffCode?: string;
   id?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -64,6 +69,7 @@ const Icd10SearchInput: React.FC<Icd10SearchInputProps> = ({
   onKeyDown,
   position = 'main',
   suggestedCodes,
+  tariffCode,
   id,
   placeholder = 'Code or words',
   disabled = false,
@@ -78,7 +84,7 @@ const Icd10SearchInput: React.FC<Icd10SearchInputProps> = ({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [placement, setPlacement] = useState<Placement | null>(null);
-  const { options, status } = useIcd10Search(value, { enabled: open && !disabled, suggestedCodes });
+  const { options, status } = useIcd10Search(value, { enabled: open && !disabled, suggestedCodes, tariffCode });
   const typed = value.trim().length > 0;
   const optionsKey = options.map(option => option.code).join(' ');
 
@@ -211,6 +217,7 @@ const Icd10SearchInput: React.FC<Icd10SearchInputProps> = ({
                       <span className="w-14 shrink-0 font-mono text-xs font-semibold text-gray-900">{option.code}</span>
                       <span className="min-w-0 flex-1">
                         {option.entry?.description && <span className="block text-xs text-gray-700">{option.entry.description}</span>}
+                        {option.hint && <span className="mt-0.5 block text-xs text-gray-500">{option.hint}</span>}
                         {note && <span className="mt-0.5 block text-xs font-medium text-amber-700">{note}</span>}
                       </span>
                       {option.suggested && (

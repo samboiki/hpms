@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration meta_connections_2026_10_13 (version 20261013194428; stored statement md5 70e5a5a5d971459374f7d2cf38085250 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL: a practice's own Facebook pages and Instagram business accounts, with their tokens kept server-side
 -- File:   proposals/2026-10-13-meta-connections.sql                       Drafted: 2026-10-13

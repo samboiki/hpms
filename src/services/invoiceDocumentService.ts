@@ -28,6 +28,9 @@ import { loadPractitionerBilling } from './practitionerBillingService';
 import { patientFileStatus } from '../utils/patients/temporaryPatient';
 import { loadInvoiceDiscounts } from './discountService';
 import { discountReasonText, standingDiscounts } from './ledgerService';
+import { loadPracticeNamaf } from './namafTariffService';
+import { withNamafTariffs } from '../utils/billing/namafTariffs';
+import type { PracticeTariffLike } from '../utils/billing/practiceTariffs';
 import { loadVisitBilledTo } from './payerAccountService';
 
 // Columns the generated types do not know yet (dependant_code, the invoicing update's line columns) are read with '*'
@@ -45,17 +48,20 @@ const amount = (value: unknown): number => {
 const COMPUTED_CODES = new Set([MATERIAL_FACTOR_CODE]);
 
 /**
- * The codes billed at a price other than the practice tariff (the NAMAF benchmark of the discipline) on their
- * service date; null when the tariff list cannot be read.
+ * The codes billed at a price other than the practice tariff (the shared list of the practice type over the NAMAF
+ * benchmark of its discipline, as billing prices it) on their service date; null when the tariff list cannot be read.
  */
-async function offBenchmarkCodes(practiceType: string | null, lines: readonly InvoiceDocumentLine[], fallbackDate: string): Promise<string[] | null> {
+export async function offBenchmarkCodes(practiceId: string, practiceType: string | null, lines: readonly InvoiceDocumentLine[], fallbackDate: string): Promise<string[] | null> {
   if (!practiceType) return null;
-  const { data, error } = await supabase
-    .from('practice_tariffs_with_types')
-    .select('id, code, price, is_active, effective_from, effective_to, can_be_multiplied, requires_tooth_number')
-    .eq('practice_type_name', practiceType);
-  if (error) return null;
-  const rows = (data ?? []) as unknown as TariffRow[];
+  const [{ data, error }, namaf] = await Promise.all([
+    supabase
+      .from('practice_tariffs_with_types')
+      .select('id, code, description, price, is_active, effective_from, effective_to, can_be_multiplied, requires_tooth_number')
+      .eq('practice_type_name', practiceType),
+    loadPracticeNamaf(practiceId, practiceType)
+  ]);
+  if (error || namaf.status === 'error') return null;
+  const rows = withNamafTariffs((data ?? []) as unknown as PracticeTariffLike[], namaf.tariffs) as unknown as TariffRow[];
   const byDate = new Map<string, Map<string, number>>();
   const priceOn = (lineDate: string, code: string): number | undefined => {
     const date = isValidDateKey(lineDate) ? lineDate : todayKey();
@@ -66,7 +72,11 @@ async function offBenchmarkCodes(practiceType: string | null, lines: readonly In
   };
   return lines
     .filter(line => !COMPUTED_CODES.has(line.code.trim()))
-    .filter(line => priceOn(line.serviceDate ?? fallbackDate, line.code) !== toCents(line.unitPrice))
+    .filter(line => {
+      const benchmark = priceOn(line.serviceDate ?? fallbackDate, line.code);
+      // A code without a fixed amount in the list (N$ 0: by rule or at cost) has nothing to differ from
+      return benchmark !== 0 && benchmark !== toCents(line.unitPrice);
+    })
     .map(line => line.code);
 }
 
@@ -208,7 +218,7 @@ export async function loadInvoiceDocumentInput(invoiceId: string): Promise<Invoi
       ownPracticeNumber: billing.billing.get(person.id)?.practiceNumber ?? null
     })),
     lines,
-    offBenchmarkCodes: await offBenchmarkCodes(practiceType, lines, toDateKey(visit?.visit_date ?? null) ?? issueDate ?? todayKey()),
+    offBenchmarkCodes: await offBenchmarkCodes(practiceId, practiceType, lines, toDateKey(visit?.visit_date ?? null) ?? issueDate ?? todayKey()),
     vat: vatRates.settings.registered ? { vatNumber: vatRates.settings.vatNumber } : null,
     discounts: standingDiscounts(discountRows).discounts.map(discount => ({
       number: discount.number,

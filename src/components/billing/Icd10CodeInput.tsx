@@ -24,6 +24,8 @@ interface Icd10CodeInputProps {
   required?: boolean;
   /** Codes offered first in the search (the line's suggested codes); the practice's usual codes follow */
   suggestedCodes?: readonly string[];
+  /** The tariff code the line is billed with: the main code box also offers the codes suggested for it, with reasons */
+  tariffCode?: string;
 }
 
 /** A typed code tidied ("j069" -> "J06.9") when it has the ICD-10 shape; words that were searched for stay as typed. */
@@ -45,7 +47,8 @@ const Icd10CodeInput: React.FC<Icd10CodeInputProps> = ({
   label = 'ICD-10 diagnosis',
   showRequiredError = true,
   required = true,
-  suggestedCodes
+  suggestedCodes,
+  tariffCode
 }) => {
   const primaryId = useId();
   const secondaryId = useId();
@@ -88,6 +91,7 @@ const Icd10CodeInput: React.FC<Icd10CodeInputProps> = ({
             disabled={disabled}
             position="main"
             suggestedCodes={suggestedCodes}
+            tariffCode={tariffCode}
             onChange={text => onChange({ ...value, primary: text.toUpperCase() })}
             onPick={option => onChange({ ...value, primary: option.code })}
             onBlur={() => {

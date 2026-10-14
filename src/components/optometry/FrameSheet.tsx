@@ -8,6 +8,7 @@ import { billableOn, loadTariffSet } from '../quotes/quoteService';
 import { loadSuppliers } from '../../services/stock/stockService';
 import { saveFrame, type FrameRow } from '../../services/optometry/optometryService';
 import { fromCents } from '../../utils/billing/money';
+import { isNamafListCode } from '../../utils/billing/namafTariffs';
 import { todayKey } from '../../utils/billing/dates';
 import { emptyFrameDraft, validateFrameDraft, type FrameDraft, type FrameDraftErrors } from '../../utils/optometry/frames';
 import type { Supplier } from '../../utils/stock/stockRows';
@@ -70,7 +71,11 @@ const FrameSheet: React.FC<FrameSheetProps> = ({ open, practiceId, frame = null,
     loadTariffSet(practiceId)
       .then(set => {
         if (cancelled) return;
-        const billable = billableOn(set, todayKey()).map(row => ({ code: row.code, description: (row.description ?? '').trim() }));
+        // The practice's own and shared codes, and the NAMAF frame codes (NA70405 "FRAME"): the discipline's whole NAMAF list
+        // (optometry: 7,168 codes, the lens products among them) is not a menu to choose a frame's code from
+        const billable = billableOn(set, todayKey())
+          .filter(row => !isNamafListCode(row) || /\bframes?\b/i.test(row.description ?? ''))
+          .map(row => ({ code: row.code, description: (row.description ?? '').trim() }));
         setCodes(billable);
         setCodesNote(billable.length === 0 ? 'Your tariff list has no codes yet: import your optometry tariffs, then choose the frame code here.' : null);
       })

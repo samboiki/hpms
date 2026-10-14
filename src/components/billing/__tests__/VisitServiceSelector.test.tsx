@@ -63,3 +63,43 @@ describe('the order of the codes', () => {
     expect(orderServices(rows, { '8110': 3 }, '8101').map(row => row.code)).toEqual(['8101']);
   });
 });
+
+// Business rule (owner, 13 Oct 2026): NAMAF lines without a fixed amount (priced by rule, at cost or by arrangement) stay
+// selectable and are billed at the amount staff type, never at N$ 0. A NAMAF list holds up to 7,000 codes (the
+// optometry lens catalogue), so the list draws the first ones and a search finds the rest.
+describe('NAMAF codes in the service list', () => {
+  const atCost = tariff('0201', '0', { description: 'Cost of material used in treatment', no_fixed_amount: true });
+  const consult = tariff('0190', '521.40', { description: 'Consultation at the rooms', no_fixed_amount: false });
+
+  it('asks for the amount of a code without a fixed amount and adds the service at it', () => {
+    const onSelect = vi.fn();
+    render(<VisitServiceSelector open tariffs={[consult, atCost]} usage={{}} onSelect={onSelect} onClose={vi.fn()} />);
+    const card = screen.getByRole('button', { name: /^0201/ });
+    expect(card).toHaveTextContent('Amount when billed');
+    fireEvent.click(card);
+    expect(onSelect).not.toHaveBeenCalled();
+    const form = screen.getByRole('form', { name: 'Amount for 0201' });
+    const amount = within(form).getByRole('textbox', { name: 'Amount per unit (N$)' });
+    fireEvent.click(within(form).getByRole('button', { name: 'Add the service' }));
+    expect(within(form).getByRole('alert')).toHaveTextContent('Enter the amount in N$');
+    fireEvent.change(amount, { target: { value: 'N$ 1,250.50' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Add the service' }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: '0201', price: 1250.5 }));
+  });
+
+  it('adds a code with a fixed amount at once, as before', () => {
+    const onSelect = vi.fn();
+    render(<VisitServiceSelector open tariffs={[consult, atCost]} usage={{}} onSelect={onSelect} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /^0190/ }));
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ code: '0190', price: '521.40' }));
+  });
+
+  it('draws the first 120 codes of a long list and finds the others by searching', () => {
+    const lenses = Array.from({ length: 300 }, (_, index) => tariff(`L${String(index).padStart(4, '0')}`, '0', { description: `1.50 Lens ${index}`, no_fixed_amount: true }));
+    render(<VisitServiceSelector open tariffs={lenses} usage={{}} onSelect={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getAllByRole('button', { name: /^L\d{4}/ })).toHaveLength(120);
+    expect(screen.getByText(/Showing 120 of 300 codes/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'lens 299' } });
+    expect(screen.getAllByRole('button', { name: /^L\d{4}/ }).map(button => button.textContent?.slice(0, 5))).toEqual(['L0299']);
+  });
+});

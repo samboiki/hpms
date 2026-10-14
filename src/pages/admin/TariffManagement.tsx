@@ -26,6 +26,9 @@ import CopaymentPanel from '../../components/billing/CopaymentPanel';
 import PromotionsPackagesPanel from '../../components/billingExtras/PromotionsPackagesPanel';
 import PracticeTypeNeededNotice from '../../components/settings/PracticeTypeNeededNotice';
 import { needsPracticeTypeChoice } from '../../utils/practiceType';
+import NamafListNote from '../../components/tariffs/NamafListNote';
+import { loadNamafDisciplines, loadPracticeNamaf, type NamafLoad } from '../../services/namafTariffService';
+import { withNamafTariffs, type NamafDiscipline } from '../../utils/billing/namafTariffs';
 
 /** The load stops here when the practice has no type: the page then points to Settings instead of an error */
 const PRACTICE_TYPE_MISSING = 'The practice type is not set, so its tariff list is unknown.';
@@ -36,8 +39,13 @@ interface PageData {
   practiceName: string;
   practiceType: string;
   practiceTypeId: string | null;
-  /** The shared list of the practice type (practice_tariffs): fund prices and imports compare with it */
+  /** The shared list of the practice type (practice_tariffs): imports compare with it */
   tariffRows: PracticeTariffRecord[];
+  /** The shared list over the NAMAF benchmark of the practice's discipline: what billing prices from (fund prices compare with it) */
+  listRows: PracticeTariffRecord[];
+  /** The NAMAF list the practice bills from, and the disciplines an administrator can choose instead */
+  namaf: NamafLoad;
+  disciplines: NamafDiscipline[];
   /** The practice's own codes (practice_own_tariffs), merged over the shared list on the Practice tariff tab */
   ownTariffs: { rows: OwnTariffRow[]; enabled: boolean };
   /** Who pays new lines of each code; `editable` once invoice lines can keep it (line-portions update) */
@@ -110,7 +118,7 @@ const TariffManagement: React.FC = () => {
       }
       const practiceType = practice?.practice_type?.trim();
       if (!practiceType) throw new Error(PRACTICE_TYPE_MISSING);
-      const [practiceTypeId, tariffs, providers, fundLoad, contracts, infectionControlStaff, own, portions, setup] = await Promise.all([
+      const [practiceTypeId, tariffs, providers, fundLoad, contracts, infectionControlStaff, own, portions, setup, namaf, disciplines] = await Promise.all([
         loadPracticeTypeId(practiceType),
         supabase.from('practice_tariffs_with_types').select(TARIFF_COLUMNS).eq('practice_type_name', practiceType),
         supabase.from('medical_aid_providers').select('name, short_name, medical_aid_reference').order('name'),
@@ -119,7 +127,10 @@ const TariffManagement: React.FC = () => {
         loadInfectionControlStaff(practiceId),
         loadOwnTariffs(practiceId),
         loadTariffPortions(practiceId),
-        loadInvoicingSetup()
+        loadInvoicingSetup(),
+        loadPracticeNamaf(practiceId, practiceType),
+        // The chooser only: without it the list the practice uses is still shown
+        loadNamafDisciplines().catch(() => ({ status: 'ready' as const, disciplines: [] as NamafDiscipline[] }))
       ]);
       if (tariffs.error || providers.error || portions.error) console.error('Tariffs: loading failed', tariffs.error ?? providers.error ?? portions.error);
       if (tariffs.error) throw new Error('Could not load the tariff list. Please refresh the page.');
@@ -130,6 +141,9 @@ const TariffManagement: React.FC = () => {
         practiceType,
         practiceTypeId,
         tariffRows: (tariffs.data ?? []) as PracticeTariffRecord[],
+        listRows: withNamafTariffs((tariffs.data ?? []) as PracticeTariffRecord[], namaf.tariffs) as PracticeTariffRecord[],
+        namaf,
+        disciplines: disciplines.disciplines,
         ownTariffs: own,
         portions: { map: portions.portions, editable: setup.linePortions === true },
         fundRows: fundLoad.rows,
@@ -228,7 +242,7 @@ const TariffManagement: React.FC = () => {
                   isSuperAdmin={isSuperAdmin}
                   canEditPractice={canEditPractice}
                   funds={data.funds}
-                  tariffRows={data.tariffRows}
+                  tariffRows={data.listRows}
                   fundRows={data.fundRows}
                   contracts={data.contracts}
                   onChanged={reload}
@@ -267,15 +281,26 @@ const TariffManagement: React.FC = () => {
                 </div>
               )}
               {tab === 'tariff' && (
-                <PracticeTariffPanel
-                  practiceType={data.practiceType}
-                  tariffRows={data.tariffRows}
-                  practiceId={practiceId as string}
-                  canEdit={canEditPractice}
-                  ownTariffs={data.ownTariffs}
-                  portions={data.portions}
-                  onChanged={reload}
-                />
+                <div className="space-y-4">
+                  {/* Which NAMAF benchmark list the practice bills from, its source and dates (parity E1) */}
+                  <NamafListNote
+                    practiceId={practiceId as string}
+                    practiceType={data.practiceType}
+                    canEdit={canEditPractice}
+                    namaf={data.namaf}
+                    disciplines={data.disciplines}
+                    onChanged={reload}
+                  />
+                  <PracticeTariffPanel
+                    practiceType={data.practiceType}
+                    tariffRows={data.listRows}
+                    practiceId={practiceId as string}
+                    canEdit={canEditPractice}
+                    ownTariffs={data.ownTariffs}
+                    portions={data.portions}
+                    onChanged={reload}
+                  />
+                </div>
               )}
             </div>
           </>

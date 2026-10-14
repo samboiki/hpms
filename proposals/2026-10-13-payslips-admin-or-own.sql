@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration payslips_admin_or_own_2026_10_13 (version 20261013193652; stored statement md5 2c3f7a8d1d7e11119d9856bbfa5ee1a8 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL: payslips are read by the practice's administrators (all) and by each person (their own only)
 -- File:   proposals/2026-10-13-payslips-admin-or-own.sql                  Drafted: 2026-10-13

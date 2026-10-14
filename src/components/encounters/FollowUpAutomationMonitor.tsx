@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
-import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
 
@@ -23,7 +22,6 @@ interface RecentJob {
 export default function FollowUpAutomationMonitor() {
   const [queueStatus, setQueueStatus] = useState<QueueStatus[]>([]);
   const [recentJobs, setRecentJobs] = useState<RecentJob[]>([]);
-  const [isProcessing, setIsProcessing] = useState(false);
 
   // Fetch queue status
   const fetchQueueStatus = async () => {
@@ -49,26 +47,8 @@ export default function FollowUpAutomationMonitor() {
     }
   };
 
-  // Process queue manually
-  const processQueue = async () => {
-    setIsProcessing(true);
-    try {
-      // invoke() reports a refusal in `error` and never throws: the queue is run by OneHealth's scheduler (the function
-      // takes only its service key), so a press from here was refused and nothing said so
-      const { error } = await supabase.functions.invoke('process-automation-queue');
-      if (error) {
-        console.error('Error processing queue:', error);
-        toast.error('The queue is sent by OneHealth\'s scheduler every few minutes and cannot be started from here. If nothing moves, OneHealth support must start the scheduler.', { duration: 8000 });
-      }
-      await fetchQueueStatus();
-      await fetchRecentJobs();
-    } catch (error) {
-      console.error('Error processing queue:', error);
-      toast.error('The queue could not be reached. Please try again.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  // No "Process Queue" button (owner, 13 Oct 2026): the queue is run by OneHealth's scheduler every 15 minutes with
+  // its service key, so a press from here was always refused
 
   // Set up real-time subscription
   useEffect(() => {
@@ -143,17 +123,6 @@ export default function FollowUpAutomationMonitor() {
             <Icon icon="solar:chart-bold-duotone" className="w-6 h-6 text-purple-600" />
             Automation Queue Status
           </h3>
-          <button
-            onClick={processQueue}
-            disabled={isProcessing}
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            <Icon 
-              icon={isProcessing ? "solar:refresh-circle-bold-duotone" : "solar:play-circle-bold-duotone"} 
-              className={`w-5 h-5 ${isProcessing ? 'animate-spin' : ''}`} 
-            />
-            Process Queue
-          </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

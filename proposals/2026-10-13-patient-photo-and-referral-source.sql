@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration patient_photo_and_referral_source_2026_10_13 (version 20261013194343; stored statement md5 12f2f200f2ea6cf6c470227cb5e79a85 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL: the patient's photo (parity A12) and "How did you hear about us?" (parity R26)
 -- File:   proposals/2026-10-13-patient-photo-and-referral-source.sql         Drafted: 2026-10-13

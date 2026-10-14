@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 
-// The queue's function takes only the scheduler's service key: a press from the app is refused (invoke never throws)
-const invoke = vi.hoisted(() => vi.fn(async () => ({ data: null, error: { message: 'Only the platform may run the queue' } })));
+const invoke = vi.hoisted(() => vi.fn(async () => ({ data: null, error: null })));
 vi.mock('../../../lib/supabase', () => {
   const query = (): unknown =>
     new Proxy(
@@ -15,19 +14,18 @@ vi.mock('../../../lib/supabase', () => {
   const channel = { on: () => channel, subscribe: () => ({ unsubscribe: () => undefined }) };
   return { supabase: { from: () => query(), channel: () => channel, functions: { invoke } } };
 });
-const toast = vi.hoisted(() => ({ error: vi.fn() }));
-vi.mock('react-hot-toast', () => ({ toast }));
 
 import FollowUpAutomationMonitor from '../FollowUpAutomationMonitor';
 
 afterEach(cleanup);
 
-describe('Encounters > Automations > Process Queue', () => {
-  // The press was refused every time and the screen said nothing, so it looked like the queue had run
-  it('says the scheduler sends the queue when the press is refused', async () => {
+describe('Encounters > Automations queue status', () => {
+  // The queue is run by OneHealth's scheduler with its service key: a "Process Queue" press from the app was always
+  // refused, so the owner had the dead button removed (13 Oct 2026). The screen only shows the queue.
+  it('offers no button that would try to run the queue from the browser', async () => {
     render(<FollowUpAutomationMonitor />);
-    fireEvent.click(screen.getByRole('button', { name: /Process Queue/ }));
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/sent by OneHealth's scheduler/), expect.anything()));
-    expect(invoke).toHaveBeenCalledWith('process-automation-queue');
+    expect(await screen.findByText('Automation Queue Status')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Process Queue/ })).toBeNull();
+    expect(invoke).not.toHaveBeenCalled();
   });
 });

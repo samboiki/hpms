@@ -1,3 +1,4 @@
+-- Applied 2026-10-13 as migration cashier_cash_ups_2026_10_13 (version 20261013194238; stored statement md5 fb15ebf5866094948ff87e6e635cc624 = md5 of the part between BEGIN; and ROLLBACK;)
 -- =============================================================================================
 -- PROPOSAL, NOT APPLIED: cash-up per cashier with their own float; the administrator signs off the day
 --                        (parity H11; owner decision of 13 Oct 2026)
@@ -98,9 +99,11 @@ CREATE INDEX IF NOT EXISTS cashier_cash_ups_day ON public.cashier_cash_ups (prac
 COMMENT ON TABLE public.cashier_cash_ups IS
   'Cash-up per cashier (owner, 13 Oct 2026): each cashier''s own float and count against their own receipts. A recount replaces the earlier one (kept, with a reason).';
 
+-- "difference" is listed because a BEFORE trigger sees a generated column as not yet computed (NULL in NEW); nobody
+-- can write it (GENERATED ALWAYS), so listing it lets a recount close the earlier count without opening anything.
 DROP TRIGGER IF EXISTS dc_20_history ON public.cashier_cash_ups;
 CREATE TRIGGER dc_20_history BEFORE UPDATE OR DELETE ON public.cashier_cash_ups
-  FOR EACH ROW EXECUTE FUNCTION public.dc_history_guard('superseded_at,superseded_by,supersede_reason', '');
+  FOR EACH ROW EXECUTE FUNCTION public.dc_history_guard('superseded_at,superseded_by,supersede_reason,difference', '');
 DROP TRIGGER IF EXISTS dc_99_no_truncate ON public.cashier_cash_ups;
 CREATE TRIGGER dc_99_no_truncate BEFORE TRUNCATE ON public.cashier_cash_ups
   FOR EACH STATEMENT EXECUTE FUNCTION public.dc_no_truncate();

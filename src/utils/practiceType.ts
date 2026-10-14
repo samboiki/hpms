@@ -32,7 +32,19 @@ const LABELS: Readonly<Record<string, string>> = {
   radiology: 'Radiology',
   pathology: 'Pathology',
   pharmacy: 'Pharmacy',
-  aesthetic: 'Aesthetic practice'
+  aesthetic: 'Aesthetic practice',
+  // The disciplines added with proposals/2026-10-14-practice-type-disciplines.sql (each bills from its NAMAF list)
+  anesthesiology: 'Anaesthetics',
+  internal_medicine: 'Internal medicine (specialist physician)',
+  psychiatry: 'Psychiatry',
+  general_surgery: 'General surgery',
+  urology: 'Urology',
+  occupational_therapy: 'Occupational therapy',
+  speech_therapy: 'Speech therapy and audiology',
+  dietetics: 'Dietetics',
+  biokinetics: 'Biokinetics',
+  private_hospital: 'Private hospital',
+  day_clinic: 'Day clinic'
 };
 
 const clean = (value: unknown): string => (typeof value === 'string' ? value.trim().toLowerCase() : '');

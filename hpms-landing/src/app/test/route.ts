@@ -5,17 +5,17 @@ export async function GET() {
   try {
     // Test 1: Simple count
     const { count, error: countError } = await supabase
-      .from('practices')
+      .from('practice_listing')
       .select('*', { count: 'exact', head: true });
     
     // Test 2: Get all practices
     const { data, error } = await supabase
-      .from('practices')
+      .from('practice_listing')
       .select('*');
     
     // Test 3: Get specific practice
     const { data: cityClinic, error: clinicError } = await supabase
-      .from('practices')
+      .from('practice_listing')
       .select('*')
       .eq('slug', 'cityclinic')
       .single();

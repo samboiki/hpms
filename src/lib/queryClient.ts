@@ -47,7 +47,10 @@ export const SAVE_AFFECTS = {
   // Payslips created, paid or deleted: Payroll, the person's payslip count, bonuses due
   payslips: [['payslips'], ['user-stats'], ['bonus-due-employees']],
   // The practice profile (name, logo, colours, type, opening hours): the menu, the diary, tariffs, payslip heading
-  practice: [[PRACTICE_ROW_KEY], ['practice-heading'], ['user-practice-hours']]
+  practice: [[PRACTICE_ROW_KEY], ['practice-heading'], ['user-practice-hours']],
+  // An admission, transfer, discharge, round, nursing record, dose, visitor or ward change: the Inpatient page, the
+  // patient file's and the visit's inpatient button
+  inpatient: [['inpatient']]
 } as const satisfies Record<string, readonly QueryKey[]>;
 
 export type SavedThing = keyof typeof SAVE_AFFECTS;

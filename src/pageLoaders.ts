@@ -8,6 +8,7 @@ export const PAGE_LOADERS = {
   '/encounters': () => import('./pages/Encounters'),
   '/communications': () => import('./pages/Communications'),
   '/finance': () => import('./pages/Finance'),
+  '/inpatient': () => import('./components/inpatient/InpatientPage'),
   '/stock': () => import('./components/stock/StockPage'),
   '/admin/practices': () => import('./pages/admin/PracticesManagement'),
   '/admin/tariffs': () => import('./pages/admin/TariffManagement'),

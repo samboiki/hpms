@@ -39,6 +39,8 @@ import OptometryRedirect from './components/optometry/OptometryRedirect';
 // "This page could not load" with "Try again", never an empty screen
 // Stock and dispensing (proposals/2026-10-07-dispensing-and-stock.sql), loaded when opened
 const StockPage = lazyPage(PAGE_LOADERS['/stock']);
+// Wards, beds and admitted patients (proposals/2026-10-13-inpatient-module.sql), loaded when opened
+const InpatientPage = lazyPage(PAGE_LOADERS['/inpatient']);
 // Every other staff page is also loaded when first opened, so a phone downloads only the sign-in screen, the layout and
 // the Dashboard before the first screen shows (the installed app still keeps every page for offline start)
 const Patients = lazyPage(PAGE_LOADERS['/patients']);
@@ -147,6 +149,7 @@ export default function StaffApp() {
               {import.meta.env.DEV && <Route path="working-sms-test" element={<WorkingSMSTest />} />}
               {import.meta.env.DEV && <Route path="test-sms-auth" element={<TestSMSWithAuth />} />}
               <Route path="finance" element={<RequireRole screen="finance"><Suspense fallback={spinner}><Finance /></Suspense></RequireRole>} />
+              <Route path="inpatient" element={<RequireRole screen="inpatient"><Suspense fallback={spinner}><InpatientPage /></Suspense></RequireRole>} />
               <Route path="stock" element={<RequireRole screen="stock"><Suspense fallback={spinner}><StockPage /></Suspense></RequireRole>} />
               {/* The Optometry page was merged into Stock (owner, 13 Oct 2026): old addresses open the same part there */}
               <Route path="optometry" element={<OptometryRedirect />} />
