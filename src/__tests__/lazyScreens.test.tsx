@@ -137,11 +137,17 @@ const open = (path: string) =>
     </Crash>
   );
 
-const FOUND = { timeout: 30000 };
+// The first load of the app's code, and of each page, is slow on a busy machine: a full run on four workers took over
+// 30 s for the first screen. These limits only matter when something is wrong, so they are generous.
+const FOUND = { timeout: 90000 };
+const SLOW_TEST = 180000;
 
 afterEach(() => {
   cleanup();
   db.access.current = {};
+  // The held-back page is let go after every test, so a first test that fails early cannot leave it blocked for the
+  // tests after it (/admin/practices would then fail for a reason that has nothing to do with it)
+  slowPage.release();
 });
 
 // First in the file: the page's code is held back only the first time it is loaded
@@ -157,7 +163,7 @@ describe("while a page's code is on its way", () => {
 
     slowPage.release();
     expect(await screen.findByRole('heading', { name: /^Practice Management$/ }, FOUND)).toBeInTheDocument();
-  }, 60000);
+  }, SLOW_TEST);
 });
 
 // Before the pages below: a page's code is kept once it has loaded
@@ -175,7 +181,7 @@ describe("when a page's code cannot be downloaded", () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(await screen.findByRole('heading', { name: /^OneHealth System Blueprint$/ }, FOUND)).toBeInTheDocument();
     expect(screen.queryByText('This page could not load')).toBeNull();
-  }, 60000);
+  }, SLOW_TEST);
 });
 
 describe('every staff page still opens at its address now that it loads when first opened', () => {
@@ -203,7 +209,7 @@ describe('every staff page still opens at its address now that it loads when fir
       expect(await screen.findByRole('heading', { name: heading }, FOUND)).toBeInTheDocument();
       expect(screen.queryByText(/The screen crashed/)).toBeNull();
       expect(screen.getByLabelText('address')).toHaveTextContent(path);
-    }, 60000);
+    }, SLOW_TEST);
   }
 });
 
@@ -216,7 +222,7 @@ describe('who may open what is unchanged', () => {
     open('/finance');
     expect(await screen.findByRole('heading', { name: /Ask your practice administrator for access to Finance/ }, FOUND)).toBeInTheDocument();
     expect(screen.queryByRole('tablist', { name: 'Finance sections' })).toBeNull();
-  }, 60000);
+  }, SLOW_TEST);
 
   it('a role the practice lets into Finance opens it', async () => {
     db.access.current = { finance: ['receptionist'] };
@@ -224,7 +230,7 @@ describe('who may open what is unchanged', () => {
     open('/finance');
     expect(await screen.findByRole('tablist', { name: 'Finance sections' }, FOUND)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Ask your practice administrator/ })).toBeNull();
-  }, 60000);
+  }, SLOW_TEST);
 
   // Administrator tools are not for everyone: anyone else gets the ordinary "page not found"
   it('a receptionist opening an administrator page gets "Page not found"', async () => {
@@ -232,7 +238,7 @@ describe('who may open what is unchanged', () => {
     open('/admin/funds');
     expect(await screen.findByRole('heading', { name: 'Page not found' }, FOUND)).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: /Medical aid funds/ })).toBeNull();
-  }, 60000);
+  }, SLOW_TEST);
 });
 
 // Already loaded when opened before this change; still there with the staff pages split off
@@ -244,7 +250,7 @@ describe('the patient-facing screens', () => {
     open('/');
     expect(await screen.findByRole('heading', { name: 'Confirm who you are' }, FOUND)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Open menu' })).toBeNull();
-  }, 60000);
+  }, SLOW_TEST);
 
   // The link in a booking's SMS opens that booking's questions without signing in (an unknown code says so)
   it("a booking's pre-visit link opens without signing in", async () => {
@@ -257,7 +263,7 @@ describe('the patient-facing screens', () => {
     } finally {
       window.history.replaceState(null, '', '/');
     }
-  }, 60000);
+  }, SLOW_TEST);
 });
 
 describe('old links', () => {
@@ -267,7 +273,7 @@ describe('old links', () => {
     open('/patients/patient-1?visit=visit-1');
     expect(await screen.findByRole('heading', { name: /^Patients$/ }, FOUND)).toBeInTheDocument();
     expect(screen.getByLabelText('address')).toHaveTextContent('/patients?patientId=patient-1&visitId=visit-1&action=edit-visit');
-  }, 60000);
+  }, SLOW_TEST);
 
   // The old patient page (/patients/<id>/visit/<id>) was removed on the owner's say-so (13 Oct 2026: nothing linked to
   // it); a bookmark of it still opens that patient's visit, on the Patients page, rather than "page not found"
@@ -276,7 +282,7 @@ describe('old links', () => {
     open('/patients/patient-1/visit/visit-1');
     expect(await screen.findByRole('heading', { name: /^Patients$/ }, FOUND)).toBeInTheDocument();
     expect(screen.getByLabelText('address')).toHaveTextContent('/patients?patientId=patient-1&visitId=visit-1&action=edit-visit');
-  }, 60000);
+  }, SLOW_TEST);
 
   // The billing-workflow and practice-profile pages were removed too (nothing linked to them): their addresses are the
   // ordinary "page not found", with the menu still there
@@ -286,6 +292,6 @@ describe('old links', () => {
       open(path);
       expect(await screen.findByRole('heading', { name: 'Page not found' }, FOUND)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'Open menu' })).toBeInTheDocument();
-    }, 60000);
+    }, SLOW_TEST);
   }
 });

@@ -189,6 +189,12 @@ export interface BatchLineSources {
    * practice does not number teeth; no tooth is then required.
    */
   tariffRows: readonly TariffRow[];
+  /**
+   * A dental specialist's practice only: the codes of the dentist's list that need a tooth number. A specialist's NAMAF codes
+   * are not in tariffRows, so a code none of them speaks for takes the dentist's rule, as on the visit (toothRuleFor).
+   * Absent when it could not be read or the practice is not a dental specialist.
+   */
+  dentistToothCodes?: ReadonlySet<string>;
   /** practices.practice_type: dental suggestions and NAMAF dental rules apply to dental practices only. */
   practiceType?: string | null;
   /** Patients whose file is marked "Do not claim", by patient id: their lines cannot be sent. */

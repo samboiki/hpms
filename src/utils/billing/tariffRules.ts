@@ -8,13 +8,17 @@
  */
 import { parseToothList } from './pricing.ts';
 import type { ClaimLine } from './claimLine.ts';
+import { DENTAL_PRACTICE_TYPES, normalisePracticeType } from './practiceTypeNames.ts';
 
 /**
  * These rules and suggestions are NAMAF's dental schedule: they apply to dental practices only (practices.practice_type
- * 'dental'). OneHealth also serves GPs and specialists, whose codes and rules differ.
+ * 'dental' and the dental specialists: orthodontist, maxillo-facial and oral surgeon, periodontist, prosthodontist, dental
+ * therapist; practiceTypeNames.ts). OneHealth also serves GPs and other specialists, whose codes and rules differ.
+ * This is the one question every dental rule asks: the tooth chart, the dental claim checks, the quote's tooth column,
+ * dental lab orders and the dental code rules. 'dental_practice' is read as 'dental' (the stored text is not changed).
  */
 export const isDentalPractice = (practiceType: string | null | undefined): boolean =>
-  (practiceType ?? '').trim().toLowerCase() === 'dental';
+  DENTAL_PRACTICE_TYPES.includes(normalisePracticeType(practiceType));
 
 /**
  * Optometry practices (practices.practice_type 'optometry') get the eye records: prescriptions, the eye exam, lab
@@ -32,6 +36,14 @@ export const ANTERIOR_RESTORATION_CODES: readonly string[] = ['8351', '8352', '8
 export const RESTORATION_CODES: readonly string[] = [...POSTERIOR_RESTORATION_CODES, ...ANTERIOR_RESTORATION_CODES];
 /** Infection control: "per dentist, per hygienist, per dental assistant, per visit" (NAMAF 2025). */
 export const INFECTION_CONTROL_CODE = '8109';
+/**
+ * Whether a price list is NAMAF's dentist schedule: its codes are numbered 8xxx (8101 examination, 8109 infection
+ * control, 8341 fillings ...). Only that schedule has the rule the app applies by itself, 8109 once per visit and 8346
+ * with a restoration; where the list lacks 8109 staff are told. The dental therapist's list (095) is numbered 001-071 and
+ * has its own infection control code (009), so nothing is added for it and no error says 8109 is missing.
+ */
+export const followsDentistSchedule = (rows: ReadonlyArray<{ code?: string | null }>): boolean =>
+  rows.some(row => /^8\d{3}$/.test((row.code ?? '').trim()));
 /** Clinical staff billed for 8109 at one visit: dentist, hygienist and assistant at most. */
 export const MAX_INFECTION_CONTROL_STAFF = 3;
 /** Without a practice setting 8109 is billed for one staff member, as before the setting existed. */

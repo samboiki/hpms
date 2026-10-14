@@ -10,7 +10,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import BillingLineDetails from '../BillingLineDetails';
 import type { ServiceSelection } from '../../../types/billing';
-import { toLearnedMap, toStarterMap } from '../../../utils/billing/tariffIcd10Suggestions';
+import { EMPTY_TARIFF_ICD10_DATA, toLearnedMap, toStarterMap } from '../../../utils/billing/tariffIcd10Suggestions';
 
 // The line helpers are pure; nothing here may reach the database
 vi.mock('../../../lib/supabase', () => ({ supabase: {} }));
@@ -19,7 +19,8 @@ vi.mock('../../../services/tariffIcd10SuggestionService', () => ({
   loadTariffIcd10Suggestions: async (practiceId: string | null) => {
     service.asked.push(practiceId);
     return service.load;
-  }
+  },
+  loadProcedureSuggestions: async () => ({ status: 'ready', codes: [] })
 }));
 vi.mock('../../../stores/authStore', () => ({
   useAuthStore: (selector: (state: { selectedPracticeId: string | null; user: { practice_id: string } }) => unknown) =>
@@ -34,11 +35,13 @@ beforeEach(() => {
   service.asked = [];
   service.load = {
     data: {
+      ...EMPTY_TARIFF_ICD10_DATA,
       usual: new Map(),
       learned: toLearnedMap([{ tariff_code: '0102', icd10_code: 'I10', times_used: 3 }]),
       starter: toStarterMap([{ code: '0102', icd10_code: 'Z01.8', sort_order: 1, rationale: 'Assessment before anaesthesia or an operation: other special examination' }])
     },
-    parts: { usual: 'ready', learned: 'ready', starter: 'ready' }
+    parts: { usual: 'ready', learned: 'ready', starter: 'ready', common: 'ready' },
+    discipline: '014'
   };
 });
 

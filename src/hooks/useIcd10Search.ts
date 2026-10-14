@@ -60,11 +60,18 @@ export interface Icd10SearchState {
 /**
  * What the code search shows for `query` while `enabled` (the box is open). `tariffCode` (the code a billing line is
  * billed with) adds that code's suggestions after the line's own suggested codes: the practice's usual code, what it
- * billed most, then the reviewed starter codes, each with its reason (useTariffIcd10Suggestions).
+ * billed most, the reviewed starter codes, what the procedure is usually done for and the diagnoses common in the
+ * practice's kind of practice, each with its reason (useTariffIcd10Suggestions). `suggestedReason` is the reason shown
+ * under the line's own suggested codes (a code that also has a reason of its own from the tariff code keeps that one).
  */
 export function useIcd10Search(
   query: string,
-  { enabled, suggestedCodes = NO_CODES, tariffCode }: { enabled: boolean; suggestedCodes?: readonly string[]; tariffCode?: string }
+  {
+    enabled,
+    suggestedCodes = NO_CODES,
+    suggestedReason,
+    tariffCode
+  }: { enabled: boolean; suggestedCodes?: readonly string[]; suggestedReason?: string; tariffCode?: string }
 ): Icd10SearchState {
   const practiceId = useAuthStore(state => state.selectedPracticeId || state.user?.practice_id || null);
   const tariffSuggestions = useTariffIcd10Suggestions(tariffCode, enabled);
@@ -108,7 +115,12 @@ export function useIcd10Search(
     () => [...new Set([...suggestedCodes, ...tariffSuggestions.map(item => item.code), ...usual].map(code => normalizeIcd10(code)).filter(isValidIcd10Format))],
     [suggestedCodes, tariffSuggestions, usual]
   );
-  const hints = useMemo(() => new Map(tariffSuggestions.map(item => [item.code, item.reason])), [tariffSuggestions]);
+  const hints = useMemo(() => {
+    const reasons = new Map<string, string>();
+    if (suggestedReason) suggestedCodes.forEach(code => reasons.set(normalizeIcd10(code), suggestedReason));
+    tariffSuggestions.forEach(item => reasons.set(item.code, item.reason));
+    return reasons;
+  }, [suggestedCodes, suggestedReason, tariffSuggestions]);
   const described = useIcd10Entries(suggestionCodes, enabled);
 
   return useMemo<Icd10SearchState>(() => {

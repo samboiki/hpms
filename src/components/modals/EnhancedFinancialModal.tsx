@@ -16,7 +16,6 @@ import {
   Calendar,
   FileText,
   CheckCircle,
-  Loader2,
   Maximize2,
   Minimize2,
   Banknote,
@@ -46,8 +45,9 @@ import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import { useTheme } from '../../stores/themeStore';
 import { financialKpiService, type FinancialKPIs } from '../../services/financialKpiService';
-import { toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { formatNad, nadParts } from '../../utils/billing/money';
+import { claimBatchLink, claimBatchesLink } from '../billing/invoiceLinks';
 
 interface BatchData {
   batch_id: string;
@@ -201,6 +201,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
   data
 }) => {
   const { currentTheme } = useTheme();
+  const navigate = useNavigate();
   // Inject heartbeat animation styles
   React.useEffect(() => {
     const styleId = 'heartbeat-animation-styles';
@@ -237,9 +238,6 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     unpaid: false, 
     active: true
   });
-  const [submittingBatches, setSubmittingBatches] = useState<Set<string>>(new Set());
-  const [isSubmittingAll, setIsSubmittingAll] = useState(false);
-  
   const { user, selectedPracticeId } = useAuthStore();
 
   // KPI data comes from the shared finance service (practice-scoped, always settles)
@@ -414,92 +412,17 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
     }
   };
 
-  // --- Function to handle individual batch submission (resolves true when the batch was sent) ---
-  const handleIndividualSubmit = async (batchId: string): Promise<boolean> => {
-    // Show a loading spinner for this specific button
-    setSubmittingBatches(prev => new Set(prev).add(batchId));
-    try {
-      console.log(`🚀 Invoking Edge Function 'send-batch-email' for batch: ${batchId}`);
-
-      const { data, error } = await supabase.functions.invoke('send-batch-email', {
-        body: { batch_id: batchId },
-      });
-
-      if (error) {
-        throw new Error((error as any).message);
-      }
-
-      console.log('✅ Success:', data?.message);
-      toast.success(data?.message || 'Batch sent to the medical aid');
-
-      // Refresh the batch list to show the new 'sent' status
-      fetchBatchData();
-      return true;
-
-    } catch (error) {
-      console.error(`❌ Failed to send batch ${batchId}:`, error);
-      
-      // Try to get more detailed error information
-      let errorMessage = 'Unknown error occurred';
-      if (error && typeof error === 'object') {
-        if ('message' in error) {
-          errorMessage = (error as any).message;
-        } else if ('error' in error) {
-          errorMessage = (error as any).error;
-        } else {
-          errorMessage = JSON.stringify(error);
-        }
-      }
-      
-      console.log('📋 Full error details:', {
-        error,
-        message: errorMessage,
-        batchId
-      });
-      
-      toast.error(`Could not submit the batch: ${errorMessage}`);
-      return false;
-    } finally {
-      // Remove the loading spinner for this button
-      setSubmittingBatches(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(batchId);
-        return newSet;
-      });
-    }
+  // Nothing is sent from this window. A claim file goes to a medical aid from one place only, Finance > Batches, where every
+  // line is checked first (a line without an ICD-10 code is not paid): Submit opens that batch's claim review there, and
+  // Submit All Active opens the list of open batches
+  const openBatchReview = (batchId: string) => {
+    onClose();
+    navigate(claimBatchLink(batchId));
   };
 
-  // --- Function to handle submitting all active batches ---
-  const handleSubmitAll = async () => {
-    const activeBatchesToSubmit = batches.filter(batch => batch.status === 'active');
-
-    if (activeBatchesToSubmit.length === 0) {
-      toast('No active batches to submit.');
-      return;
-    }
-
-    const total = activeBatchesToSubmit.length;
-    // Each batch is emailed to its medical aid and cannot be recalled, so confirm the bulk send
-    if (!window.confirm(`Send all ${total} active batch${total === 1 ? '' : 'es'} to the medical aids now?`)) return;
-
-    setIsSubmittingAll(true);
-
-    // Attempt all submissions, even if some fail
-    const results = await Promise.allSettled(
-      activeBatchesToSubmit.map(batch => handleIndividualSubmit(batch.batch_id))
-    );
-
-    setIsSubmittingAll(false);
-
-    const failed = results.filter(result => result.status !== 'fulfilled' || !result.value).length;
-    if (failed === 0) {
-      toast.success(`All ${total} batch${total === 1 ? '' : 'es'} submitted`);
-    } else {
-      toast.error(`${failed} of ${total} batch${total === 1 ? '' : 'es'} could not be submitted`);
-    }
-
-    // Refresh data after all submissions are attempted
-    fetchBatchData();
+  const openActiveBatches = () => {
+    onClose();
+    navigate(claimBatchesLink());
   };
 
   // KPIs depend on open state, practice and date range only; batch data is handled by the effects below
@@ -824,21 +747,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
               {/* Submit All Button */}
               <button
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={handleSubmitAll}
-                disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
-                title={batches.some(b => b.status === 'active') ? 'Email every active batch to its medical aid' : 'No active batches to submit'}
+                onClick={openActiveBatches}
+                disabled={batches.filter(b => b.status === 'active').length === 0}
+                title={batches.some(b => b.status === 'active') ? 'Open Finance > Batches, where each active batch is checked and sent' : 'No active batches to submit'}
               >
-                {isSubmittingAll ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Submit All Active
-                  </>
-                )}
+                <Send className="w-4 h-4" />
+                Submit All Active
               </button>
             </div>
           </div>
@@ -926,21 +840,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
             {/* Submit All Button */}
             <button
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              onClick={handleSubmitAll}
-              disabled={isSubmittingAll || batches.filter(b => b.status === 'active').length === 0}
-              title={batches.some(b => b.status === 'active') ? 'Email every active batch to its medical aid' : 'No active batches to submit'}
+              onClick={openActiveBatches}
+              disabled={batches.filter(b => b.status === 'active').length === 0}
+              title={batches.some(b => b.status === 'active') ? 'Open Finance > Batches, where each active batch is checked and sent' : 'No active batches to submit'}
             >
-              {isSubmittingAll ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  Submit All Active
-                </>
-              )}
+              <Send className="w-4 h-4" />
+              Submit All Active
             </button>
           </div>
         </div>
@@ -964,8 +869,7 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                 {filteredBatches.map((batch, index) => {
                   const themeColor = batch.medical_aid_theme_color || MEDICAL_AID_THEMES[batch.medical_aid_reference] || '#6B7280';
                   const lightColor = lightenColor(themeColor, 0.85);
-                  const isSubmitting = submittingBatches.has(batch.batch_id);
-                  
+
                   return (
                     <motion.tr
                       key={batch.batch_id}
@@ -1088,18 +992,12 @@ const EnhancedFinancialModal: React.FC<EnhancedFinancialModalProps> = ({
                         <div className="flex justify-end">
                           <button
                             className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-lg hover:from-slate-600 hover:to-slate-700 transition-all duration-200 shadow-md hover:shadow-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() => handleIndividualSubmit(batch.batch_id)}
-                            disabled={isSubmitting || isSubmittingAll || batch.status !== 'active'}
-                            title={batch.status === 'active' ? 'Email this batch to the medical aid' : 'Only active batches can be submitted'}
+                            onClick={() => openBatchReview(batch.batch_id)}
+                            disabled={batch.status !== 'active'}
+                            title={batch.status === 'active' ? 'Open this batch in Finance > Batches, where it is checked and sent' : 'Already sent to the medical aid, so there is nothing left to submit. It stays under Finance > Batches > History.'}
                           >
-                            {isSubmitting ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4" />
-                                Submit
-                              </>
-                            )}
+                            <Send className="w-4 h-4" />
+                            Submit
                           </button>
                         </div>
                       </td>

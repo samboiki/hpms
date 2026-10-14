@@ -81,11 +81,15 @@ describe('which list a practice bills from', () => {
   });
 
   // Sub-types (014003, 018001, ...) mostly repeat their parent's codes and prices, so a type bills from the main discipline.
-  // The one exception: 082 (speech therapist and audiologist) holds a single line, a member refund; the list a speech
-  // therapy or audiology practice needs, 102 lines, is 082000.
-  it('maps every practice type to a three-digit NAMAF discipline, except speech therapy whose list is 082000', () => {
+  // The exceptions are the lists NAMAF numbers with six digits because their three-digit number holds no list of its own:
+  // 082 (speech therapist and audiologist) holds a single line, a member refund, and the list a speech therapy or audiology
+  // practice needs, 102 lines, is 082000; the sonographers' list (22 lines, not the radiographers' 109) is 039004; the
+  // stand-alone oncology units' list is 120000.
+  it('maps every practice type to a three-digit NAMAF discipline, except the three whose list NAMAF numbers with six digits', () => {
+    const sixDigits: Record<string, string> = { speech_therapy: '082000', sonographer: '039004', oncology_unit: '120000' };
     Object.entries(NAMAF_DISCIPLINE_BY_PRACTICE_TYPE).forEach(([type, code]) => {
-      expect(code).toMatch(type === 'speech_therapy' ? /^082000$/ : /^\d{3}$/);
+      if (sixDigits[type]) expect(code).toBe(sixDigits[type]);
+      else expect(code).toMatch(/^\d{3}$/);
     });
     expect(practiceDiscipline('aesthetic', null)).toBeNull();
   });

@@ -32,6 +32,7 @@ import { LINE_OUTCOME_META, batchStatus, type ClaimLineOutcome } from './status'
 import { MedicalAidLogo } from '../../ui/MedicalAidLogo';
 import SubmitBatchDialog from './SubmitBatchDialog';
 import { downloadTextFile } from './download';
+import { downloadBlockedReason } from './fileDownloadGate';
 import { mergePreSendIssues, preSendIssues, type PreSendHistory } from './preSendChecks';
 import { loadPreSendHistory, type PreSendHistoryLoad } from './preSendHistory';
 import { claimBatchLink, invoiceLink, visitLink } from '../../billing/invoiceLinks';
@@ -232,6 +233,8 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
   };
   const patientIdByLine = useMemo(() => new Map((sources?.details ?? []).map(detail => [detail.id, detail.patient_id])), [sources]);
   const resultByKey = useMemo(() => new Map(validation.lines.map(result => [result.key, result])), [validation]);
+  // A file of an open batch with errors can be previewed but not downloaded: sent by hand it would skip Submit's checks
+  const downloadBlock = downloadBlockedReason({ open: editable, canSubmit: validation.canSubmit, errorCount: validation.errorCount });
   // A sent batch shows, downloads and reports the file exactly as it was sent when the batch kept it
   const file = useMemo(
     () => (!editable ? storedClaimFile(batch) : null) ?? buildClaimFile(claimFileHeaderOf(batch), labSlips.fileLines),
@@ -470,7 +473,9 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
           <button
             type="button"
             onClick={() => downloadTextFile(file.fileName, file.content)}
-            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+            disabled={downloadBlock !== null}
+            title={downloadBlock ?? undefined}
+            className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Icon icon="solar:download-minimalistic-bold-duotone" className="h-4 w-4" />
             Download
@@ -479,8 +484,14 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
             <button
               type="button"
               onClick={() => setShowSubmit(true)}
-              disabled={!validation.canSubmit}
-              title={validation.canSubmit ? `Email the ${credit ? 'credit' : 'claim'} file to the fund` : 'Fix the errors before submitting'}
+              disabled={!validation.canSubmit || unsavedCodes.length > 0}
+              title={
+                !validation.canSubmit
+                  ? 'Fix the errors before submitting'
+                  : unsavedCodes.length > 0
+                    ? 'Save the ICD-10 codes first (the Save ICD-10 codes button), then submit: a batch is only sent with its codes saved'
+                    : `Email the ${credit ? 'credit' : 'claim'} file to the fund`
+              }
               className="flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Icon icon="solar:plain-bold-duotone" className="h-4 w-4" />
@@ -781,6 +792,7 @@ const BatchReview: React.FC<BatchReviewProps> = ({ practice, batch, fund, userId
         <ClaimFilePreview
           file={file}
           note={!editable || validation.canSubmit ? undefined : `Draft: ${validation.errorCount} error(s) must be fixed before this file can be submitted.`}
+          downloadBlockedReason={downloadBlock}
           onShowReport={() => {
             setShowPreview(false);
             setShowReport(true);

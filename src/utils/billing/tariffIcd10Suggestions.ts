@@ -7,15 +7,21 @@
  * 2. the codes the practice itself billed most with the tariff code in the last 24 months (learned_tariff_icd10),
  *    at most 3;
  * 3. OneHealth's reviewed starter codes for tariff codes whose own NAMAF wording names the situation
- *    (namaf_tariff_icd10_suggestions), at most 3.
+ *    (namaf_tariff_icd10_suggestions), at most 3;
+ * 4. "procedure" codes: the conditions a procedure is usually done for, from wording rules over the NAMAF description
+ *    (namaf_icd10_rules, read one tariff code at a time by icd10_rule_suggestions), at most 5;
+ * 5. "common" codes: the diagnoses most common in the practice's kind of practice (namaf_discipline_common_icd10, read by
+ *    icd10_discipline_common), at most 5. They are what is left for a consultation, which no rule covers.
  * Nothing here fills a diagnosis in: the code box under the billing line offers these and the practitioner chooses.
+ * A procedure or common code that a person has not reviewed shows its reason only; the "published list" note is added
+ * only when the database passes on a source, which it does for reviewed rows alone.
  *
  * Pure (no database), so it is tested directly. Explicit .ts imports like the other billing rules.
  */
 import { isExternalCauseCode, isValidIcd10Format, normalizeIcd10 } from './icd10.ts';
 import { tariffCodeKey } from './icd10Defaults.ts';
 
-export type TariffIcd10Source = 'practice' | 'learned' | 'starter';
+export type TariffIcd10Source = 'practice' | 'learned' | 'starter' | 'procedure' | 'common';
 
 /** One suggested code and why, in plain words (shown under the code in the code box). */
 export interface TariffIcd10Suggestion {
@@ -29,10 +35,13 @@ export interface LearnedCode {
   timesUsed: number;
 }
 
-export interface StarterCode {
+/** A code and the reason it is suggested, in plain words (shown under the code). */
+export interface ReasonedCode {
   code: string;
   reason: string;
 }
+
+export type StarterCode = ReasonedCode;
 
 /** Everything the suggestions are made from, by tariff code (keys from tariffCodeKey). */
 export interface TariffIcd10Data {
@@ -42,13 +51,19 @@ export interface TariffIcd10Data {
   learned: ReadonlyMap<string, readonly LearnedCode[]>;
   /** OneHealth's starter codes for the practice's NAMAF discipline, in their order */
   starter: ReadonlyMap<string, readonly StarterCode[]>;
+  /** What the wording rules suggest for a tariff code (read for one code at a time), in the rules' order */
+  procedure: ReadonlyMap<string, readonly ReasonedCode[]>;
+  /** The diagnoses most common in the practice's discipline, most common first (the same for every tariff code) */
+  common: readonly ReasonedCode[];
 }
 
-export const EMPTY_TARIFF_ICD10_DATA: TariffIcd10Data = { usual: new Map(), learned: new Map(), starter: new Map() };
+export const EMPTY_TARIFF_ICD10_DATA: TariffIcd10Data = { usual: new Map(), learned: new Map(), starter: new Map(), procedure: new Map(), common: [] };
 
 /** How many of each kind are offered: the code box stays short. */
 export const MAX_LEARNED_SUGGESTIONS = 3;
 export const MAX_STARTER_SUGGESTIONS = 3;
+export const MAX_PROCEDURE_SUGGESTIONS = 5;
+export const MAX_COMMON_SUGGESTIONS = 5;
 
 /** A row of learned_tariff_icd10 as it is read. */
 export interface LearnedRow {
@@ -67,8 +82,26 @@ export interface StarterRow {
   source?: string | null;
 }
 
+/** A row of icd10_rule_suggestions as it is read: the database gives them closest rule first, each rule's codes in its own order. */
+export interface RuleRow {
+  icd10: string | null;
+  reason: string | null;
+}
+
+/** A row of icd10_discipline_common as it is read. */
+export interface CommonRow {
+  icd10: string | null;
+  reason: string | null;
+  rank: number | string | null;
+  /** The published list the row comes from: the database passes it on only for rows a person has reviewed */
+  source?: string | null;
+}
+
 /** Said after the reason of a starter link that follows the South African ICD-10 Coding Standards (not a NAMAF rule). */
 export const SA_STANDARD_NOTE = ' (South African coding standard)';
+
+/** Said after the reason of a common diagnosis that comes from a published list a person has reviewed. */
+export const PUBLISHED_LIST_NOTE = ' (published list)';
 
 /** A code that can be the main code of a line: the ICD-10 shape, not an external cause code. */
 const usableMainCode = (code: string): boolean => isValidIcd10Format(code) && !isExternalCauseCode(code);
@@ -118,6 +151,46 @@ export function toStarterMap(rows: readonly StarterRow[]): Map<string, StarterCo
   return starter;
 }
 
+/**
+ * What the wording rules suggest for one tariff code, in the order the database gave them (the rule written for the
+ * discipline itself first); a row without a usable code or a reason is left out, and a code is kept once.
+ */
+export function toProcedureCodes(rows: readonly RuleRow[]): ReasonedCode[] {
+  const found: ReasonedCode[] = [];
+  rows.forEach(row => {
+    const code = normalizeIcd10(row.icd10 ?? '');
+    const reason = (row.reason ?? '').trim();
+    if (usableMainCode(code) && reason && !found.some(item => item.code === code)) found.push({ code, reason });
+  });
+  return found;
+}
+
+const rankOf = (value: number | string | null): number => {
+  const rank = value === null || value === '' ? NaN : Number(value);
+  return Number.isFinite(rank) ? rank : 99;
+};
+
+/**
+ * The common diagnoses of the practice's discipline, most common first (rank, then code); a row without a usable code or a
+ * reason is left out. The "published list" note goes only on a row the database passed a source for.
+ */
+export function toCommonCodes(rows: readonly CommonRow[]): ReasonedCode[] {
+  const ordered = rows
+    .map(row => ({
+      code: normalizeIcd10(row.icd10 ?? ''),
+      rank: rankOf(row.rank),
+      reason: (row.reason ?? '').trim(),
+      published: Boolean((row.source ?? '').trim())
+    }))
+    .filter(row => usableMainCode(row.code) && row.reason)
+    .sort((a, b) => a.rank - b.rank || a.code.localeCompare(b.code));
+  const found: ReasonedCode[] = [];
+  ordered.forEach(row => {
+    if (!found.some(item => item.code === row.code)) found.push({ code: row.code, reason: row.published ? `${row.reason}${PUBLISHED_LIST_NOTE}` : row.reason });
+  });
+  return found;
+}
+
 /** "Billed with 0102 14 times in the last 2 years": what the practice has done, in plain words. */
 export function learnedReason(tariffCode: string, timesUsed: number): string {
   const times = timesUsed === 1 ? 'once' : `${timesUsed} times`;
@@ -137,21 +210,22 @@ export function suggestionsForTariff(tariffCode: string, data: TariffIcd10Data):
     if (usableMainCode(tidy) && !found.some(item => item.code === tidy)) found.push({ code: tidy, source, reason });
   };
 
+  // Up to `limit` new codes from one kind; a code already offered by a stronger kind does not use up a place
+  const addUpTo = <T extends { code: string }>(items: readonly T[], limit: number, source: TariffIcd10Source, reasonOf: (item: T) => string) => {
+    let added = 0;
+    items.forEach(item => {
+      if (added >= limit) return;
+      const before = found.length;
+      add(item.code, source, reasonOf(item));
+      if (found.length > before) added += 1;
+    });
+  };
+
   const usual = data.usual.get(key);
   if (usual) add(usual, 'practice', practiceReason(key));
-  let learned = 0;
-  (data.learned.get(key) ?? []).forEach(item => {
-    if (learned >= MAX_LEARNED_SUGGESTIONS) return;
-    const before = found.length;
-    add(item.code, 'learned', learnedReason(key, item.timesUsed));
-    if (found.length > before) learned += 1;
-  });
-  let starter = 0;
-  (data.starter.get(key) ?? []).forEach(item => {
-    if (starter >= MAX_STARTER_SUGGESTIONS) return;
-    const before = found.length;
-    add(item.code, 'starter', item.reason);
-    if (found.length > before) starter += 1;
-  });
+  addUpTo(data.learned.get(key) ?? [], MAX_LEARNED_SUGGESTIONS, 'learned', item => learnedReason(key, item.timesUsed));
+  addUpTo(data.starter.get(key) ?? [], MAX_STARTER_SUGGESTIONS, 'starter', item => item.reason);
+  addUpTo(data.procedure.get(key) ?? [], MAX_PROCEDURE_SUGGESTIONS, 'procedure', item => item.reason);
+  addUpTo(data.common, MAX_COMMON_SUGGESTIONS, 'common', item => item.reason);
   return found;
 }

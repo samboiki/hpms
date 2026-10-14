@@ -11,16 +11,21 @@ import { supabase } from '../lib/supabase';
 import { readAllPages } from '../lib/pagedRows';
 import type { Json } from '../types/database.types';
 import {
+  DENTIST_PRACTICE_TYPE,
   HOSPITAL_DISCIPLINE,
   NAMAF_DISCIPLINE_BY_PRACTICE_TYPE,
   NAMAF_DISCIPLINE_SETTING_KEY,
   WARD_DAY_TARIFF_CODES,
+  dentistToothCodes,
+  isDentalSpecialist,
   isNamafDisciplineCode,
   namafRowsAsTariffs,
   practiceDiscipline,
   typeDiscipline,
   typeDisciplinesFromRows,
   wardDayTariffs,
+  withDentistToothFlags,
+  type DentistToothRow,
   type NamafDiscipline,
   type NamafTariff,
   type NamafTariffRow,
@@ -33,6 +38,7 @@ const db = supabase as unknown as SupabaseClient;
 const ROW_COLUMNS = 'id, discipline_code, tariff_code, code, description, amount, units, valid_from, valid_to';
 const DISCIPLINE_COLUMNS = 'discipline_code, discipline_name, codes, priced_codes, valid_from, valid_to';
 const TYPE_COLUMNS = 'name, namaf_discipline_code';
+const DENTIST_TOOTH_COLUMNS = 'code, requires_tooth_number, effective_from';
 const NAMAF_OBJECTS = /\bnamaf_tariff/i;
 /** PostgREST returns at most 1,000 rows per request */
 const PAGE = 1000;
@@ -64,11 +70,13 @@ export function isTypeLinkMissing(error: unknown): boolean {
 
 const cache = new Map<string, { at: number; rows: Promise<NamafTariffRow[]> }>();
 let typeCache: { at: number; links: Promise<TypeDisciplines> } | null = null;
+let dentistToothCache: { at: number; codes: Promise<ReadonlySet<string>> } | null = null;
 
 /** Forgets what was read (tests, and after a new year's list or the practice types' links were changed). */
 export function clearNamafCache(): void {
   cache.clear();
   typeCache = null;
+  dentistToothCache = null;
 }
 
 /** The discipline of each practice type, and where it was read from. */
@@ -130,6 +138,33 @@ export function loadNamafRows(discipline: string): Promise<NamafTariffRow[]> {
   return rows;
 }
 
+/**
+ * The codes of the dentist's shared list (practice type 'dental') that need a tooth number. A dental specialist's NAMAF list
+ * has no such rule of its own (NAMAF's file has none), so these are copied to it: withDentistToothFlags, owner decision of
+ * 14 Oct 2026. Read once per half hour like the NAMAF rows; a failed read rejects and is asked again next time.
+ */
+export function loadDentistToothCodes(): Promise<ReadonlySet<string>> {
+  if (dentistToothCache && Date.now() - dentistToothCache.at < CACHE_MS) return dentistToothCache.codes;
+  const codes = readAllPages<DentistToothRow, DbError>(
+    PAGE,
+    (from, to) =>
+      db
+        .from('practice_tariffs_with_types')
+        .select(DENTIST_TOOTH_COLUMNS)
+        .eq('practice_type_name', DENTIST_PRACTICE_TYPE)
+        // Unique, so pages neither overlap nor skip rows
+        .order('id', { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: DentistToothRow[] | null; error: DbError | null }>,
+    error => new Error(`Could not read the dentist's tooth rules: ${error.message ?? 'unknown error'}`)
+  ).then(dentistToothCodes);
+  const entry = { at: Date.now(), codes };
+  dentistToothCache = entry;
+  codes.catch(() => {
+    if (dentistToothCache === entry) dentistToothCache = null;
+  });
+  return codes;
+}
+
 /** The discipline an administrator chose for the practice (practice_settings), or null. */
 export async function loadChosenDiscipline(practiceId: string | null): Promise<string | null> {
   if (!practiceId) return null;
@@ -168,11 +203,28 @@ export async function saveChosenDiscipline(practiceId: string, discipline: strin
 
 /** `typeDiscipline` is the practice type's own discipline (what "back to the practice type's list" means). */
 export type NamafLoad =
-  | { status: 'ready'; discipline: string; chosen: boolean; typeDiscipline: string | null; tariffs: NamafTariff[] }
+  /** `notice`: a part of the list's rules could not be read and billing goes on without it (the dentist's tooth rules) */
+  | { status: 'ready'; discipline: string; chosen: boolean; typeDiscipline: string | null; tariffs: NamafTariff[]; notice?: string }
   /** No discipline for the practice type (e.g. 'general' or 'aesthetic') and none chosen */
   | { status: 'none'; discipline: null; chosen: false; typeDiscipline: null; tariffs: [] }
   | { status: 'not-set-up'; discipline: string | null; chosen: boolean; typeDiscipline: string | null; tariffs: [] }
   | { status: 'error'; discipline: string | null; chosen: boolean; typeDiscipline: string | null; tariffs: []; message: string };
+
+/**
+ * A dental specialist's list with the dentist's tooth rules copied to it (withDentistToothFlags); any other list as it is.
+ * When the dentist's list cannot be read the specialist's list is returned without the rules and `notice` says so.
+ */
+async function withSpecialistToothRules(
+  practiceType: string | null | undefined,
+  tariffs: NamafTariff[]
+): Promise<{ tariffs: NamafTariff[]; notice?: string }> {
+  if (!isDentalSpecialist(practiceType)) return { tariffs };
+  try {
+    return { tariffs: withDentistToothFlags(tariffs, await loadDentistToothCodes()) };
+  } catch (error) {
+    return { tariffs, notice: error instanceof Error ? error.message : "The dentist's tooth rules could not be read." };
+  }
+}
 
 /** The NAMAF list the practice bills from, as billing tariffs (see namafTariffs.ts). Never throws. */
 export async function loadPracticeNamaf(practiceId: string | null, practiceType: string | null | undefined): Promise<NamafLoad> {
@@ -183,7 +235,8 @@ export async function loadPracticeNamaf(practiceId: string | null, practiceType:
   if (!discipline) return { status: 'none', discipline: null, chosen: false, typeDiscipline: null, tariffs: [] };
   try {
     const rows = await loadNamafRows(discipline);
-    return { status: 'ready', discipline, chosen: chosen !== null, typeDiscipline: typeList, tariffs: namafRowsAsTariffs(rows) };
+    const listed = await withSpecialistToothRules(practiceType, namafRowsAsTariffs(rows));
+    return { status: 'ready', discipline, chosen: chosen !== null, typeDiscipline: typeList, ...listed };
   } catch (error) {
     if (error instanceof NamafMissingError) return { status: 'not-set-up', discipline, chosen: chosen !== null, typeDiscipline: typeList, tariffs: [] };
     return {

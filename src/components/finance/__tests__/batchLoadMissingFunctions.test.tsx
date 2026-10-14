@@ -93,6 +93,8 @@ describe('loading claim batches', () => {
     expect(calls.rpc.filter(name => MISSING.includes(name))).toEqual([]);
   });
 
+  // The window's code (charts, animation, icons) loads the first time it is asked for: over 14 s in a full run on four
+  // workers, so this test and its waits are given far more than the usual 5 s and 1 s
   it("the dashboard's finance window reads them the same way", async () => {
     const { default: EnhancedFinancialModal } = await import('../../modals/EnhancedFinancialModal');
     render(
@@ -112,8 +114,8 @@ describe('loading claim batches', () => {
         />
       </MemoryRouter>
     );
-    fireEvent.click(await screen.findByRole('button', { name: /Batch Management/ }));
-    await waitFor(() => expect(calls.tables).toContain('practices'));
+    fireEvent.click(await screen.findByRole('button', { name: /Batch Management/ }, { timeout: 20000 }));
+    await waitFor(() => expect(calls.tables).toContain('practices'), { timeout: 20000 });
     expect(calls.rpc.filter(name => MISSING.includes(name))).toEqual([]);
-  });
+  }, 60000);
 });

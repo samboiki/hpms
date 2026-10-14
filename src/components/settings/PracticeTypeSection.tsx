@@ -6,6 +6,7 @@ import { plainErrorMessage } from '../../utils/plainErrors';
 import {
   needsPracticeTypeChoice,
   practiceTypeChanged,
+  practiceTypeGroups,
   practiceTypeOptions,
   practiceTypeState,
   practiceTypeUpdate,
@@ -106,7 +107,7 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
         Practice type
       </h3>
       <p className="mb-4 text-sm text-gray-600">
-        Decides the tariff list and which records show: the tooth chart for dental practices, eye records for optometry.
+        Decides the tariff list and which records show: the tooth chart for dental practices and dental specialists, eye records for optometry.
       </p>
 
       {load.state === 'loading' && <p className="text-sm text-gray-500" role="status">Loading...</p>}
@@ -152,10 +153,14 @@ export const PracticeTypeSection: React.FC<PracticeTypeSectionProps> = ({ practi
                   className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
                   {!choice && <option value="">Choose the type</option>}
-                  {ready.options.map(option => (
-                    <option key={option.id} value={option.id}>
-                      {option.label}
-                    </option>
+                  {practiceTypeGroups(ready.options).map(group => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map(option => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
               </div>

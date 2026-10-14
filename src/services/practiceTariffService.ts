@@ -19,6 +19,7 @@ import { TARIFF_PORTIONS_SETTING_KEY, parseTariffPortions, tariffPortionsSetting
 import { withCodeRules } from '../utils/billing/codeRules';
 import { loadCodeRules, type CodeRulesLoad } from './codeRulesService';
 import { withNamafTariffs } from '../utils/billing/namafTariffs';
+import { normalisePracticeType } from '../utils/billing/practiceTypeNames';
 import { loadPracticeNamaf } from './namafTariffService';
 
 // The generated database types do not know the new table and functions yet
@@ -115,7 +116,8 @@ export interface PracticeTariffRowsLoad {
 export async function loadPracticeTariffRows(practiceId: string | null, practiceType: string, columns = '*'): Promise<PracticeTariffRowsLoad> {
   const problems: string[] = [];
   const [shared, namaf, own, portions, rules] = await Promise.all([
-    supabase.from('practice_tariffs_with_types').select(columns).eq('practice_type_name', practiceType).order('code', { ascending: true }),
+    // The type's name as the app reads it ('dental_practice' is 'dental': practiceTypeNames.ts)
+    supabase.from('practice_tariffs_with_types').select(columns).eq('practice_type_name', normalisePracticeType(practiceType)).order('code', { ascending: true }),
     loadPracticeNamaf(practiceId, practiceType),
     loadOwnTariffs(practiceId).catch((error: unknown) => {
       problems.push(`${error instanceof Error ? plainWords(error.message) : "The practice's own codes could not be read"}; the shared tariff list is used.`);
@@ -130,6 +132,7 @@ export async function loadPracticeTariffRows(practiceId: string | null, practice
   if (portions.error) problems.push(`Who pays each code could not be read (${portions.error}); lines follow the fund's rules.`);
   if (rules.status === 'error') problems.push(`${rules.message}; codes are billed without their rules.`);
   if (namaf.status === 'error') problems.push(`${plainWords(namaf.message)}; only the practice's own and shared codes are offered.`);
+  if (namaf.status === 'ready' && namaf.notice) problems.push(`${plainWords(namaf.notice)}; NAMAF codes ask for no tooth number until it can be read.`);
   // The NAMAF benchmark of the practice's discipline lies beneath the shared list (namafTariffs.ts)
   const sharedRows = withNamafTariffs(((shared.data ?? []) as unknown as PracticeTariffLike[]).filter(row => Boolean(row.id && row.code)), namaf.tariffs);
   return { rows: withCodeRules(withDefaultPortions(mergeOwnTariffs(sharedRows, own.rows), portions.portions), rules.rules), problems };

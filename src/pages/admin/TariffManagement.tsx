@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { isDentalPractice } from '../../utils/billing/tariffRules';
+import { normalisePracticeType } from '../../utils/billing/practiceTypeNames';
 import type { PaidBy } from '../../utils/billing/lineSplit';
 import type { OwnTariffRow } from '../../utils/billing/practiceTariffs';
 import {
@@ -116,7 +117,8 @@ const TariffManagement: React.FC = () => {
         console.error('Tariffs: reading the practice failed', practiceError);
         throw new Error('Could not read the practice. Please refresh the page.');
       }
-      const practiceType = practice?.practice_type?.trim();
+      // The type's name as the app reads it ('dental_practice' is 'dental': practiceTypeNames.ts); '' when not set
+      const practiceType = normalisePracticeType(practice?.practice_type);
       if (!practiceType) throw new Error(PRACTICE_TYPE_MISSING);
       const [practiceTypeId, tariffs, providers, fundLoad, contracts, infectionControlStaff, own, portions, setup, namaf, disciplines] = await Promise.all([
         loadPracticeTypeId(practiceType),

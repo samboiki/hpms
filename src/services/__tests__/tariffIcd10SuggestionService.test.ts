@@ -1,9 +1,9 @@
 /**
  * Reading what the billing line's ICD-10 suggestions are made from. Why: billing must keep working before the database
  * update exists or when a read fails (suggestions are a convenience: never an error on the visit), a practice may only
- * ask for its own data, a practice gets the starter codes of the NAMAF discipline it bills from (its administrator's
- * choice first), and a busy practice's billed codes (more than the 1,000 rows one request returns) arrive whole.
- * Invented rows, no real client.
+ * ask for its own data, a practice gets the starter codes and the common diagnoses of the NAMAF discipline it bills from
+ * (its administrator's choice first), what the wording rules suggest is read for one tariff code at a time, and a busy
+ * practice's billed codes (more than the 1,000 rows one request returns) arrive whole. Invented rows, no real client.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +12,12 @@ const db = vi.hoisted(() => ({
   practiceType: 'medical' as string | null,
   starter: [] as unknown[],
   starterError: null as Failure,
+  common: [] as unknown[],
+  commonError: null as Failure,
+  commonCalls: [] as unknown[],
+  rules: [] as unknown[],
+  ruleError: null as Failure,
+  ruleCalls: [] as unknown[],
   learnedPages: [] as unknown[][],
   learnedError: null as Failure,
   rpcCalls: [] as Array<{ name: string; args: unknown; from: number }>,
@@ -40,6 +46,14 @@ vi.mock('../../lib/supabase', () => ({
     },
     rpc: (name: string, args: unknown) => {
       if (db.clientBroken) throw new TypeError('db.rpc is not a function');
+      if (name === 'icd10_discipline_common') {
+        db.commonCalls.push(args);
+        return Promise.resolve(db.commonError ? { data: null, error: db.commonError } : { data: db.common, error: null });
+      }
+      if (name === 'icd10_rule_suggestions') {
+        db.ruleCalls.push(args);
+        return Promise.resolve(db.ruleError ? { data: null, error: db.ruleError } : { data: db.rules, error: null });
+      }
       return {
         range: (from: number) => {
           db.rpcCalls.push({ name, args, from });
@@ -57,7 +71,7 @@ vi.mock('../icd10DefaultsService', () => ({
   loadTariffIcd10Defaults: () => Promise.resolve({ status: db.usualStatus, defaults: db.usual, message: null })
 }));
 
-import { forgetTariffIcd10Suggestions, loadTariffIcd10Suggestions } from '../tariffIcd10SuggestionService';
+import { forgetTariffIcd10Suggestions, loadProcedureSuggestions, loadTariffIcd10Suggestions } from '../tariffIcd10SuggestionService';
 import { suggestionsForTariff } from '../../utils/billing/tariffIcd10Suggestions';
 
 const PRACTICE = 'practice-a';
@@ -67,6 +81,12 @@ beforeEach(() => {
   db.practiceType = 'medical';
   db.starter = [];
   db.starterError = null;
+  db.common = [];
+  db.commonError = null;
+  db.commonCalls = [];
+  db.rules = [];
+  db.ruleError = null;
+  db.ruleCalls = [];
   db.learnedPages = [];
   db.learnedError = null;
   db.rpcCalls = [];
@@ -83,7 +103,7 @@ describe('the data behind the ICD-10 suggestions', () => {
     db.learnedPages = [[{ tariff_code: '2601', icd10_code: 'Z34.9', times_used: 12 }]];
     db.starter = [{ code: '2601', icd10_code: 'Z34.9', sort_order: 1, rationale: 'Antenatal visit' }, { code: '2601', icd10_code: 'Z35.9', sort_order: 2, rationale: 'High-risk pregnancy' }];
     const load = await loadTariffIcd10Suggestions(PRACTICE);
-    expect(load.parts).toEqual({ usual: 'ready', learned: 'ready', starter: 'ready' });
+    expect(load.parts).toEqual({ usual: 'ready', learned: 'ready', starter: 'ready', common: 'ready' });
     expect(suggestionsForTariff('2601', load.data).map(item => [item.code, item.source])).toEqual([
       ['Z34.0', 'practice'],
       ['Z34.9', 'learned'],
@@ -113,6 +133,33 @@ describe('the data behind the ICD-10 suggestions', () => {
     expect(db.asked.some(([table]) => table === 'namaf_tariff_icd10_suggestions')).toBe(false);
     expect(load.parts.starter).toBe('ready');
     expect(load.data.starter.size).toBe(0);
+    // Nor any common diagnoses: they too are those of a discipline
+    expect(db.commonCalls).toHaveLength(0);
+    expect(load.discipline).toBeNull();
+  });
+
+  // What a kind of practice usually sees is the same for every practice of the discipline, so it is asked for by discipline
+  it('reads the common diagnoses of the discipline the practice bills from, most common first, after everything specific', async () => {
+    db.common = [
+      { icd10: 'I10', reason: 'One of the most common diagnoses in general practice', rank: 2, source: null },
+      { icd10: 'J06.9', reason: 'One of the most common diagnoses in general practice', rank: 1, source: 'https://example.org/list - A published list' }
+    ];
+    db.usual = new Map([['0190', 'N39.0']]);
+    const load = await loadTariffIcd10Suggestions(PRACTICE);
+    expect(db.commonCalls).toEqual([{ p_discipline: '014' }]);
+    expect(load.discipline).toBe('014');
+    expect(suggestionsForTariff('0190', load.data).map(item => [item.code, item.source])).toEqual([
+      ['N39.0', 'practice'],
+      ['J06.9', 'common'],
+      ['I10', 'common']
+    ]);
+    expect(suggestionsForTariff('0190', load.data)[1].reason).toBe('One of the most common diagnoses in general practice (published list)');
+  });
+
+  it("asks for the common diagnoses of the administrator's chosen discipline first", async () => {
+    db.chosen = '042';
+    await loadTariffIcd10Suggestions(PRACTICE);
+    expect(db.commonCalls).toEqual([{ p_discipline: '042' }]);
   });
 
   it('gives a busy practice its billed codes whole, across the 1,000 rows one request returns', async () => {
@@ -131,8 +178,20 @@ describe('before the database update, and when a read fails', () => {
     db.learnedError = { code: 'PGRST202', message: 'Could not find the function public.learned_tariff_icd10(p_practice_id) in the schema cache' };
     db.starterError = { code: '42P01', message: 'relation "public.namaf_tariff_icd10_suggestions" does not exist' };
     const load = await loadTariffIcd10Suggestions(PRACTICE);
-    expect(load.parts).toEqual({ usual: 'ready', learned: 'not-set-up', starter: 'not-set-up' });
+    expect(load.parts).toEqual({ usual: 'ready', learned: 'not-set-up', starter: 'not-set-up', common: 'ready' });
     expect(suggestionsForTariff('0190', load.data).map(item => item.code)).toEqual(['J06.9']);
+  });
+
+  it('treats the common diagnoses and the rules as "not set up yet" the same way, and keeps the rest', async () => {
+    db.usual = new Map([['0190', 'J06.9']]);
+    db.commonError = { code: 'PGRST202', message: 'Could not find the function public.icd10_discipline_common(p_discipline) in the schema cache' };
+    db.ruleError = { code: '42883', message: 'function public.icd10_rule_suggestions(text, text) does not exist' };
+    const load = await loadTariffIcd10Suggestions(PRACTICE);
+    expect(load.parts.common).toBe('not-set-up');
+    expect(load.data.common).toEqual([]);
+    expect(suggestionsForTariff('0190', load.data).map(item => item.code)).toEqual(['J06.9']);
+    const rules = await loadProcedureSuggestions('014', '1675');
+    expect(rules).toEqual({ codes: [], status: 'not-set-up' });
   });
 
   it('also reads a missing function reported by Postgres itself (42883)', async () => {
@@ -167,12 +226,63 @@ describe('before the database update, and when a read fails', () => {
     const load = await loadTariffIcd10Suggestions(PRACTICE);
     expect(load.parts.learned).toBe('error');
     expect(load.parts.starter).toBe('error');
-    expect(load.data.learned.size + load.data.starter.size).toBe(0);
+    expect(load.parts.common).toBe('error');
+    expect(load.data.learned.size + load.data.starter.size + load.data.common.length).toBe(0);
+    expect(load.discipline).toBeNull();
+    await expect(loadProcedureSuggestions('014', '1675')).resolves.toEqual({ codes: [], status: 'error' });
   });
 
   it('reads nothing for no practice', async () => {
     const load = await loadTariffIcd10Suggestions(null);
     expect(db.rpcCalls).toHaveLength(0);
-    expect(load.data.usual.size + load.data.learned.size + load.data.starter.size).toBe(0);
+    expect(db.commonCalls).toHaveLength(0);
+    expect(load.data.usual.size + load.data.learned.size + load.data.starter.size + load.data.common.length).toBe(0);
+  });
+});
+
+describe('what the wording rules suggest for one tariff code', () => {
+  beforeEach(() => {
+    db.rules = [
+      { icd10: 'K35.8', reason: 'Usual reasons for removing the appendix', rule_key: 'surg-appendix' },
+      { icd10: 'k36', reason: 'Usual reasons for removing the appendix', rule_key: 'surg-appendix' },
+      { icd10: 'W19', reason: 'An external cause code', rule_key: 'bad' }
+    ];
+  });
+
+  // The rules are about the procedure's wording in one discipline's list, so both the discipline and the code are asked for
+  it('asks for the discipline and the tariff code, however the code was typed, and tidies the rows', async () => {
+    const result = await loadProcedureSuggestions('014', ' 1675 ');
+    expect(db.ruleCalls).toEqual([{ p_discipline: '014', p_tariff_code: '1675' }]);
+    expect(result).toEqual({
+      status: 'ready',
+      codes: [
+        { code: 'K35.8', reason: 'Usual reasons for removing the appendix' },
+        { code: 'K36', reason: 'Usual reasons for removing the appendix' }
+      ]
+    });
+  });
+
+  // Opening the box of every line must not ask the database every time
+  it('keeps what it read for a while, and keeps each discipline and code apart', async () => {
+    await loadProcedureSuggestions('014', '1675');
+    await loadProcedureSuggestions('014', '1675');
+    expect(db.ruleCalls).toHaveLength(1);
+    await loadProcedureSuggestions('042', '1675');
+    await loadProcedureSuggestions('014', '1101');
+    expect(db.ruleCalls).toHaveLength(3);
+  });
+
+  it('reads a failed read again next time, and shows no error', async () => {
+    db.ruleError = { code: '57014', message: 'canceling statement due to statement timeout' };
+    expect(await loadProcedureSuggestions('014', '1675')).toEqual({ codes: [], status: 'error' });
+    db.ruleError = null;
+    expect((await loadProcedureSuggestions('014', '1675')).codes).toHaveLength(2);
+    expect(db.ruleCalls).toHaveLength(2);
+  });
+
+  it('asks for nothing without a discipline or a code', async () => {
+    expect(await loadProcedureSuggestions(null, '1675')).toEqual({ codes: [], status: 'ready' });
+    expect(await loadProcedureSuggestions('014', '  ')).toEqual({ codes: [], status: 'ready' });
+    expect(db.ruleCalls).toHaveLength(0);
   });
 });

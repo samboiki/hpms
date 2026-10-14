@@ -89,4 +89,19 @@ describe('PracticeTypeSection', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Not saved');
     expect(refresh).not.toHaveBeenCalled();
   });
+
+  // Owner, 14 Oct 2026: every NAMAF discipline with a code list is a practice type (about 80), so the list is grouped
+  // under headings; the choice, its value and the save stay exactly as they were
+  it('lists the types under headings, so a long list stays easy to scan', async () => {
+    render(<PracticeTypeSection practiceId="practice-1" canChange />);
+    const select = await screen.findByLabelText('Type of practice');
+    const headings = Array.from(select.querySelectorAll('optgroup')).map(group => ({
+      heading: group.label,
+      types: Array.from(group.querySelectorAll('option')).map(option => option.textContent)
+    }));
+    expect(headings).toEqual([
+      { heading: 'General practice and nursing', types: ['Medical practice (GP)'] },
+      { heading: 'Dental', types: ['Dental'] }
+    ]);
+  });
 });

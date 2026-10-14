@@ -121,7 +121,7 @@ describe('the stay invoice lines', () => {
     expect(bill.totalCents).toBe(50000 + 250025 + 2 * 15050);
   });
 
-  it('bills nothing and says what to set up when a code, a rate or the bed-day code is missing (no half invoice)', () => {
+  it('bills nothing and says what to set up when a code or the bed-day code is missing (no half invoice)', () => {
     const noRate = stayNights([segment('B3', 'w1', null, '2026-10-10T08:00:00Z', null)], '2026-10-11T08:00:00Z');
     const missing = stayBill({ nights: noRate, wards: new Map([['w1', { bedDayCode: null, dailyCodes: ['X999'] }]]), tariffByCode: code => TARIFFS[code] });
     expect(missing.lines).toEqual([]);
@@ -129,8 +129,91 @@ describe('the stay invoice lines', () => {
       'Ward w1 has no bed-day code. An administrator sets it under Wards and beds.',
       'Code X999 (daily, Ward w1) is not on your tariff list.'
     ]);
-    const rateless = stayBill({ nights: noRate, wards: new Map([['w1', ward('w1')]]), tariffByCode: code => TARIFFS[code] });
-    expect(rateless.problems).toEqual(['Bed B3 has no daily rate. An administrator sets it under Wards and beds.']);
+    expect(missing.totalCents).toBe(0);
+  });
+});
+
+// Why a bed without a daily rate is not a dead end: a practice that never entered rates still has to bill its ward. The code's
+// own amount on the list (NAMAF's ward fee) is the next best price, and when even that is missing the person billing knows the
+// amount and types it, instead of the stay being refused or a night going to the fund at N$ 0.
+describe('a night in a bed with no daily rate', () => {
+  const NAMAF_DAY: TariffForBilling = { id: '33333333-3333-4333-8333-333333333333', code: '007', description: 'Day admission', price: 2914.1, priceSource: 'NAMAF 2026' };
+  const NO_AMOUNT: TariffForBilling = { id: '44444444-4444-4444-8444-444444444444', code: '001', description: 'Surgical cases: per day', price: 0, priceSource: 'NAMAF 2026' };
+  const nightsIn = (bedLabel: string, dailyRate: number | null, from = '2026-10-10T08:00:00Z', to: string | null = null, wardId = 'w1') =>
+    stayNights([segment(bedLabel, wardId, dailyRate, from, to)], '2026-10-12T08:00:00Z');
+  const billWith = (tariff: TariffForBilling, nights: ReturnType<typeof stayNights>, typedAmounts?: Record<string, number>, dailyCodes: string[] = []) =>
+    stayBill({ nights, wards: new Map([['w1', { bedDayCode: tariff.code, dailyCodes }]]), tariffByCode: code => (code === tariff.code ? tariff : TARIFFS[code]), typedAmounts });
+
+  it("bills the code's amount on the list for each night, and says it came from NAMAF", () => {
+    const bill = billWith(NAMAF_DAY, nightsIn('B3', null));
+    expect(bill.problems).toEqual([]);
+    expect(bill.asks).toEqual([]);
+    expect(bill.lines.map(line => [line.code, line.unitPrice, line.serviceDate])).toEqual([['007', 2914.1, '2026-10-10'], ['007', 2914.1, '2026-10-11']]);
+    expect(bill.lines.map(line => bill.sources[line.id])).toEqual(['NAMAF 2026', 'NAMAF 2026']);
+    expect(bill.totalCents).toBe(2 * 291410);
+  });
+
+  it("says 'price list' when the amount is the practice's own, and 'bed rate' when the bed has one, which wins over the list", () => {
+    const own = billWith({ ...NAMAF_DAY, priceSource: null, price: 1200 }, nightsIn('B3', null));
+    expect(own.lines.map(line => [line.unitPrice, own.sources[line.id]])).toEqual([[1200, 'price list'], [1200, 'price list']]);
+    const withRate = billWith(NAMAF_DAY, nightsIn('B3', 1850));
+    expect(withRate.lines.map(line => [line.unitPrice, withRate.sources[line.id]])).toEqual([[1850, 'bed rate'], [1850, 'bed rate']]);
+  });
+
+  it('asks for the amount when neither the bed nor the list has one, bills nothing yet, and does not block with a problem', () => {
+    const bill = billWith(NO_AMOUNT, nightsIn('B3', null));
+    expect(bill.problems).toEqual([]);
+    expect(bill.lines).toEqual([]);
+    expect(bill.asks).toEqual([{
+      key: 'bed:B3', what: 'Bed B3, Ward w1', nights: 2,
+      why: "Bed B3 has no daily rate and code 001 has no amount on the price list. An administrator can set the bed's daily rate under Wards and beds."
+    }]);
+  });
+
+  it('bills every night at the amount typed, and says it was typed in', () => {
+    const bill = billWith(NO_AMOUNT, nightsIn('B3', null), { 'bed:B3': 1500.5 });
+    expect(bill.asks).toEqual([]);
+    expect(bill.lines.map(line => [line.unitPrice, bill.sources[line.id]])).toEqual([[1500.5, 'typed in'], [1500.5, 'typed in']]);
+    expect(bill.totalCents).toBe(300100);
+  });
+
+  it.each([[0], [-20], [Number.NaN], [10.005]])('does not take %s as the amount: a night is never billed for nothing or for a mistyped figure', amount => {
+    const bill = billWith(NO_AMOUNT, nightsIn('B3', null), { 'bed:B3': amount });
+    expect(bill.lines).toEqual([]);
+    expect(bill.asks.map(ask => ask.key)).toEqual(['bed:B3']);
+  });
+
+  it('asks once per bed, not once per night, so a patient moved between two such beds is asked twice and no more', () => {
+    const nights = stayNights([
+      segment('B3', 'w1', null, '2026-10-10T08:00:00Z', '2026-10-11T12:00:00Z'),
+      segment('B4', 'w1', null, '2026-10-11T12:00:00Z', null)
+    ], '2026-10-13T08:00:00Z');
+    const bill = billWith(NO_AMOUNT, nights);
+    expect(bill.asks.map(ask => [ask.key, ask.nights])).toEqual([['bed:B3', 1], ['bed:B4', 2]]);
+    // Answering one still leaves the other open: still no half invoice
+    expect(billWith(NO_AMOUNT, nights, { 'bed:B3': 900 }).lines).toEqual([]);
+  });
+
+  it('asks for a daily code that has no fixed amount too, instead of billing it at N$ 0', () => {
+    const noAmountDaily: TariffForBilling = { ...TARIFFS.N200, price: 0 };
+    const nights = nightsIn('B3', 500);
+    const asked = stayBill({ nights, wards: new Map([['w1', ward('w1')]]), tariffByCode: code => (code === 'N200' ? noAmountDaily : TARIFFS[code]) });
+    expect(asked.lines).toEqual([]);
+    expect(asked.asks).toEqual([{ key: 'code:N200', what: 'Code N200, Nursing day', why: 'Code N200 has no amount on the price list.', nights: 2 }]);
+    const typed = stayBill({ nights, wards: new Map([['w1', ward('w1')]]), tariffByCode: code => (code === 'N200' ? noAmountDaily : TARIFFS[code]), typedAmounts: { 'code:N200': 175 } });
+    expect(typed.lines.filter(line => line.code === 'N200').map(line => [line.unitPrice, typed.sources[line.id]])).toEqual([[175, 'typed in'], [175, 'typed in']]);
+  });
+
+  // A practice may price a bed at N$ 0 on purpose (a mother's cot); only a bed with no rate at all falls back to the list
+  it('still bills a bed whose rate is N$ 0 at that rate: the fallback is for a rate that was never set', () => {
+    const bill = billWith(NAMAF_DAY, nightsIn('COT', 0));
+    expect(bill.lines.map(line => [line.unitPrice, bill.sources[line.id]])).toEqual([[0, 'bed rate'], [0, 'bed rate']]);
+  });
+
+  it('passes the date of each night to the lookup, so a list that changes during a stay prices each night with its own version', () => {
+    const asked: string[] = [];
+    stayBill({ nights: nightsIn('B3', null), wards: new Map([['w1', { bedDayCode: '007', dailyCodes: [] }]]), tariffByCode: (code, date) => { asked.push(`${code}@${date}`); return NAMAF_DAY; } });
+    expect(asked).toEqual(['007@2026-10-10', '007@2026-10-11']);
   });
 });
 

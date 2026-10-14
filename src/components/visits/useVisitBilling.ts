@@ -20,12 +20,20 @@ import { changeLineFee, priceLinesAtRate, type VisitTariff } from './visitBillin
 
 /** A line's ICD-10 codes as the Billing tab shows and saves them. */
 export interface LineIcd10 {
-  /** Main code first; empty when there is nothing to go on */
+  /** Main code first; empty until a person has chosen the line's codes (or they were confirmed at claim review) */
   codes: string[];
-  /** True while nobody has set the line's codes: they are a suggestion (saved with the invoice as shown) */
+  /** True for codes shown with where they came from: those confirmed at claim review for the line's claim line */
   suggested: boolean;
   /** Where the codes came from, in plain words; null for codes set on the line */
   sourceLabel: string | null;
+  /**
+   * The codes the line's code box offers first while the line has none of its own: the practice's usual code for its
+   * tariff code, the codes written in the visit's diagnosis. Only offered: a line is saved without a code until a person
+   * chooses one, so no diagnosis reaches a claim as if the practitioner had confirmed it.
+   */
+  offered?: readonly string[];
+  /** Where the offered codes came from, in plain words ("the practice's usual code for 0102"); null when none are offered */
+  offeredLabel?: string | null;
 }
 
 /** Who else is on a line (parity D7), as the Billing tab offers it */
@@ -53,7 +61,7 @@ export interface VisitBilling {
   lineTeethEditable: boolean;
   /** The signed-in user may change a line's fee: billing rights (invoiceRights.ts) */
   canChangeFee: boolean;
-  /** Each line's ICD-10 codes: its own, else those confirmed on its claim line, else the suggestion */
+  /** Each line's ICD-10 codes: its own, else those confirmed on its claim line, else none (what is suggested is only offered) */
   lineIcd10: Map<string, LineIcd10>;
   /** The lines as the invoice saves them: each carries the ICD-10 codes and the authorisation number the tab shows for it */
   servicesForInvoice: ServiceSelection[];
@@ -90,8 +98,10 @@ export function toothSaveProblem(
  * The billing figures both visit screens show under their lines (AddVisitTabs, EditVisitTabs): who pays what per
  * line (co-payment), the totals, services already billed to the patient on another invoice, whether a line's own
  * date, practitioner, discount, ICD-10 codes and fee can be changed, and the codes each line carries.
- * A line nobody has given codes starts with the practice's usual code for its tariff code, else the visit diagnosis's
- * codes (suggestLineIcd10, the rule claim review uses too); what the tab shows is what the invoice saves.
+ * A line nobody has given codes stays without any until a person chooses them (owner, 14 Oct 2026: the practitioner
+ * confirms the diagnosis). The practice's usual code for its tariff code, else the visit diagnosis's codes
+ * (suggestLineIcd10, the rule claim review uses too), are offered first in the line's code box (LineIcd10.offered) and
+ * never saved by themselves; codes a person chose, and codes confirmed at claim review, are what the invoice saves.
  */
 export function useVisitBilling(params: {
   services: readonly ServiceSelection[];
@@ -193,8 +203,15 @@ export function useVisitBilling(params: {
         byLine.set(service.id, { codes: confirmed, suggested: true, sourceLabel: 'confirmed at claim review' });
         return;
       }
+      // Nobody has chosen a code for this line: the usual code and the diagnosis's codes are only offered (never saved)
       const suggestion = suggestLineIcd10(service.code, { practiceDefaults, dental, diagnosis });
-      byLine.set(service.id, { codes: suggestion.codes, suggested: suggestion.codes.length > 0, sourceLabel: describeIcd10Source(suggestion.source, service.code) });
+      byLine.set(service.id, {
+        codes: [],
+        suggested: false,
+        sourceLabel: null,
+        offered: suggestion.codes,
+        offeredLabel: describeIcd10Source(suggestion.source, service.code)
+      });
     });
     return byLine;
   }, [services, claimCodes, practiceDefaults, dental, diagnosis]);

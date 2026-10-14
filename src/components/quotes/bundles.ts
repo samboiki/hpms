@@ -12,14 +12,20 @@
  *   used the bundle and when, exactly as a fee changed by hand (changeLineFee);
  * - a stock item instead of a tariff code, priced and taken off stock as "From stock" lines are;
  * and a bundle can need the fund's authorisation number, which then goes on every line it adds.
+ *
+ * A NAMAF code with no fixed amount (priced by rule, at cost or by arrangement) has no price to add: the amount is asked
+ * for when the bundle is used, as visit billing ("Amount when billed") and quotes ("Amount when quoted") ask for it, unless
+ * the bundle line has a fee of its own (above N$ 0). Such a line is never added at N$ 0.
  */
 import type { ServiceSelection } from '../../types/billing';
 import { formatNad, fromCents, hasAtMostDecimals, sumCents, toCents } from '../../utils/billing/money';
 import { MAX_QUANTITY, MAX_UNIT_PRICE, isValidFdiTooth, normalizeMultiplyRule } from '../../utils/billing/pricing';
 import { normalizeIcd10 } from '../../utils/billing/icd10';
 import { usualIcd10Problem } from '../../utils/billing/icd10Defaults';
+import { noFixedAmount } from '../../utils/billing/namafTariffs';
 import { changeLineFee, type VisitTariff } from '../visits/visitBillingLines';
 import { MATERIAL_FACTOR_CODE, isPerVisitCode } from '../../utils/billing/tariffRules';
+import { normalisePracticeType } from '../../utils/billing/practiceTypeNames';
 import {
   addTariffLines,
   findTariff,
@@ -101,6 +107,12 @@ const lineLabel = (index: number, code: string): string =>
 /** A fee a bundle line may carry: N$ 0 to the highest unit price, in whole cents. */
 const isBundleFee = (fee: unknown): fee is number =>
   typeof fee === 'number' && Number.isFinite(fee) && fee >= 0 && fee <= MAX_UNIT_PRICE && hasAtMostDecimals(fee, 2);
+
+/**
+ * An amount for a code with no fixed amount in the price list, typed when the bundle is used or set as the bundle line's
+ * fee: more than N$ 0, in whole cents. Anything else (empty, 0, negative, fractions of a cent) counts as no amount.
+ */
+const amountOrNull = (value: unknown): number | null => (isBundleFee(value) && value > 0 ? value : null);
 
 /** True for a line that is a stock item rather than a tariff code. */
 export const isStockBundleLine = (line: Pick<BundleLine, 'stockItemId'>): boolean => Boolean(line.stockItemId);
@@ -222,6 +234,37 @@ export function teethNeeded(
   );
 }
 
+export interface AmountNeed {
+  key: string;
+  bundleName: string;
+  code: string;
+  description: string;
+}
+
+/**
+ * Lines whose code has no fixed amount in the price list (a NAMAF code priced by rule, at cost or by arrangement) and
+ * whose bundle line has no fee of its own: the amount is asked for when the bundle is used. Stock lines have a price.
+ */
+export function amountsNeeded(
+  bundles: readonly Pick<CodeBundle, 'name' | 'lines'>[],
+  tariffs: readonly VisitTariff[]
+): AmountNeed[] {
+  return bundles.flatMap((bundle, bundleIndex) =>
+    bundle.lines.flatMap((line, lineIndex) => {
+      const tariff = isStockBundleLine(line) ? undefined : findTariff(tariffs, line.code);
+      if (!tariff || !noFixedAmount(tariff) || amountOrNull(line.fee) !== null) return [];
+      return [
+        {
+          key: bundleLineKey(bundleIndex, lineIndex),
+          bundleName: bundle.name,
+          code: normalizeCode(line.code),
+          description: tariff.description ?? ''
+        }
+      ];
+    })
+  );
+}
+
 export interface BundleApplication {
   /** Every line after the bundles were added */
   lines: ServiceSelection[];
@@ -231,8 +274,13 @@ export interface BundleApplication {
   skipped: { code: string; reason: string }[];
   /** Lines that could not be added (no tariff in effect, refused quantity or tooth) */
   problems: LineProblem[];
+  /** Lines left out because the code has no fixed amount and none was typed (never added at N$ 0) */
+  needsAmount: LineProblem[];
   warnings: string[];
 }
+
+export const amountNeededMessage = (code: string): string =>
+  `${code} has no fixed amount in the price list, so it was not added. Use the bundle again and type the amount for it.`;
 
 /** An added line with its bundle line's fixed main ICD-10 code. */
 const withBundleExtras = (line: ServiceSelection, request: { icd10: string | null }): ServiceSelection =>
@@ -294,6 +342,8 @@ export interface BundleApplyOptions {
   at?: string;
   /** The fund's authorisation number: put on every line the bundles add */
   authorisationNumber?: string | null;
+  /** The amount per unit (N$) typed for each code with no fixed amount in the price list, by bundleLineKey */
+  amounts?: Readonly<Record<string, number>>;
 }
 
 export const stockLineMissingMessage = (code: string): string =>
@@ -321,6 +371,8 @@ export function applyBundles(
     icd10: string | null;
     fee: number | null;
     stockItemId: string | null;
+    /** The amount typed for a code with no fixed amount in the price list */
+    amount: number | null;
     bundleName: string;
   }
   const planned: Planned[] = [];
@@ -348,6 +400,7 @@ export function applyBundles(
         icd10: line.icd10?.trim() ? normalizeIcd10(line.icd10) : null,
         fee: isBundleFee(line.fee) ? line.fee : null,
         stockItemId: line.stockItemId ?? null,
+        amount: amountOrNull(options.amounts?.[bundleLineKey(bundleIndex, lineIndex)]),
         bundleName: bundle.name
       });
     })
@@ -356,6 +409,7 @@ export function applyBundles(
   let lines = [...existing];
   const added: ServiceSelection[] = [];
   const problems: LineProblem[] = [];
+  const needsAmount: LineProblem[] = [];
   const warnings: string[] = [];
   for (const request of planned) {
     if (request.stockItemId) {
@@ -371,12 +425,26 @@ export function applyBundles(
       lines = withBundleFee(lines, service.id, request, context, options, warnings);
       continue;
     }
-    const outcome = addTariffLines(lines, request, context);
+    // A code with no fixed amount in the price list is billed at the amount typed when the bundle was used, or at the
+    // bundle line's own fee. That amount is the line's price (there is no list price to change it from), never N$ 0.
+    const listed = findTariff(context.tariffs, request.code);
+    let lineContext = context;
+    let fee = request.fee;
+    if (listed && noFixedAmount(listed)) {
+      const amount = request.amount ?? amountOrNull(fee);
+      if (amount === null) {
+        needsAmount.push({ code: request.code, message: amountNeededMessage(request.code) });
+        continue;
+      }
+      lineContext = { ...context, tariffs: context.tariffs.map(tariff => (tariff.id === listed.id ? { ...tariff, price: amount } : tariff)) };
+      fee = null;
+    }
+    const outcome = addTariffLines(lines, request, lineContext);
     if (outcome.status === 'added') {
       // The code's own line (not its automatic 8109 or 8346) takes the bundle's ICD-10 code and fee
       const main = outcome.added.find(line => !line.isAutoGenerated && normalizeCode(line.code) === request.code);
       lines = outcome.lines.map(line => (line === main ? withBundleExtras(line, request) : line));
-      if (main) lines = withBundleFee(lines, main.id, request, context, options, warnings);
+      if (main) lines = withBundleFee(lines, main.id, { ...request, fee }, context, options, warnings);
       const addedIds = new Set(outcome.added.map(line => line.id));
       added.push(...lines.filter(line => addedIds.has(line.id)));
       warnings.push(...outcome.warnings);
@@ -409,6 +477,7 @@ export function applyBundles(
     added,
     skipped: uniqueBy(skipped, item => `${item.code}|${item.reason}`),
     problems: uniqueBy(problems, item => item.message),
+    needsAmount: uniqueBy(needsAmount, item => item.message),
     warnings: uniqueBy(warnings, item => item)
   };
 }
@@ -431,6 +500,8 @@ export interface BundlePreview {
   totalCents: number;
   lineCount: number;
   needsTooth: boolean;
+  /** A code has no fixed amount in the price list: its amount is typed when the bundle is used, so it is not in the total */
+  needsAmount: boolean;
   problems: string[];
 }
 
@@ -449,6 +520,7 @@ export function previewBundle(
     totalCents: sumCents(result.added.map(line => toCents(line.totalPrice))),
     lineCount: result.added.length,
     needsTooth: needs.length > 0,
+    needsAmount: result.needsAmount.length > 0,
     problems: result.problems.map(problem => problem.message)
   };
 }
@@ -509,9 +581,13 @@ export const DENTAL_STARTER_BUNDLES: readonly BundlePreset[] = [
   }
 ];
 
-/** The starter suggestions for a practice type (dental only for now). */
+/**
+ * The starter suggestions for a practice type (dental only for now). They are made of the dentist list's codes (8101,
+ * 8159 ...), which the dental specialists' lists (orthodontist 064, periodontist 092 ...) do not all have, so a specialist
+ * is not offered them; 'dental_practice' is read as 'dental'.
+ */
 export const starterBundlesFor = (practiceType: string | null | undefined): readonly BundlePreset[] =>
-  (practiceType ?? '').trim().toLowerCase() === 'dental' ? DENTAL_STARTER_BUNDLES : [];
+  normalisePracticeType(practiceType) === 'dental' ? DENTAL_STARTER_BUNDLES : [];
 
 export const presetToDraft = (preset: BundlePreset): BundleDraft => ({
   id: null,

@@ -301,6 +301,9 @@ export const DEFAULT_ORDER: readonly string[] = [
   // Each practice type's NAMAF discipline (practice_types.namaf_discipline_code) and the types that were missing
   // (needs namaf-tariffs: the checks read namaf_tariff_disciplines)
   'proposals/2026-10-14-practice-type-disciplines.sql',
+  // A practice type for every NAMAF discipline with a code list, and the dental specialists that work like dental
+  // (needs practice-type-disciplines and namaf-tariffs; replaces dental_lab_practice_for from dental-lab-work)
+  'proposals/2026-10-14-more-practice-types.sql',
   // ICD-10 suggestions per tariff code: what a practice itself bills (learned_tariff_icd10) and a short reviewed starter
   // list for NAMAF codes that name their situation (needs the ICD-10 list, practice isolation's rls_* helpers and the
   // receipts file's ar_today; its checks read namaf_tariffs and icd10_codes when they are loaded)
@@ -308,6 +311,21 @@ export const DEFAULT_ORDER: readonly string[] = [
   // The starter links that follow the South African ICD-10 coding standards, and the column that names the standard
   // (needs tariff-icd10-suggestions)
   'proposals/2026-10-14-tariff-icd10-suggestions-standards.sql',
+  // More ICD-10 suggestions: the rules (namaf_icd10_rules) and each discipline's common diagnoses
+  // (namaf_discipline_common_icd10), with triggers that refuse a code the medical aids' list does not accept as a main code
+  // (needs the ICD-10 list; its checks read namaf_tariffs when it is loaded)
+  'proposals/2026-10-14-icd10-rules.sql',
+  // The functions the billing line's ICD-10 box reads those tables through (rule suggestions for one tariff code, a
+  // discipline's common diagnoses) and the support-only coverage report (needs icd10-rules, namaf-tariffs, the starter
+  // list of tariff-icd10-suggestions and practice isolation's rls_is_super_admin)
+  'proposals/2026-10-14-icd10-rule-functions.sql',
+  // A claim batch cannot be marked as sent while a line has no usable main ICD-10 code (claim_batch_icd10_gaps and a guard
+  // on batch_headers), and prepare_batch_for_sending is closed to app logins (needs the ICD-10 list, practice isolation's
+  // rls_assert_my_practice and claims-follow-up's claim_batch_refresh_status)
+  'proposals/2026-10-14-claims-need-icd10.sql',
+  // The guard's refusal names Finance > Batches, the tab Finance has (claim_batch_sent_needs_icd10 of claims-need-icd10
+  // replaced in place; needs claims-need-icd10)
+  'proposals/2026-10-14-claims-guard-wording.sql',
   'proposals/2026-10-07-patient-portal.sql'
 ];
 

@@ -6,12 +6,14 @@ import type { ServiceSelection } from '../../types/billing';
 import { formatNad, fromCents } from '../../utils/billing/money';
 import { isValidFdiTooth } from '../../utils/billing/pricing';
 import { MAX_AUTHORISATION_LENGTH, parseAuthorisationNumber } from '../../utils/billing/lineSplit';
+import { parseOwnPrice } from '../../utils/billing/practiceTariffs';
 import { useAuthStore } from '../../stores/authStore';
 import { loadInvoicingSetup } from '../../services/invoicingSetup';
 import type { VisitTariff } from '../visits/visitBillingLines';
 import type { LineContext } from './billingLines';
 import {
   BUNDLE_COLOUR_STYLES,
+  amountsNeeded,
   applyBundles,
   bundleCodesSummary,
   describeApplication,
@@ -53,6 +55,8 @@ type AuthorisationSetup = boolean | null;
  * "Code bundles": adds a practice bundle to the visit or quote in one click, priced from the tariffs in
  * effect for it. Codes charged once per visit are not added again; teeth are asked for only when a code
  * needs one, and the fund's authorisation number only for a bundle that needs one (on a medical aid visit).
+ * A code with no fixed amount in the price list (NAMAF: by rule, at cost, by arrangement) asks for its amount, as the
+ * visit's "Add a service" and the quote editor do; it is never added at N$ 0.
  * A line's fixed ICD-10 code and fee come with it, stock items are priced as "From stock" lines are.
  * "Manage bundles" opens the practice's list and the starter suggestions.
  */
@@ -72,6 +76,8 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
   const [open, setOpen] = useState(false);
   const [view, setView] = useState<View>({ name: 'pick' });
   const [teeth, setTeeth] = useState<Record<string, string>>({});
+  // The amount typed (as text) for each code with no fixed amount, by bundle line
+  const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [authorisation, setAuthorisation] = useState('');
   const [authorisationSetup, setAuthorisationSetup] = useState<AuthorisationSetup>(null);
   const userId = useAuthStore(state => state.user?.id ?? null);
@@ -114,14 +120,17 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
     setOpen(false);
     setView({ name: 'pick' });
     setTeeth({});
+    setAmounts({});
     setAuthorisation('');
   };
 
-  const apply = (bundle: CodeBundle, chosenTeeth: Record<string, string>, authorisationNumber: string | null) => {
-    const result = applyBundles([bundle], lines, context, chosenTeeth, { stockLine, by: userId, at: new Date().toISOString(), authorisationNumber });
-    result.problems.forEach(problem => toast.error(problem.message, { id: `bundle-${bundle.id}-${problem.code}`, duration: 8000 }));
+  const apply = (bundle: CodeBundle, chosenTeeth: Record<string, string>, authorisationNumber: string | null, typedAmounts: Record<string, number> = {}) => {
+    const result = applyBundles([bundle], lines, context, chosenTeeth, { stockLine, by: userId, at: new Date().toISOString(), authorisationNumber, amounts: typedAmounts });
+    // A code left without an amount is reported like a line that cannot be added: it is never added at N$ 0
+    const refused = [...result.problems, ...result.needsAmount];
+    refused.forEach(problem => toast.error(problem.message, { id: `bundle-${bundle.id}-${problem.code}`, duration: 8000 }));
     if (result.added.length === 0) {
-      if (result.problems.length === 0) toast(describeApplication(result, formatNad), { duration: 6000 });
+      if (refused.length === 0) toast(describeApplication(result, formatNad), { duration: 6000 });
       return;
     }
     onApply(result.lines);
@@ -131,11 +140,12 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
   };
 
   const choose = (bundle: CodeBundle) => {
-    if (teethNeeded([bundle], tariffs).length === 0 && !needsAuthorisation(bundle)) {
+    if (teethNeeded([bundle], tariffs).length === 0 && amountsNeeded([bundle], tariffs).length === 0 && !needsAuthorisation(bundle)) {
       apply(bundle, {}, null);
       return;
     }
     setTeeth({});
+    setAmounts({});
     setAuthorisation('');
     setView({ name: 'details', bundle });
   };
@@ -192,6 +202,9 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
                           {preview.needsTooth && (
                             <span className="rounded bg-white/70 px-1.5 py-0.5 text-[11px] text-gray-700">Asks for a tooth</span>
                           )}
+                          {preview.needsAmount && (
+                            <span className="rounded bg-white/70 px-1.5 py-0.5 text-[11px] text-gray-700">Asks for an amount</span>
+                          )}
                           {askAuthorisation && bundle.needsAuthorisation && (
                             <span className="rounded bg-white/70 px-1.5 py-0.5 text-[11px] text-gray-700">Needs an authorisation number</span>
                           )}
@@ -238,11 +251,23 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
     const authorisationRequired = asksAuthorisation && authorisationSetup === true;
     const authorisationMissing = authorisationRequired && (!parsedAuthorisation.ok || !parsedAuthorisation.value);
     const authorisationWrong = authorisation.trim() !== '' && !parsedAuthorisation.ok;
+    // Codes with no fixed amount in the price list: an amount above N$ 0 must be typed for each before anything is added
+    const amountNeeds = amountsNeeded([bundle], tariffs);
+    const typedAmounts: Record<string, number> = {};
+    amountNeeds.forEach(need => {
+      const amount = parseOwnPrice(amounts[need.key] ?? '');
+      if (amount !== null && amount > 0) typedAmounts[need.key] = amount;
+    });
+    const amountsMissing = amountNeeds.some(need => typedAmounts[need.key] === undefined);
+    const question =
+      amountNeeds.length === 0
+        ? needs.length > 0 ? ': which tooth is each of these for?' : ': before the lines are added'
+        : needs.length === 0 ? ': what is the amount for each of these?' : ': a few details are needed before the lines are added';
     return (
       <div className="space-y-4">
         <p className="text-sm text-gray-700">
           <span className="font-semibold">{bundle.name}</span>
-          {needs.length > 0 ? ': which tooth is each of these for?' : ': before the lines are added'}
+          {question}
         </p>
         {needs.map(need => {
           const value = teeth[need.key] ?? '';
@@ -265,6 +290,34 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
             </label>
           );
         })}
+        {amountNeeds.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-xs text-gray-600">
+              The price list has no fixed amount for {amountNeeds.length === 1 ? 'this code' : 'these codes'} (priced by rule, at cost or by arrangement). Type the amount for one unit.
+            </p>
+            {amountNeeds.map(need => {
+              const value = amounts[need.key] ?? '';
+              const wrong = value.trim() !== '' && typedAmounts[need.key] === undefined;
+              return (
+                <label key={need.key} className="block">
+                  <span className="mb-1 block text-sm text-gray-800">
+                    <span className="font-semibold">{need.code}</span> {need.description}
+                  </span>
+                  <input
+                    className={`${inputClass} max-w-[10rem]`}
+                    inputMode="decimal"
+                    value={value}
+                    placeholder="e.g. 450.00"
+                    aria-label={`Amount per unit (N$) for ${need.code}`}
+                    aria-invalid={wrong}
+                    onChange={event => setAmounts(current => ({ ...current, [need.key]: event.target.value }))}
+                  />
+                  {wrong && <span className="mt-1 block text-xs text-red-600">Enter the amount in N$, such as 450 or 450.00.</span>}
+                </label>
+              );
+            })}
+          </div>
+        )}
         {asksAuthorisation && (
           <label className="block">
             <span className="mb-1 block text-sm text-gray-800">
@@ -293,8 +346,8 @@ const BundleMenu: React.FC<BundleMenuProps> = ({
           <button
             type="button"
             className={primaryButton}
-            disabled={invalid.length > 0 || authorisationMissing || (asksAuthorisation && authorisationSetup === null)}
-            onClick={() => apply(bundle, teeth, authorisationRequired && parsedAuthorisation.ok ? parsedAuthorisation.value : null)}
+            disabled={invalid.length > 0 || amountsMissing || authorisationMissing || (asksAuthorisation && authorisationSetup === null)}
+            onClick={() => apply(bundle, teeth, authorisationRequired && parsedAuthorisation.ok ? parsedAuthorisation.value : null, typedAmounts)}
           >
             <Icon icon="solar:add-circle-bold-duotone" className="h-4 w-4" aria-hidden="true" />
             Add the lines

@@ -113,7 +113,7 @@ const medicalAidFor = (rows: MedicalAidRow[] | undefined, membershipNumber: stri
 export function buildClaimLines(sources: BatchLineSources, drafts: Record<string, Icd10Draft>): ClaimLine[] {
   const matches = matchInvoiceServices(sources.details, sources.invoiceServices);
   // A line needs a tooth exactly when the visit's billing asked for one: the practice's own flag for a code it overrides
-  const needsTooth = toothRuleFor(sources.tariffRows, sources.practiceType);
+  const needsTooth = toothRuleFor(sources.tariffRows, sources.practiceType, sources.dentistToothCodes);
   return sources.details.map(detail => {
     const patient = detail.patient_id ? sources.patients.get(detail.patient_id) : undefined;
     const visit = detail.visit_id ? sources.visits.get(detail.visit_id) : undefined;

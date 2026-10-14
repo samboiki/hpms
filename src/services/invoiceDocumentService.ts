@@ -17,6 +17,7 @@ import { parseToothList, selectBillableTariffs, type TariffRow } from '../utils/
 import { resolveFundReference, type FundProviderRow } from '../utils/billing/fundPricing';
 import { getFundRule } from '../utils/billing/fundRules';
 import { MATERIAL_FACTOR_CODE } from '../utils/billing/tariffRules';
+import { normalisePracticeType } from '../utils/billing/practiceTypeNames';
 import { matchInvoiceServices } from '../components/finance/claims/buildClaimLines';
 import type { BatchDetailRow, InvoiceServiceRow } from '../components/finance/claims/types';
 import { loadLetterhead } from '../components/quotes/quoteService';
@@ -57,7 +58,7 @@ export async function offBenchmarkCodes(practiceId: string, practiceType: string
     supabase
       .from('practice_tariffs_with_types')
       .select('id, code, description, price, is_active, effective_from, effective_to, can_be_multiplied, requires_tooth_number')
-      .eq('practice_type_name', practiceType),
+      .eq('practice_type_name', normalisePracticeType(practiceType)),
     loadPracticeNamaf(practiceId, practiceType)
   ]);
   if (error || namaf.status === 'error') return null;

@@ -5,6 +5,7 @@ import { getOptimizedTariffs, getOptimizedFrequentTariffs } from '../lib/optimiz
 import { useAuthStore } from '../stores/authStore';
 import { selectBillableTariffs, type TariffRow } from '../utils/billing/pricing';
 import { todayKey } from '../utils/billing/dates';
+import { normalisePracticeType } from '../utils/billing/practiceTypeNames';
 
 interface PracticeTariff {
   id: string;
@@ -140,7 +141,8 @@ export const PracticeTariffsProvider: React.FC<PracticeTariffsProviderProps> = (
   const fetchPracticeType = async (): Promise<string | null> => {
     if (!practiceId) return null;
     const practice = await loadPracticeRow(practiceId, queryClient);
-    return typeof practice?.practice_type === 'string' ? practice.practice_type : null;
+    // The type's name as the app reads it ('dental_practice' is 'dental': practiceTypeNames.ts)
+    return typeof practice?.practice_type === 'string' ? normalisePracticeType(practice.practice_type) : null;
   };
 
   const clearTariffs = (message: string | null) => {

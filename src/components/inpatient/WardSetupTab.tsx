@@ -23,7 +23,7 @@ export const WardSetupTab: React.FC<{ board: WardBoard }> = ({ board }) => {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-gray-600">
-          Each ward&apos;s bed-day code is billed once per night at the bed&apos;s daily rate; its daily codes once per night at their tariff price.
+          Each ward&apos;s bed-day code is billed once per night at the bed&apos;s daily rate (a bed with none: at the code&apos;s amount on the price list); its daily codes once per night at their tariff price.
         </p>
         <button type="button" onClick={() => setEditingWard({ ward: null })} className={PRIMARY}>
           <Icon icon="solar:add-circle-bold-duotone" className="h-4 w-4" aria-hidden="true" />
@@ -197,7 +197,7 @@ const WardSheet: React.FC<{ ward: Ward | null; onClose: () => void }> = ({ ward,
         </Field>
         {wardDayCodes.length > 0 && (
           <div className="sm:col-span-2">
-            <p className="mb-1.5 text-xs text-gray-500">Ward fees per day (NAMAF private hospital list): tap one to use it as the bed-day code. A night is billed at the bed&apos;s daily rate, whatever amount the list shows.</p>
+            <p className="mb-1.5 text-xs text-gray-500">Ward fees per day (NAMAF private hospital list): tap one to use it as the bed-day code. A night is billed at the bed&apos;s daily rate; a bed with no rate is billed at the amount the list shows, and where the list has none you type it when the stay is billed.</p>
             <div className="flex flex-wrap gap-1.5">
               {wardDayCodes.map(tariff => (
                 <button
@@ -266,7 +266,7 @@ const BedFormSheet: React.FC<{ ward: Ward; bed: Bed | null; onClose: () => void 
         <Field label="Bed number or name">
           {props => <input {...props} value={values.bed_number} onChange={event => set('bed_number', event.target.value)} className={INPUT} maxLength={20} autoFocus />}
         </Field>
-        <Field label="Daily rate (N$)" hint="What one night in this bed costs">
+        <Field label="Daily rate (N$)" hint="What one night in this bed costs. Leave empty to bill the ward's bed-day code at its list amount">
           {props => <input {...props} inputMode="decimal" value={values.daily_rate} onChange={event => set('daily_rate', event.target.value)} className={INPUT} placeholder="1250.00" />}
         </Field>
         <Field label="Room" hint="Optional">

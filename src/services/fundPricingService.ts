@@ -20,6 +20,7 @@ import {
 } from '../utils/billing/fundPricing';
 import { getFundRule } from '../utils/billing/fundRules';
 import { DEFAULT_INFECTION_CONTROL_STAFF, infectionControlStaffCount } from '../utils/billing/tariffRules';
+import { normalisePracticeType } from '../utils/billing/practiceTypeNames';
 
 // The generated database types do not know the new tables yet, so they are read with the untyped client
 const db = supabase as unknown as SupabaseClient;
@@ -61,7 +62,7 @@ export interface PriceBookLoad {
 export async function loadFundPriceBook(practiceId: string | null, practiceType: string | null): Promise<PriceBookLoad> {
   if (!practiceType?.trim()) return { book: EMPTY_PRICE_BOOK, enabled: false, error: null };
   const [rows, contracts] = await Promise.all([
-    db.from('fund_tariffs_with_types').select(ROW_COLUMNS).eq('practice_type_name', practiceType.trim()),
+    db.from('fund_tariffs_with_types').select(ROW_COLUMNS).eq('practice_type_name', normalisePracticeType(practiceType)),
     practiceId
       ? db.from('fund_tariff_contracts').select(CONTRACT_COLUMNS).eq('practice_id', practiceId)
       : Promise.resolve({ data: [] as FundContractRow[], error: null })

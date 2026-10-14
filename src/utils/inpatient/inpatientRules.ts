@@ -6,8 +6,8 @@
  */
 import type { ServiceSelection } from '../../types/billing';
 import { addDaysToKey, daysBetweenKeys } from '../billing/dates';
-import { toCents, fromCents } from '../billing/money';
-import { normalizeMultiplyRule } from '../billing/pricing';
+import { toCents, fromCents, hasAtMostDecimals } from '../billing/money';
+import { MAX_UNIT_PRICE, normalizeMultiplyRule } from '../billing/pricing';
 import { WINDHOEK_UTC_OFFSET_MINUTES, windhoekClock } from '../patientLists/listDates';
 
 export interface Option<T extends string = string> {
@@ -332,38 +332,82 @@ export interface TariffForBilling {
   id: string;
   code: string;
   description: string;
+  /** The code's amount in N$; 0 when the list has no fixed amount for it (priced by rule or at cost) */
   price: number;
   category?: string | null;
   can_be_multiplied?: string | null;
+  /** Where `price` comes from, in the words the billing sheet shows ("NAMAF 2026"); absent: the practice's own price list */
+  priceSource?: string | null;
+}
+
+/** Where a night's amount came from, in the words the billing sheet shows beside it (a NAMAF row carries its own: "NAMAF 2026") */
+const BED_RATE_SOURCE = 'bed rate';
+const PRICE_LIST_SOURCE = 'price list';
+const TYPED_SOURCE = 'typed in';
+
+/** An amount staff type on the billing sheet: the bed has no daily rate and the list has no amount for the code */
+export interface AmountAsk {
+  /** What typedAmounts are keyed by: `bed:<bed id>` for a bed-day line, `code:<CODE>` for a daily code */
+  key: string;
+  /** What the amount is for, e.g. "Bed S1, Surgical ward" */
+  what: string;
+  /** Why it is asked, in plain words */
+  why: string;
+  /** The nights it is billed for */
+  nights: number;
 }
 
 export interface StayBill {
+  /** Empty while anything is missing, a problem or an amount to type: a stay is never billed in part */
   lines: ServiceSelection[];
   /** Why the stay cannot be billed yet, in plain words (empty when it can) */
   problems: string[];
+  /** Amounts staff still have to type before the stay can be billed (empty when none is needed) */
+  asks: AmountAsk[];
+  /** Where each line's amount came from, by line id: "bed rate", "NAMAF 2026", "price list" or "typed in" */
+  sources: Readonly<Record<string, string>>;
   nights: number;
   totalCents: number;
 }
 
 /**
- * The invoice lines for a stay, for the app's invoice service: per night one bed-day line at the bed's daily rate
- * under the ward's bed-day code, plus one line per daily code at its tariff price, each dated its night (funds pay
- * per day of service). Every code must be on the practice's tariff list (the invoice service refuses others).
+ * The invoice lines for a stay, for the app's invoice service: per night one bed-day line under the ward's bed-day code
+ * plus one line per daily code, each dated its night (funds pay per day of service). A night is billed at the bed's daily
+ * rate. A bed with none is billed at the code's amount on the list for that night's date (the NAMAF ward fee: tariffByCode
+ * picks the list in force that day). Where the list has no amount either, staff type it (`asks`, answered through
+ * `typedAmounts`) instead of the stay being blocked or a night billed at N$ 0. A daily code is billed at its list amount,
+ * or typed the same way. Every code must be on the practice's tariff list (the invoice service refuses others).
  */
 export function stayBill(params: {
   nights: readonly StayNight[];
   wards: ReadonlyMap<string, WardBilling>;
-  tariffByCode: (code: string) => TariffForBilling | undefined;
+  /** The tariff a code bills as on a night's date (the date picks the version of a NAMAF list that was in force) */
+  tariffByCode: (code: string, date: string) => TariffForBilling | undefined;
+  /** What staff typed for each ask, N$ for one night, by its key */
+  typedAmounts?: Readonly<Record<string, number>>;
   practitionerId?: string | null;
   icd10Codes?: readonly string[];
   authorisationNumber?: string | null;
 }): StayBill {
   const problems = new Set<string>();
+  const asks = new Map<string, AmountAsk>();
   const lines: ServiceSelection[] = [];
+  const sources: Record<string, string> = {};
   const icd10 = (params.icd10Codes ?? []).filter(code => code.trim()).slice(0, 5);
-  const add = (tariff: TariffForBilling, unitPrice: number, date: string, note: string) => {
+  // A typed amount counts when it is a real price above N$ 0; anything else leaves the question open
+  const typed = (key: string): number | null => {
+    const amount = params.typedAmounts?.[key];
+    return typeof amount === 'number' && Number.isFinite(amount) && amount > 0 && amount <= MAX_UNIT_PRICE && hasAtMostDecimals(amount, 2) ? amount : null;
+  };
+  const ask = (key: string, what: string, why: string) => {
+    const known = asks.get(key);
+    asks.set(key, known ? { ...known, nights: known.nights + 1 } : { key, what, why, nights: 1 });
+  };
+  const add = (tariff: TariffForBilling, unitPrice: number, date: string, note: string, source: string) => {
+    const id = `stay-${lines.length + 1}`;
+    sources[id] = source;
     lines.push({
-      id: `stay-${lines.length + 1}`,
+      id,
       tariffId: tariff.id,
       code: tariff.code,
       description: tariff.description,
@@ -388,24 +432,39 @@ export function stayBill(params: {
     if (!bedDayCode) {
       problems.add(`${segment.wardName} has no bed-day code. An administrator sets it under Wards and beds.`);
     } else {
-      const tariff = params.tariffByCode(bedDayCode);
+      const tariff = params.tariffByCode(bedDayCode, night.date);
+      const place = `Bed ${segment.bedLabel}, ${segment.wardName}`;
       if (!tariff) problems.add(`Code ${bedDayCode} (bed-day, ${segment.wardName}) is not on your tariff list.`);
-      else if (segment.dailyRate === null || !Number.isFinite(segment.dailyRate) || segment.dailyRate < 0) {
-        problems.add(`Bed ${segment.bedLabel} has no daily rate. An administrator sets it under Wards and beds.`);
+      else if (segment.dailyRate !== null && Number.isFinite(segment.dailyRate) && segment.dailyRate >= 0) {
+        add(tariff, fromCents(toCents(segment.dailyRate)), night.date, place, BED_RATE_SOURCE);
+      } else if (Number.isFinite(tariff.price) && tariff.price > 0) {
+        // No daily rate on the bed: the code's own amount on the list for that night
+        add(tariff, fromCents(toCents(tariff.price)), night.date, place, tariff.priceSource || PRICE_LIST_SOURCE);
       } else {
-        add(tariff, fromCents(toCents(segment.dailyRate)), night.date, `Bed ${segment.bedLabel}, ${segment.wardName}`);
+        const key = `bed:${segment.bedId}`;
+        const amount = typed(key);
+        if (amount !== null) add(tariff, amount, night.date, place, TYPED_SOURCE);
+        else ask(key, place, `Bed ${segment.bedLabel} has no daily rate and code ${bedDayCode} has no amount on the price list. An administrator can set the bed's daily rate under Wards and beds.`);
       }
     }
     for (const raw of ward?.dailyCodes ?? []) {
       const code = raw.trim().toUpperCase();
       if (!code) continue;
-      const tariff = params.tariffByCode(code);
+      const tariff = params.tariffByCode(code, night.date);
       if (!tariff) problems.add(`Code ${code} (daily, ${segment.wardName}) is not on your tariff list.`);
-      else add(tariff, fromCents(toCents(tariff.price)), night.date, segment.wardName);
+      else if (Number.isFinite(tariff.price) && tariff.price > 0) add(tariff, fromCents(toCents(tariff.price)), night.date, segment.wardName, tariff.priceSource || PRICE_LIST_SOURCE);
+      else {
+        const key = `code:${code}`;
+        const amount = typed(key);
+        if (amount !== null) add(tariff, amount, night.date, segment.wardName, TYPED_SOURCE);
+        else ask(key, `Code ${code}${tariff.description ? `, ${tariff.description}` : ''}`, `Code ${code} has no amount on the price list.`);
+      }
     }
   }
-  const totalCents = lines.reduce((sum, line) => sum + toCents(line.totalPrice), 0);
-  return { lines: problems.size > 0 ? [] : lines, problems: [...problems], nights: params.nights.length, totalCents };
+  // Nothing is billed while a code, a bed-day code or an amount is missing: no half invoice
+  const complete = problems.size === 0 && asks.size === 0;
+  const totalCents = complete ? lines.reduce((sum, line) => sum + toCents(line.totalPrice), 0) : 0;
+  return { lines: complete ? lines : [], problems: [...problems], asks: [...asks.values()], sources: complete ? sources : {}, nights: params.nights.length, totalCents };
 }
 
 // ---------------------------------------------------------------------------------------------

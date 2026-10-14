@@ -45,6 +45,7 @@ import { emptyIcd10Selection, type Icd10Selection } from '../../utils/billing/ic
 import { priceBillableTariffs, type PatientTariff } from '../../utils/billing/fundPricing';
 import { billableAtPatientRate } from '../../utils/billing/patientRates';
 import { isDentalPractice } from '../../utils/billing/tariffRules';
+import { normalisePracticeType } from '../../utils/billing/practiceTypeNames';
 import { fundPricingNotice } from '../visits/visitBillingLines';
 import { useFundPricing } from '../visits/useFundPricing';
 import PracticeTypeNeededNotice from '../settings/PracticeTypeNeededNotice';
@@ -148,7 +149,7 @@ const EnhancedServiceSelector = forwardRef<EnhancedServiceSelectorHandle, Enhanc
         const { data, error: tariffError } = await supabase
           .from('practice_tariffs_with_types')
           .select(TARIFF_COLUMNS)
-          .eq('practice_type_name', practice.practice_type);
+          .eq('practice_type_name', normalisePracticeType(practice.practice_type));
         if (tariffError) throw new Error(tariffError.message);
         if (!cancelled) setTariffRows((data ?? []) as unknown as TariffRow[]);
       } catch (err) {

@@ -21,7 +21,8 @@ import {
   INFECTION_CONTROL_CODE,
   MATERIAL_FACTOR_CODE,
   isPerVisitCode,
-  isRestorationCode
+  isRestorationCode,
+  followsDentistSchedule
 } from '../../utils/billing/tariffRules';
 import { isQuadrant, lineSurfaces } from '../../utils/dental/lineTeeth';
 
@@ -37,8 +38,8 @@ export interface LineContext {
   /** From the patient's medical aid record, as on the visit screens */
   hasMedicalAid: boolean;
   /**
-   * Dental practices (isDentalPractice): 8109 is added once per visit and a restoration brings its 8346 line, as on
-   * the visit screens. Other practice types bill neither.
+   * Dental practices (isDentalPractice): 8109 is added once per visit (in NAMAF's dentist schedule) and a restoration
+   * brings its 8346 line, as on the visit screens. Other practice types bill neither.
    */
   autoInfectionControl: boolean;
   /** 8109 quantity: the practice's clinical staff count (1-3, the practice setting); 1 when not given */
@@ -135,7 +136,8 @@ export function addTariffLines(
   const added = [line];
   const problems: LineProblem[] = [];
 
-  if (context.autoInfectionControl && code !== INFECTION_CONTROL_CODE && !hasCode(existing, INFECTION_CONTROL_CODE)) {
+  // Only in NAMAF's dentist schedule: the dental therapist's list (001-071) has no 8109 by design, so no error either
+  if (context.autoInfectionControl && code !== INFECTION_CONTROL_CODE && !hasCode(existing, INFECTION_CONTROL_CODE) && followsDentistSchedule(context.tariffs)) {
     const infectionControl = buildInfectionControlLine(context.tariffs, context.hasMedicalAid, line.id, context.infectionControlStaff);
     if (infectionControl.ok) {
       // At the top, as the visit screens add it

@@ -122,10 +122,12 @@ export type ToothRule = (code: string, serviceDate: string | null | undefined) =
  * - `rows` have the practice's own codes merged in (mergeOwnTariffs, as loadPracticeTariffRows reads them): its own
  *   "needs a tooth" for a code it overrides (Admin > Tariffs), else the shared list's;
  * - the version of the code billed on the line's date counts (selectBillableTariffs, as billableVisitTariffs);
- * - only dental practices number teeth (isDentalPractice, as withDisciplineRules).
+ * - only dental practices number teeth (isDentalPractice, as withDisciplineRules);
+ * - a dental specialist's NAMAF codes are not in `rows` (its shared list is empty), so a code no row of the practice speaks
+ *   for takes the dentist's rule, as the visit gives it (`dentistToothCodes`, namafTariffs.ts withDentistToothFlags).
  * Null when no version of the code is billed on that date, or the date is unknown: the tooth is then not checked.
  */
-export function toothRuleFor(rows: readonly TariffRow[], practiceType: string | null | undefined): ToothRule {
+export function toothRuleFor(rows: readonly TariffRow[], practiceType: string | null | undefined, dentistToothCodes?: ReadonlySet<string>): ToothRule {
   if (!isDentalPractice(practiceType)) return () => false;
   const flagsByDate = new Map<string, ReadonlyMap<string, boolean>>();
   return (code, serviceDate) => {
@@ -135,7 +137,8 @@ export function toothRuleFor(rows: readonly TariffRow[], practiceType: string | 
       flags = new Map(selectBillableTariffs(rows, serviceDate).tariffs.map(tariff => [codeKey(tariff.code), tariff.requiresTooth]));
       flagsByDate.set(serviceDate, flags);
     }
-    return flags.get(codeKey(code)) ?? null;
+    // A row of the practice (its own code, or its type's shared one) always speaks first, YES or NO
+    return flags.get(codeKey(code)) ?? (dentistToothCodes?.has(codeKey(code)) ? true : null);
   };
 }
 

@@ -394,6 +394,25 @@ describe('whether a claim line needs a tooth', () => {
   it('never asks a practice that is not dental', () => {
     expect(toothErrors({ practiceType: 'medical' })).toEqual([]);
   });
+
+  // Owner, 14 Oct 2026, "copy the dentist flags": a dental specialist's NAMAF codes ask for a tooth where the dentist's list
+  // does. Its visit asked for one, so claim review does too (its shared list is empty: the dentist's codes come in the sources)
+  it("asks a dental specialist for a tooth on a code the dentist's list marks, as its visit did", () => {
+    expect(toothErrors({ practiceType: 'orthodontist', tariffRows: [], dentistToothCodes: new Set(['8341']) })).toEqual(['Code 8341 needs a tooth number.']);
+  });
+
+  it("does not ask a dental specialist on a code the dentist's list does not mark", () => {
+    expect(toothErrors({ practiceType: 'orthodontist', tariffRows: [], dentistToothCodes: new Set(['8501']) })).toEqual([]);
+  });
+
+  it("follows the specialist's own version of the code over the dentist's list: unticked on Admin > Tariffs, no tooth is asked", () => {
+    const tariffRows = mergeOwnTariffs([], [ownTariff('8341', 'NO', '2026-01-01')]);
+    expect(toothErrors({ practiceType: 'orthodontist', tariffRows, dentistToothCodes: new Set(['8341']) })).toEqual([]);
+  });
+
+  it("asks a specialist nothing when the dentist's codes could not be read (the batch review says so), as before the rule", () => {
+    expect(toothErrors({ practiceType: 'orthodontist', tariffRows: [] })).toEqual([]);
+  });
 });
 
 // Business rule: a patient brought over from Eminance without an ID number gets a placeholder so the file can exist

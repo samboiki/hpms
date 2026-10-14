@@ -16,6 +16,8 @@ interface Icd10SearchInputProps {
   position?: Icd10Position;
   /** Codes offered first (the line's suggested codes); the practice's usual codes follow */
   suggestedCodes?: readonly string[];
+  /** Why the line's suggested codes are offered, in plain words: shown under each of them */
+  suggestedReason?: string;
   /**
    * The tariff code of the billing line this box belongs to: the codes suggested for it (the practice's usual code, what
    * the practice billed most with it, reviewed starter codes) follow the line's own, each with its reason. Only offered.
@@ -69,6 +71,7 @@ const Icd10SearchInput: React.FC<Icd10SearchInputProps> = ({
   onKeyDown,
   position = 'main',
   suggestedCodes,
+  suggestedReason,
   tariffCode,
   id,
   placeholder = 'Code or words',
@@ -84,7 +87,7 @@ const Icd10SearchInput: React.FC<Icd10SearchInputProps> = ({
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const [placement, setPlacement] = useState<Placement | null>(null);
-  const { options, status } = useIcd10Search(value, { enabled: open && !disabled, suggestedCodes, tariffCode });
+  const { options, status } = useIcd10Search(value, { enabled: open && !disabled, suggestedCodes, suggestedReason, tariffCode });
   const typed = value.trim().length > 0;
   const optionsKey = options.map(option => option.code).join(' ');
 

@@ -45,10 +45,41 @@ describe('ICD-10 codes on a billing line', () => {
     expect(screen.getByText('ICD-10 J06.9 (from the visit diagnosis)')).toBeInTheDocument();
   });
 
-  // No ICD-10, no payment: a medical aid line without a code is pointed out before the claim is stopped for it
-  it('warns when a medical aid line has no code yet', () => {
+  // No ICD-10, no payment: a medical aid line without a code says "Needs ICD-10" before the claim is stopped for it
+  it('says "Needs ICD-10" when a medical aid line has no code yet', () => {
     renderLine({ icd10: { codes: [], suggested: false, sourceLabel: null } });
-    expect(screen.getByText('No ICD-10 code yet: the medical aid needs one')).toBeInTheDocument();
+    expect(screen.getByText('Needs ICD-10: the medical aid needs a diagnosis code')).toBeInTheDocument();
+  });
+
+  // A private patient's line, and a line the patient pays all of, are never sent to a medical aid: no false alarm
+  it('does not ask for a code on a line that is not claimed', () => {
+    renderLine({ hasMedicalAid: false, icd10: { codes: [], suggested: false, sourceLabel: null } });
+    expect(screen.getByText('No ICD-10 code')).toBeInTheDocument();
+    expect(screen.queryByText(/Needs ICD-10/)).toBeNull();
+  });
+
+  it('does not ask for a code on a line the patient pays all of', () => {
+    renderLine({ service: { ...consultation, paidBy: 'patient' }, icd10: { codes: [], suggested: false, sourceLabel: null } });
+    expect(screen.getByText('No ICD-10 code')).toBeInTheDocument();
+    expect(screen.queryByText(/Needs ICD-10/)).toBeNull();
+  });
+
+  // The practitioner confirms the diagnosis (owner, 14 Oct 2026): the practice's usual code, or a code written in the visit's
+  // notes, is only OFFERED first in the code box; the line stays without a code until a person chooses one
+  it('offers the usual code first in the code box, says why, and leaves the line without a code until it is chosen', async () => {
+    const onChange = renderLine({
+      icd10: { codes: [], suggested: false, sourceLabel: null, offered: ['J06.9'], offeredLabel: "the practice's usual code for 0190" }
+    });
+    expect(screen.getByText('Needs ICD-10: the medical aid needs a diagnosis code')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }));
+    fireEvent.focus(screen.getByLabelText(/ICD-10 code/));
+    const option = await screen.findByRole('option');
+    expect(option).toHaveTextContent('J06.9');
+    expect(option).toHaveTextContent("The practice's usual code for 0190");
+    expect(option).toHaveTextContent('Suggested');
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(option);
+    expect(onChange).toHaveBeenLastCalledWith({ icd10Codes: ['J06.9'] });
   });
 
   it('sends codes typed in the editor tidied, main code first', () => {

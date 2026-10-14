@@ -75,7 +75,7 @@ import { InvoiceAndPayButton, VisitTakePayment } from './VisitTakePayment';
 import { useInvoiceFlagCheck } from './InvoiceFlagCheck';
 import { AccountFlagBadges } from '../finance/debtors/AccountFlagBadges';
 import { canInvoiceAndTakePayment } from '../../utils/billing/invoiceRights';
-import { INFECTION_CONTROL_CODE, MATERIAL_FACTOR_CODE, isDentalPractice, isRestorationCode } from '../../utils/billing/tariffRules';
+import { INFECTION_CONTROL_CODE, MATERIAL_FACTOR_CODE, followsDentistSchedule, isDentalPractice, isRestorationCode } from '../../utils/billing/tariffRules';
 import BundleMenu from '../quotes/BundleMenu';
 import { VisitBillingExtras } from '../billingExtras/VisitBillingExtras';
 import VisitServiceSelector from '../billing/VisitServiceSelector';
@@ -338,7 +338,7 @@ const AddVisitTabs: React.FC<Props> = ({
     visitPractitionerId,
     hasMedicalAid: patientHasMedicalAid === true,
     fund: fundPricing.status === 'ready' ? fundPricing.pricing.fund : null,
-    // Each line's ICD-10 codes start from the practice's usual code or the diagnosis; a changed fee is recorded
+    // A line's ICD-10 codes are chosen by a person (the usual code and the diagnosis's codes are only offered); a changed fee is recorded
     practiceType,
     diagnosis: watch('diagnosis'),
     tariffs: billableTariffs,
@@ -666,7 +666,7 @@ const AddVisitTabs: React.FC<Props> = ({
             visitId: newVisitId,
             patientId,
             practiceId: practiceId || '',
-            // Each line with the ICD-10 codes the Billing tab shows for it (its own or the suggested ones)
+            // Each line with the ICD-10 codes the Billing tab shows for it (chosen on the line, or confirmed at claim review)
             services: billing.servicesForInvoice,
             medicalAidId: undefined,
             // The visit's practitioner treats; whoever saves (reception too) only raises the invoice
@@ -888,7 +888,7 @@ const AddVisitTabs: React.FC<Props> = ({
   // Auto-add 8109 Infection Control when billing tab is accessed for the first time
   useEffect(() => {
     // Dental practices only, and only once the patient's prices are known
-    if (activeTab === 'billing' && availableTariffs.length > 0 && isDental && !billingBlocked) {
+    if (activeTab === 'billing' && availableTariffs.length > 0 && isDental && followsDentistSchedule(availableTariffs) && !billingBlocked) {
       const hasInfectionControl = selectedServices.some(s => s.code === INFECTION_CONTROL_CODE);
 
       if (!hasInfectionControl) {
@@ -1082,7 +1082,7 @@ const AddVisitTabs: React.FC<Props> = ({
 
     // Auto-add 8109 Infection Control for EVERY service (dental practices, if not already present)
     const hasInfectionControl = selectedServices.some(s => s.code === INFECTION_CONTROL_CODE);
-    if (isDental && !hasInfectionControl && tariff.code !== INFECTION_CONTROL_CODE) {
+    if (isDental && followsDentistSchedule(availableTariffs) && !hasInfectionControl && tariff.code !== INFECTION_CONTROL_CODE) {
       console.log('🦠 Auto-adding 8109 Infection Control');
 
       // Priced from the 8109 tariff only; without a usable 8109 tariff no line is added

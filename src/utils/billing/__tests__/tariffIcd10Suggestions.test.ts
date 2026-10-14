@@ -1,11 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import {
   EMPTY_TARIFF_ICD10_DATA,
+  MAX_COMMON_SUGGESTIONS,
   MAX_LEARNED_SUGGESTIONS,
+  MAX_PROCEDURE_SUGGESTIONS,
   MAX_STARTER_SUGGESTIONS,
+  PUBLISHED_LIST_NOTE,
   learnedReason,
   suggestionsForTariff,
+  toCommonCodes,
   toLearnedMap,
+  toProcedureCodes,
   toStarterMap,
   type TariffIcd10Data
 } from '../tariffIcd10Suggestions';
@@ -13,7 +18,8 @@ import {
 // Business rule: the diagnosis on a claim line is the practitioner's, chosen for that patient. There is no official
 // NAMAF or fund table that links a tariff code to ICD-10 codes, so the app may only SUGGEST codes, in an order the
 // practitioner can trust: first what the practice itself decided, then what it has actually billed, then a reviewed
-// starter list for codes whose own wording names the situation.
+// starter list for codes whose own wording names the situation, then what the procedure is usually done for, and last
+// the diagnoses common in the practice's kind of practice.
 const data = (parts: Partial<TariffIcd10Data>): TariffIcd10Data => ({ ...EMPTY_TARIFF_ICD10_DATA, ...parts });
 
 describe('the order of the suggestions', () => {
@@ -152,5 +158,109 @@ describe('the starter list', () => {
       data({ starter: toStarterMap([{ code: '09997', icd10_code: 'Z26.9', sort_order: 1, rationale: "Immunisation, vaccine not named: use the vaccine's own code" }]) })
     );
     expect(suggestions).toEqual([{ code: 'Z26.9', source: 'starter', reason: "Immunisation, vaccine not named: use the vaccine's own code" }]);
+  });
+});
+
+describe('what a procedure is usually done for (the wording rules)', () => {
+  // The database orders the rows (the rule written for the discipline itself first); the app must not reorder or trust them blindly
+  it('keeps the database order and leaves out rows without a usable code or a reason, and repeated codes', () => {
+    const codes = toProcedureCodes([
+      { icd10: 'k35.8', reason: ' Usual reasons for removing the appendix ' },
+      { icd10: 'K36', reason: 'Usual reasons for removing the appendix' },
+      { icd10: 'K35.8', reason: 'Said again by another rule' },
+      { icd10: 'K37', reason: '   ' },
+      { icd10: 'W19', reason: 'An external cause code' },
+      { icd10: 'not a code', reason: 'Nonsense' },
+      { icd10: null, reason: 'No code' }
+    ]);
+    expect(codes).toEqual([
+      { code: 'K35.8', reason: 'Usual reasons for removing the appendix' },
+      { code: 'K36', reason: 'Usual reasons for removing the appendix' }
+    ]);
+  });
+
+  // A practitioner billing an appendicectomy wants the appendix conditions, not the tonsils': rules are read for the line's own code
+  it('offers a line the codes of its own tariff code only, after the starter codes', () => {
+    const suggestions = suggestionsForTariff(
+      '1675',
+      data({
+        starter: new Map([['1675', [{ code: 'Z01.8', reason: 'Before an operation' }]]]),
+        procedure: new Map([
+          ['1675', [{ code: 'K35.8', reason: 'Usual reasons for removing the appendix' }, { code: 'K37', reason: 'Usual reasons for removing the appendix' }]],
+          ['1101', [{ code: 'J35.0', reason: 'Usual reasons for removing the tonsils' }]]
+        ])
+      })
+    );
+    expect(suggestions.map(item => [item.code, item.source])).toEqual([
+      ['Z01.8', 'starter'],
+      ['K35.8', 'procedure'],
+      ['K37', 'procedure']
+    ]);
+    expect(suggestions[1].reason).toBe('Usual reasons for removing the appendix');
+  });
+
+  it('keeps the code box short: at most 5 procedure codes', () => {
+    const rules = ['A01.0', 'A02.0', 'A03.0', 'A04.0', 'A05.0', 'A06.0', 'A07.0'].map(code => ({ code, reason: `Reason ${code}` }));
+    const suggestions = suggestionsForTariff('1675', data({ procedure: new Map([['1675', rules]]) }));
+    expect(suggestions.filter(item => item.source === 'procedure')).toHaveLength(MAX_PROCEDURE_SUGGESTIONS);
+  });
+});
+
+describe('the diagnoses common in the practice\'s kind of practice', () => {
+  // A consultation has no rule: the practitioner still gets a short list of what this kind of practice usually sees
+  it('puts them last, after everything that is specific to the line', () => {
+    const suggestions = suggestionsForTariff(
+      '1675',
+      data({
+        usual: new Map([['1675', 'K35.8']]),
+        procedure: new Map([['1675', [{ code: 'K37', reason: 'Usual reasons for removing the appendix' }]]]),
+        common: [{ code: 'J06.9', reason: 'One of the most common diagnoses in general practice' }]
+      })
+    );
+    expect(suggestions.map(item => [item.code, item.source])).toEqual([
+      ['K35.8', 'practice'],
+      ['K37', 'procedure'],
+      ['J06.9', 'common']
+    ]);
+  });
+
+  it('offers them for any tariff code the practice bills, even one nothing else is known about', () => {
+    const common = [{ code: 'I10', reason: 'One of the most common diagnoses in general practice' }];
+    expect(suggestionsForTariff('0190', data({ common })).map(item => item.code)).toEqual(['I10']);
+    expect(suggestionsForTariff('', data({ common }))).toEqual([]);
+  });
+
+  it('keeps the code box short: at most 5 common diagnoses, and a code already offered does not use up a place', () => {
+    const common = ['J06.9', 'I10', 'E11.9', 'N39.0', 'K29.7', 'M54.5', 'B34.9'].map(code => ({ code, reason: `Common ${code}` }));
+    const plain = suggestionsForTariff('0190', data({ common }));
+    expect(plain.filter(item => item.source === 'common')).toHaveLength(MAX_COMMON_SUGGESTIONS);
+    const withDefault = suggestionsForTariff('0190', data({ usual: new Map([['0190', 'J06.9']]), common }));
+    expect(withDefault.map(item => item.code)).toEqual(['J06.9', 'I10', 'E11.9', 'N39.0', 'K29.7', 'M54.5']);
+    expect(withDefault[0].source).toBe('practice');
+  });
+
+  it('puts the most common first, and leaves out rows without a usable code or a reason', () => {
+    const common = toCommonCodes([
+      { icd10: 'I10', reason: 'Common in general practice', rank: 2 },
+      { icd10: 'J06.9', reason: 'Common in general practice', rank: '1' },
+      { icd10: 'E11.9', reason: 'Common in general practice', rank: null },
+      { icd10: 'N39.0', reason: '', rank: 3 },
+      { icd10: 'Y92.0', reason: 'An external cause code', rank: 1 },
+      { icd10: 'J06.9', reason: 'The same code again', rank: 4 }
+    ]);
+    expect(common.map(item => item.code)).toEqual(['J06.9', 'I10', 'E11.9']);
+  });
+
+  // The row says only what a person has checked: the database passes a source on for reviewed rows alone, so a row without
+  // one is shown with its reason and nothing that looks like a standard
+  it('says "published list" only on a row the database passed a source for', () => {
+    const common = toCommonCodes([
+      { icd10: 'J06.9', reason: 'One of the most common diagnoses in general practice', rank: 1, source: 'https://example.org/list - A published list' },
+      { icd10: 'I10', reason: 'One of the most common diagnoses in general practice', rank: 2, source: null },
+      { icd10: 'E11.9', reason: 'One of the most common diagnoses in general practice', rank: 3, source: '  ' }
+    ]);
+    expect(common[0].reason).toBe(`One of the most common diagnoses in general practice${PUBLISHED_LIST_NOTE}`);
+    expect(common[1].reason).toBe('One of the most common diagnoses in general practice');
+    expect(common[2].reason).toBe('One of the most common diagnoses in general practice');
   });
 });

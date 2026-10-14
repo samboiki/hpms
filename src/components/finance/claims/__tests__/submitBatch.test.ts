@@ -5,9 +5,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const db = vi.hoisted(() => {
   type Op = [string, unknown[]];
   type Response = { data?: unknown; error: { message: string } | null };
+  type RpcResponse = { data?: unknown; error: { code?: string; message: string } | null };
   const state = {
     calls: [] as Array<{ table: string; ops: Op[] }>,
-    responses: {} as Record<string, Response>
+    responses: {} as Record<string, Response>,
+    rpcCalls: [] as Array<[string, unknown]>,
+    rpc: {} as Record<string, RpcResponse>
   };
   const makeBuilder = (table: string) => {
     const entry = { table, ops: [] as Op[] };
@@ -36,7 +39,16 @@ const db = vi.hoisted(() => {
 
 const email = vi.hoisted(() => ({ sendEmail: vi.fn() }));
 
-vi.mock('../../../../lib/supabase', () => ({ supabase: { from: (table: string) => db.makeBuilder(table) } }));
+vi.mock('../../../../lib/supabase', () => ({
+  supabase: {
+    from: (table: string) => db.makeBuilder(table),
+    // The database answers "no line is missing a code" unless a test says otherwise
+    rpc: (name: string, args: unknown) => {
+      db.state.rpcCalls.push([name, args]);
+      return Promise.resolve(db.state.rpc[name] ?? { data: 0, error: null });
+    }
+  }
+}));
 vi.mock('../../../../services/communicationService', () => ({ communicationService: email }));
 
 import { submitBatch, toBase64 } from '../claimsService';
@@ -57,6 +69,8 @@ const opsOf = (table: string, op: string) =>
 beforeEach(() => {
   db.state.calls = [];
   db.state.responses = {};
+  db.state.rpcCalls = [];
+  db.state.rpc = {};
   email.sendEmail.mockReset();
 });
 
@@ -127,6 +141,59 @@ describe('sending through the email gateway', () => {
     const result = await submitBatch(params);
     expect(result.status).toBe('sent_not_recorded');
     expect(result.message).toMatch(/Do not send it again/);
+  });
+});
+
+// Business rule: a claim line without an ICD-10 code is not paid (NAMAF Circular 4 of 2025), and the database refuses to
+// record a batch as sent while a line has none saved. So the file must be held back BEFORE it is emailed: emailing it and
+// then failing to record it would leave a sent file on an open batch that could be sent twice.
+describe('a batch with lines that have no usable main ICD-10 code saved', () => {
+  beforeEach(() => {
+    db.state.responses['batch_headers.select'] = { data: { id: 'b1', status: 'active', sent_at: null }, error: null };
+  });
+
+  it('is not emailed and nothing is written', async () => {
+    db.state.rpc.claim_batch_icd10_gaps = { data: 3, error: null };
+    const result = await submitBatch(params);
+
+    expect(result.status).toBe('blocked');
+    expect(result.message).toMatch(/3 lines have no valid main ICD-10 code saved/);
+    expect(result.message).toMatch(/Save ICD-10 codes/);
+    expect(db.state.rpcCalls).toEqual([['claim_batch_icd10_gaps', { p_batch_id: 'b1' }]]);
+    expect(email.sendEmail).not.toHaveBeenCalled();
+    expect(opsOf('batch_submissions', 'insert')).toHaveLength(0);
+    expect(opsOf('batch_headers', 'update')).toHaveLength(0);
+  });
+
+  it('is told apart for a single line', async () => {
+    db.state.rpc.claim_batch_icd10_gaps = { data: 1, error: null };
+    expect((await submitBatch(params)).message).toMatch(/^1 line has no valid main ICD-10 code saved/);
+  });
+
+  it('is sent as before while the database update is not applied yet (the function is missing)', async () => {
+    db.state.rpc.claim_batch_icd10_gaps = {
+      data: null,
+      error: { code: 'PGRST202', message: 'Could not find the function public.claim_batch_icd10_gaps(p_batch_id) in the schema cache' }
+    };
+    email.sendEmail.mockResolvedValue({ success: true, logId: 'log-1', status: 'sent' });
+    expect((await submitBatch(params)).status).toBe('sent');
+    expect(email.sendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it('is not emailed when the check itself cannot be made', async () => {
+    db.state.rpc.claim_batch_icd10_gaps = { data: null, error: { message: 'network down' } };
+    const result = await submitBatch(params);
+
+    expect(result.status).toBe('blocked');
+    expect(result.message).toMatch(/Could not check the ICD-10 codes before sending/);
+    expect(email.sendEmail).not.toHaveBeenCalled();
+    expect(opsOf('batch_headers', 'update')).toHaveLength(0);
+  });
+
+  it('is sent when no line is missing a code', async () => {
+    db.state.rpc.claim_batch_icd10_gaps = { data: 0, error: null };
+    email.sendEmail.mockResolvedValue({ success: true, logId: 'log-1', status: 'sent' });
+    expect((await submitBatch(params)).status).toBe('sent');
   });
 });
 

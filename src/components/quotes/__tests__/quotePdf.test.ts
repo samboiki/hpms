@@ -203,6 +203,14 @@ describe('the Tooth column on the printed estimate', () => {
     expect(texts()).toContain('16');
   });
 
+  // Owner, 14 Oct 2026: dental specialists work like dental; the laboratory has no teeth to name
+  it("is printed for a dental specialist's practice and the practice typed dental_practice, not for the dental laboratory", () => {
+    ['orthodontist', 'periodontist', 'dental_practice'].forEach(practiceType => {
+      expect(buildQuoteDocument(quote, lines, { ...letterhead, practiceType }, patient).showTooth).toBe(true);
+    });
+    expect(buildQuoteDocument(quote, lines, { ...letterhead, practiceType: 'dental_technician' }, patient).showTooth).toBe(false);
+  });
+
   it('is left out for a GP practice, and when the practice type is not known', () => {
     const doc = buildQuoteDocument(quote, lines, { ...letterhead, practiceType: 'general_practice' }, patient);
     expect(doc.showTooth).toBe(false);

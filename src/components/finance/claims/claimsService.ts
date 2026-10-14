@@ -15,7 +15,10 @@ import { formatNad, toCents } from '../../../utils/billing/money';
 import type { TariffRow } from '../../../utils/billing/pricing';
 import { mergeOwnTariffs } from '../../../utils/billing/practiceTariffs';
 import { isDentalPractice } from '../../../utils/billing/tariffRules';
+import { normalisePracticeType } from '../../../utils/billing/practiceTypeNames';
+import { isDentalSpecialist } from '../../../utils/billing/namafTariffs';
 import { loadOwnTariffs } from '../../../services/practiceTariffService';
+import { loadDentistToothCodes } from '../../../services/namafTariffService';
 import { isReversalTransactionType, joinDiagnosisCodes, type ClaimFile } from '../../../utils/billing/claimFile';
 import type { DoNotClaimFlag } from '../../../utils/billing/claimLine';
 import { normalizeAccountFlag, type RawAccountFlagRow } from '../../../services/ledger/accountFlags';
@@ -41,7 +44,7 @@ import { SILENT_FUND_SETTING_KEY, parseSilentFundDays, silentFundDefaults, type 
 import { loadFundRules } from '../../../services/fundMasterService';
 import type { InvoiceClaimPlace, InvoiceCodeCopy } from './reviewCodes';
 import type { Json } from '../../../types/database.types';
-import { loadInvoicingSetup } from '../../../services/invoicingSetup';
+import { isNotSetUpError, loadInvoicingSetup } from '../../../services/invoicingSetup';
 import { loadPractitionerBilling } from '../../../services/practitionerBillingService';
 import { loadCodeRules } from '../../../services/codeRulesService';
 import { isArNotSetUp } from '../receipts/arService';
@@ -243,20 +246,29 @@ export async function loadBatchLineSources(batch: BatchHeaderRow, practice: Prac
   const timeBasedCodes = new Set([...codeRules.rules].filter(([, rules]) => rules.timeBased).map(([code]) => code));
 
   // Whether a line needs a tooth: the practice's own flag for a code it overrides (Admin > Tariffs), else the shared
-  // list's, as on the visit (toothRuleFor in buildClaimLines). Only dental practices number teeth.
+  // list's, else (a dental specialist's NAMAF codes) the dentist's, as on the visit (toothRuleFor in buildClaimLines).
+  // Only dental practices number teeth.
   let tariffRows: TariffRow[] = [];
+  let dentistToothCodes: ReadonlySet<string> | undefined;
   if (!practice.practice_type) {
     warnings.push('The practice type is not set, so tooth numbers were not checked.');
   } else if (isDentalPractice(practice.practice_type)) {
-    const [shared, own] = await Promise.all([
-      supabase.from('practice_tariffs_with_types').select(TOOTH_RULE_COLUMNS).eq('practice_type_name', practice.practice_type),
+    const [shared, own, dentist] = await Promise.all([
+      supabase.from('practice_tariffs_with_types').select(TOOTH_RULE_COLUMNS).eq('practice_type_name', normalisePracticeType(practice.practice_type)),
       loadOwnTariffs(practice.id).catch((error: unknown) => {
         warnings.push(`${error instanceof Error ? plainWords(error.message) : "The practice's own codes could not be read"}; tooth numbers were checked against the shared tariff list.`);
         return { rows: [], enabled: false };
-      })
+      }),
+      isDentalSpecialist(practice.practice_type)
+        ? loadDentistToothCodes().catch((error: unknown) => {
+            warnings.push(`${error instanceof Error ? plainWords(error.message) : "The dentist's tooth rules could not be read"}; tooth numbers were not checked on the codes the dentist's list marks.`);
+            return undefined;
+          })
+        : Promise.resolve(undefined)
     ]);
     if (shared.error) warnings.push(`The tariff list could not be read (${shared.error.message}), so tooth numbers were not checked.`);
     else tariffRows = mergeOwnTariffs(shared.data ?? [], own.rows);
+    dentistToothCodes = dentist;
   }
 
   return {
@@ -268,6 +280,7 @@ export async function loadBatchLineSources(batch: BatchHeaderRow, practice: Prac
     invoiceServices,
     lineCodes,
     tariffRows,
+    dentistToothCodes,
     practiceType: practice.practice_type ?? null,
     doNotClaim,
     practitionerBilling: billing.billing,
@@ -765,6 +778,20 @@ export function toBase64(textContent: string): string {
   return btoa(binary);
 }
 
+/**
+ * How many lines of a batch have no usable main ICD-10 code saved (claim_batch_icd10_gaps,
+ * proposals/2026-10-14-claims-need-icd10.sql). The database refuses to mark a batch as sent while there are any, so this
+ * is asked before anything is emailed. Null until that update is applied.
+ */
+export async function countLinesWithoutIcd10(batchId: string): Promise<number | null> {
+  const { data, error } = await (supabase as unknown as SupabaseClient).rpc('claim_batch_icd10_gaps', { p_batch_id: batchId });
+  if (error) {
+    if (isNotSetUpError(error)) return null;
+    throw new Error(error.message);
+  }
+  return typeof data === 'number' ? data : null;
+}
+
 export interface SubmitBatchParams {
   practice: PracticeInfo;
   batch: BatchHeaderRow;
@@ -790,6 +817,21 @@ export async function submitBatch(params: SubmitBatchParams): Promise<SubmitBatc
   if (!current) return { status: 'blocked', message: 'The batch no longer exists.' };
   if (!isOpenBatch(current)) {
     return { status: 'blocked', message: `Batch ${batch.batch_number} has already been submitted (status "${current.status ?? ''}"); it was not sent again.` };
+  }
+
+  // The database will not record a batch as sent while a line has no usable main ICD-10 code saved (a claim line without
+  // one is not paid), so ask first: nothing may be emailed that cannot then be recorded as sent
+  let gaps: number | null;
+  try {
+    gaps = await countLinesWithoutIcd10(batch.id);
+  } catch (error) {
+    return { status: 'blocked', message: `Could not check the ICD-10 codes before sending: ${error instanceof Error ? plainWords(error.message) : 'unknown error'}` };
+  }
+  if (gaps !== null && gaps > 0) {
+    return {
+      status: 'blocked',
+      message: `${gaps === 1 ? '1 line has' : `${gaps} lines have`} no valid main ICD-10 code saved, so batch ${batch.batch_number} was not sent (no ICD-10, no payment). Confirm the codes, press "Save ICD-10 codes", then submit again.`
+    };
   }
 
   // A credit file (header transaction type C) takes back lines claimed before: the email says so

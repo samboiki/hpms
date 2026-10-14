@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { toast } from 'react-hot-toast';
 import { formatNad, fromCents } from '../../utils/billing/money';
 import { parseTariffPrice } from '../../utils/billing/pricing';
+import { noFixedAmount } from '../../utils/billing/namafTariffs';
 import { isDentalPractice } from '../../utils/billing/tariffRules';
 import { billingCodeFor } from '../../utils/stock/items';
 import type { VisitTariff } from '../visits/visitBillingLines';
@@ -11,7 +12,9 @@ import { findTariff, type LineContext } from './billingLines';
 import {
   BUNDLE_COLOURS,
   BUNDLE_COLOUR_STYLES,
+  amountsNeeded,
   bundleCodesSummary,
+  bundleLineKey,
   bundleToDraft,
   checkBundleAgainstTariffs,
   emptyBundleDraft,
@@ -133,6 +136,7 @@ const BundleManager: React.FC<BundleManagerProps> = ({ practiceId, practiceType,
                   {preview.problems.length > 0 && (
                     <p className="text-xs text-amber-700">{preview.problems.length} line(s) cannot be billed today: check the codes.</p>
                   )}
+                  {preview.needsAmount && <p className="text-xs text-gray-500">Asks for an amount when used; the price leaves it out.</p>}
                 </div>
                 <span className="text-sm font-semibold text-gray-900 whitespace-nowrap">{formatNad(fromCents(preview.totalCents))}</span>
                 <div className="flex gap-1">
@@ -219,6 +223,8 @@ const BundleEditor: React.FC<BundleEditorProps> = ({ practiceId, tariffs, contex
     [draft, tariffs]
   );
   const preview = useMemo(() => previewBundle(draft, context, { stockLine }), [draft, context, stockLine]);
+  // Lines whose code has no fixed amount in the price list and no fee here: the amount is typed when the bundle is used
+  const asksAmount = useMemo(() => new Set(amountsNeeded([draft], tariffs).map(need => need.key)), [draft, tariffs]);
 
   const setLine = (index: number, patch: Partial<BundleLine>) =>
     setDraft(current => ({ ...current, lines: current.lines.map((line, i) => (i === index ? { ...line, ...patch } : line)) }));
@@ -457,7 +463,7 @@ const BundleEditor: React.FC<BundleEditorProps> = ({ practiceId, tariffs, contex
                       min={0}
                       step="0.01"
                       value={line.fee !== null && line.fee !== undefined && Number.isFinite(line.fee) ? line.fee : ''}
-                      placeholder={fromStock ? 'Stock price' : 'Price list'}
+                      placeholder={fromStock ? 'Stock price' : asksAmount.has(bundleLineKey(0, index)) ? 'Asked when used' : 'Price list'}
                       onChange={event => setLine(index, { fee: event.target.value === '' ? null : Number(event.target.value) })}
                     />
                   </label>
@@ -471,7 +477,11 @@ const BundleEditor: React.FC<BundleEditorProps> = ({ practiceId, tariffs, contex
                 line.code.trim() && (
                   <p className={`mt-1 text-xs ${tariff ? 'text-gray-500' : 'text-amber-700'}`}>
                     {tariff
-                      ? `${tariff.description ?? ''}${price !== null ? ` · ${formatNad(price)} today` : ''}`
+                      ? `${tariff.description ?? ''}${
+                          asksAmount.has(bundleLineKey(0, index))
+                            ? ' · amount when the bundle is used'
+                            : noFixedAmount(tariff) ? ' · no fixed amount: the fee set here is billed' : price !== null ? ` · ${formatNad(price)} today` : ''
+                        }`
                       : 'Not in the tariff list in effect today'}
                   </p>
                 )
@@ -501,6 +511,7 @@ const BundleEditor: React.FC<BundleEditorProps> = ({ practiceId, tariffs, contex
         <span className="text-gray-600">Price today, with automatic lines</span>
         <span className="font-semibold text-gray-900">{formatNad(fromCents(preview.totalCents))}</span>
       </div>
+      {preview.needsAmount && <p className="text-xs text-gray-500">The price leaves out the codes whose amount is typed when the bundle is used.</p>}
 
       {attempted && <MessageList tone="error" title="Fix these before saving" messages={errors} />}
 
