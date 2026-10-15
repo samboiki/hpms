@@ -1,3 +1,10 @@
+/**
+ * Owner-designed print format: do not change the layout or look without the owner's explicit request.
+ *
+ * The owner's timesheet PDF (git bd02f25): loads the practice, then draws the sheet with TimesheetPDFGeneratorOptimized
+ * (the layout the Premium PDF button prints). Kept since: a stored timesheet PDF goes to the private bucket "records"
+ * under the practice (a staff record must not have a public link).
+ */
 import React, { useRef, useState, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -705,7 +712,7 @@ const TimesheetPDFGeneratorFixed: React.FC<TimesheetPDFGeneratorFixedProps> = ({
               textAlign: 'center'
             }}
           >
-            Generated on {format(new Date(), 'd MMM yyyy HH:mm')}
+            Generated on {format(new Date(), 'MMM dd, yyyy HH:mm')}
             {practice.license_number && ` • License: ${practice.license_number}`}
             {practice.tax_number && ` • Tax No: ${practice.tax_number}`}
           </div>

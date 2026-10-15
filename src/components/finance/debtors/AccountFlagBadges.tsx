@@ -64,7 +64,7 @@ export const FlagChips: React.FC<FlagChipsProps> = ({ flags, creditLimit = null,
 /**
  * The account's alerts when the patient file opens: a promise to pay still open (or overdue, in a
  * warning tone) and "Credit-control notes" when there are any. Each chip is one tap to the account on
- * the Billing tab. One request (loadAccountAlerts); nothing shows when there is nothing, before the
+ * the Account tab. One request (loadAccountAlerts); nothing shows when there is nothing, before the
  * debtors proposal is applied, or when it cannot be read (never an error banner on a patient file).
  */
 export const AccountAlertChips: React.FC<{ practiceId: string; accountId: string; familyIds: readonly string[]; onOpen: () => void }> = ({
@@ -100,7 +100,7 @@ export const AccountAlertChips: React.FC<{ practiceId: string; accountId: string
     <ul className="flex flex-wrap items-center gap-1.5" aria-label="Account alerts">
       {alerts.promise && (
         <li>
-          <button type="button" onClick={onOpen} className={`${chip} ${TONES[alerts.promise.state === 'broken' ? 'amber' : 'cyan']}`} title="Open the account on the Billing tab">
+          <button type="button" onClick={onOpen} className={`${chip} ${TONES[alerts.promise.state === 'broken' ? 'amber' : 'cyan']}`} title="Open the patient's Account tab">
             <Icon icon={alerts.promise.state === 'broken' ? 'solar:danger-triangle-bold-duotone' : 'solar:calendar-mark-bold-duotone'} className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
             <span className="whitespace-nowrap">{promiseAlertText(alerts.promise)}</span>
           </button>
@@ -108,7 +108,7 @@ export const AccountAlertChips: React.FC<{ practiceId: string; accountId: string
       )}
       {alerts.hasNotes && (
         <li>
-          <button type="button" onClick={onOpen} className={`${chip} ${TONES.violet}`} title="Open the account on the Billing tab">
+          <button type="button" onClick={onOpen} className={`${chip} ${TONES.violet}`} title="Open the patient's Account tab">
             <Icon icon="solar:notebook-bold-duotone" className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
             <span className="whitespace-nowrap">Credit-control notes</span>
           </button>

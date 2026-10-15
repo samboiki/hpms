@@ -53,7 +53,8 @@ describe('optometry shows for optometry practices only', () => {
     isOptometry.mockResolvedValue(true);
     render(<PatientModalTabs activeTab="overview" onTabChange={() => undefined} mode="details" practiceId="practice-1" />);
     await waitFor(() => expect(screen.getByRole('tab', { name: 'Eyes' })).toBeInTheDocument());
-    expect(tabLabels()).toEqual(['Overview', 'Encounters', 'Eyes', 'Medications', 'Media', 'Laboratory', 'Imaging', 'Billing', 'Change history']);
+    // Account (the account, claims and quotes) sits next to the owner's own Billing tab (owner, 15 Oct 2026)
+    expect(tabLabels()).toEqual(['Overview', 'Encounters', 'Eyes', 'Medications', 'Media', 'Laboratory', 'Imaging', 'Billing', 'Account', 'Change history']);
     expect(screen.queryByRole('tab', { name: 'Teeth' })).not.toBeInTheDocument();
   });
 

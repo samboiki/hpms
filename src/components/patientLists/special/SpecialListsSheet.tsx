@@ -3,7 +3,7 @@ import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { ListSheet } from '../ListSheet';
 import { CHIP, INPUT, LABEL, SECONDARY_BUTTON } from '../listStyles';
-import { patientBillingLink, patientOverviewLink } from '../../billing/invoiceLinks';
+import { patientAccountLink, patientOverviewLink } from '../../billing/invoiceLinks';
 import { downloadCsv, exportFileName, toCsv } from '../../finance/financeExport';
 import { formatServiceDate } from '../../../utils/billing/dates';
 import { formatNad, fromCents } from '../../../utils/billing/money';
@@ -215,13 +215,13 @@ export const SpecialListsSheet: React.FC<SpecialListsSheetProps> = ({ open, onCl
                 </select>
               </div>
             </div>
-            {status(cases, 'No case matches. A case is added on the patient file, Billing tab.', shownCases.length)}
+            {status(cases, 'No case matches. A case is added on the patient file, Account tab.', shownCases.length)}
             {cases.status === 'ready' && shownCases.length > 0 && (
               <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200" aria-label="Injury and accident cases">
                 {shownCases.map(row => (
                   <li key={row.injuryCase.id} className="space-y-0.5 px-3 py-2.5 text-sm">
                     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-                      <Link to={patientBillingLink(row.injuryCase.patientId)} className={NAME}>
+                      <Link to={patientAccountLink(row.injuryCase.patientId)} className={NAME}>
                         {row.patientName}
                       </Link>
                       <span className={`${CHIP} ${caseState(row.injuryCase) === 'open' ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
@@ -242,13 +242,13 @@ export const SpecialListsSheet: React.FC<SpecialListsSheetProps> = ({ open, onCl
 
         {list === 'handed_over' && (
           <>
-            {status(handedOver, 'No account is handed over. An account is flagged "Handed over" on the patient file, Billing tab.', handedOver.status === 'ready' ? handedOver.rows.length : 0)}
+            {status(handedOver, 'No account is handed over. An account is flagged "Handed over" on the patient file, Account tab.', handedOver.status === 'ready' ? handedOver.rows.length : 0)}
             {handedOver.status === 'ready' && handedOver.rows.length > 0 && (
               <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200" aria-label="Accounts handed over">
                 {handedOver.rows.map(row => (
                   <li key={row.patientId} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-3 py-2.5 text-sm">
                     <div className="min-w-0">
-                      <Link to={patientBillingLink(row.patientId)} className={NAME}>
+                      <Link to={patientAccountLink(row.patientId)} className={NAME}>
                         {row.name}
                       </Link>
                       <p className="text-gray-500">
@@ -283,7 +283,7 @@ export const SpecialListsSheet: React.FC<SpecialListsSheetProps> = ({ open, onCl
               {formatServiceDate(range.from)} to {formatServiceDate(range.to)}
               {referred.status === 'ready' && `: ${referred.rows.length} ${referred.rows.length === 1 ? 'referral' : 'referrals'}${referred.more ? ' (the first 1,000)' : ''}`}
             </p>
-            {status(referred, 'No referral letter is dated in this period. Referrals are added on the patient file, Billing tab.', referred.status === 'ready' ? referred.rows.length : 0)}
+            {status(referred, 'No referral letter is dated in this period. Referrals are added on the patient file, Account tab.', referred.status === 'ready' ? referred.rows.length : 0)}
             {referred.status === 'ready' && referred.rows.length > 0 && (
               <ul className="divide-y divide-gray-100 rounded-xl border border-gray-200" aria-label="Referred patients">
                 {referred.rows.map(row => (

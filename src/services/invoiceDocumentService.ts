@@ -1,10 +1,12 @@
 /**
- * Loads everything a printed invoice needs (buildInvoiceDocument) and makes the PDF: the one invoice PDF of the app
- * (SSOT). Used by "Download PDF" (UnifiedPDFGenerator), the print button in the patient's invoice list
- * (CleanInvoiceTable) and the visit documents (documentGenerationService).
+ * Loads everything a printed invoice needs and makes the PDF: the one invoice PDF of the app (SSOT), in the owner's
+ * own design (ownerInvoicePrint.ts; owner, 15 Oct 2026: "that format, please do not touch it"). Used by "Download PDF"
+ * (UnifiedPDFGenerator), the print button in the patient's invoice list (CleanInvoiceTable), the visit screen, the
+ * invoice emails and the visit documents (documentGenerationService).
  *
- * Read-only. Each part that cannot be read leaves its field empty, and missingRuleEight then names it, so a
- * missing detail never stops the patient from getting an account.
+ * Read-only. Each part that cannot be read leaves its field empty, so a missing detail never stops the patient from
+ * getting an account. The rule-008 document (buildInvoiceDocument) is still built beside the PDF: its file name, and
+ * the details NAMAF rule 008 asks for that the file lacks (missingRuleEight), which screens show and never print.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { jsPDF } from 'jspdf';
@@ -23,7 +25,9 @@ import type { BatchDetailRow, InvoiceServiceRow } from '../components/finance/cl
 import { loadLetterhead } from '../components/quotes/quoteService';
 import { loadItemVatRates } from './vatSettingsService';
 import { buildInvoiceDocument, type InvoiceDocument, type InvoiceDocumentInput, type InvoiceDocumentLine } from '../components/billing/invoiceDocument';
-import { renderInvoicePdf } from '../components/billing/invoicePdf';
+import { ownerInvoicePages, renderOwnerInvoicePdf, type OwnerInvoicePrint } from '../components/billing/ownerInvoicePrint';
+import { practiceWebsiteText } from '../utils/practiceWebsite';
+import { practitionerLabel } from '../utils/billing/invoiceRights';
 import { isQuadrant } from '../utils/dental/lineTeeth';
 import { loadPractitionerBilling } from './practitionerBillingService';
 import { patientFileStatus } from '../utils/patients/temporaryPatient';
@@ -230,10 +234,130 @@ export async function loadInvoiceDocumentInput(invoiceId: string): Promise<Invoi
   };
 }
 
-/** The invoice document and its PDF. */
+/**
+ * What the owner's invoice prints (ownerInvoicePrint.ts), read fresh: the invoice and its lines in the order they were
+ * billed (as the patient's Billing tab lists them), the patient, the patient's medical aid, the practice's letterhead
+ * with its logo, and whether the practice is VAT registered.
+ */
+export async function loadOwnerInvoicePrint(invoiceId: string): Promise<OwnerInvoicePrint> {
+  const { data: invoice, error } = await db.from('invoices_enhanced').select('*').eq('id', invoiceId).maybeSingle();
+  if (error) throw new Error(`Could not read the invoice: ${error.message}`);
+  if (!invoice) throw new Error('The invoice could not be found.');
+  const inv = invoice as Row;
+  // An older invoice without a practice belongs to its visit's practice
+  const visitPractice =
+    !text(inv.practice_id) && text(inv.visit_id)
+      ? (await supabase.from('visits').select('practice_id').eq('id', String(inv.visit_id)).maybeSingle()).data?.practice_id ?? null
+      : null;
+  const practiceId = text(inv.practice_id) ?? visitPractice;
+  if (!practiceId) throw new Error('The invoice is not linked to a practice, so it has no letterhead.');
+  const patientId = String(inv.patient_id);
+
+  const [linesResult, practiceResult, patientResult, aidResult] = await Promise.all([
+    db.from('invoice_services').select('*').eq('invoice_id', invoiceId).order('created_at', { ascending: true }),
+    // Every column, as the owner's print read it: a column the database lacks must not fail the letterhead
+    db.from('practices').select('*').eq('id', practiceId).maybeSingle(),
+    supabase.from('patients').select('first_name, last_name, cell_number, email, home_address').eq('id', patientId).maybeSingle(),
+    db.from('medical_aid_details').select('*').eq('patient_id', patientId).order('updated_at', { ascending: false }).limit(1)
+  ]);
+  if (linesResult.error) throw new Error(`Could not read the invoice lines: ${linesResult.error.message}`);
+  if (practiceResult.error) throw new Error(`Could not read the practice details: ${practiceResult.error.message}`);
+  const practice = practiceResult.data as Row | null;
+  if (!practice) throw new Error('The practice details could not be found.');
+  const lineRows = (linesResult.data ?? []) as Row[];
+  const patient = patientResult.data;
+  const aid = (((aidResult.error ? [] : aidResult.data) ?? []) as Row[])[0] ?? null;
+
+  const [provider, vatRates] = await Promise.all([
+    aid && text(aid.medical_aid_provider_id)
+      ? supabase
+          .from('medical_aid_providers')
+          .select('name, short_name')
+          .eq('id', String(aid.medical_aid_provider_id))
+          .maybeSingle()
+          .then(result => result.data)
+      : Promise.resolve(null),
+    // Settings > Practice > VAT and the VAT rate of each stock item billed (services are exempt); never throws
+    loadItemVatRates(practiceId, lineRows.map(row => text(row.stock_item_id) ?? ''))
+  ]);
+
+  const services = lineRows.map(row => ({
+    id: String(row.id),
+    code: text(row.code),
+    description: text(row.description),
+    quantity: amount(row.quantity) || 1,
+    unitPrice: amount(row.unit_price),
+    medicalAid: amount(row.medical_aid_covered),
+    total: amount(row.total_price),
+    vatRate: text(row.stock_item_id) ? vatRates.rates.get(String(row.stock_item_id)) ?? 0 : 0
+  }));
+  const linesTotal = services.reduce((sum, service) => sum + toCents(service.total), 0) / 100;
+
+  return {
+    kind: 'invoice',
+    invoiceNumber: String(inv.invoice_number ?? ''),
+    createdAt: String(inv.created_at ?? inv.issue_date ?? ''),
+    dueDate: toDateKey(text(inv.due_date)),
+    practice: {
+      name: String(practice.name ?? ''),
+      logoUrl: text(practice.logo_url),
+      address: text(practice.address),
+      city: text(practice.city),
+      country: text(practice.country),
+      postalCode: text(practice.postal_code),
+      contactPhone: text(practice.contact_phone),
+      contactEmail: text(practice.contact_email),
+      website: practiceWebsiteText(practice as { website_url?: string | null; domain?: string | null }),
+      bankName: text(practice.bank_name),
+      accountNumber: text(practice.account_number),
+      branchCode: text(practice.branch_code)
+    },
+    patient: {
+      name: [patient?.first_name, patient?.last_name].filter(Boolean).join(' '),
+      phone: patient?.cell_number ?? null,
+      email: patient?.email ?? null,
+      address: patient?.home_address ?? null
+    },
+    medicalAid: aid
+      ? {
+          providerName: text(provider?.short_name) ?? text(provider?.name) ?? text(aid.provider),
+          scheme: text(aid.scheme),
+          membershipNumber: text(aid.membership_number)
+        }
+      : null,
+    services,
+    total: inv.total === null || inv.total === undefined ? linesTotal : amount(inv.total),
+    vat: vatRates.settings.registered ? { vatNumber: vatRates.settings.vatNumber } : null
+  };
+}
+
+/** The invoice PDF in the owner's design, with the rule-008 document for its file name and the on-screen checks. */
 export async function makeInvoicePdf(invoiceId: string): Promise<{ doc: InvoiceDocument; pdf: jsPDF }> {
-  const doc = buildInvoiceDocument(await loadInvoiceDocumentInput(invoiceId));
-  return { doc, pdf: renderInvoicePdf(doc) };
+  const [input, print] = await Promise.all([loadInvoiceDocumentInput(invoiceId), loadOwnerInvoicePrint(invoiceId)]);
+  const doc = buildInvoiceDocument(input);
+  return { doc, pdf: await renderOwnerInvoicePdf(ownerInvoicePages(withRuleEightDetails(print, input))) };
+}
+
+/**
+ * The NAMAF rule-008 details the owner asked for on his invoice (15 Oct 2026, "small, in my style"), taken from the
+ * rule-008 document's input, the one place that reads them: the practice number, the treating practitioners' HPCNA
+ * numbers and each line's ICD-10 codes (its own, else its claim line's, else the visit's).
+ */
+export function withRuleEightDetails(print: OwnerInvoicePrint, input: InvoiceDocumentInput): OwnerInvoicePrint {
+  const icd10ByLine = new Map(input.lines.map(line => [line.id, line.icd10] as const));
+  const staff = new Map(input.practitioners.map(person => [person.id, person] as const));
+  // The invoice's treating practitioner, then any other who treated a line (a partner)
+  const treating = [input.invoice.practitionerId ?? input.visit?.practitionerId ?? null, ...input.lines.map(line => line.practitionerId)];
+  const practitioners = [...new Set(treating.filter((id): id is string => Boolean(id)))].flatMap(id => {
+    const person = staff.get(id);
+    return person ? [{ name: practitionerLabel({ role: person.role, full_name: person.fullName }), hpcnaNumber: person.hpcnaNumber }] : [];
+  });
+  return {
+    ...print,
+    practice: { ...print.practice, practiceNumber: input.practice.practiceNumber },
+    practitioners,
+    services: print.services.map(service => ({ ...service, icd10: (service.id && icd10ByLine.get(service.id)) || [] }))
+  };
 }
 
 /** Saves the invoice PDF on this device; returns the document (its `missing` list says what rule 008 still lacks). */

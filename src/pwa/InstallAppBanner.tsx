@@ -1,12 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
+import React, { useState } from 'react';
+import { isRunningInstalled, promptInstall, useInstallApp } from './installApp';
 import { detectIos, getInstallOffer, INSTALL_DISMISSED_KEY, type InstallOffer } from './installPrompt';
-
-/** Chrome/Edge/Android's install event (not yet in the standard DOM types) */
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
 
 const readDismissedAt = (): number | null => {
   try {
@@ -17,38 +11,16 @@ const readDismissedAt = (): number | null => {
   }
 };
 
-const runsInstalled = (): boolean =>
-  Capacitor.isNativePlatform() || // the Android or iOS store app
-  window.matchMedia?.('(display-mode: standalone)').matches === true ||
-  (navigator as Navigator & { standalone?: boolean }).standalone === true;
-
 /** Offers to install OneHealth on this phone, tablet or computer, once, in the way the device supports */
 const InstallAppBanner: React.FC = () => {
-  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  // The browser's install event is held in installApp.ts (the profile menu's "Install app" uses it too)
+  const { hasPromptEvent, installed } = useInstallApp();
   const [dismissedAt, setDismissedAt] = useState<number | null>(readDismissedAt);
-  const [installed, setInstalled] = useState(runsInstalled);
-
-  useEffect(() => {
-    const onPrompt = (event: Event) => {
-      event.preventDefault(); // show our own button instead of the browser's mini bar
-      setPromptEvent(event as BeforeInstallPromptEvent);
-    };
-    const onInstalled = () => {
-      setInstalled(true);
-      setPromptEvent(null);
-    };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  }, []);
 
   const offer: InstallOffer = getInstallOffer({
-    isStandalone: installed,
+    isStandalone: installed || isRunningInstalled(),
     isIos: detectIos(navigator.userAgent, navigator.maxTouchPoints || 0),
-    hasPromptEvent: promptEvent !== null,
+    hasPromptEvent,
     dismissedAt,
     now: Date.now()
   });
@@ -65,11 +37,7 @@ const InstallAppBanner: React.FC = () => {
   };
 
   const install = async () => {
-    if (!promptEvent) return;
-    await promptEvent.prompt();
-    const { outcome } = await promptEvent.userChoice;
-    setPromptEvent(null);
-    if (outcome === 'dismissed') dismiss();
+    if (await promptInstall() === 'dismissed') dismiss();
   };
 
   return (

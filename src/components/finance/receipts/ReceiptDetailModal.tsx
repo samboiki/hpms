@@ -3,7 +3,7 @@ import { plainWords } from '../../../utils/plainErrors';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { formatNad, fromCents } from '../../../utils/billing/money';
-import { invoiceLink, patientBillingLink } from '../../billing/invoiceLinks';
+import { invoiceLink, patientAccountLink } from '../../billing/invoiceLinks';
 import {
   ADJUSTMENT_LABELS,
   PORTION_LABELS,
@@ -175,9 +175,9 @@ export const ReceiptDetailModal: React.FC<{
                 <dt className="text-xs text-gray-500">Patient</dt>
                 <dd>
                   <Link
-                    to={patientBillingLink(receipt.patientId)}
+                    to={patientAccountLink(receipt.patientId)}
                     onClick={onClose}
-                    title="The patient's Billing tab: invoices, payments and statements"
+                    title="The patient's Account tab: balance, payments and statements"
                     className="font-medium text-cyan-700 hover:underline"
                   >
                     {patientNames[receipt.patientId] ?? 'Open the patient file'}

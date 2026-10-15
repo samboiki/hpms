@@ -31,6 +31,8 @@ describe('the tooth chart shows for dental practices only', () => {
       'Laboratory',
       'Imaging',
       'Billing',
+      // The account, claims and quotes, next to the owner's own Billing tab (owner, 15 Oct 2026)
+      'Account',
       'Change history'
     ]);
   });

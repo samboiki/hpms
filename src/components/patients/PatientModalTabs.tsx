@@ -10,6 +10,7 @@ import {
   FlaskConical,
   Scan,
   Wallet,
+  CreditCard,
   History,
   Sparkles,
   Loader2,
@@ -109,6 +110,13 @@ const detailTabs: Tab[] = [
     label: 'Billing',
     icon: Wallet,
     tooltip: 'Insurance and payment information'
+  },
+  // What was added after the owner's Billing design: his Billing tab shows only his invoice table (owner, 15 Oct 2026)
+  {
+    id: 'account',
+    label: 'Account',
+    icon: CreditCard,
+    tooltip: 'Balance, payments, statement, plans, referrals and quotes'
   },
   {
     id: 'audit',

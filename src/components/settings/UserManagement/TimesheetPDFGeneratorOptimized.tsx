@@ -1,3 +1,11 @@
+/**
+ * Owner-designed print format: do not change the layout or look without the owner's explicit request.
+ *
+ * The staff timesheet PDF as the owner designed it (git bd02f25; Settings > Users > Timesheets > Premium PDF, through
+ * TimesheetPDFGeneratorFixed): the practice band with TIMESHEET and the month, employee details, hours summary, the
+ * daily time log for every day of the month, signatures and the footer. Restored 15 Oct 2026 to the owner's footer
+ * date ("Generated on Oct 15, 2026 14:30"); the error message when a PDF cannot be made is in plain words (screen only).
+ */
 import React, { useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -570,7 +578,7 @@ const TimesheetPDFGeneratorOptimized: React.FC<TimesheetPDFGeneratorOptimizedPro
               textAlign: 'center'
             }}
           >
-            Generated on {format(new Date(), 'd MMM yyyy HH:mm')}
+            Generated on {format(new Date(), 'MMM dd, yyyy HH:mm')}
             {practice.license_number && ` • License: ${practice.license_number}`}
             {practice.tax_number && ` • Tax No: ${practice.tax_number}`}
           </div>

@@ -93,10 +93,11 @@ import { PatientAvatar } from './photo/PatientAvatar';
 //   /patients?patientId=<id>&visitId=<id>&action=edit-visit
 //   /patients?patientId=<id>&tab=overview&noteId=<id>   (a note: Notes on the Overview scrolls to it)
 //   /patients?action=add   (dashboard "Add Patient": opens the registration form)
-type PatientDetailTab = 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes';
+type PatientDetailTab = 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'account' | 'audit' | 'teeth' | 'eyes';
 // 'teeth' (the tooth chart) shows for dental practices only; the quote and invoice "Teeth chart" links open it.
 // 'eyes' (prescriptions, lab orders) shows for optometry practices only; the lab order list links to it.
-const PATIENT_DETAIL_TABS: readonly PatientDetailTab[] = ['overview', 'encounters', 'medications', 'media', 'lab', 'imaging', 'billing', 'audit', 'teeth', 'eyes'];
+// 'account' (balance, payments, statement, plans, quotes) sits next to the owner's Billing tab; account links open it.
+const PATIENT_DETAIL_TABS: readonly PatientDetailTab[] = ['overview', 'encounters', 'medications', 'media', 'lab', 'imaging', 'billing', 'account', 'audit', 'teeth', 'eyes'];
 const DEEP_LINK_PARAMS = ['patientId', 'tab', 'visitId', 'action', 'returnTo', 'noteId'] as const;
 
 // The delete buttons used to confirm and then report "Patient deleted successfully" without

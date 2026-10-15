@@ -20,7 +20,6 @@ import {
   Edit,
   Trash2,
   ChevronLeft,
-  ChevronDown,
   Heart,
   Activity,
   Shield,
@@ -95,8 +94,6 @@ import { communicationService } from '../../services/communicationService';
 import { medicalAidService } from '../../services/medicalAidService';
 import { useAuthStore } from '../../stores/authStore';
 import { LabResultsContent, DocumentsContent, BillingContent } from './DirectTabContent';
-import CleanInvoiceTable from '../billing/CleanInvoiceTable';
-import html2canvas from 'html2canvas';
 import InvoiceGenerationModal from '../modals/InvoiceGenerationModal';
 import InvoicePreviewModal from '../modals/InvoicePreviewModal';
 import ManageBeneficiariesModal from '../modals/ManageBeneficiariesModal';
@@ -118,22 +115,21 @@ import { PatientBookingsPanel } from '../appointments/diary/PatientBookingsPanel
 import { PatientNotesPanel } from './notes/PatientNotesPanel';
 import { downloadInvoicePdf } from '../../services/invoiceDocumentService';
 import { AccountFlagBadges } from '../finance/debtors/AccountFlagBadges';
-import { PatientClaimsNotice } from '../finance/remittances/PatientClaimsNotice';
 import { VisitLettersPanel } from '../letters/VisitLettersPanel';
 import { PregnancyDueDateCard } from './pregnancy/PregnancyDueDateCard';
 import { PrivateNotesPanel } from './privateNotes/PrivateNotesPanel';
 import { PatientConsentsPanel } from '../consents/PatientConsentsPanel';
 import { RecordExportCard } from './export/RecordExportCard';
 import { InvoiceEmailSheet } from '../messages/DocumentEmailSheets';
-import PatientBillingPanel from './PatientBillingPanel';
-import { PatientQuotesPanel } from '../quotes/QuotePanels';
+import PatientBillingTab from './PatientBillingTab';
+import PatientAccountTab from './PatientAccountTab';
+import { ownerInvoicePages, renderOwnerInvoicePdf } from '../billing/ownerInvoicePrint';
 import { usePatientInvoices } from './usePatientInvoices';
 import { usePatientFileAccessLog } from '../../hooks/usePatientFileAccessLog';
 import { getClinicianDisplayName } from '../telemedicine/telemedicineLinks';
 import { getVisitStage } from '../../utils/visitStage';
 import { INVOICE_LOCK_MESSAGES, loadInvoiceLock } from '../../utils/invoiceLock';
 import { getResultStatus } from '../../utils/labResultStatus';
-import { formatNad } from '../../utils/billing/money';
 import { matchesPatientSearch, patientSearchFields } from '../../utils/patientSearch';
 import { PAYMENT_METHOD_META } from '../finance/financeTheme';
 import { describeVitalReadings } from './vitalsSummary';
@@ -155,7 +151,7 @@ interface ComprehensivePatientModalProps {
   onClose: () => void;
   patientId?: string | null;
   onAppointmentCreated?: (appointment: any) => void;
-  defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes';
+  defaultDetailTab?: 'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'account' | 'audit' | 'teeth' | 'eyes';
   visitIdToEdit?: string | null;
   /** Shown at the top left of the header, e.g. "Back to dashboard" when a consult was started there */
   backAction?: { label: string; onClick: () => void };
@@ -270,7 +266,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // Main tab state - automatically switch to details if patientId is provided
   const [activeTab, setActiveTab] = useState<'patients' | 'details'>(patientId ? 'details' : 'patients');
   const [activeMainTab, setActiveMainTab] = useState<'patients' | 'analytics'>('patients');
-  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'audit' | 'teeth' | 'eyes'>(defaultDetailTab || 'overview');
+  const [activeDetailTab, setActiveDetailTab] = useState<'overview' | 'encounters' | 'medications' | 'media' | 'lab' | 'imaging' | 'billing' | 'account' | 'audit' | 'teeth' | 'eyes'>(defaultDetailTab || 'overview');
   // An account alert beside the name (promise to pay, credit-control notes) opens Billing at the account (when it was tapped)
   const [accountFocusKey, setAccountFocusKey] = useState(0);
 
@@ -485,9 +481,7 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
   // A row that only carries invoices (payment plan, package, opening balance) is not an encounter: the timeline and the
   // tab's count leave it out, while the Billing tab above still finds it by id for its invoices
   const encounterVisits = useMemo(() => visits.filter(visit => !isCarrierVisit(visit)), [visits]);
-  // Billing invoice management (status, email, statement) stays available but collapsed
-  const [isInvoiceManagementOpen, setIsInvoiceManagementOpen] = useState(false);
-  // The invoice being emailed as a PDF (Manage invoices > Email)
+  // The invoice being emailed as a PDF (the Billing tab invoice table's Email)
   const [emailingInvoice, setEmailingInvoice] = useState<{ id: string; number: string; total: number | null; visitId: string | null } | null>(null);
 
   // Open any of this patient's visits in the visit screen. The visit loads itself by id, so a
@@ -499,13 +493,15 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
     modalState.openEditVisitModal();
   };
 
-  // Download the invoice PDF: the one NAMAF rule-008 document every screen uses (src/services/invoiceDocumentService)
+  // Download the invoice PDF in the owner's own design, the one invoice PDF every screen uses
+  // (src/components/billing/ownerInvoicePrint.ts through src/services/invoiceDocumentService)
   const handleDirectPrintPDF = useCallback(async (invoice: { id: string; invoice_number?: string | null }) => {
     setIsPrintingPDF(true);
     try {
       const document = await downloadInvoicePdf(invoice.id);
       if (document.missing.length > 0) {
-        toast(`Invoice ${invoice.invoice_number ?? ''} was downloaded. Still missing for NAMAF rule 008: ${document.missing.join(', ')}.`, { duration: 8000 });
+        // Not printed on the invoice: what the patient's file still lacks for a medical aid claim
+        toast(`Invoice ${invoice.invoice_number ?? ''} was downloaded. For medical aid claims (NAMAF rule 008) the file still lacks: ${document.missing.join(', ')}.`, { duration: 8000 });
       }
       return true;
     } catch (error) {
@@ -575,7 +571,6 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
       console.log('✅ Practice data fetched successfully for receipt:', practiceInfo);
       console.log('🧾 Patient info for Receipt:', patientInfo);
       console.log('🏥 Practice info for Receipt:', practiceInfo);
-      const practiceContact = [practiceInfo.contact_phone, practiceInfo.contact_email].filter(Boolean).join(' • ');
       // As recorded when the payment was marked ("EFT", "Medical aid"); never guessed
       const paymentMethodLabel = invoice.payment_method
         ? (PAYMENT_METHOD_META as Record<string, { label: string }>)[invoice.payment_method]?.label ?? invoice.payment_method
@@ -600,302 +595,65 @@ const ComprehensivePatientModal: React.FC<ComprehensivePatientModalProps> = ({ i
         }
       }
 
-      // Create a temporary container for the HTML content
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '-9999px';
-      document.body.appendChild(tempContainer);
-
-      // Import and use html2canvas and jsPDF directly
-      // html2canvas is already imported at the top
-      const jsPDF = (await import('jspdf')).default;
-
-      // Load Montserrat and Rubik fonts
-      const receiptFontLink = document.createElement('link');
-      receiptFontLink.href = 'https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&family=Rubik:wght@400;500;600;700;800;900&display=swap';
-      receiptFontLink.rel = 'stylesheet';
-      document.head.appendChild(receiptFontLink);
-
-      // Wait for font to load
-      await document.fonts.ready;
-
-      // Helper functions for color manipulation
-      function hexToRgb(hex) {
-        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? [
-          parseInt(result[1], 16),
-          parseInt(result[2], 16),
-          parseInt(result[3], 16)
-        ] : [1, 185, 212];
-      }
-      
-      function adjustBrightness(hex, percent) {
-        const [r, g, b] = hexToRgb(hex);
-        const adjust = (color) => Math.max(0, Math.min(255, Math.round(color * (1 + percent / 100))));
-        return `#${((1 << 24) + (adjust(r) << 16) + (adjust(g) << 8) + adjust(b)).toString(16).slice(1)}`;
-      }
-
-      // Get practice primary color for receipt
-      const primaryColor = practiceData?.primary_color || practiceInfo?.primary_color || '#01b9d4';
-      const lightColor = adjustBrightness(primaryColor, 20);
-      const darkColor = adjustBrightness(primaryColor, -15);
-
-      // Create function to generate receipt page HTML with your exact styling
-      const createReceiptPageHTML = (pageServices: any[], pageNumber: number, totalPages: number, isLastPage: boolean) => {
-        return `
-          <div style="width: 794px; height: 1123px; font-family: 'Montserrat', sans-serif; font-size: 11px; line-height: 1.5; color: #2c2c2c; background-color: #ffffff; padding: 25px; margin: 0; box-sizing: border-box; position: relative;">
-            
-            <!-- Premium Header Section -->
-            <div style="padding: 0; margin-bottom: 40px; display: flex; justify-content: space-between; align-items: flex-start;">
-              
-              <!-- Logo and Title on Left (Stacked) -->
-              <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px; flex: 1;">
-                ${practiceInfo.logo_url ? `
-                  <div style="flex-shrink: 0;">
-                    <img src="${practiceInfo.logo_url}" alt="Practice Logo" style="width: 120px; height: auto; max-height: 65px; border-radius: 8px; object-fit: contain;" />
-                  </div>
-                ` : ''}
-                <div>
-                  <div style="font-family: 'Rubik', sans-serif; font-size: 22px; font-weight: 800; color: #5f6578; letter-spacing: -0.2px;">
-                    ${practiceInfo.name}
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Practice Details (right aligned) -->
-              <div style="text-align: right; flex: 1; max-width: 300px;">
-                <div style="font-size: 10px; line-height: 1.6; color: #5a5a5a; font-weight: 400;">
-                  ${practiceInfo.address ? `<div style="margin-bottom: 2px;">${practiceInfo.address}</div>` : ''}
-                  <div style="margin-bottom: 2px;">${[practiceInfo.city, practiceInfo.country].filter(Boolean).join(', ')} ${practiceInfo.postal_code || ''}</div>
-                  ${practiceInfo.contact_phone ? `<div style="margin-bottom: 2px;">Tel: ${practiceInfo.contact_phone}</div>` : ''}
-                  ${practiceInfo.contact_email ? `<div style="margin-bottom: 2px;">Email: ${practiceInfo.contact_email}</div>` : ''}
-                  ${practiceWebsiteText(practiceInfo) ? `<div>${practiceWebsiteText(practiceInfo)}</div>` : ''}
-                </div>
-              </div>
-            </div>
-            
-            ${pageNumber === 1 ? `
-            <!-- Receipt Title Section -->
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 20px 0; border-bottom: 2px solid #d1d5db;">
-              <div style="display: flex; align-items: flex-end; gap: 15px;">
-                <div style="font-family: 'Rubik', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">
-                  <span style="color: #5f6578;">PAYMENT</span> <span style="color: #888;">RECEIPT</span>
-                </div>
-                <span style="font-size: 14px; font-weight: 600; color: #666; letter-spacing: 0.3px; align-self: flex-end;">#REC-${invoice.invoice_number}</span>
-              </div>
-              <div style="display: flex; align-items: center; gap: 15px; font-size: 9px; color: #666;">
-                <div style="text-align: center;">
-                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">RECEIPT DATE</div>
-                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${format(new Date(), 'dd MMM yyyy')}</div>
-                </div>
-                <div style="border-left: 1px solid #d1d5db; height: 30px; margin: 0 5px;"></div>
-                <div style="text-align: center;">
-                  <div style="color: #aaa; text-transform: uppercase; margin-bottom: 3px; font-size: 7px; font-weight: 600; letter-spacing: 0.8px;">METHOD</div>
-                  <div style="font-weight: 700; color: #2c2c2c; font-size: 10px;">${paymentMethodLabel}</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- PAYMENT RECEIVED FROM Section -->
-            <div style="margin-bottom: 20px;">
-              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.3px;">PAYMENT RECEIVED FROM</h3>
-              <div style="display: flex; justify-content: space-between; gap: 25px;">
-                <!-- Patient Details -->
-                <div style="flex: 1;">
-                  <div style="line-height: 1.4;">
-                    <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                      ${patientInfo.name}
-                    </div>
-                    ${patientInfo.phone ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.phone}</div>` : ''}
-                    ${patientInfo.email ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.email}</div>` : ''}
-                    ${patientInfo.address ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">${patientInfo.address}</div>` : ''}
-                  </div>
-                </div>
-
-                <!-- Medical Aid Details (Right Aligned) -->
-                ${medicalAid?.scheme || medicalAidProviderName !== 'N/A' ? `
-                  <div style="flex: 1; text-align: right;">
-                    <div style="line-height: 1.4;">
-                      <div style="font-weight: 700; font-size: 12px; color: #1a1a1a; margin-bottom: 3px;">
-                        ${medicalAidProviderName}
-                      </div>
-                      ${medicalAid?.scheme ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Scheme: ${medicalAid.scheme}</div>` : ''}
-                      ${medicalAid?.membership_number ? `<div style="color: #666; margin-bottom: 2px; font-size: 9px;">Member: ${medicalAid.membership_number}</div>` : ''}
-                    </div>
-                  </div>
-                ` : ''}
-              </div>
-            </div>
-            ` : ''}
-
-            <!-- Service Details Section -->
-            <div style="margin-bottom: 30px;">
-              <h3 style="font-size: 14px; font-weight: 700; color: #5f6578; margin: 0 0 12px 0; padding-bottom: 10px; border-bottom: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.3px;">SERVICES ${pageNumber > 1 ? '(CONTINUED)' : ''}</h3>
-              
-              <table style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-                <thead>
-                  <tr style="background: #5f6578; color: white;">
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Code</th>
-                    <th style="padding: 12px 10px; text-align: left; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Description</th>
-                    <th style="padding: 12px 10px; text-align: center; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Qty</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Unit Price</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; border-right: 1px solid rgba(255,255,255,0.3); text-transform: uppercase;">Med Aid</th>
-                    <th style="padding: 12px 10px; text-align: right; font-weight: 600; font-size: 11px; text-transform: uppercase;">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${pageServices.map((service: any, index: number) => `
-                    <tr style="border-bottom: 1px solid #f3f4f6; ${index % 2 === 1 ? 'background: #f9fafb;' : ''}">
-                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-weight: 600; color: #1f2937; font-size: 11px;">${service.code || 'N/A'}</td>
-                      <td style="padding: 12px 10px; border-right: 1px solid #e5e7eb; font-size: 11px;">
-                        <div style="color: #4b5563;">${service.description}</div>
-                      </td>
-                      <td style="padding: 12px 10px; text-align: center; border-right: 1px solid #e5e7eb; font-size: 11px;">${service.quantity}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; font-size: 11px;">${formatNad(Number(service.unit_price) || 0)}</td>
-                      <td style="padding: 12px 10px; text-align: right; border-right: 1px solid #e5e7eb; font-weight: 600; color: #374151; font-size: 11px;">${formatNad(Number(service.medical_aid_covered) || 0)}</td>
-                      <td style="padding: 12px 10px; text-align: right; font-weight: 600; color: #1f2937; font-size: 11px;">${formatNad(Number(service.total_price) || 0)}</td>
-                    </tr>
-                  `).join('')}
-                  
-                  ${isLastPage ? `
-                  <!-- Summary Rows -->
-                  <tr>
-                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; border-right: 1px solid #e5e7eb; font-size: 11px;">Subtotal:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #f9fafb; font-size: 11px;">${formatNad(invoice.services.reduce((sum: number, s: { total_price?: number | string | null }) => sum + (Number(s.total_price) || 0), 0))}</td>
-                  </tr>
-                  
-                  <!-- Patient Portion Row -->
-                  <tr>
-                    <td colspan="5" style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; border-right: 1px solid #fed7aa; font-size: 11px; color: #ea580c;">Patient Portion:</td>
-                    <td style="padding: 12px 10px; text-align: right; font-weight: 600; background: #fff7ed; font-size: 11px; color: #ea580c;">${formatNad((Number(invoice.total) || 0) - (Number(invoice.medical_aid_covered) || 0))}</td>
-                  </tr>
-                  
-                  <!-- Total Row -->
-                  <tr>
-                    <td colspan="5" style="padding: 10px; text-align: right; font-weight: 700; font-size: 12px; background: #5f6578; color: white; border-right: 1px solid #5f6578; text-transform: uppercase;">Amount Paid:</td>
-                    <td style="padding: 10px; text-align: right; font-weight: 700; font-size: 14px; background: #5f6578; color: white;">${formatNad(Number(invoice.total) || 0)}</td>
-                  </tr>
-                  ` : ''}
-                </tbody>
-              </table>
-            </div>
-
-            ${isLastPage ? `
-            ${practiceInfo.bank_name || practiceInfo.account_number || practiceInfo.branch_code ? `
-            <!-- Compact Banking Details Section: only the details the practice has entered -->
-            <div style="margin-bottom: 20px; padding: 10px 15px; background: #f8f9fa; border-radius: 6px; border: 1px solid #e5e7eb;">
-              <h3 style="font-size: 10px; font-weight: 600; color: #5f6578; margin: 0 0 6px 0; text-transform: uppercase;">Banking Details</h3>
-              <div style="display: flex; gap: 20px; font-size: 10px; line-height: 1.3;">
-                ${practiceInfo.bank_name ? `<span style="color: #6b7280;">Bank: <strong style="color: #1f2937;">${practiceInfo.bank_name}</strong></span>` : ''}
-                ${practiceInfo.account_number ? `<span style="color: #6b7280;">Account: <strong style="color: #1f2937;">${practiceInfo.account_number}</strong></span>` : ''}
-                ${practiceInfo.branch_code ? `<span style="color: #6b7280;">Branch: <strong style="color: #1f2937;">${practiceInfo.branch_code}</strong></span>` : ''}
-              </div>
-            </div>
-            ` : ''}
-
-            <!-- Professional Footer -->
-            <div style="padding: 15px 0; border-top: 1px solid #e5e7eb; margin-top: 30px;">
-              <div style="text-align: center;">
-                <p style="margin: 0; font-size: 9px; color: #6b7280; line-height: 1.5;">
-                  Thank you for choosing <strong style="color: #374151;">${practiceInfo.name}</strong>.${practiceContact ? ` For inquiries: ${practiceContact}` : ''}
-                </p>
-                <div style="margin-top: 12px; font-size: 8px; color: #9ca3af; border-top: 1px solid #f3f4f6; padding-top: 8px;">
-                  Receipt generated by <strong style="color: #6b7280;">OneHealth Systems</strong> • www.onehealthsystems.com • © ${new Date().getFullYear()}
-                </div>
-              </div>
-            </div>
-            ` : ''}
-
-            <!-- Page number at bottom -->
-            <div style="position: absolute; bottom: 10px; left: 0; right: 0; text-align: center; font-size: 8px; color: #9ca3af;">
-              Page ${pageNumber} of ${totalPages}
-            </div>
-          </div>
-        `;
-      };
-
-      // Smart pagination logic for receipts (same as invoices)
-      const totalServices = invoice.services.length;
-      const serviceChunks = [];
-      
-      if (totalServices <= 9) {
-        // Single page with footer - all services fit
-        serviceChunks.push(invoice.services);
-      } else if (totalServices <= 13) {
-        // 10-13 services: 10 on page 1, rest on page 2 with footer
-        serviceChunks.push(invoice.services.slice(0, 10));
-        serviceChunks.push(invoice.services.slice(10));
-      } else {
-        // 14+ services: 14 on page 1, then 20 per continuation page
-        serviceChunks.push(invoice.services.slice(0, 14));
-        
-        let remainingServices = invoice.services.slice(14);
-        while (remainingServices.length > 0) {
-          const chunkSize = 20; // Continuation pages can fit 20 services
-          serviceChunks.push(remainingServices.slice(0, chunkSize));
-          remainingServices = remainingServices.slice(chunkSize);
-        }
-      }
-      
-      const totalPages = Math.max(1, serviceChunks.length);
-      console.log(`📊 Smart receipt pagination: ${totalServices} services split into ${totalPages} pages`);
-      console.log(`📊 Receipt page breakdown:`, serviceChunks.map((chunk, i) => `Page ${i+1}: ${chunk.length} services`));
-
-      // Create PDF
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'pt',
-        format: 'a4',
-        compress: true
-      });
-
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-
-      // Generate each page
-      for (let pageIndex = 0; pageIndex < totalPages; pageIndex++) {
-        const pageNumber = pageIndex + 1;
-        const pageServices = serviceChunks[pageIndex] || [];
-        const isLastPage = pageIndex === totalPages - 1;
-
-        console.log(`🖼️ Generating receipt page ${pageNumber} with ${pageServices.length} services...`);
-
-        // Create temporary container for this page
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.top = '-9999px';
-        document.body.appendChild(tempContainer);
-
-        // Set page HTML with your beautiful styling
-        tempContainer.innerHTML = createReceiptPageHTML(pageServices, pageNumber, totalPages, isLastPage);
-
-        // Generate canvas for this page
-        const canvas = await html2canvas(tempContainer.firstElementChild as HTMLElement, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff'
-        });
-
-        // Add page to PDF
-        if (pageIndex > 0) {
-          pdf.addPage();
-        }
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-        
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight, '', 'FAST');
-
-        // Clean up
-        document.body.removeChild(tempContainer);
-      }
+      // The owner's receipt: his invoice page headed PAYMENT RECEIPT (ownerInvoicePrint.ts, pinned by its tests)
+      const receiptServices = (Array.isArray(invoice.services) ? invoice.services : []) as Array<{
+        code?: string | null;
+        description?: string | null;
+        quantity?: number | string | null;
+        unit_price?: number | string | null;
+        medical_aid_covered?: number | string | null;
+        total_price?: number | string | null;
+      }>;
+      const pdf = await renderOwnerInvoicePdf(
+        ownerInvoicePages({
+          kind: 'receipt',
+          invoiceNumber: String(invoice.invoice_number ?? ''),
+          createdAt: String(invoice.created_at ?? ''),
+          dueDate: null,
+          receiptDate: new Date(),
+          paymentMethodLabel,
+          practice: {
+            name: practiceInfo.name,
+            logoUrl: practiceInfo.logo_url ?? null,
+            address: practiceInfo.address ?? null,
+            city: practiceInfo.city ?? null,
+            country: practiceInfo.country ?? null,
+            postalCode: practiceInfo.postal_code ?? null,
+            contactPhone: practiceInfo.contact_phone ?? null,
+            contactEmail: practiceInfo.contact_email ?? null,
+            website: practiceWebsiteText(practiceInfo),
+            bankName: practiceInfo.bank_name ?? null,
+            accountNumber: practiceInfo.account_number ?? null,
+            branchCode: practiceInfo.branch_code ?? null
+          },
+          patient: {
+            name: patientInfo.name,
+            phone: patientInfo.phone ?? null,
+            email: patientInfo.email ?? null,
+            address: patientInfo.address ?? null
+          },
+          medicalAid: medicalAid
+            ? {
+                providerName: medicalAidProviderName === 'N/A' ? null : medicalAidProviderName,
+                scheme: medicalAid.scheme ?? null,
+                membershipNumber: medicalAid.membership_number ?? null
+              }
+            : null,
+          services: receiptServices.map(service => ({
+            code: service.code ?? null,
+            description: service.description ?? null,
+            quantity: Number(service.quantity) || 0,
+            unitPrice: Number(service.unit_price) || 0,
+            medicalAid: Number(service.medical_aid_covered) || 0,
+            total: Number(service.total_price) || 0
+          })),
+          total: Number(invoice.total) || 0,
+          vat: null
+        })
+      );
 
       // Download the PDF
       pdf.save(`receipt-${invoice.invoice_number}.pdf`);
-      
-      console.log('✅ Multi-page receipt with beautiful styling generated successfully!');
 
     } catch (error) {
       console.error('❌ Failed to generate receipt:', error);
@@ -2408,7 +2166,7 @@ OneHealth Medical Team`;
                     patientId={selectedPatientDetails?.id}
                     practiceId={practiceId}
                     onOpenAccount={() => {
-                      setActiveDetailTab('billing');
+                      setActiveDetailTab('account');
                       setAccountFocusKey(Date.now());
                     }}
                   />
@@ -2993,7 +2751,7 @@ OneHealth Medical Team`;
                                       patientId={selectedPatientDetails.id}
                                       focusNoteId={selectedPatientDetails.id === patientId ? focusNoteId : null}
                                       onOpenAccount={() => {
-                                        setActiveDetailTab('billing');
+                                        setActiveDetailTab('account');
                                         setAccountFocusKey(Date.now());
                                       }}
                                       onOpenEncounters={() => setActiveDetailTab('encounters')}
@@ -3648,61 +3406,20 @@ OneHealth Medical Team`;
                                 <EyesView practiceId={practiceId} patientId={selectedPatientDetails.id} onOpenVisit={openVisitById} />
                               )}
 
+                              {/* The owner's Billing tab: his invoice table only, as in git bd02f25 (PatientBillingTab.tsx;
+                                  owner, 15 Oct 2026). What was added since is on the Account tab next to it. */}
                               {activeDetailTab === 'billing' && (
-                                <div className="space-y-6">
-                                  {/* Claims a fund did not pay that still need someone, one tap to the rejection queue */}
-                                  <PatientClaimsNotice practiceId={practiceId} patientId={selectedPatientDetails.id} />
-                                  <PatientBillingPanel
-                                    invoices={patientInvoices}
-                                    visitsById={visitsById}
-                                    patient={{
-                                      name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-                                      phone: selectedPatientDetails.cell_number,
-                                      email: selectedPatientDetails.email
-                                    }}
-                                    medicalAidProvider={medicalAid?.provider}
-                                    onOpenVisit={openVisitById}
-                                    accountFocusKey={accountFocusKey}
-                                  />
-
-                                  {/* Quotes (treatment estimates): create, send, accept and convert to an invoice */}
-                                  <PatientQuotesPanel
-                                    practiceId={practiceId}
-                                    patient={{
-                                      id: selectedPatientDetails.id,
-                                      name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
-                                      phone: selectedPatientDetails.cell_number ?? null,
-                                      email: selectedPatientDetails.email ?? null
-                                    }}
-                                  />
-
-                                  {/* Existing invoice management (status changes, print, email, statement), collapsed
-                                      so the read-only account view above is what staff see first */}
-                                  <div className="rounded-xl border border-gray-200 bg-white">
-                                    <button
-                                      type="button"
-                                      onClick={() => setIsInvoiceManagementOpen(open => !open)}
-                                      aria-expanded={isInvoiceManagementOpen}
-                                      className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-gray-50 rounded-xl"
-                                    >
-                                      <span>
-                                        <span className="block text-sm font-semibold text-gray-900">Manage invoices</span>
-                                        <span className="block text-xs text-gray-500">Change payment status, print or email an invoice, print a statement</span>
-                                      </span>
-                                      <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isInvoiceManagementOpen ? 'rotate-180' : ''}`} />
-                                    </button>
-                                    {isInvoiceManagementOpen && (
-                                  <div className="border-t border-gray-100 p-4">
-                                  <CleanInvoiceTable
-                                    patientId={selectedPatientDetails.id}
-                                    onVisitClick={(visitId) => {
+                                <PatientBillingTab
+                                  invoiceTable={{
+                                    patientId: selectedPatientDetails.id,
+                                    onVisitClick: (visitId) => {
                                       const visitToEdit = visits.find(v => v.id === visitId);
                                       if (visitToEdit) {
                                         setSelectedVisit(visitToEdit);
                                         modalState.openEditVisitModal();
                                       }
-                                    }}
-                                    onStatusChange={async (invoiceId, newStatus, paymentMethod) => {
+                                    },
+                                    onStatusChange: async (invoiceId, newStatus, paymentMethod) => {
                                       try {
                                         if (newStatus === 'cancelled') {
                                           const lock = await loadInvoiceLock(invoiceId);
@@ -3733,15 +3450,15 @@ OneHealth Medical Team`;
                                             .select('*')
                                             .eq('patient_id', selectedPatientDetails.id);
                                           setBillingData(updatedBilling || []);
-                                          // Keep the account summary and invoice list above in step
+                                          // Keep the account summary and invoice list below in step
                                           patientInvoices.reload();
                                         }
                                       } catch (error) {
                                         console.error('Error updating invoice status:', error);
                                         toast.error(error instanceof Error ? plainWords(error.message) : 'Could not update the invoice');
                                       }
-                                    }}
-                                    onEmailInvoice={(invoice) => {
+                                    },
+                                    onEmailInvoice: (invoice) => {
                                       // The same PDF that Print makes goes as an attachment through the email gateway (no
                                       // more downloading it and attaching it by hand), to the account holder or the patient
                                       setEmailingInvoice({
@@ -3750,15 +3467,15 @@ OneHealth Medical Team`;
                                         total: Number(invoice.total) || null,
                                         visitId: invoice.visit_id ?? null
                                       });
-                                    }}
-                                    onPrintInvoice={(invoice) => {
+                                    },
+                                    onPrintInvoice: (invoice) => {
                                       console.log('🖨️ Print invoice handler called for:', invoice.invoice_number);
                                       console.log('📄 Setting selected invoice:', invoice);
                                       setSelectedInvoice(invoice);
                                       console.log('🔓 Opening invoice generation modal...');
                                       setIsInvoiceGenerationModalOpen(true);
                                       console.log('✅ Modal state should be true now');
-                                      
+
                                       // If the print options window fails to open, download the invoice rather than do nothing
                                       setTimeout(() => {
                                         if (!document.querySelector('[data-testid="invoice-generation-modal"]')) {
@@ -3767,13 +3484,29 @@ OneHealth Medical Team`;
                                           void handleDirectPrintPDF(invoice);
                                         }
                                       }, 100);
-                                    }}
-                                    isPrintingPDF={isPrintingPDF}
-                                  />
-                                  </div>
-                                    )}
-                                  </div>
-                                </div>
+                                    },
+                                    isPrintingPDF
+                                  }}
+                                />
+                              )}
+
+                              {/* The account (balance, payments, statement, plans, packages, referrals, authorisations, cases,
+                                  price rate), claims to follow up and quotes: their own tab next to Billing (owner, 15 Oct 2026) */}
+                              {activeDetailTab === 'account' && (
+                                <PatientAccountTab
+                                  practiceId={practiceId}
+                                  patient={{
+                                    id: selectedPatientDetails.id,
+                                    name: `${selectedPatientDetails.first_name} ${selectedPatientDetails.last_name}`,
+                                    phone: selectedPatientDetails.cell_number ?? null,
+                                    email: selectedPatientDetails.email ?? null
+                                  }}
+                                  medicalAidProvider={medicalAid?.provider}
+                                  invoices={patientInvoices}
+                                  visitsById={visitsById}
+                                  onOpenVisit={openVisitById}
+                                  accountFocusKey={accountFocusKey}
+                                />
                               )}
 
                               {/* Change history (tab id 'audit'): who changed the file, its visits, vitals and medical aid; administrators only */}
@@ -4113,7 +3846,7 @@ OneHealth Medical Team`;
         isSending={false}
       />
 
-      {/* Email an invoice as a PDF attachment (Manage invoices > Email) */}
+      {/* Email an invoice as a PDF attachment (the Billing tab invoice table's Email) */}
       {emailingInvoice && practiceId && selectedPatientDetails && (
         <InvoiceEmailSheet
           open

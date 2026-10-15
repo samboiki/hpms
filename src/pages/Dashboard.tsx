@@ -40,6 +40,7 @@ import { freedSlotOf, type DiarySlot } from '../utils/diary/waitingList';
 import { lazyWindow } from '../components/layout/lazyScreen';
 import { useEscapeToClose } from '../hooks/useEscapeToClose';
 import { useMediaQuery } from '../hooks/useMediaQuery';
+import InstallAppMenuItem from '../pwa/InstallAppMenuItem';
 
 // Opened from the Dashboard on demand, so their code (the charts; the whole visit screen) loads when first opened
 // instead of before the Dashboard can show (and says so if it cannot load: lazyScreen.tsx)
@@ -756,6 +757,13 @@ function Dashboard() {
                         Settings
                       </button>
                       
+                      {/* Phones and tablets only, and not once installed (src/pwa/installPrompt.ts) */}
+                      <InstallAppMenuItem
+                        onSelect={() => setIsAvatarDropdownOpen(false)}
+                        iconClassName="w-4 h-4"
+                        className="w-full px-4 py-3 text-sm bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-xl transition-colors font-semibold hover:shadow-lg flex items-center justify-center gap-2 mb-2"
+                      />
+
                       <button
                         onClick={() => {
                           setIsAvatarDropdownOpen(false);

@@ -11,7 +11,7 @@ export default defineConfig({
     // patient data always comes from the network (Supabase requests are never cached).
     VitePWA({
       registerType: 'prompt',
-      injectRegister: false, // registered in src/pwa/registerServiceWorker.ts, which asks before reloading
+      injectRegister: false, // registered in src/pwa/registerServiceWorker.tsx; a new version waits for "Update" (src/pwa/UpdateBar.tsx)
       includeAssets: ['icons/apple-touch-icon.png', 'icons/favicon-48x48.png'],
       manifest: {
         name: 'OneHealth',
@@ -23,7 +23,7 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'any',
         background_color: '#f3f4f6',
-        theme_color: '#0f766e',
+        theme_color: '#ffffff', // the white app bar, as index.html's theme-color and the store apps' status bar (capacitor.config.ts)
         icons: [
           { src: '/icons/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
@@ -67,7 +67,8 @@ export default defineConfig({
     cors: true,
     hmr: {
       port: 5000, // Use same port to avoid polling errors
-      host: 'localhost',
+      // No fixed host: live updates connect back to the address the page came from, so a phone on the same Wi-Fi
+      // (http://<this PC's IP>:5000) refreshes too; on this PC that is still localhost
     },
     // Prepared when the server starts, so the first sign-in and Dashboard open are not waiting for code to be compiled
     warmup: {

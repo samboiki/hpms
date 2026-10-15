@@ -5,7 +5,7 @@ import type { ReportTable } from '../financeExport';
  * turn a target into a link or a sheet (useReportOpener); the CSV and the print never carry it.
  */
 export type ReportTarget =
-  /** The patient's file, on its Billing tab unless another tab says more (Change history: 'audit') */
+  /** The patient's file, on its Account tab unless another tab says more (Billing: 'billing', Change history: 'audit') */
   | { kind: 'patient'; id: string; tab?: 'billing' | 'audit' }
   | { kind: 'invoice'; id: string }
   | { kind: 'receipt'; id: string }

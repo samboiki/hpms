@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentGenerationService } from '../documentGenerationService';
 
-// The invoice document is the one text PDF of the app (invoiceDocumentService); no database or storage is reached
+// The invoice document is the one invoice PDF of the app, in the owner's design (invoiceDocumentService); no database
+// or storage is reached
 const { makeInvoicePdf, upload, storageFrom, storageUpload } = vi.hoisted(() => {
   const storageUpload = vi.fn();
   return {
@@ -73,9 +74,10 @@ describe('DocumentGenerationService: the visit invoice document', () => {
     }
   );
 
-  // The stored copy is the same text PDF as "Download PDF": the rule-008 layout, read fresh from the invoice. It is
-  // filed under the visit's practice, the only staff the private bucket lets open it, and carries no public link.
-  it('stores the text PDF of the invoice, made from the invoice itself, under the practice', async () => {
+  // The stored copy is the same PDF as the patient's Billing tab prints: the owner's invoice, read fresh from the
+  // invoice. It is filed under the visit's practice, the only staff the private bucket lets open it, and carries no
+  // public link.
+  it("stores the owner's invoice PDF, made from the invoice itself, under the practice", async () => {
     const blob = new Blob(['%PDF-1.3'], { type: 'application/pdf' });
     makeInvoicePdf.mockResolvedValue({ doc: { number: 'INV-000123' }, pdf: { output: () => blob } });
     upload.mockResolvedValue(`${PRACTICE}/invoices/invoice_INV-000123.pdf`);

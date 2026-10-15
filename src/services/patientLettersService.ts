@@ -423,6 +423,11 @@ export interface EmailLetterRequest {
   recipientName: string | null;
   /** The stored letter, when it is kept on the file */
   letterId?: string | null;
+  /**
+   * A PDF (base64) to attach instead of the letter's own: an issued sick note goes as the owner's leave form, the same
+   * as it prints (owner, 15 Oct 2026)
+   */
+  pdfBase64?: string;
 }
 
 export const isEmailAddress = (value: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -442,7 +447,7 @@ export async function emailLetter(request: EmailLetterRequest): Promise<{ ok: bo
     emailType: 'report',
     patientId: request.patientId,
     visitId: request.visitId ?? undefined,
-    attachments: [{ filename: document.fileName, content: letterPdfBase64(renderLetterPdf(document)), type: 'application/pdf' }],
+    attachments: [{ filename: document.fileName, content: request.pdfBase64 ?? letterPdfBase64(renderLetterPdf(document)), type: 'application/pdf' }],
     metadata: { kind: document.kind, letterId: request.letterId ?? null, source: 'patient_letter' },
     tags: ['letter', document.kind]
   });

@@ -1,52 +1,53 @@
 import { registerSW } from 'virtual:pwa-register';
-import toast from 'react-hot-toast';
 import { Capacitor } from '@capacitor/core';
+import { setUpdateApplier, updateWaiting } from './appUpdate';
+import { trackTypedFields } from './unsavedEdits';
+import { startUpdateChecks } from './updateChecks';
+import { createUpdateHandlers } from './updateHandlers';
 
-const UPDATE_CHECK_MS = 60 * 60 * 1000; // reception PCs stay open all day: look for a new release every hour
+/** A page this young that nobody has touched has nothing to lose: a new version already waiting is switched to at once */
+const FRESH_PAGE_MS = 4000;
+
+/** Whether anyone has touched the page yet */
+function watchFirstTouch(): () => boolean {
+  let touched = false;
+  const events = ['pointerdown', 'keydown', 'touchstart'] as const;
+  const mark = () => {
+    touched = true;
+    events.forEach((name) => window.removeEventListener(name, mark, true));
+  };
+  events.forEach((name) => window.addEventListener(name, mark, true));
+  return () => touched;
+}
 
 /**
- * Lets the app start offline and be installed. A new release never reloads the page by itself (a doctor may be
- * in the middle of notes): staff get "A new version is ready" and choose when to reload.
+ * Lets the app start offline and be installed, and keeps every open or installed copy on the newest release (a phone
+ * kept the app open for days and never noticed a deploy: owner, 15 Oct 2026). A new release is looked for when the app
+ * comes back to the screen and every few minutes (updateChecks.ts); when one is waiting, the "A new version is ready"
+ * bar (UpdateBar.tsx) offers it. A page is never reloaded over typed work: the bar asks first, and a page opened afresh
+ * switches by itself before anyone starts.
  */
 export function registerServiceWorker(): void {
   // The Android and iOS store apps load these files from the phone itself: a service worker could only serve stale copies
   if (import.meta.env.DEV || Capacitor.isNativePlatform() || !('serviceWorker' in navigator)) return;
 
+  trackTypedFields();
+  const touched = watchFirstTouch();
   const updateServiceWorker = registerSW({
-    onNeedRefresh() {
-      toast(
-        (t) => (
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm">A new version of OneHealth is ready.</span>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900"
-                onClick={() => {
-                  toast.dismiss(t.id);
-                  void updateServiceWorker(true);
-                }}
-              >
-                Reload
-              </button>
-              <button type="button" className="rounded-md px-3 py-1.5 text-sm text-white/80" onClick={() => toast.dismiss(t.id)}>
-                Later
-              </button>
-            </div>
-          </div>
-        ),
-        { id: 'pwa-update', duration: Infinity }
-      );
-    },
+    ...createUpdateHandlers({
+      applyNow: () => updateServiceWorker(true),
+      reload: () => window.location.reload(),
+      isFreshPage: () => performance.now() < FRESH_PAGE_MS && !touched()
+    }),
     onRegisteredSW(_swUrl, registration) {
-      if (registration) {
-        window.setInterval(() => {
-          void registration.update();
-        }, UPDATE_CHECK_MS);
-      }
+      if (!registration) return;
+      startUpdateChecks(registration, () => {
+        if (registration.waiting) updateWaiting();
+      });
     },
     onRegisterError(error) {
       console.error('Offline support could not start:', error);
     }
   });
+  setUpdateApplier(() => updateServiceWorker(true));
 }

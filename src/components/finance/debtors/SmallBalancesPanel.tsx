@@ -24,7 +24,7 @@ import {
   type WriteOffResult
 } from '../../../services/ledgerService';
 import { useAuthStore } from '../../../stores/authStore';
-import { invoiceLink, patientBillingLink } from '../../billing/invoiceLinks';
+import { invoiceLink, patientAccountLink } from '../../billing/invoiceLinks';
 import { DataTable, type TableColumn } from '../DataTable';
 import { EmptyState, Notice, SectionCard } from '../FinanceUI';
 import { AmountInput, ErrorBox, Field, PrimaryButton, SecondaryButton, Sheet, SummaryRow, inputClass } from '../receipts/ArUi';
@@ -160,7 +160,7 @@ export const SmallBalancesPanel: React.FC<SmallBalancesPanelProps> = ({ practice
       key: 'account',
       header: 'Account',
       render: account => (
-        <Link to={patientBillingLink(account.accountId)} className="font-medium text-cyan-700 hover:underline">{account.name}</Link>
+        <Link to={patientAccountLink(account.accountId)} className="font-medium text-cyan-700 hover:underline">{account.name}</Link>
       )
     },
     {
@@ -346,7 +346,7 @@ export const SmallBalancesPanel: React.FC<SmallBalancesPanelProps> = ({ practice
                 {outcome.failed.map(result => (
                   <li key={result.line.invoiceId} className="space-y-0.5 px-3 py-2 text-sm">
                     <p className="flex flex-wrap items-center gap-x-2">
-                      <Link to={patientBillingLink(result.line.patientId)} className="font-medium text-cyan-700 hover:underline">{patientName(result.line.patientId)}</Link>
+                      <Link to={patientAccountLink(result.line.patientId)} className="font-medium text-cyan-700 hover:underline">{patientName(result.line.patientId)}</Link>
                       <Link to={invoiceLink(result.line.invoiceId)} className="text-cyan-700 hover:underline">{result.line.invoiceNumber}</Link>
                       <span className="tabular-nums text-gray-700">{nad(result.line.amountCents)}</span>
                     </p>
@@ -401,7 +401,7 @@ const RunsList: React.FC<{
                       <li key={line.adjustmentId} className="flex flex-wrap items-center gap-x-3 text-sm">
                         <span className="font-mono text-xs text-gray-500">{line.number}</span>
                         {line.patientId
-                          ? <Link to={patientBillingLink(line.patientId)} className="text-cyan-700 hover:underline">{patientName(line.patientId)}</Link>
+                          ? <Link to={patientAccountLink(line.patientId)} className="text-cyan-700 hover:underline">{patientName(line.patientId)}</Link>
                           : <span>{patientName(null)}</span>}
                         <Link to={invoiceLink(line.invoiceId)} className="text-cyan-700 hover:underline">{line.invoiceNumber}</Link>
                         <span className={`tabular-nums ${line.reversed ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{nad(line.amountCents)}</span>

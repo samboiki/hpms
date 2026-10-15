@@ -68,10 +68,11 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe('Messages > Lists > Special lists (R29)', () => {
-  it("lists the open injury cases with who pays, each opening the patient's billing", async () => {
+  // The cases are kept on the patient's Account tab (next to the owner's Billing tab since 15 Oct 2026), so a name opens it
+  it("lists the open injury cases with who pays, each opening the patient's account", async () => {
     renderSheet();
     const name = await screen.findByRole('link', { name: 'Test Alpha' });
-    expect(name).toHaveAttribute('href', expect.stringContaining('tab=billing'));
+    expect(name).toHaveAttribute('href', expect.stringContaining('tab=account'));
     expect(screen.getByText(/Paid by Employees' Compensation Fund/)).toBeInTheDocument();
     expect(screen.getByText('Employer Test Mining, employee no E-1, claim no ECF/1')).toBeInTheDocument();
   });
@@ -79,7 +80,8 @@ describe('Messages > Lists > Special lists (R29)', () => {
   it('switches to the accounts handed over, and to the referred patients of the last 30 days', async () => {
     renderSheet();
     fireEvent.change(screen.getByLabelText('List'), { target: { value: 'handed_over' } });
-    expect(await screen.findByRole('link', { name: 'Test Bravo' })).toBeInTheDocument();
+    // The "Handed over" flag and the balance are on the Account tab, where the name leads
+    expect(await screen.findByRole('link', { name: 'Test Bravo' })).toHaveAttribute('href', expect.stringContaining('tab=account'));
     expect(screen.getByText(/2 patients on the account/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('List'), { target: { value: 'referred' } });
     expect(await screen.findByRole('link', { name: 'Test Charlie' })).toBeInTheDocument();

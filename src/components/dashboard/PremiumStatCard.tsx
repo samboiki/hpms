@@ -266,13 +266,14 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
         }
       }}
     >
-      {/* Grows with its content (min height instead of a fixed one) so narrow tiles never clip figures */}
-      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl shadow-lg group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-4 sm:p-5 h-full min-h-[9rem] flex flex-col [container-type:inline-size]" style={{ backdropFilter: 'blur(20px)' }}>
+      {/* Grows with its content (min height instead of a fixed one) so narrow tiles never clip figures. The same plain light
+          card at every width, the look he likes on his phone (owner, 15 Oct 2026): no colour tint, a small resting shadow,
+          every decoration sized outright. Two global rules for narrow screens (index.css and styles/mobile-performance.css:
+          they hide absolute inset-0 bg-gradient-to-br layers, replace .shadow-lg and pad any class containing "p-6") used to
+          make phones differ from desktops; this card no longer depends on them */}
+      <div className="relative bg-gray-100 backdrop-blur-xl rounded-xl [box-shadow:0_2px_4px_-1px_rgba(0,0,0,0.1)] group-hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 p-4 sm:p-5 h-full min-h-[9rem] flex flex-col [container-type:inline-size]" style={{ backdropFilter: 'blur(20px)' }}>
         {/* Glassmorphic Background with Rich Patterns */}
         <div className="absolute inset-0 overflow-hidden">
-          {/* Primary glass gradient */}
-          <div className={`absolute inset-0 bg-gradient-to-br ${settings.gradientFrom} ${settings.gradientTo} opacity-[0.15] group-hover:opacity-[0.20] transition-opacity duration-300`}></div>
-          
           {/* Secondary glass layer */}
           <div className="absolute inset-0 bg-gradient-to-tl from-gray-50/40 via-transparent to-gray-100/30 opacity-60"></div>
           
@@ -296,8 +297,9 @@ const PremiumStatCard: React.FC<PremiumStatCardProps> = ({
           <div className={`absolute top-1 left-1 w-3 h-3 border border-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.15]`} style={{ borderImage: `linear-gradient(45deg, ${settings.primaryColor}40, ${settings.secondaryColor}40) 1` }}></div>
           <div className={`absolute bottom-1 right-1 w-2 h-2 border border-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-sm opacity-[0.2] transform rotate-45`} style={{ borderColor: `${settings.primaryColor}40` }}></div>
           
-          {/* Scattered micro dots */}
-          <div className={`absolute top-6 left-8 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.3]`}></div>
+          {/* Scattered micro dots. The first is the soft 1rem dot beside the title that phones always showed (a narrow-screen
+              rule padded anything with "p-6" in its class, so top-6 made it that size there only); now sized outright */}
+          <div className={`absolute top-[1.5rem] left-8 w-4 h-4 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.3]`}></div>
           <div className={`absolute top-10 right-12 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.25]`}></div>
           <div className={`absolute bottom-10 left-12 w-0.5 h-0.5 bg-gradient-to-r ${settings.gradientFrom} ${settings.gradientTo} rounded-full opacity-[0.35]`}></div>
           

@@ -240,7 +240,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ invoice,
               variant="primary"
               icon="solar:user-id-bold-duotone"
               label="Open patient billing"
-              title="Open this patient's Billing tab: their invoices, payments and statement"
+              title="Open this patient's Billing tab: all their invoices"
               onClick={() => {
                 onClose();
                 navigate(`/patients?patientId=${encodeURIComponent(invoice.patientId ?? '')}&tab=billing`);

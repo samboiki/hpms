@@ -104,6 +104,27 @@ describe('emailLetter', () => {
     expect(result).toEqual({ ok: false, message: 'Not sent: limit reached' });
     expect(supabaseMock.from).not.toHaveBeenCalled();
   });
+
+  // An issued sick note is emailed as the owner's leave form, the same as it prints (owner, 15 Oct 2026); the email's
+  // message stays the letter's
+  it('attaches the PDF it is given instead of the letter layout', async () => {
+    comms.sendEmail.mockResolvedValue({ success: true, logId: 'log-2', status: 'sent' });
+    await emailLetter({
+      practiceId: 'p',
+      patientId: 'x',
+      visitId: 'v',
+      document: documentOf({ kind: 'sick_note', fileName: 'sick-note-x.pdf', email: { subject: 'Sick note: Ndapewa Shilongo', text: 'Please find', html: '<p>Please find</p>' } } as Partial<LetterDocument>),
+      to: 'employer@example.test',
+      recipientName: null,
+      pdfBase64: 'T1dORVJMRUFWRUZPUk0='
+    });
+    expect(comms.sendEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Sick note: Ndapewa Shilongo',
+        attachments: [{ filename: 'sick-note-x.pdf', content: 'T1dORVJMRUFWRUZPUk0=', type: 'application/pdf' }]
+      })
+    );
+  });
 });
 
 describe('loadLetterContext', () => {

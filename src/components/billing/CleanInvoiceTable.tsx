@@ -1,3 +1,14 @@
+/**
+ * Owner-designed screen: do not change the layout or look without the owner's explicit request.
+ *
+ * The owner's invoice table, the whole of the patient file's Billing tab (git bd02f25; PatientBillingTab.tsx): the
+ * four totals, Invoice History with Statement (his statement, PrintStatementModal), the status filters and the sort,
+ * and each invoice with its visit, services, amount and status and the Email, Print and Change status actions, with
+ * his dates ("Oct 07, 2026") and amounts ("N$ 1440.90"). Kept since on purpose: no Delete (owner, 13 Oct 2026:
+ * invoices are never deleted, only cancelled or credited); "Paid" asks how it was paid; Cancel asks first; amounts are
+ * rounded to the cent; cancelled invoices are left out of Total Invoiced; a failed load says so instead of
+ * "No invoices found".
+ */
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -26,13 +37,16 @@ import {
 import { format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
-import { PatientStatementChooser } from '../finance/receipts/PatientStatementChooser';
+import PrintStatementModal from '../modals/PrintStatementModal';
 import { PAYMENT_METHOD_META } from '../finance/financeTheme';
 import type { PaymentMethodKey } from '../../services/ledgerService';
-import { formatNad, nadParts } from '../../utils/billing/money';
+import { formatAmount } from '../../utils/billing/money';
 
 /** Ways a patient or fund settles an invoice, recorded so Finance can report collections by method */
 const PAYMENT_METHODS: PaymentMethodKey[] = ['cash', 'card', 'eft', 'medical_aid'];
+
+/** His amounts, "N$ 1440.90" (no thousands separator), rounded to the cent */
+const nad = (amount: number): string => `N$ ${formatAmount(Number(amount) || 0, { thousands: false })}`;
 
 interface Invoice {
   id: string;
@@ -302,10 +316,11 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
     .reduce((sum, inv) => sum + inv.total, 0);
 
   // N$ whole part and cents in two shades, both from one rounded value (Math.floor plus "% 1"
-  // showed a sum like 180.99999999 as "180.00"); a dash when the invoices could not be loaded
+  // showed a sum like 180.99999999 as "180.00"), printed his way ("N$ 1440.90", no thousands separator);
+  // a dash when the invoices could not be loaded
   const renderStatAmount = (amount: number) => {
     if (loadError) return '—';
-    const { whole, cents } = nadParts(amount);
+    const [whole, cents] = formatAmount(amount, { thousands: false }).split('.');
     return (
       <>
         N$ <span style={{ color: '#4f575e' }}>{whole}</span><span style={{ color: '#8B9197' }}>.{cents}</span>
@@ -501,11 +516,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <Receipt className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                    <p className="text-sm text-gray-500">
-                      {filter === 'all'
-                        ? 'No invoices yet. An invoice is created when a visit is saved with billed services.'
-                        : `No ${filter} invoices. Choose "All" to see every invoice.`}
-                    </p>
+                    <p className="text-sm text-gray-500">No invoices found</p>
                   </td>
                 </tr>
               ) : (
@@ -531,7 +542,7 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                 #{invoice.invoice_number}
                               </p>
                               <p className="text-xs text-gray-500">
-                                {format(parseISO(invoice.created_at), 'dd MMM yyyy')}
+                                {format(parseISO(invoice.created_at), 'MMM dd, yyyy')}
                               </p>
                             </div>
                           </div>
@@ -576,11 +587,11 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                         {/* Amount */}
                         <td className="px-6 py-4 text-right">
                           <p className="font-bold text-gray-900">
-                            {formatNad(invoice.total)}
+                            {nad(invoice.total)}
                           </p>
                           {invoice.medical_aid_covered > 0 && (
                             <p className="text-xs text-green-600 font-semibold">
-                              Medical aid: {formatNad(invoice.medical_aid_covered)}
+                              Aid: {nad(invoice.medical_aid_covered)}
                             </p>
                           )}
                         </td>
@@ -762,12 +773,12 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
                                             <td className="px-4 py-2 font-mono text-gray-900">{service.code}</td>
                                             <td className="px-4 py-2 text-gray-700">{service.description}</td>
                                             <td className="px-4 py-2 text-center text-gray-600">{service.quantity}</td>
-                                            <td className="px-4 py-2 text-right text-gray-900">{formatNad(service.unit_price)}</td>
-                                            <td className="px-4 py-2 text-right font-medium text-gray-900">{formatNad(service.total_price)}</td>
-                                            <td className="px-4 py-2 text-right text-sm text-green-600">{formatNad(service.medical_aid_covered || 0)}</td>
+                                            <td className="px-4 py-2 text-right text-gray-900">{nad(service.unit_price)}</td>
+                                            <td className="px-4 py-2 text-right font-medium text-gray-900">{nad(service.total_price)}</td>
+                                            <td className="px-4 py-2 text-right text-sm text-green-600">{nad(service.medical_aid_covered || 0)}</td>
                                             <td className="px-4 py-2 text-right text-sm font-semibold text-gray-900">
                                               {service.patient_portion && service.patient_portion > 0 ?
-                                                formatNad(service.patient_portion) :
+                                                nad(service.patient_portion) :
                                                 '-'
                                               }
                                             </td>
@@ -791,14 +802,13 @@ const CleanInvoiceTable: React.FC<CleanInvoiceTableProps> = ({
         </div>
       </div>
       
-      {/* The statement: the ledger statement once receipts are in use (one statement on the Billing tab), else the invoice statement */}
-      {showPrintStatementModal && (
-        <PatientStatementChooser
-          patientId={patientId}
-          invoices={filteredInvoices}
-          onClose={() => setShowPrintStatementModal(false)}
-        />
-      )}
+      {/* Print Statement Modal: the owner's statement (the account's ledger statement is on the patient's Account tab) */}
+      <PrintStatementModal
+        isOpen={showPrintStatementModal}
+        onClose={() => setShowPrintStatementModal(false)}
+        patientId={patientId}
+        invoices={filteredInvoices}
+      />
       
     </div>
   );

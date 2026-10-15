@@ -20,6 +20,13 @@ interface LetterActionsProps {
   onEmailed?: () => void;
   /** Smaller buttons in lists */
   compact?: boolean;
+  /**
+   * Print something other than the letter: an issued sick note prints the owner's own leave form (owner, 15 Oct 2026:
+   * "the leave form ... that format, please do not touch it"); Email still sends the letter
+   */
+  onPrint?: () => Promise<void>;
+  /** The PDF (base64) Email attaches instead of the letter's own: an issued sick note sends the owner's leave form */
+  emailPdf?: () => Promise<string>;
 }
 
 /** Print (opens the PDF to print or save) and Email (sent as a PDF through the practice's email). */
@@ -32,7 +39,9 @@ export const LetterActions: React.FC<LetterActionsProps> = ({
   defaultEmail = null,
   recipientName = null,
   onEmailed,
-  compact = false
+  compact = false,
+  onPrint,
+  emailPdf
 }) => {
   const [busy, setBusy] = useState<'print' | 'email' | null>(null);
   const [emailing, setEmailing] = useState(false);
@@ -43,7 +52,8 @@ export const LetterActions: React.FC<LetterActionsProps> = ({
   const print = async () => {
     setBusy('print');
     try {
-      openLetterPdf(await getDocument());
+      if (onPrint) await onPrint();
+      else openLetterPdf(await getDocument());
     } catch (error) {
       toast.error(error instanceof Error ? plainWords(error.message) : 'Could not open the letter.');
     } finally {
@@ -58,8 +68,8 @@ export const LetterActions: React.FC<LetterActionsProps> = ({
     }
     setBusy('email');
     try {
-      const document = await getDocument();
-      const result = await emailLetter({ practiceId, patientId, visitId, document, to: email, recipientName, letterId });
+      const [document, pdfBase64] = await Promise.all([getDocument(), emailPdf ? emailPdf() : Promise.resolve(undefined)]);
+      const result = await emailLetter({ practiceId, patientId, visitId, document, to: email, recipientName, letterId, pdfBase64 });
       if (result.ok) {
         toast.success(result.message);
         setEmailing(false);

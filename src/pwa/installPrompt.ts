@@ -35,3 +35,62 @@ export function getInstallOffer(context: InstallContext): InstallOffer {
 export function detectIos(userAgent: string, maxTouchPoints: number): boolean {
   return /iPad|iPhone|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
 }
+
+/**
+ * The "Install app" item in the profile menu (owner, 15 Oct 2026: on a phone it should be there, not only a banner that
+ * shows once). It is for phones and tablets; a computer keeps the banner. What the item does depends on the browser:
+ * - prompt: Chrome, Samsung Internet or Edge on Android handed over its install prompt; one tap installs it as a real app
+ * - ios-steps: an iPhone or iPad browser, where installing is Share > Add to Home Screen (no prompt exists)
+ * - browser-menu: Chrome, Samsung Internet or Edge on Android before they offered the prompt (or inside another app's
+ *   tab, such as a link opened from WhatsApp, where the menu says "Open in Chrome" first)
+ * - open-elsewhere: any other browser (Firefox, Opera, another app's own browser): open it in Chrome or Safari instead
+ * Nothing is offered when the app already runs installed, or over plain http (a browser only installs secure sites).
+ */
+export type InstallBrowser = 'chrome' | 'samsung' | 'edge' | 'ios-browser' | 'other';
+export type InstallMenuOffer = 'prompt' | 'ios-steps' | 'browser-menu' | 'open-elsewhere';
+
+export interface InstallMenuContext {
+  userAgent: string;
+  maxTouchPoints: number;
+  /** The app already runs installed (home screen icon, or the Android and iOS store apps) */
+  isStandalone: boolean;
+  /** https or localhost: a browser installs nothing else */
+  isSecure: boolean;
+  /** A `beforeinstallprompt` event has been captured and not used yet */
+  hasPromptEvent: boolean;
+}
+
+/** Phone or tablet (iPadOS reports itself as a Mac, but with a touch screen) */
+export function isPhoneOrTablet(userAgent: string, maxTouchPoints: number): boolean {
+  return /Android|iPhone|iPad|iPod/.test(userAgent) || (/Macintosh/.test(userAgent) && maxTouchPoints > 1);
+}
+
+/** Which kind of browser this is, as far as installing goes (read from the user agent) */
+export function detectInstallBrowser(userAgent: string, maxTouchPoints: number): InstallBrowser {
+  if (detectIos(userAgent, maxTouchPoints)) {
+    // The browser inside Instagram, Facebook, the Google app and the like has no Add to Home Screen
+    return /FBAN|FBAV|FB_IAB|Instagram|Line\/|MicroMessenger|Snapchat|TikTok|GSA\/|Twitter/.test(userAgent) ? 'other' : 'ios-browser';
+  }
+  if (/Android/.test(userAgent)) {
+    // "; wv)" is an app's own web view (it cannot install anything)
+    if (/; wv\)|FBAN|FBAV|Instagram|Line\//.test(userAgent)) return 'other';
+    if (/SamsungBrowser/.test(userAgent)) return 'samsung';
+    if (/EdgA\//.test(userAgent)) return 'edge';
+    if (/Firefox|OPR\/|Opera|OPT\/|UCBrowser|DuckDuckGo|MiuiBrowser|HuaweiBrowser|Vivaldi/.test(userAgent)) return 'other';
+    if (/Chrome\//.test(userAgent)) return 'chrome';
+  }
+  return 'other';
+}
+
+/** Android: the link that opens this page in Chrome (for a page opened inside another app, or in a browser that cannot install) */
+export function chromeIntentUrl(page: { host: string; pathname: string; search: string }): string {
+  return `intent://${page.host}${page.pathname}${page.search}#Intent;scheme=https;package=com.android.chrome;end`;
+}
+
+export function getInstallMenuOffer(context: InstallMenuContext): InstallMenuOffer | null {
+  if (!isPhoneOrTablet(context.userAgent, context.maxTouchPoints) || context.isStandalone || !context.isSecure) return null;
+  if (context.hasPromptEvent) return 'prompt';
+  const browser = detectInstallBrowser(context.userAgent, context.maxTouchPoints);
+  if (detectIos(context.userAgent, context.maxTouchPoints)) return browser === 'ios-browser' ? 'ios-steps' : 'open-elsewhere';
+  return browser === 'other' ? 'open-elsewhere' : 'browser-menu';
+}

@@ -17,9 +17,9 @@ interface PaymentPlanSheetProps {
 }
 
 /**
- * A new payment plan on the patient's Billing tab (parity D16): what it is for, the total agreed, an optional deposit,
+ * A new payment plan on the patient's Account tab (parity D16): what it is for, the total agreed, an optional deposit,
  * the monthly payments and the day it starts; the instalments show before saving. Each instalment goes on the account
- * on its date (when the patient's Billing tab is opened, or with Post due instalments in Finance > Overview).
+ * on its date (when the patient's Account tab is opened, or with Post due instalments in Finance > Overview).
  */
 const PaymentPlanSheet: React.FC<PaymentPlanSheetProps> = ({ practiceId, patientId, patientName, onClose, onSaved }) => {
   const id = useId();

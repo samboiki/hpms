@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { ArReceipt } from '../../../services/ledgerService';
 import { DEFAULT_ENCOUNTERS_PLACE, encountersPath } from '../../../utils/encounters/encounterLinks';
-import { claimBatchLink, patientBillingLink } from '../../billing/invoiceLinks';
+import { claimBatchLink, patientAccountLink, patientBillingLink } from '../../billing/invoiceLinks';
 import { ReceiptDetailModal } from '../receipts/ReceiptDetailModal';
 import { loadReceiptEntries } from '../receipts/arService';
 import { BatchListSheet } from './BatchListSheet';
@@ -41,7 +41,14 @@ export function useReportOpener({ practiceId, practiceName, patientNames, onChan
   const open = useCallback((target: ReportTarget) => {
     switch (target.kind) {
       case 'patient':
-        navigate(target.tab === 'audit' ? `/patients?${new URLSearchParams({ patientId: target.id, tab: 'audit' }).toString()}` : patientBillingLink(target.id));
+        // The patient's account (Account tab) unless the row names another tab: Billing (the invoices) or Change history
+        navigate(
+          target.tab === 'audit'
+            ? `/patients?${new URLSearchParams({ patientId: target.id, tab: 'audit' }).toString()}`
+            : target.tab === 'billing'
+              ? patientBillingLink(target.id)
+              : patientAccountLink(target.id)
+        );
         return;
       case 'invoice':
         // Finance opens ?invoice= in its invoice view, on the tab the user is on

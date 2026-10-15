@@ -17,9 +17,9 @@ interface UnifiedPDFGeneratorProps {
 }
 
 /**
- * Download or print one invoice: the practice's text PDF in the NAMAF rule-008 layout (invoicePdf.ts, the one
- * invoice PDF of the app). After it is made, anything rule 008 still asks for (a practice number, an HPCNA number,
- * an ICD-10 code) is listed, so it can be fixed before the account goes to the patient or fund.
+ * Download or print one invoice: the one invoice PDF of the app, in the owner's own design (ownerInvoicePrint.ts).
+ * After it is made, anything NAMAF rule 008 asks for that the patient's file lacks for a medical aid claim (a practice
+ * number, an HPCNA number, an ICD-10 code) is listed, so it can be fixed; the owner's invoice does not print those.
  */
 const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) => {
   const [busy, setBusy] = useState<'download' | 'print' | null>(null);
@@ -52,7 +52,7 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) =>
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
       <h3 className="text-lg font-semibold text-gray-900">Invoice {invoice.invoice_number}</h3>
-      <p className="mt-1 text-sm text-gray-600">A PDF with the practice and practitioner numbers, each service with its date, ICD-10 and code, and what the medical aid and the patient pay.</p>
+      <p className="mt-1 text-sm text-gray-600">The practice's invoice as a PDF: download it, or open it to print.</p>
 
       <div className="mt-4 flex flex-wrap gap-3">
         <button
@@ -77,7 +77,7 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) =>
 
       {missing && missing.length > 0 && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="status">
-          <p className="font-medium">The invoice was made, but NAMAF rule 008 also asks for:</p>
+          <p className="font-medium">The invoice was made. For medical aid claims (NAMAF rule 008) the patient's file still lacks:</p>
           <ul className="mt-1 list-disc space-y-0.5 pl-5">
             {missing.map(item => (
               <li key={item}>{item}</li>
@@ -88,7 +88,7 @@ const UnifiedPDFGenerator: React.FC<UnifiedPDFGeneratorProps> = ({ invoice }) =>
       {missing && missing.length === 0 && (
         <p className="mt-4 flex items-center gap-2 text-sm text-emerald-700" role="status">
           <Icon icon="solar:check-circle-bold-duotone" className="h-4 w-4" aria-hidden="true" />
-          Everything NAMAF rule 008 asks for is on the invoice.
+          Everything NAMAF rule 008 asks for is on file.
         </p>
       )}
     </div>

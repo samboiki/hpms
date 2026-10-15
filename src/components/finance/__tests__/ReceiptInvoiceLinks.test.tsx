@@ -1,7 +1,8 @@
 /**
  * An invoice and the payments on it open each other: from the invoice's payments a receipt opens (to reprint or send
  * it, allocate its credit or see what else it paid), and the receipt links to each invoice it paid and to the
- * patient's billing. Before, a receipt could only be found under Payments for the period on screen. Invented data only.
+ * patient's account (the Account tab, where payments and statements are since 15 Oct 2026). Before, a receipt could only
+ * be found under Payments for the period on screen. Invented data only.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -81,6 +82,6 @@ describe("an invoice's payments and their receipts link both ways", () => {
     );
     fireEvent.click(await screen.findByRole('button', { name: 'Open receipt' }));
     expect(await screen.findByRole('link', { name: 'INV-000123' })).toHaveAttribute('href', '/finance?tab=invoicing&invoice=inv-1');
-    expect(screen.getByRole('link', { name: 'Example Patient' })).toHaveAttribute('href', '/patients?patientId=p1&tab=billing');
+    expect(screen.getByRole('link', { name: 'Example Patient' })).toHaveAttribute('href', '/patients?patientId=p1&tab=account');
   });
 });

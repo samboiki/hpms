@@ -13,7 +13,8 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="OneHealth">
     <meta name="apple-touch-fullscreen" content="yes">
-    <meta name="theme-color" content="#0f766e">
+    <!-- White like the app bar (and the store apps' status bar, capacitor.config.ts); the app icon stays teal -->
+    <meta name="theme-color" content="#ffffff">
 
     <title>OneHealth</title>
     <!-- Google Fonts: Rubik and Poppins -->
@@ -25,6 +26,11 @@
       html, body {
         background-color: #f3f4f6 !important; /* gray-100 */
         min-height: 100vh;
+        /* The signed-in app fills the screen exactly (Layout is 100dvh). 100vh is the screen height with the browser's toolbar
+           tucked away, so wherever the toolbar stays (a link opened from WhatsApp, an installed app) the page was one toolbar
+           taller than the screen and could be scrolled up under it, taking the app bar and its menu button out of sight
+           (owner's phone, 15 Oct 2026). Browsers without dvh keep the line above. */
+        min-height: 100dvh;
       }
     </style>
   </head>

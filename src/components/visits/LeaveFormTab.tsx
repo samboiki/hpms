@@ -568,11 +568,18 @@ const LeaveFormTab: React.FC<LeaveFormTabProps> = ({ visitId, patientId, practic
                         <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                       </button>
                     </div>
-                    {/* An issued note prints on the letterhead or goes to the patient (or employer) by email */}
+                    {/* An issued note prints as the owner's leave form (his format, 15 Oct 2026) or goes to the patient
+                        (or employer) by email */}
                     {(form.status === 'issued' || form.status === 'sent') && (
                       <div className="mt-2">
                         <LetterActions
                           compact
+                          onPrint={async () => {
+                            const printed = await documentGenerationService.openVisitDocument({ visitId, patientId, practiceId, type: 'leave_form' });
+                            if (!printed) toast.error('The leave form could not be made. Save the sick note and try again.');
+                          }}
+                          // Emailed as his leave form too, so every sick note looks the same (owner, 15 Oct 2026)
+                          emailPdf={() => documentGenerationService.visitDocumentBase64({ visitId, patientId, practiceId, type: 'leave_form' })}
                           getDocument={() =>
                             buildSickNoteDocument({
                               practiceId,

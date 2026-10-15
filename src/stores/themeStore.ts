@@ -505,6 +505,12 @@ const defaultThemes: Theme[] = [
   }
 ];
 
+// Monochrome, the dark charcoal one, is the main colour (owner, 14 Oct 2026: "the black one, not the orange one"): what a browser
+// starts with, what "reset" returns to, and the column default of practices.theme_id (proposals/2026-10-14-monochrome-default-theme.sql).
+// A practice's saved theme still wins at sign-in (loadThemeFromDatabase) and every theme stays selectable in Settings.
+const DEFAULT_THEME_ID = 'monochrome';
+const defaultTheme = defaultThemes.find(theme => theme.id === DEFAULT_THEME_ID) ?? defaultThemes[0];
+
 interface ThemeState {
   currentTheme: Theme;
   themes: Theme[];
@@ -520,7 +526,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
-      currentTheme: defaultThemes[0], // Default to sunset theme
+      currentTheme: defaultTheme, // Default to the monochrome (black) theme
       themes: defaultThemes,
       setTheme: async (themeId: string, practiceId?: string) => {
         const theme = get().themes.find(t => t.id === themeId);
@@ -627,7 +633,7 @@ export const useThemeStore = create<ThemeState>()(
       resetToDefaults: () => {
         set({
           themes: defaultThemes,
-          currentTheme: defaultThemes[0]
+          currentTheme: defaultTheme
         });
       }
     }),

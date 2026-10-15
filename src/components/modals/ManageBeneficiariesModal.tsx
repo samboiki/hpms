@@ -872,7 +872,7 @@ const ManageBeneficiariesModal: React.FC<ManageBeneficiariesModalProps> = ({
                             )}
                             {accountMove?.plan.kind === 'blocked' && (
                               <p className="mt-3 text-gray-700">
-                                {member.patient ? member.patient.first_name : 'This person'} is on another family&apos;s account, so the account is not moved. Change it on the patient&apos;s Billing tab, under Account, Family.
+                                {member.patient ? member.patient.first_name : 'This person'} is on another family&apos;s account, so the account is not moved. Change it on the patient&apos;s Account tab, under Family.
                               </p>
                             )}
                             <div className="mt-3 flex flex-wrap justify-end gap-2">

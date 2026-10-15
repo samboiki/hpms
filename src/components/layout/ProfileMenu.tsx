@@ -5,6 +5,7 @@ import { Icon } from '@iconify/react';
 import { useAuthStore } from '../../stores/authStore';
 import { APP_COLOR, SECTION_COLORS, type SectionKey } from '../../config/sectionColors';
 import { initialsOf, personalAvatar } from '../../utils/avatarUtils';
+import InstallAppMenuItem from '../../pwa/InstallAppMenuItem';
 
 /** The user's photo, or their initials when there is none (never a stock photo standing in for them) */
 export const UserAvatar: React.FC<{ avatar?: string | null; name: string }> = ({ avatar, name }) => {
@@ -115,6 +116,11 @@ export const ProfileMenu: React.FC<{ section?: SectionKey }> = ({ section }) => 
               <Icon icon="solar:settings-bold-duotone" className="h-5 w-5" aria-hidden="true" />
               Settings
             </button>
+            {/* Phones and tablets only, and not once installed (src/pwa/installPrompt.ts) */}
+            <InstallAppMenuItem
+              onSelect={() => setPosition(null)}
+              className="mb-2 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-50 px-4 py-3 font-medium text-cyan-700 transition-colors hover:bg-cyan-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2"
+            />
             <button
               type="button"
               onClick={() => {

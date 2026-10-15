@@ -1,11 +1,20 @@
+/**
+ * Owner-designed print formats: do not change the layout or look without the owner's explicit request.
+ *
+ * The visit's printed documents as the owner designed them (git bd02f25): the medication prescription (A5, the
+ * practice logo top left, MEDICAL PRESCRIPTION, prepared for, the medicines table, signatures) and the medical leave
+ * form / sick note (A5, the practice logo top left, MEDICAL CERTIFICATE, the justification, the leave period,
+ * signatures), printed from the visit screen, the Dashboard's visit cards and the visit's Sick notes tab, which also
+ * emails it. The visit's invoice is the owner's invoice (src/components/billing/ownerInvoicePrint.ts through
+ * invoiceDocumentService). On 15 Oct 2026 the owner asked for these formats to be left alone, and for no allergy line
+ * on the prescription ("Please remove allergy, keep it on in vitals": the visit screen shows the allergies above every
+ * tab, Vitals included). Kept: documents are stored in the private bucket "records" under the practice (patient
+ * records must not have public links).
+ */
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
-import { isSafetyNotSetUp, loadPatientSafety, printedAllergyLine } from './patientSafetyService';
-import { RECORDS_BUCKET, recordLink, recordPath } from './recordFiles';
-
-/** Allergy text is typed by staff: never let it become markup in the printed script */
-const escapePrintText = (value: string): string =>
-  value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+import { RECORDS_BUCKET, openRecord, recordLink, recordPath } from './recordFiles';
+import { storedFileTarget } from './recordPaths';
 
 interface DocumentGenerationOptions {
   visitId: string;
@@ -164,9 +173,7 @@ export class DocumentGenerationService {
           switch (docType) {
             case 'prescription':
               if (hasPrescription) {
-                // The pharmacist dispensing from the script sees the recorded allergies
-                const allergyLine = await this.loadAllergyLine(options.patientId);
-                generatedDoc = await this.generatePrescription(visit, practice, medications, medicalAid, allergyLine);
+                generatedDoc = await this.generatePrescription(visit, practice, medications, medicalAid);
               } else {
                 console.log('ℹ️ Skipping prescription - no medications found');
               }
@@ -230,22 +237,9 @@ export class DocumentGenerationService {
   }
 
   /**
-   * "Allergies: Penicillin (severe)" or "No known allergies" for the printed script; null when allergies
-   * were never recorded or cannot be read (before proposals/2026-10-07-patient-safety.sql nothing prints).
-   */
-  private async loadAllergyLine(patientId: string): Promise<string | null> {
-    try {
-      return printedAllergyLine(await loadPatientSafety(patientId));
-    } catch (error) {
-      if (!isSafetyNotSetUp(error)) console.warn('Allergies could not be read for the prescription:', error);
-      return null;
-    }
-  }
-
-  /**
    * Generate prescription PDF
    */
-  private async generatePrescription(visit: any, practice: any, medications: any[], medicalAid?: any, allergyLine?: string | null): Promise<GeneratedDocument | null> {
+  private async generatePrescription(visit: any, practice: any, medications: any[], medicalAid?: any): Promise<GeneratedDocument | null> {
     try {
       // Check if we have medications
       if (!medications || medications.length === 0) {
@@ -263,7 +257,7 @@ export class DocumentGenerationService {
       await document.fonts.ready;
       
       // Create HTML content for prescription
-      const html = this.createPrescriptionHTML(visit, practice, medications, medicalAid, allergyLine);
+      const html = this.createPrescriptionHTML(visit, practice, medications, medicalAid);
       
       // Generate PDF - A5 format for prescriptions
       const pdfBlob = await this.htmlToPDF(html, 'a5');
@@ -326,8 +320,8 @@ export class DocumentGenerationService {
   }
 
   /**
-   * The invoice as a text PDF in the NAMAF rule-008 layout: the same PDF as "Download PDF" (invoiceDocumentService),
-   * read fresh from the invoice, its lines and the practice. The earlier version was a screenshot (no text layer).
+   * The visit's invoice in the owner's invoice design: the same PDF as the patient's Billing tab prints
+   * (invoiceDocumentService, ownerInvoicePrint.ts), read fresh from the invoice, its lines and the practice.
    */
   private async generateInvoice(invoice: { id?: string; invoice_number?: string; invoice_services?: unknown[] } | null, practiceId: string): Promise<GeneratedDocument | null> {
     try {
@@ -356,7 +350,7 @@ export class DocumentGenerationService {
   /**
    * Create prescription HTML with beautiful styling matching the invoice style
    */
-  private createPrescriptionHTML(visit: any, practice: any, medications: any[], medicalAid?: any, allergyLine?: string | null): string {
+  private createPrescriptionHTML(visit: any, practice: any, medications: any[], medicalAid?: any): string {
     const patient = visit.patients;
     const doctor = visit.users;
     const logoUrl = practice.logo_url || '';
@@ -744,7 +738,6 @@ export class DocumentGenerationService {
                 ${patient.cell_number ? `<div class="patient-detail-line">${patient.cell_number}</div>` : ''}
                 ${patient.email ? `<div class="patient-detail-line">${patient.email}</div>` : ''}
                 ${patient.home_address ? `<div class="patient-detail-line">${patient.home_address}</div>` : ''}
-                ${allergyLine ? `<div class="patient-detail-line" style="color: #b91c1c; font-weight: 700;">${escapePrintText(allergyLine)}</div>` : ''}
               </div>
 
               <div class="patient-details" style="text-align: right;">
@@ -1563,6 +1556,75 @@ export class DocumentGenerationService {
     }
 
     return data || [];
+  }
+
+  /**
+   * Prints a visit document in the owner's format: opens its newest stored copy, or makes it first when there is none
+   * yet (as the visit screen's Print Prescription and Print Leave Form do). False when there is nothing to print.
+   */
+  async openVisitDocument(options: {
+    visitId: string;
+    patientId: string;
+    practiceId: string;
+    type: 'prescription' | 'leave_form' | 'invoice';
+  }): Promise<boolean> {
+    const newest = (await this.getVisitDocuments(options.visitId)).find(doc => doc.document_type === options.type && doc.file_path);
+    if (newest) {
+      await openRecord(newest.file_path, newest.storage_bucket);
+      return true;
+    }
+    const [made] = await this.generateVisitDocuments({
+      visitId: options.visitId,
+      patientId: options.patientId,
+      practiceId: options.practiceId,
+      documents: [options.type]
+    });
+    if (!made) return false;
+    await openRecord(made.filePath, RECORDS_BUCKET);
+    return true;
+  }
+
+  /**
+   * A visit document in the owner's format as a PDF (base64) for an email attachment: its newest stored copy, made
+   * first when there is none yet. An emailed sick note is then the owner's leave form, the same as it prints.
+   */
+  async visitDocumentBase64(options: {
+    visitId: string;
+    patientId: string;
+    practiceId: string;
+    type: 'prescription' | 'leave_form' | 'invoice';
+  }): Promise<string> {
+    let stored: { file_path: string; storage_bucket: string | null } | undefined = (await this.getVisitDocuments(options.visitId)).find(
+      doc => doc.document_type === options.type && doc.file_path
+    );
+    if (!stored) {
+      const [made] = await this.generateVisitDocuments({
+        visitId: options.visitId,
+        patientId: options.patientId,
+        practiceId: options.practiceId,
+        documents: [options.type]
+      });
+      if (!made) throw new Error(options.type === 'leave_form' ? 'The leave form could not be made. Save the sick note and try again.' : 'The document could not be made.');
+      stored = { file_path: made.filePath, storage_bucket: RECORDS_BUCKET };
+    }
+    const target = storedFileTarget(stored.file_path, stored.storage_bucket);
+    let pdf: Blob;
+    if ('link' in target) {
+      const response = await fetch(target.link);
+      if (!response.ok) throw new Error('The stored document could not be read.');
+      pdf = await response.blob();
+    } else {
+      const { data, error } = await supabase.storage.from(target.bucket).download(target.path);
+      if (error || !data) throw new Error('The stored document could not be read.');
+      pdf = data;
+    }
+    // The base64 part of the file read as a data URL ("data:application/pdf;base64,....")
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+      reader.onerror = () => reject(reader.error ?? new Error('The stored document could not be read.'));
+      reader.readAsDataURL(pdf);
+    });
   }
 
   /**

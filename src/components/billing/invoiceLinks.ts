@@ -14,8 +14,14 @@ export const invoiceLink = (invoiceId: string): string => `/finance?tab=invoicin
 /** The visit, opened for editing in the patient's file (its Billing tab holds the invoice lines). */
 export const visitLink = (patientId: string, visitId: string): string => `/patients/${q(patientId)}?visit=${q(visitId)}`;
 
-/** The patient's file on the Billing tab (statements, receipts, all invoices). */
+/** The patient's file on the Billing tab: the owner's invoice table, every invoice of the patient. */
 export const patientBillingLink = (patientId: string): string => `/patients?patientId=${q(patientId)}&tab=billing`;
+
+/**
+ * The patient's file on the Account tab, next to Billing (owner, 15 Oct 2026): the balance, payments and receipts,
+ * statements, flags and family, payment plans, packages, referrals, authorisations, injury cases and quotes.
+ */
+export const patientAccountLink = (patientId: string): string => `/patients?patientId=${q(patientId)}&tab=account`;
 
 /** The claim batch the invoice's lines were sent in, opened for review in Finance > Batches. */
 export const claimBatchLink = (batchId: string): string => `/finance?tab=batch-management&batch=${q(batchId)}`;

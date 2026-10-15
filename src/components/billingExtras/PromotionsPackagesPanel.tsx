@@ -62,7 +62,7 @@ const Heading: React.FC<{ id: string; icon: string; title: string; children?: Re
 /**
  * Admin > Tariffs > Contracts and co-payments, under the co-payments (parity D18, D17): the practice's promotions (a percentage or an amount off
  * chosen codes between two days, applied on a private patient's bill and listed in Finance > Reports > Discounts given)
- * and the prepaid packages it sells (from the patient's Billing tab; each visit that bills a covered code uses one).
+ * and the prepaid packages it sells (from the patient's Account tab; each visit that bills a covered code uses one).
  */
 const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ practiceId, canEdit }) => {
   const formId = useId();
@@ -257,7 +257,7 @@ const PromotionsPackagesPanel: React.FC<PromotionsPackagesPanelProps> = ({ pract
           )}
         </Heading>
         <p className="mt-1 text-sm text-gray-600">
-          Sessions a patient pays for up front, sold on the patient&apos;s Billing tab on their own invoice. A visit that bills a covered code is paid
+          Sessions a patient pays for up front, sold on the patient&apos;s Account tab on their own invoice. A visit that bills a covered code is paid
           from the package; what is left and until when shows on the patient file and at billing.
         </p>
 

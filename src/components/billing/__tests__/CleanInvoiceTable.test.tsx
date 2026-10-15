@@ -25,7 +25,9 @@ vi.mock('../../../lib/supabase', () => ({
   }
 }));
 vi.mock('../../../utils/invoiceLock', () => ({ INVOICE_LOCK_MESSAGES: {}, loadInvoiceLock: vi.fn() }));
-vi.mock('../../modals/PrintStatementModal', () => ({ default: () => null }));
+vi.mock('../../modals/PrintStatementModal', () => ({
+  default: ({ isOpen }: { isOpen: boolean }) => (isOpen ? <div role="dialog" aria-label="Print statement" /> : null)
+}));
 vi.mock('react-hot-toast', () => ({ default: Object.assign(vi.fn(), { error: vi.fn(), success: vi.fn() }) }));
 vi.mock('framer-motion', async () => {
   const { createElement, Fragment } = await import('react');
@@ -92,15 +94,17 @@ describe('CleanInvoiceTable', () => {
     expect(statAmount('Total Invoiced')).toBe('N$ 1.00');
   });
 
-  // Namibian staff read dates day-first; "Oct 02, 2026" was the US order
-  it('shows invoice dates day-first and amounts as N$ with thousands separators', async () => {
+  // The owner's own table, exactly as he designed it (git bd02f25; owner, 15 Oct 2026: "exactly like" his design):
+  // his date and amount formats, amounts rounded to the cent
+  it('shows invoice dates and amounts as he designed them', async () => {
     answerWith([invoiceRow('1', 1234.5, 'pending', '2026-10-02T08:00:00Z')]);
     renderTable();
 
-    expect(await screen.findByText('02 Oct 2026')).toBeInTheDocument();
-    // In the invoice's own row (the figures above the table show the same format)
-    const row = screen.getByText('02 Oct 2026').closest('tr') as HTMLElement;
-    expect(within(row).getByText('N$ 1,234.50')).toBeInTheDocument();
+    expect(await screen.findByText('Oct 02, 2026')).toBeInTheDocument();
+    // In the invoice's own row and in the figures above the table
+    const row = screen.getByText('Oct 02, 2026').closest('tr') as HTMLElement;
+    expect(within(row).getByText('N$ 1234.50')).toBeInTheDocument();
+    expect(statAmount('Total Invoiced')).toBe('N$ 1234.50');
   });
 
   // A failed load showed "No invoices found" and N$ 0.00 totals, which reads as "owes nothing"
@@ -109,7 +113,7 @@ describe('CleanInvoiceTable', () => {
     renderTable();
 
     expect(await screen.findByText("Could not load this patient's invoices.")).toBeInTheDocument();
-    expect(screen.queryByText(/No invoices yet/)).not.toBeInTheDocument();
+    expect(screen.queryByText('No invoices found')).not.toBeInTheDocument();
     expect(statAmount('Total Invoiced')).toBe('—');
     expect(toast.error).toHaveBeenCalled();
 
@@ -142,10 +146,22 @@ describe('CleanInvoiceTable', () => {
     expect(screen.queryByTitle(/delete invoice/i)).not.toBeInTheDocument();
   });
 
-  // An empty list should tell staff how invoices get there
-  it('explains how invoices are created when the patient has none', async () => {
+  // His own words for a patient without invoices
+  it('says "No invoices found" when the patient has none', async () => {
     renderTable();
 
-    expect(await screen.findByText(/No invoices yet\. An invoice is created when a visit is saved/)).toBeInTheDocument();
+    expect(await screen.findByText('No invoices found')).toBeInTheDocument();
+  });
+
+  // The owner's table prints the owner's statement (PrintStatementModal), as he designed it (git bd02f25; restored
+  // 15 Oct 2026); the account's ledger statement is on the patient's Account tab next to Billing
+  it("opens the owner's statement from Statement", async () => {
+    answerWith([invoiceRow('1', 100, 'pending', '2026-10-02T08:00:00Z')]);
+    renderTable();
+
+    await waitFor(() => expect(screen.getByText('#INV-1')).toBeInTheDocument());
+    expect(screen.queryByRole('dialog', { name: 'Print statement' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Statement/ }));
+    expect(screen.getByRole('dialog', { name: 'Print statement' })).toBeInTheDocument();
   });
 });

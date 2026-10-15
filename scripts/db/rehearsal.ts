@@ -326,6 +326,9 @@ export const DEFAULT_ORDER: readonly string[] = [
   // The guard's refusal names Finance > Batches, the tab Finance has (claim_batch_sent_needs_icd10 of claims-need-icd10
   // replaced in place; needs claims-need-icd10)
   'proposals/2026-10-14-claims-guard-wording.sql',
+  // Monochrome (the black theme) is the main colour: practices.theme_id defaults to it and the practices still on Sunset move
+  // to it (two statements on practices; no policy, privilege or trigger changes; needs nothing from the files above)
+  'proposals/2026-10-14-monochrome-default-theme.sql',
   'proposals/2026-10-07-patient-portal.sql'
 ];
 

@@ -10,7 +10,7 @@ import { describePosting } from '../../utils/billing/paymentPlans';
 
 /**
  * A line in Finance > Overview's daily and month-end controls (parity D16): payment plan instalments that are due but
- * not on the patients' accounts yet. There is no scheduler: an instalment posts when its patient's Billing tab is opened,
+ * not on the patients' accounts yet. There is no scheduler: an instalment posts when its patient's Account tab is opened,
  * or here for the whole practice. Shown only while some are waiting (and never before the billing extras update).
  * onPosted: the instalments are on the accounts now, so Finance reloads its figures.
  */
@@ -55,7 +55,7 @@ export const PlanInstalmentsControlLine: React.FC<{ practiceId: string; onPosted
       <Icon icon="solar:danger-triangle-bold-duotone" className="h-5 w-5 flex-shrink-0 text-amber-600" aria-hidden="true" />
       <span className="min-w-0 flex-1 text-gray-800">
         {due === 1 ? '1 payment plan instalment is' : `${due} payment plan instalments are`} due and not on the accounts yet (an instalment posts when
-        its patient&apos;s Billing tab is opened; there is no overnight run)
+        its patient&apos;s Account tab is opened; there is no overnight run)
       </span>
       {canPost && (
         <button
